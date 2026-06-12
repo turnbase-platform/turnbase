@@ -1,0 +1,107 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+*.swp
+*.swo
+*~
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+*.log
+hs_err_pid*
+
+# Node.js / React
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnp/
+.pnp.js
+dist/
+build/
+.cache/
+.parcel-cache/
+.next/
+out/
+.nuxt/
+.vite/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Package manager lock files (optional - comment out if you want to track them)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Game JARs are build artifacts — not checked in
+game-modules/trusted/*.jar
+
+# Built game bundles are artifacts — not checked in (game-bundles/trusted/<game-id>/)
+game-bundles/trusted/*/
+
+# Untrusted game artifacts — user-uploaded Wasm binaries
+game-modules/untrusted/*.wasm
+game-bundles/untrusted/
+
+# Claude Code
+.claude_history
+
+# SDKMan
+.sdkmanrc
+
+# Docker
+.docker/
+
+# Local configuration
+*.local
+.env.*.local
+config.local.*
+application-local.yml
+application-local.properties
+
+# Test coverage
+coverage/
+*.lcov
+.nyc_output/
+jacoco.exec
+jacoco/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.orig
+.worktrees
