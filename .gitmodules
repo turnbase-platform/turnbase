@@ -1,0 +1,15 @@
+[submodule "turnbase-common"]
+	path = turnbase-common
+	url = git@github.com:turnbase-platform/turnbase-common.git
+[submodule "turnbase-sdk"]
+	path = turnbase-sdk
+	url = git@github.com:turnbase-platform/turnbase-sdk.git
+[submodule "turnbase-platform"]
+	path = turnbase-platform
+	url = git@github.com:turnbase-platform/turnbase-platform.git
+[submodule "turnbase-game-host"]
+	path = turnbase-game-host
+	url = git@github.com:turnbase-platform/turnbase-game-host.git
+[submodule "turnbase-frontend"]
+	path = turnbase-frontend
+	url = git@github.com:turnbase-platform/turnbase-frontend.git
