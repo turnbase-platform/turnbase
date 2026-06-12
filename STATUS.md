@@ -1,19 +1,24 @@
 ## Last Session Summary
 
-**Date:** 2026-06-11
+**Date:** 2026-06-12
 
-Defined the gRPC service contract for Orchestration Service ↔ Game Host communication (a "Significant" requirements gap). Drove an explicit topology decision with an independent reviewer agent, then authored the proto + design spec.
+Established GitHub repository strategy and pushed all Phase 0 documentation to GitHub.
 
-**New specs** (`docs/specs/internal-grpc/`):
+**Repo strategy decisions:**
+- GitHub organisation: `turnbase-platform` (`github.com/turnbase-platform`)
+- Six repos: `turnbase` (landing/docs), `turnbase-common` (internal gRPC stubs), `turnbase-sdk` (public GDK), `turnbase-platform` (Platform Monolith), `turnbase-game-host` (Game Host), `turnbase-frontend` (React frontend)
+- All repos private during Phase 0; all public-facing when ready to showcase
+- Default branch: `master` across all repos
+- No git submodules between service repos; `turnbase` root registers all five as submodules (optional `--recurse-submodules` clone)
+- Commit convention: Conventional Commits (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`)
+- Design doc written to `docs/superpowers/specs/2026-06-12-repo-strategy-design.md`
 
-- `gamehost.proto` — proto3 contract (validated + linted clean with `buf`, STANDARD ruleset). Two services: `GameHostService` (dispatch, served by Game Host — `CreateSession`/`ProcessInput`/`TerminateSession`, unary) and `GameHostRegistryService` (control, served by Orchestration — `Register`/`Heartbeat`/`ReportContexts`/`Deregister`). Effects, structured `game_over` outcome, two-tier failure model, per-session `sequence` for idempotent re-dispatch.
-- `buf.yaml` — buf module config (STANDARD lint; `PACKAGE_DIRECTORY_MATCH` excepted while the proto lives in the docs tree).
-- `orchestration-gamehost-protocol.md` — design rationale: topology decision (dual-service unary dispatch chosen over single-bidi-stream and server-streaming), pod addressing, idempotency/exactly-once semantics, error model, message-size handling, security/observability.
-- `INDEX.md` — new `internal-grpc` spec subdirectory entry point.
+**What was pushed:**
+- All Phase 0 documentation split into 8 logical commits and pushed to `github.com/turnbase-platform/turnbase`
+- Five component repos created on GitHub with initial README commits and `master` as default branch
+- All five registered as git submodules in `turnbase`
 
-**Topology decision (educational record in the protocol doc):** Chose **dual service, unary dispatch**. The deciding constraint is Orchestration statelessness (FR-ORCH-002/006/007): the channel of record is the Redis routing table + action queue, so gRPC connections must be disposable. A single Game-Host-initiated bidi stream was rejected because it pins each session to one Orchestration replica (smuggling in session affinity). Verdict was reached independently by both the lead analysis and a reviewer agent (A > C > B; B disqualified).
-
-**Cross-links updated:** `docs/specs/INDEX.md`, `api-design/INDEX.md`, `platform-architecture.md` (Related API Specifications), `game-contracts.md` (new Related API Specifications section), `requirements-gaps.md` (item checked off).
+**CLAUDE.md updated:** Repository structure section now reflects the full six-repo table, dependency graph, and submodule policy.
 
 ---
 
