@@ -1,0 +1,16 @@
+version: v2
+modules:
+  - path: .
+lint:
+  use:
+    - STANDARD
+  except:
+    # The proto lives in the docs/specs tree during the requirements/spec phase
+    # for readability alongside its design doc. The canonical buf-module layout
+    # (turnbase/gamehost/v1/gamehost.proto) is adopted when the contract moves to
+    # its shared buf workspace at submodule creation. See
+    # orchestration-gamehost-protocol.md, "Open points".
+    - PACKAGE_DIRECTORY_MATCH
+breaking:
+  use:
+    - FILE

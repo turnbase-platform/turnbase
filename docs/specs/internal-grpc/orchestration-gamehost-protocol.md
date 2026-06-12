@@ -1,0 +1,208 @@
+# Orchestration Service ↔ Game Host gRPC Protocol
+
+The internal, service-to-service contract between the **Orchestration Service** (a
+domain within the Platform Monolith) and the **Game Host** service. The wire
+contract is defined in [`gamehost.proto`](gamehost.proto); this document records
+the design decisions, semantics, and operational rules behind it.
+
+This is **not** a client-facing API. Player-facing real-time traffic uses
+STOMP-over-WebSocket (see [../api-design/websocket.md](../api-design/websocket.md)).
+
+**Requirements:** `docs/requirements/platform-architecture.md` (FR-ORCH-*, FR-ROUTE-*,
+FR-REG-*, FR-SESS-*, FR-CTX-*, FR-FAIL-*, FR-SCALE-*) and
+`docs/requirements/game-contracts.md` (FR-IN-*, FR-RESP-*, FR-EFF-*, FR-OUTCOME-*).
+
+---
+
+## Topology decision
+
+> **The channel of record is the Redis routing table + action queue. gRPC
+> connections are disposable.**
+
+Three Must-priority requirements (FR-ORCH-002, FR-ORCH-006, FR-ORCH-007) require the
+Orchestration Service to run as **stateless, interchangeable replicas** behind a load
+balancer where **any replica can route any input** to the correct Game Host. All
+routing state lives in Redis (`sessionId → Game Host instance`, CON-011).
+
+Three topologies were evaluated:
+
+| Option | Shape | Verdict |
+|--------|-------|---------|
+| **A — dual service, unary dispatch** | Game Host serves the dispatch RPCs; Orchestration serves the registry RPCs. Any replica reads Redis and dials the target pod. | **Chosen** |
+| B — single bidi stream, Game Host initiates | One long-lived stream multiplexes everything; it terminates at one replica. | Rejected |
+| C — dual service, server-streaming effects | Like A, but effects stream back. | Fallback only |
+
+**Why A.** Unary request → unary response maps 1:1 onto the game handler's
+synchronous, atomic contract (one input in, one complete ordered effect list out;
+game-contracts.md FR-RESP-001a/004). Dispatch is "read `sessionId → host` from Redis,
+dial that pod, call, deliver, dequeue" — nothing requires *this* replica to have done
+the previous step, so statelessness holds exactly as FR-ORCH-002 demands. Failure
+handling is conventional gRPC: a dead host surfaces as `UNAVAILABLE`, the action stays
+in the Redis queue (FR-ROUTE-003), any replica reassigns and re-dispatches.
+
+**Why B was rejected.** A single stream terminates at one Orchestration replica, which
+then "owns" the only live channel to that Game Host. That ownership *is* session
+affinity at the Orchestration layer — exactly what FR-ORCH-007 forbids. An action
+landing on a different replica would require a second routing table (host → owning
+replica) plus replica-to-replica forwarding, reintroducing the statefulness the
+requirements prohibit. B's only real advantage — the Game Host never needs to be dialed
+directly — is worth little when both services are in-cluster and freely addressable.
+
+**Why C is a fallback.** C keeps A's correct topology but streams an effect list that
+the handler has *already fully computed* — paying streaming's complexity (mid-stream
+error ambiguity, partial-delivery questions) for no incremental-production benefit, and
+weakening the all-or-nothing atomicity that the unary response gives for free. C is
+retained only as a surgical escape hatch for oversized responses (see *Message size*).
+
+---
+
+## Services and RPCs
+
+### `GameHostService` — dispatch path (served by Game Host)
+
+| RPC | Purpose | Requirements |
+|-----|---------|--------------|
+| `CreateSession` | Bind the session to the `(game_id, game_version)` context, run `onInit` with the roster + parameters, return initial effects. | FR-SESS-004, FR-IN-002 |
+| `ProcessInput` | Process an `action` / `player_joined` / `player_left` input; return the ordered effect list. | FR-IN-003/004/005, FR-ROUTE-002 |
+| `TerminateSession` | Force teardown; free local + Redis state. | FR-SESS-005, FR-FAIL-005 |
+
+`CreateSession` is separate from `ProcessInput` because session creation is
+structurally different: it carries the `ContextKey` for context binding and triggers
+**host selection** (FR-ORCH-001/004). Subsequent inputs need only the `session_id` the
+host already maps to a context (FR-SESS-002).
+
+### `GameHostRegistryService` — control path (served by Orchestration)
+
+| RPC | Purpose | Requirements |
+|-----|---------|--------------|
+| `Register` | Advertise dialable address + supported runtimes on startup. | FR-REG-001 |
+| `Heartbeat` (bidi stream) | Refresh the Redis liveness lease; receive `drain` instructions. | FR-REG-003, FR-ORCH-005, FR-SCALE-006 |
+| `ReportContexts` | Snapshot of loaded context keys for warm-host selection. | FR-REG-002, FR-ORCH-004 |
+| `Deregister` | Stop routing new sessions here on graceful shutdown. | FR-REG-004 |
+
+Every registry RPC mutates only Redis-backed state, so any replica behind the LB can
+service any call — which is what lets the Game Host dial a single stable Orchestration
+ClusterIP while the dispatch path addresses individual pods.
+
+---
+
+## Addressing the Game Host pods
+
+The dispatch path must reach a **specific** Game Host pod (the one holding the session
+in local memory, FR-SESS-003), not a round-robin VIP. Two complementary mechanisms:
+
+- A **headless Kubernetes Service** (`clusterIP: None`) gives each Game Host pod stable
+  DNS, and/or the pod advertises its **pod IP + port** in `RegisterRequest.address`.
+- The advertised address is stored in the Redis registry and used by every replica.
+
+The Orchestration Service **pools one gRPC channel per Game Host instance** (not
+dial-per-call) to meet the <50ms routing overhead budget (NFR-PERF-003), and treats a
+channel as disposable on `UNAVAILABLE`.
+
+---
+
+## Processing semantics
+
+- **Sequential per session, concurrent across sessions.** Ordering is enforced by the
+  Orchestration Service's Redis-backed per-session queue (FR-ROUTE-002, FR-PROC-001),
+  not by the transport. The next input is dispatched only after the prior
+  `ProcessResult` is received.
+- **State never crosses this wire.** The Game Host holds game state in local memory and
+  persists it to Redis (CON-006, FR-STATE-003). Requests carry only inputs; responses
+  carry only effects.
+- **Opaque payloads are `bytes`.** Action payloads, effect payloads, lobby parameters,
+  and the `game_over` FE results are all opaque to the platform (FR-STATE-001).
+- **`game_over` is terminal.** After a `GameOverEffect` is processed, no further inputs
+  are sent for the session (FR-EFF-006); only the first is honored (FR-EFF-007).
+
+### Idempotency and exactly-once delivery
+
+Each `ProcessInputRequest` carries a monotonic per-session `sequence`. Because a replica
+can die *after* dialing but *before* dequeuing (FR-ROUTE-003), an input may be
+re-dispatched. Rules:
+
+- The Game Host applies each `sequence` **at most once**. It retains the last processed
+  `(sequence → effects)` per session.
+- A re-dispatched (duplicate) `sequence` returns the **originally produced effects** with
+  `PROCESS_STATUS_OK` — an idempotent replay — so delivery can still complete if the
+  first attempt's response was lost.
+- The Orchestration Service keeps a per-session **"last delivered" watermark** in Redis
+  and delivers effects for a given `sequence` to clients only once. Combined with the
+  Game Host replay, this yields exactly-once *application* and at-least-once *delivery*
+  with client-side dedup keyed by `sequence`.
+
+### Crash recovery
+
+If the Game Host receives an input for a session it does not hold in local memory (e.g.
+after re-dispatch to a fresh host), it loads state from Redis before invoking the handler
+(FR-SESS-003b) — transparently, without a distinct error. A `NOT_FOUND` is returned only
+when no state exists in Redis at all (a terminal condition).
+
+---
+
+## Error model
+
+Two tiers, kept strictly separate:
+
+**Transport / infrastructure failures → native gRPC status codes.**
+
+| Code | Meaning | Orchestration action |
+|------|---------|----------------------|
+| `UNAVAILABLE` | Host unreachable / crashed | Reassign session to another host, re-dispatch from queue (FR-ORCH-005, FR-FAIL-002) |
+| `DEADLINE_EXCEEDED` | Call exceeded the deadline (set to the game timeout + overhead) | Treat as a processing failure; apply retry-limit semantics |
+| `RESOURCE_EXHAUSTED` | Message exceeded the configured size ceiling | Fail the session (oversized effect/state) |
+| `NOT_FOUND` | Session unknown and no Redis state | Permanently fail the session |
+| `FAILED_PRECONDITION` | Context could not be loaded for the session | Fail the session |
+
+**Game-level failures → in-band `ProcessResult`.** When the game *code* fails (threw,
+timed out within the context, produced malformed output, exceeded the state size limit,
+crashed the context, or failed to load), the host returns `PROCESS_STATUS_FAILED` with a
+typed `GameFailure`. The Orchestration Service counts failures per session and, after the
+retry limit (FR-FAIL-003), calls `TerminateSession` with `TERMINATION_REASON_RETRY_LIMIT`
+and notifies participants (FR-FAIL-001/005).
+
+This separation matters: transport codes are *retryable/reroutable infrastructure*
+signals, while `GameFailure` is a *deterministic game-code* signal that re-dispatching
+will not fix.
+
+---
+
+## Message size
+
+Individual effect and state payloads may reach 10 MB (NFR-SIZE-001/002), and a response
+carries an ordered *list* of effects — so the gRPC default ~4 MB inbound limit will be
+exceeded. Mitigation:
+
+1. **Default:** raise `maxInbound/OutboundMessageSize` on both peers to a deliberate
+   ceiling (≈16–32 MB), sized for a realistic multi-effect response with headroom and
+   bounded to protect per-call memory across the 500-session target (NFR-SCALE-001).
+2. **Escape hatch:** if a response can legitimately exceed the ceiling, server-stream
+   **only** the `ProcessInput`/`CreateSession` response leg (Option C, applied
+   surgically) and have the Orchestration Service buffer the full stream before delivery
+   to preserve all-or-nothing atomicity (FR-RESP-004). Do not adopt streaming wholesale.
+
+---
+
+## Security and observability
+
+- **mTLS** on both directions. The Game Host exposes an inbound gRPC server port for the
+  dispatch path; a Kubernetes NetworkPolicy restricts inbound to the Orchestration
+  Service only, mirroring FR-SEC-002's egress scoping.
+- **W3C trace context** propagates via gRPC metadata (OpenTelemetry interceptors), not in
+  message bodies. Each unary dispatch is one span, aligning with FR-OBS-004/009 and the
+  <50ms routing-overhead budget.
+- The `session_id` is the correlation ID on all dispatch-path logs/metrics; `instance_id`
+  and `ContextKey` correlate control-path and context-lifecycle events (FR-OBS-008).
+
+---
+
+## Open points (deferred, non-blocking)
+
+- **Stat value typing.** `GameOutcome` stat maps use `map<string, string>`; the GDK
+  stringifies arbitrary game-defined stat values. Revisit with `google.protobuf.Value`
+  only if typed numeric aggregation in history/stats is later required (FR-OUTCOME-004
+  currently treats stats as opaque).
+- **Proto home.** This contract currently lives in `docs/` during the
+  requirements/spec phase. When the Game Host and Platform Monolith submodules are
+  created, the canonical `gamehost.proto` should move to a shared, versioned location
+  (its own proto module or a `buf` workspace) consumed by both build pipelines.

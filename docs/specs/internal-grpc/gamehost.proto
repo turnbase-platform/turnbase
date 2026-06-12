@@ -1,0 +1,377 @@
+// TurnBase — Orchestration Service <-> Game Host gRPC contract.
+//
+// This proto defines the internal, service-to-service protocol between the
+// Orchestration Service (a domain within the Platform Monolith) and the Game
+// Host service. It is NOT a public/client-facing API. The client-facing
+// protocols are STOMP-over-WebSocket (player effects/actions) and REST.
+//
+// Design rationale and operational semantics are documented in
+// orchestration-gamehost-protocol.md (same directory). Requirement references
+// in comments point to docs/requirements/platform-architecture.md (FR-*) and
+// docs/requirements/game-contracts.md (FR-*).
+//
+// Core architectural invariant (see protocol doc, "Topology decision"):
+//   The channel of record is the Redis routing table + action queue.
+//   gRPC connections are disposable. Orchestration replicas are stateless and
+//   interchangeable; any replica dials the target Game Host pod read from the
+//   Redis routing table (FR-ORCH-002/006/007).
+
+syntax = "proto3";
+
+package turnbase.gamehost.v1;
+
+option java_multiple_files = true;
+option java_package = "com.turnbase.gamehost.grpc.v1";
+option java_outer_classname = "GameHostProto";
+
+// ---------------------------------------------------------------------------
+// Services
+// ---------------------------------------------------------------------------
+
+// Dispatch path. Served BY the Game Host; called BY the Orchestration Service.
+//
+// Any Orchestration replica may call any of these RPCs against the Game Host
+// instance named in the Redis routing table for the session. Calls are unary:
+// one input in, one complete ordered effect list out, matching the game
+// handler's synchronous atomic contract (game-contracts.md FR-RESP-001a/004).
+//
+// Per-session ordering is enforced by the Orchestration Service's Redis-backed
+// queue (FR-ROUTE-002), NOT by the transport. The Game Host still rejects
+// out-of-order/duplicate sequences defensively (see ProcessInputRequest.sequence).
+service GameHostService {
+  // Create a new session: bind it to the (game_id, game_version) Truffle
+  // context, invoke the game's onInit handler with the roster + parameters,
+  // and return the initial effects. (FR-SESS-004, game-contracts.md FR-IN-002)
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse);
+
+  // Process one input for an existing session: an action, player_joined, or
+  // player_left event. Returns the ordered effect list produced by the handler.
+  // (FR-IN-003/004/005, FR-ROUTE-002)
+  rpc ProcessInput(ProcessInputRequest) returns (ProcessInputResponse);
+
+  // Force-terminate a session and free its local + Redis state. Used for host
+  // kick / room close and for permanent failure after the retry limit.
+  // (FR-SESS-005, FR-FAIL-005)
+  rpc TerminateSession(TerminateSessionRequest) returns (TerminateSessionResponse);
+}
+
+// Control path. Served BY the Orchestration Service; called BY the Game Host.
+//
+// Every RPC here mutates only Redis-backed registry state, so any Orchestration
+// replica behind the load balancer can service any call (FR-ORCH-006). This is
+// what lets the Game Host dial a single stable Orchestration ClusterIP while the
+// dispatch path still addresses individual Game Host pods.
+service GameHostRegistryService {
+  // Announce availability on startup: dialable address + supported runtimes.
+  // (FR-REG-001)
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+
+  // Bidirectional liveness stream. The Game Host emits periodic heartbeats that
+  // refresh a TTL lease in Redis; the Orchestration Service may push back drain
+  // instructions for graceful scale-in. The stream's state lives in Redis (the
+  // lease), so a dropped stream is simply reconnected and is never authoritative.
+  // (FR-REG-003, FR-ORCH-005, FR-SCALE-006)
+  rpc Heartbeat(stream HeartbeatRequest) returns (stream HeartbeatResponse);
+
+  // Report the full set of currently-loaded context keys so the Orchestration
+  // Service can prefer a warm host when selecting where to create a session.
+  // (FR-REG-002, FR-ORCH-004)
+  rpc ReportContexts(ReportContextsRequest) returns (ReportContextsResponse);
+
+  // Graceful shutdown: stop routing new sessions to this instance. (FR-REG-004)
+  rpc Deregister(DeregisterRequest) returns (DeregisterResponse);
+}
+
+// ---------------------------------------------------------------------------
+// Shared value types
+// ---------------------------------------------------------------------------
+
+// All UUIDs are transmitted in canonical 36-character string form.
+
+// A player as seen by the game backend. Identity is attached server-side by the
+// platform from session context; the game FE can never spoof it
+// (game-contracts.md FR-FA-002, NFR-SEC-001).
+message PlayerRef {
+  string player_id = 1;     // UUID
+  string display_name = 2;
+  string team_id = 3;       // UUID; the team this player belongs to
+}
+
+// A team and its assigned players, as configured in the lobby.
+message Team {
+  string team_id = 1;       // UUID
+  repeated PlayerRef players = 2;
+}
+
+// Identifies a Truffle context: one per (game, version) pair (FR-CTX-001).
+message ContextKey {
+  string game_id = 1;       // UUID
+  string game_version = 2;  // semantic version string, e.g. "1.4.0"
+}
+
+// ---------------------------------------------------------------------------
+// Dispatch path — requests
+// ---------------------------------------------------------------------------
+
+message CreateSessionRequest {
+  // Session UUID assigned by the Orchestration Service. Unique per game instance.
+  string session_id = 1;
+
+  // Which game version to run; selects/creates the Truffle context.
+  ContextKey context = 2;
+
+  // Full roster grouped by team (game-contracts.md FR-IN-002). The init game
+  // state is empty; the handler's response establishes the initial state.
+  repeated Team teams = 3;
+
+  // Opaque, game-defined lobby parameters. The platform never inspects this.
+  bytes parameters = 4;
+}
+
+message ProcessInputRequest {
+  string session_id = 1;
+
+  // Monotonic per-session sequence number assigned by the Orchestration Service.
+  // Enables idempotent re-dispatch after a replica/host failure: the Game Host
+  // applies each sequence at most once and replays the cached result for a
+  // duplicate (see ProcessResult and the protocol doc, "Idempotency").
+  // (FR-ROUTE-003, FR-FAIL-002/004)
+  uint64 sequence = 2;
+
+  oneof input {
+    ActionInput action = 3;             // game-contracts.md FR-IN-003
+    PlayerJoinedInput player_joined = 4; // game-contracts.md FR-IN-004
+    PlayerLeftInput player_left = 5;     // game-contracts.md FR-IN-005
+  }
+}
+
+// A player-submitted action routed from the game FE.
+message ActionInput {
+  PlayerRef player = 1;   // acting player (server-attached identity)
+  bytes payload = 2;      // opaque, game-defined action payload
+}
+
+// A player joined mid-session (late join).
+message PlayerJoinedInput {
+  PlayerRef player = 1;
+}
+
+// A player was confirmed lost. Never sent during the grace period
+// (reconnection-flow.md FR-GRACE-003).
+message PlayerLeftInput {
+  PlayerRef player = 1;
+  PlayerLeftReason reason = 2;
+}
+
+enum PlayerLeftReason {
+  PLAYER_LEFT_REASON_UNSPECIFIED = 0;
+  PLAYER_LEFT_REASON_GRACE_PERIOD_EXPIRED = 1;
+  PLAYER_LEFT_REASON_KICKED = 2;
+}
+
+// ---------------------------------------------------------------------------
+// Dispatch path — response
+// ---------------------------------------------------------------------------
+
+// Response wrappers for the dispatch RPCs. Each RPC has its own response type
+// (per API convention) but both embed the shared `ProcessResult`, since a
+// freshly created session and a processed input both yield the same shape:
+// status + ordered effects (+ optional failure). Separate wrappers leave room
+// for either response to grow RPC-specific fields later.
+message CreateSessionResponse {
+  ProcessResult result = 1;
+}
+
+message ProcessInputResponse {
+  ProcessResult result = 1;
+}
+
+// Shared dispatch result embedded in CreateSessionResponse and
+// ProcessInputResponse. Game state is never transmitted; it is retained in the
+// Game Host's local memory and persisted to Redis (game-contracts.md
+// FR-RESP-001a, CON-006).
+message ProcessResult {
+  string session_id = 1;
+
+  // Echo of the processed input's sequence (0 for CreateSession). Lets the
+  // Orchestration Service correlate the result and advance its per-session
+  // "last delivered" watermark.
+  uint64 sequence = 2;
+
+  ProcessStatus status = 3;
+
+  // Ordered list of effects to apply. Order is significant and must be preserved
+  // on delivery (game-contracts.md FR-RESP-004). An empty list is valid
+  // (FR-RESP-003). On a duplicate (replayed) sequence the Game Host returns the
+  // originally produced effects so delivery can complete exactly once.
+  repeated Effect effects = 4;
+
+  // Populated only when status == PROCESS_STATUS_FAILED.
+  GameFailure failure = 5;
+}
+
+enum ProcessStatus {
+  PROCESS_STATUS_UNSPECIFIED = 0;
+  // Handler ran successfully (or this is an idempotent replay of a prior success).
+  PROCESS_STATUS_OK = 1;
+  // The game code failed for this input; see `failure`. The Orchestration
+  // Service applies retry-limit semantics and terminates the session if the
+  // limit is reached (FR-FAIL-001/003).
+  PROCESS_STATUS_FAILED = 2;
+}
+
+// In-band, game-level failure detail. Distinct from transport failures, which
+// are surfaced as native gRPC status codes (see protocol doc, "Error model").
+message GameFailure {
+  GameFailureKind kind = 1;
+  // Diagnostic detail for platform logs/operators. Never shown to players.
+  string message = 2;
+}
+
+enum GameFailureKind {
+  GAME_FAILURE_KIND_UNSPECIFIED = 0;
+  GAME_FAILURE_KIND_HANDLER_EXCEPTION = 1; // game code threw
+  GAME_FAILURE_KIND_TIMEOUT = 2;           // exceeded CPU/time budget (FR-CTX-008)
+  GAME_FAILURE_KIND_MALFORMED_OUTPUT = 3;  // invalid effects/state from handler
+  GAME_FAILURE_KIND_STATE_TOO_LARGE = 4;   // serialized state > limit (FR-STATE-004)
+  GAME_FAILURE_KIND_CONTEXT_CRASH = 5;     // context OOM/crash (FR-CTX-007, FR-FAIL-007)
+  GAME_FAILURE_KIND_CODE_LOAD_ERROR = 6;   // entry class missing / not a TurnBaseGame (FR-LOAD-005)
+}
+
+// ---------------------------------------------------------------------------
+// Effects (Game BE -> Platform). Mirrors game-contracts.md FR-EFF-001..005.
+// ---------------------------------------------------------------------------
+
+message Effect {
+  oneof effect {
+    BroadcastEffect broadcast = 1;        // FR-EFF-001
+    SendToPlayerEffect send_to_player = 2; // FR-EFF-002
+    SendToTeamEffect send_to_team = 3;     // FR-EFF-003
+    LogEffect log = 4;                     // FR-EFF-004
+    GameOverEffect game_over = 5;          // FR-EFF-005
+  }
+}
+
+// To all players' FEs and all spectators.
+message BroadcastEffect {
+  bytes payload = 1;  // opaque, game-defined
+}
+
+// To a single player's FE only. Not delivered to spectators or other players.
+message SendToPlayerEffect {
+  string player_id = 1;  // UUID
+  bytes payload = 2;     // opaque, game-defined
+}
+
+// To all players on a team. Not delivered to spectators or other teams.
+message SendToTeamEffect {
+  string team_id = 1;  // UUID
+  bytes payload = 2;   // opaque, game-defined
+}
+
+// A platform-managed game log entry. Rendered by the platform outside the game
+// iframe. Text supports basic Markdown + color annotations (GDK syntax).
+message LogEffect {
+  string entry = 1;
+}
+
+// Signals game end. Terminal: no further inputs are sent for the session after
+// this effect is processed (game-contracts.md FR-EFF-006).
+message GameOverEffect {
+  // Structured outcome consumed by the platform for history and statistics.
+  GameOutcome outcome = 1;
+  // Opaque results payload for the game FE only (not the structured outcome).
+  bytes results_payload = 2;
+}
+
+// Structured game outcome for platform use. The platform stores stat maps but
+// never interprets them (game-contracts.md FR-OUTCOME-004); stat values are the
+// GDK's string representation of arbitrary game-defined values.
+message GameOutcome {
+  repeated TeamResult team_results = 1;
+  repeated PlayerResult player_results = 2;
+  // True if the game ended in a draw; multiple teams may then share a placement.
+  bool draw = 3;
+}
+
+message TeamResult {
+  string team_id = 1;            // UUID
+  int32 placement = 2;           // 1-based finishing position
+  map<string, string> stats = 3; // opaque key/value stats
+}
+
+message PlayerResult {
+  string player_id = 1;          // UUID
+  map<string, string> stats = 2; // opaque key/value stats
+}
+
+// ---------------------------------------------------------------------------
+// Dispatch path — termination
+// ---------------------------------------------------------------------------
+
+message TerminateSessionRequest {
+  string session_id = 1;
+  TerminationReason reason = 2;
+}
+
+enum TerminationReason {
+  TERMINATION_REASON_UNSPECIFIED = 0;
+  TERMINATION_REASON_HOST_ENDED = 1;    // host ended the game / kicked everyone
+  TERMINATION_REASON_ROOM_CLOSED = 2;   // room was closed
+  TERMINATION_REASON_RETRY_LIMIT = 3;   // permanent failure after retries (FR-FAIL-003)
+}
+
+message TerminateSessionResponse {
+  string session_id = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Control path — registry
+// ---------------------------------------------------------------------------
+
+message RegisterRequest {
+  // Stable, unique identifier for this Game Host instance for its lifetime.
+  string instance_id = 1;
+  // Dialable address (stable per-pod DNS name or pod IP) + port that the
+  // Orchestration Service uses to reach this instance's GameHostService.
+  string address = 2;
+  // Runtime types this instance can host, e.g. "jvm" (FR-REG-001, FR-CTX-011/012).
+  repeated string runtime_types = 3;
+}
+
+message RegisterResponse {
+  // How often the instance should send heartbeats.
+  uint32 heartbeat_interval_seconds = 1;
+  // TTL of the Redis liveness lease; if no heartbeat arrives within this window
+  // the instance is considered failed (FR-ORCH-005, NFR-REL-002).
+  uint32 lease_ttl_seconds = 2;
+}
+
+message HeartbeatRequest {
+  string instance_id = 1;
+  // Load signals used for Game Host selection and scaling decisions
+  // (FR-ORCH-004, FR-SCALE-003/004/005, FR-OBS-002).
+  uint32 active_sessions = 2;
+  uint32 active_contexts = 3;
+  uint32 memory_used_percent = 4;
+}
+
+message HeartbeatResponse {
+  // When true, the instance should stop accepting new sessions and drain its
+  // existing ones for graceful scale-in (FR-SCALE-006).
+  bool drain = 1;
+}
+
+message ReportContextsRequest {
+  string instance_id = 1;
+  // Full snapshot (not a delta) of currently-loaded contexts.
+  repeated ContextKey contexts = 2;
+}
+
+message ReportContextsResponse {}
+
+message DeregisterRequest {
+  string instance_id = 1;
+}
+
+message DeregisterResponse {}
