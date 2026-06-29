@@ -31,6 +31,17 @@ TypeScript frontend surface (`TurnBaseClient`, event callbacks, `sendAction`).
 
 ---
 
+## Next Priorities
+
+- **Resolve cross-spec dependencies created by the GDK specs:**
+  - `Team.name` wire field — ensure the Platform Architecture / Orchestration spec covers the GDK Host resolving the manifest team-template name into `CreateSessionRequest.Team.name`.
+  - FE **bootstrap contract** (`window.__TURNBASE__ = { parentOrigin, sessionId }`) — the platform-frontend shell spec must inject and honor it (CON-006).
+- **GDK spec open questions** to revisit when real games exercise them: generic action payloads & enum-typed parameters (backend); reconnection re-init and multi-listener events (frontend).
+- **NFR-COMPAT-001 pre-release carve-out** currently lives only in the GDK specs — decide whether to make the pre-1.0 exemption official in `game-development-experience.md`.
+- Remaining GDK-adjacent specs not yet written: **manifest schema**, **game bundle format**, and **test harness** (FR-MANIFEST-*, FR-BUNDLE-*, FR-HARNESS-*).
+
+---
+
 ## Coverage Summary
 
 | Document | Coverage |
