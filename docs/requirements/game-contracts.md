@@ -15,6 +15,7 @@ This document defines the communication protocol between the TurnBase platform a
 
 - [internal-grpc/](../specs/internal-grpc/INDEX.md) — Orchestration Service ↔ Game Host gRPC contract. The inputs (`init`/`action`/`player_joined`/`player_left`), responses, effect types, and structured `game_over` outcome defined here are realized on the wire in `gamehost.proto`.
 - [gdk-api/backend-gdk-api.md](../specs/gdk-api/backend-gdk-api.md) — Backend GDK API. The developer-facing realization of these inputs, effects, responses, and the `game_over` outcome as Java types (`TurnBaseGame`, contexts, `Effects`, result types, `GameOutcome`).
+- [gdk-api/frontend-gdk-api.md](../specs/gdk-api/frontend-gdk-api.md) — Frontend GDK API. The developer-facing realization of the FE events (FR-FE-*) and actions (FR-FA-*) as the `TurnBaseClient` TS API (`onInit`/`onGameEvent`/…, `sendAction`).
 
 ---
 

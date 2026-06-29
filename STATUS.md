@@ -2,12 +2,11 @@
 
 **Date:** 2026-06-29
 
-Wrote the implementation-level spec for the **public backend GDK API** — the Java
-surface third-party developers code against (`TurnBaseGame`, lifecycle hooks,
-effect/input types).
+Wrote the implementation-level specs for the **public GDK API** — both the Java
+backend surface (`TurnBaseGame`, lifecycle hooks, effect/input types) and the
+TypeScript frontend surface (`TurnBaseClient`, event callbacks, `sendAction`).
 
-**Key decisions made:**
-- Scope: **backend JVM API only**; frontend GDK (`TurnBaseClient`) reserved for a sibling `frontend-gdk-api.md`
+**Backend key decisions:**
 - `TurnBaseGame<S extends GameState>` — single type param; action type supplied per call via `ActionContext.action(Class<A>)`
 - State is a **method parameter + return value** on every hook except `onInit`; never on the context, never on the gRPC wire
 - `Effect` is a **sealed interface** (one record per type), constructed only via the static `Effects` factory — gives the GDK Host an exhaustive proto mapping
@@ -16,12 +15,19 @@ effect/input types).
 - Rich log color syntax stays **deferred** (game-contracts.md OQ-001); only basic Markdown in scope
 - API is **pre-release** — breaking changes acceptable; NFR-COMPAT-001 backward-compat not yet in force
 
+**Frontend key decisions:**
+- `TurnBaseClient<TAction, TEvent>` — class-level generics, one replaceable handler per event, explicit `start()` drives the ready handshake
+- **Shell-injected bootstrap global** (`window.__TURNBASE__ = { parentOrigin, sessionId }`) supplies the trusted origin — never inferred from message traffic; rich init context arrives as the first `init` postMessage
+- **Spectators** handled in one `onInit` via `role: 'player' | 'spectator'` + nullable `self`
+- Origin validation requires `event.origin === parentOrigin` **and** `event.source === window.parent`; outbound posts never `'*'`-targeted
+- Defined a **bootstrap contract** the future platform-frontend shell spec must honor
+
 **Files changed:**
-- `docs/specs/gdk-api/backend-gdk-api.md` — new spec
-- `docs/specs/gdk-api/INDEX.md` — new subdirectory index
+- `docs/specs/gdk-api/backend-gdk-api.md`, `frontend-gdk-api.md` — new specs
+- `docs/specs/gdk-api/INDEX.md` — new subdirectory index (both files registered)
 - `docs/specs/INDEX.md` — registered `gdk-api/`
 - `docs/specs/internal-grpc/gamehost.proto` — added `Team.name` field
-- `docs/requirements/game-development-experience.md`, `game-contracts.md` — linked the new spec
+- `docs/requirements/game-development-experience.md`, `game-contracts.md` — linked both specs
 
 ---
 

@@ -18,9 +18,7 @@ developer-facing half of `docs/requirements/game-contracts.md`.
 | File | Topic |
 |------|-------|
 | [backend-gdk-api.md](backend-gdk-api.md) | JVM backend API: `TurnBaseGame<S>`, the four lifecycle hooks, context interfaces (typed inputs), the sealed `Effect` model + `Effects` factory, per-hook result types, `GameOutcome`, `GameState` marker, `Player`/`Team`/`GameParameters`, and the runtime/determinism contract |
-
-> Frontend GDK API (`TurnBaseClient`, postMessage callbacks, `sendAction`) is
-> reserved for a future sibling `frontend-gdk-api.md` in this directory.
+| [frontend-gdk-api.md](frontend-gdk-api.md) | TS/JS frontend API: `TurnBaseClient` (generics for action/event payloads), lifecycle & ready handshake, the five inbound event callbacks, `sendAction`, `InitContext` with role/spectator handling, origin validation, and the platform-shell bootstrap contract |
 
 ## Key Decisions
 
@@ -40,3 +38,17 @@ developer-facing half of `docs/requirements/game-contracts.md`.
   the GDK `Team.name()` accessor required by FR-GDK-011.
 - **Pre-release:** the API may break between iterations; NFR-COMPAT-001's
   backward-compatibility guarantee does not yet apply.
+
+### Frontend
+
+- **`TurnBaseClient<TAction, TEvent>`** with class-level generics; one
+  replaceable handler per event; explicit `start()` triggers the ready handshake.
+- **Shell-injected bootstrap global** (`window.__TURNBASE__ = { parentOrigin,
+  sessionId }`) supplies the trusted origin — never inferred from message traffic.
+  The rich init context arrives as the first `init` postMessage.
+- **Spectators** represented in one `onInit` via `role: 'player' | 'spectator'`
+  and a nullable `self`.
+- **Origin validation** requires both `event.origin === parentOrigin` and
+  `event.source === window.parent`; outbound posts are never `'*'`-targeted.
+- New **bootstrap contract** (§9) that the future platform-frontend shell spec
+  must honor.
