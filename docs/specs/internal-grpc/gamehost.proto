@@ -97,10 +97,13 @@ message PlayerRef {
   string team_id = 3;       // UUID; the team this player belongs to
 }
 
-// A team and its assigned players, as configured in the lobby.
+// A team and its assigned players, as configured in the lobby. The name is the
+// display name resolved from the manifest team template, surfaced to game code
+// via the GDK `Team.name()` accessor (game-development-experience.md FR-GDK-011).
 message Team {
   string team_id = 1;       // UUID
   repeated PlayerRef players = 2;
+  string name = 3;          // display name from the manifest team template
 }
 
 // Identifies a Truffle context: one per (game, version) pair (FR-CTX-001).

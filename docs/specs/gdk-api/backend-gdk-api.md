@@ -1,0 +1,560 @@
+# Backend GDK API — `TurnBaseGame`, Effects, Inputs & Lifecycle Hooks
+
+Implementation-level design for the **public backend Game Development Kit (GDK)
+API** — the Java surface that third-party developers implement to build a
+TurnBase game backend.
+
+This spec realizes the developer-facing half of the contract:
+
+- **Requirements:** `docs/requirements/game-development-experience.md`
+  (FR-GDK-001…016, NFR-DX-001/002, CON-001/003/004/007) and
+  `docs/requirements/game-contracts.md` (FR-IN-*, FR-RESP-*, FR-EFF-*,
+  FR-OUTCOME-*, FR-STATE-*, FR-PROC-*).
+- **Wire realization:** the types here map onto
+  `docs/specs/internal-grpc/gamehost.proto`. The GDK API is what the developer
+  sees; the GDK Host (platform-internal, never distributed) translates between
+  this API and the gRPC messages.
+
+> **Pre-release status.** The GDK API is pre-1.0. Breaking changes are expected
+> and acceptable between iterations; the backward-compatibility guarantee of
+> NFR-COMPAT-001 does **not** yet apply. The compatibility regime begins at the
+> first stable major release.
+
+---
+
+## 1. Scope
+
+**In scope:** the JVM backend API — the `TurnBaseGame<S>` interface and its four
+lifecycle hooks, the per-hook context interfaces (the typed *inputs*), the
+effect model and `Effects` factory, the per-hook result types, the structured
+`GameOutcome`, the `GameState` marker, and the supporting data model
+(`Player`, `Team`, `GameParameters`).
+
+**Out of scope (separate specs):**
+
+- Frontend GDK (`TurnBaseClient`, postMessage callbacks, `sendAction`) —
+  reserved for a sibling `frontend-gdk-api.md`.
+- GDK Host internals (stdin/stdout, Truffle contexts, serialization engine) —
+  Platform Architecture.
+- Game bundle/manifest format, upload pipeline, test harness — covered by
+  `game-development-experience.md` and forthcoming specs.
+
+---
+
+## 2. Artifact & packaging
+
+| Property | Value |
+|----------|-------|
+| Maven coordinates | `io.turnbase:turnbase-sdk` |
+| npm (FE half, separate) | `@turnbase/gdk` (not covered here) |
+| Dependency scope | `provided` (Maven) / `compileOnly` (Gradle) — **must not** be bundled in the game JAR (FR-GDK-014, FR-UPLOAD-005) |
+| Bytecode target | Java 21 (CON-007); no Java 22+ APIs |
+| Contents | Interfaces, records, enums, builders **only** — no `main`, no I/O, no serialization logic (FR-GDK-015) |
+
+### Package layout
+
+| Package | Contents |
+|---------|----------|
+| `io.turnbase.gdk` | `TurnBaseGame`, `GameState` |
+| `io.turnbase.gdk.context` | `InitContext`, `ActionContext`, `PlayerJoinedContext`, `PlayerLeftContext`, `PlayerLeftReason` |
+| `io.turnbase.gdk.effect` | `Effect` (sealed) + variants, `Effects` factory |
+| `io.turnbase.gdk.result` | `InitResult`, `ActionResult`, `PlayerJoinedResult`, `PlayerLeftResult` |
+| `io.turnbase.gdk.model` | `Player`, `Team`, `GameParameters`, `GameOutcome` |
+
+All types listed below are `public`. Context and result *interfaces* are
+interfaces so the platform can evolve implementations independently (FR-GDK-003);
+value types are `record`s.
+
+---
+
+## 3. The game interface & lifecycle hooks
+
+A game backend is a single class implementing `TurnBaseGame<S>`, where `S` is the
+developer's game-state type (FR-GDK-001). The manifest's backend entry point
+names this class (FR-MANIFEST-008).
+
+```java
+package io.turnbase.gdk;
+
+import io.turnbase.gdk.context.*;
+import io.turnbase.gdk.result.*;
+
+/**
+ * A TurnBase game backend. Implemented by game developers; instantiated and
+ * invoked by the GDK Host. Implementations must be deterministic functions of
+ * their inputs (see §9) and hold no mutable static state.
+ *
+ * @param <S> the game-state type, a JSON-serializable type implementing
+ *            {@link GameState}
+ */
+public interface TurnBaseGame<S extends GameState> {
+
+    /** Game start. No prior state exists; the result establishes the initial
+     *  state (FR-IN-002, FR-STATE-005). */
+    InitResult<S> onInit(InitContext ctx);
+
+    /** A player submitted an action (FR-IN-003). */
+    ActionResult<S> onAction(S state, ActionContext ctx);
+
+    /** A player joined mid-session (FR-IN-004, Should). Default: state
+     *  unchanged, no effects. Override to react to late joins. */
+    default PlayerJoinedResult<S> onPlayerJoined(S state, PlayerJoinedContext ctx) {
+        return PlayerJoinedResult.of(state);
+    }
+
+    /** A player was confirmed lost — grace period expired or host kick
+     *  (FR-IN-005). Never invoked during the grace period (CON-007). */
+    PlayerLeftResult<S> onPlayerLeft(S state, PlayerLeftContext ctx);
+}
+```
+
+**State as parameter and return value (FR-IN-001, FR-RESP-002).** Every hook
+except `onInit` receives the current state as its first parameter and returns the
+next state in its result. The state is never carried on the context; the GDK Host
+holds it in local memory between invocations and supplies it here. A result
+**must** always carry a state, even if unchanged.
+
+**Minimal implementation surface (NFR-DX-002).** Only `onInit`, `onAction`, and
+`onPlayerLeft` are abstract; `onPlayerJoined` has a default. A game that does not
+support mid-game join implements **three** methods; the contract bottoms out at
+the 2–4-method target.
+
+---
+
+## 4. Contexts (typed inputs, Platform → Game BE)
+
+Each hook receives a read-only context interface exposing exactly the data the
+corresponding input carries (FR-GDK-003…007). Contexts never expose game state.
+
+```java
+package io.turnbase.gdk.context;
+
+import io.turnbase.gdk.model.GameParameters;
+import io.turnbase.gdk.model.Player;
+import io.turnbase.gdk.model.Team;
+import java.util.List;
+
+/** init input. */
+public interface InitContext {
+    /** Teams with their assigned players, as configured in the lobby. */
+    List<Team> teams();
+    /** Host-configured game parameters (FR-GDK-004). */
+    GameParameters parameters();
+}
+
+/** action input. */
+public interface ActionContext {
+    /** The acting player; identity is attached server-side and cannot be
+     *  spoofed by the FE (FR-FA-002, NFR-SEC-001). */
+    Player player();
+
+    /**
+     * Deserialize the opaque action payload into the developer's action type
+     * (FR-GDK-005). The GDK Host performs JSON deserialization.
+     *
+     * @param type the action class; for a game with multiple move kinds this is
+     *             typically one sealed interface (e.g. {@code Move.class})
+     * @throws ActionDecodeException if the payload cannot be read as {@code type}
+     */
+    <A> A action(Class<A> type);
+}
+
+/** player_joined input. */
+public interface PlayerJoinedContext {
+    Player player();
+}
+
+/** player_left input. */
+public interface PlayerLeftContext {
+    Player player();
+    PlayerLeftReason reason();
+}
+
+public enum PlayerLeftReason {
+    /** Grace period expired without reconnection (reconnection-flow.md). */
+    GRACE_PERIOD_EXPIRED,
+    /** The host kicked the player. */
+    KICKED
+}
+```
+
+**Action typing.** `action(Class<A>)` takes a class token because
+`TurnBaseGame<S>` is parameterized on state only — the action type is not known
+at the class level, so it is supplied per call. Developers are encouraged to
+model all moves as a single (often `sealed`) type and decode once:
+`Move move = ctx.action(Move.class)`. Generic container payloads
+(`List<Foo>`, etc.) are not directly supported by the class-token form; wrap them
+in a named type. `ActionDecodeException` is an unchecked exception in
+`io.turnbase.gdk.context`; throwing it (or any exception) from a hook surfaces as
+`GAME_FAILURE_KIND_HANDLER_EXCEPTION` on the wire (see §9).
+
+---
+
+## 5. Data model
+
+```java
+package io.turnbase.gdk.model;
+
+import java.util.List;
+import java.util.UUID;
+
+/** A player as seen by game code. Maps to proto {@code PlayerRef}. */
+public record Player(UUID id, String displayName, UUID teamId) {}
+
+/** A team and its players, as configured in the lobby. Maps to proto
+ *  {@code Team}. {@code name} is resolved from the manifest team template. */
+public record Team(UUID id, String name, List<Player> players) {}
+```
+
+UUIDs are exposed as `java.util.UUID` (the wire carries canonical strings; the
+GDK Host converts). `Team.name()` is the manifest team-template display name —
+see §10 for the wire dependency this introduces.
+
+### `GameParameters`
+
+Typed, read-only access to host-configured parameters (FR-GDK-011). The
+accessor set mirrors the manifest parameter types (FR-MANIFEST-005): `integer`,
+`decimal`, `boolean`, `string`, `enum`. Parameters always resolve to a value
+(the manifest declares a default for every parameter), so the required getters
+never return absent; `Optional` variants exist for code that wants to branch on
+explicit host configuration.
+
+```java
+public interface GameParameters {
+    int     getInt(String key);
+    double  getDecimal(String key);
+    boolean getBoolean(String key);
+    String  getString(String key);
+    /** The selected enum option, as its declared option string. */
+    String  getEnum(String key);
+
+    /** True if {@code key} is a declared parameter. */
+    boolean contains(String key);
+    /** All declared parameter keys. */
+    java.util.Set<String> keys();
+}
+```
+
+Type mismatch (e.g. `getInt` on a `string` parameter) or an unknown key throws
+an unchecked `ParameterAccessException`.
+
+### `GameState` marker
+
+```java
+package io.turnbase.gdk;
+
+/** Marker for game-state types. Carries no methods; signals to the GDK Host
+ *  that the type is the session's serializable state (FR-GDK-012). */
+public interface GameState {}
+```
+
+State types are plain JSON-serializable Java objects — `record`s or POJOs with
+serializable fields (FR-GDK-013, CON-004). No serialization code is written by
+the developer; the GDK Host serializes/deserializes transparently.
+
+---
+
+## 6. Effects (Game BE → Platform)
+
+`Effect` is a **sealed** interface with one public `record` per effect type. The
+sealed hierarchy lets the GDK Host map effects to proto with an exhaustive
+`switch`; developers never construct variants directly — they use the `Effects`
+factory.
+
+```java
+package io.turnbase.gdk.effect;
+
+import io.turnbase.gdk.model.GameOutcome;
+import java.util.UUID;
+
+public sealed interface Effect
+        permits BroadcastEffect, SendToPlayerEffect, SendToTeamEffect,
+                LogEffect, GameOverEffect {}
+
+/** To all players' FEs and all spectators (FR-EFF-001). */
+public record BroadcastEffect(Object payload) implements Effect {}
+
+/** To one player's FE only (FR-EFF-002). */
+public record SendToPlayerEffect(UUID playerId, Object payload) implements Effect {}
+
+/** To all players on one team (FR-EFF-003). */
+public record SendToTeamEffect(UUID teamId, Object payload) implements Effect {}
+
+/** A platform-managed game-log entry. Text supports the basic Markdown of
+ *  FR-LOG-002 (bold, italic, strikethrough, inline code). Rich color
+ *  annotation syntax is deferred (game-contracts.md OQ-001). (FR-EFF-004) */
+public record LogEffect(String text) implements Effect {}
+
+/** Game end. Terminal and single per session (FR-EFF-005/006/007). */
+public record GameOverEffect(GameOutcome outcome, Object resultsPayload)
+        implements Effect {}
+```
+
+### `Effects` factory (FR-GDK-008)
+
+```java
+package io.turnbase.gdk.effect;
+
+import io.turnbase.gdk.model.GameOutcome;
+import java.util.UUID;
+
+public final class Effects {
+    private Effects() {}
+
+    public static Effect broadcast(Object payload) { ... }
+    public static Effect sendToPlayer(UUID playerId, Object payload) { ... }
+    public static Effect sendToTeam(UUID teamId, Object payload) { ... }
+    public static Effect log(String text) { ... }
+    public static Effect gameOver(GameOutcome outcome, Object resultsPayload) { ... }
+}
+```
+
+**Payloads are opaque, developer-typed objects** serialized to JSON by the GDK
+Host (FR-STATE-002, CON-004); the platform never inspects them. `payload` and
+`resultsPayload` must be non-null (use an empty object for "no data"). A single
+serialized effect payload must not exceed **10 MB** (NFR-SIZE-002).
+
+**Ordering & terminality.** Effects are applied in list order (FR-RESP-004).
+After a `gameOver` effect is processed the session ends; later effects in the
+*same* result list are still applied first, then the session terminates
+(FR-EFF-006). Only the first `gameOver` across the session is honored
+(FR-EFF-007).
+
+---
+
+## 7. Result types
+
+Each hook returns a per-hook result (FR-GDK-009) pairing the next state with an
+ordered effect list. All four types share the same shape and a shared fluent
+builder; `ActionResult` is shown in full, the others are identical in form.
+
+```java
+package io.turnbase.gdk.result;
+
+import io.turnbase.gdk.GameState;
+import io.turnbase.gdk.effect.Effect;
+import java.util.ArrayList;
+import java.util.List;
+
+public record ActionResult<S extends GameState>(S state, List<Effect> effects) {
+
+    /** Result with the given state and no effects (FR-RESP-003). */
+    public static <S extends GameState> ActionResult<S> of(S state) {
+        return new ActionResult<>(state, List.of());
+    }
+
+    /** Start a builder seeded with the (mandatory) next state. */
+    public static <S extends GameState> Builder<S> from(S state) {
+        return new Builder<>(state);
+    }
+
+    public static final class Builder<S extends GameState> {
+        private final S state;
+        private final List<Effect> effects = new ArrayList<>();
+        private Builder(S state) { this.state = state; }
+
+        public Builder<S> effect(Effect e)            { effects.add(e); return this; }
+        public Builder<S> effects(List<Effect> es)    { effects.addAll(es); return this; }
+        public ActionResult<S> build() {
+            return new ActionResult<>(state, List.copyOf(effects));
+        }
+    }
+}
+```
+
+`InitResult<S>`, `PlayerJoinedResult<S>`, and `PlayerLeftResult<S>` mirror this
+exactly. Distinct types (rather than one shared result) keep hook signatures
+self-documenting per FR-GDK-009; the shared builder shape keeps the
+implementation duplication mechanical. The contained state is **mandatory**
+(FR-RESP-002); the effect list may be empty (FR-RESP-003).
+
+Typical usage:
+
+```java
+return ActionResult.from(next)
+        .effect(Effects.log("**" + ctx.player().displayName() + "** played"))
+        .effect(Effects.broadcast(new MovePlayed(cell, mark)))
+        .build();
+```
+
+---
+
+## 8. Structured outcome (`GameOutcome`)
+
+Consumed by the platform for game history and statistics; **not** delivered to
+the FE (the FE gets the separate `resultsPayload`) (FR-GDK-010, FR-OUTCOME-*).
+
+```java
+package io.turnbase.gdk.model;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+public record GameOutcome(
+        List<TeamResult> teamResults,
+        List<PlayerResult> playerResults,
+        boolean draw) {
+
+    public record TeamResult(UUID teamId, int placement, Map<String, String> stats) {}
+    public record PlayerResult(UUID playerId, Map<String, String> stats) {}
+
+    public static Builder builder() { return new Builder(); }
+
+    public static final class Builder {
+        // accumulates team/player results and draw flag
+        public Builder teamResult(UUID teamId, int placement, Map<String, String> stats) { ... }
+        public Builder playerResult(UUID playerId, Map<String, String> stats) { ... }
+        public Builder draw(boolean draw) { ... }
+        public GameOutcome build() { ... }
+    }
+}
+```
+
+- `placement` is the 1-based finishing position (FR-OUTCOME-001). When `draw` is
+  true, multiple teams may share a placement (FR-OUTCOME-003).
+- `stats` keys are strings; **values are stringified by the GDK** — the platform
+  stores them as opaque `string→string` maps and never interprets them
+  (FR-OUTCOME-004, matching the proto `map<string,string>`). For non-string
+  game values, the developer passes the desired string form.
+- `stats` is optional per entry (`Map.of()` for none).
+
+---
+
+## 9. Runtime & determinism contract
+
+Constraints the developer must honor; the GDK Host and Orchestration Service
+enforce them, surfacing violations as the `GameFailureKind` values in
+`gamehost.proto`.
+
+| Rule | Detail | Wire mapping on violation |
+|------|--------|---------------------------|
+| Pure function of inputs | A hook's output must depend only on `(state, context)`. No mutable static state, no clocks, no randomness without a seed carried in state. | — (correctness) |
+| No external I/O | No network, filesystem, or external calls (CON-005). The only I/O is the GDK Host protocol. | `HANDLER_EXCEPTION` (sandbox denial) |
+| No self-initiated comms | A hook only produces output in response to an input (FR-PROC-003). Timers/delayed events must be derived from future actions, holding deadlines in state. | — |
+| Sequential processing | Inputs for a session are delivered one at a time, in arrival order (FR-PROC-001/002). Hooks need not be thread-safe across sessions but must not share state between sessions. | — |
+| Handler timeout | A hook must return within the configured budget (default **30 s**, NFR-REL-002). | `TIMEOUT` |
+| State size | Serialized state ≤ **10 MB** (NFR-SIZE-001, FR-STATE-004). | `STATE_TOO_LARGE` |
+| Effect payload size | Each serialized effect payload ≤ **10 MB** (NFR-SIZE-002). | `MALFORMED_OUTPUT` |
+| Valid output | Result must be non-null with a non-null state and well-formed effects. | `MALFORMED_OUTPUT` |
+| Exceptions terminate | A thrown exception fails the input; after the retry limit the session terminates (NFR-REL-001). | `HANDLER_EXCEPTION` |
+
+A failed input does not silently drop: the Orchestration Service applies
+retry-limit semantics and, on exhaustion, terminates the session and notifies
+participants (FR-FAIL-* in the gRPC protocol doc).
+
+---
+
+## 10. Relationship to the gRPC contract
+
+The GDK Host translates between this API and
+`docs/specs/internal-grpc/gamehost.proto`:
+
+| GDK API type | proto message |
+|--------------|---------------|
+| `InitContext` (teams, parameters) | `CreateSessionRequest.teams`, `.parameters` |
+| `ActionContext` | `ActionInput` |
+| `PlayerJoinedContext` | `PlayerJoinedInput` |
+| `PlayerLeftContext` + `PlayerLeftReason` | `PlayerLeftInput` + `PlayerLeftReason` |
+| `Player` | `PlayerRef` |
+| `Team` | `Team` |
+| `Effect` variants | `Effect` oneof (`BroadcastEffect`…`GameOverEffect`) |
+| `GameOutcome` / `TeamResult` / `PlayerResult` | `GameOutcome` / `TeamResult` / `PlayerResult` |
+| result `state` | retained in Game Host memory; **never** on the wire (FR-RESP-001a) |
+
+**Proto change made by this spec.** FR-GDK-011 requires `Team.name`, which the
+gRPC `Team` message did not carry. A `string name = 3` field was added to the
+`Team` message in `gamehost.proto` (the name is resolved from the manifest team
+template by the Orchestration Service when it builds `CreateSessionRequest`). The
+GDK exposes it as `Team.name()`.
+
+---
+
+## 11. Minimal example (number-guessing game)
+
+Illustrates the full surface with the smallest possible game (supports the
+NFR-DX-001 "first game in < 2 hours" goal).
+
+```java
+public record GuessState(int secret, int attempts) implements GameState {}
+public record Guess(int value) {}                       // action payload
+public record GuessFeedback(String hint, boolean win) {} // FE event payload
+
+public final class GuessingGame implements TurnBaseGame<GuessState> {
+
+    @Override public InitResult<GuessState> onInit(InitContext ctx) {
+        int max = ctx.parameters().getInt("maxValue");
+        var state = new GuessState(new java.util.Random().nextInt(max) + 1, 0);
+        return InitResult.from(state)
+                .effect(Effects.log("Game started — guess a number from 1 to " + max))
+                .build();
+    }
+
+    @Override public ActionResult<GuessState> onAction(GuessState s, ActionContext ctx) {
+        int guess = ctx.action(Guess.class).value();
+        var next = new GuessState(s.secret(), s.attempts() + 1);
+        if (guess == s.secret()) {
+            var outcome = GameOutcome.builder()
+                    .playerResult(ctx.player().id(), java.util.Map.of("attempts", String.valueOf(next.attempts())))
+                    .draw(false).build();
+            return ActionResult.from(next)
+                    .effect(Effects.log("**" + ctx.player().displayName() + "** guessed it!"))
+                    .effect(Effects.gameOver(outcome, new GuessFeedback("correct", true)))
+                    .build();
+        }
+        String hint = guess < s.secret() ? "higher" : "lower";
+        return ActionResult.from(next)
+                .effect(Effects.sendToPlayer(ctx.player().id(), new GuessFeedback(hint, false)))
+                .build();
+    }
+
+    @Override public PlayerLeftResult<GuessState> onPlayerLeft(GuessState s, PlayerLeftContext ctx) {
+        return PlayerLeftResult.of(s); // single-player; nothing to clean up
+    }
+}
+```
+
+---
+
+## 12. Requirements traceability
+
+| Requirement | Realized by |
+|-------------|-------------|
+| FR-GDK-001 | `TurnBaseGame<S>` (§3) |
+| FR-GDK-002 | `onInit`/`onAction`/`onPlayerJoined`/`onPlayerLeft` (§3) |
+| FR-GDK-003 | Context interfaces (§4) |
+| FR-GDK-004 | `InitContext` (§4) |
+| FR-GDK-005 | `ActionContext.action(Class)` (§4) |
+| FR-GDK-006 | `PlayerJoinedContext` (§4) |
+| FR-GDK-007 | `PlayerLeftContext` + `PlayerLeftReason` (§4) |
+| FR-GDK-008 | `Effects` factory (§6) |
+| FR-GDK-009 | Result types + builder (§7) |
+| FR-GDK-010 | `GameOutcome` (§8) |
+| FR-GDK-011 | `Player`, `Team`, `GameParameters` (§5) |
+| FR-GDK-012 | `GameState` marker (§5) |
+| FR-GDK-013 | JSON-serializable state, no dev serialization code (§5) |
+| FR-GDK-014 | `provided`/`compileOnly` scope (§2) |
+| FR-GDK-015 | API contains no implementation logic (§2) |
+| FR-GDK-016 | GDK version declared in manifest (manifest spec; referenced) |
+| FR-RESP-002/003/004 | Mandatory state, empty-effects-valid, ordering (§7, §6) |
+| FR-EFF-001…007 | Effect model & terminality (§6) |
+| FR-OUTCOME-001…004 | `GameOutcome` (§8) |
+| FR-STATE-001…005 | State model & limits (§5, §9) |
+| FR-PROC-001…003 | Determinism contract (§9) |
+| NFR-DX-002 | ≤4 methods, one default (§3) |
+
+---
+
+## 13. Open questions
+
+- **OQ-001 — Generic action payloads.** `action(Class<A>)` cannot express
+  generic container types (e.g. `List<Move>`). If a real game needs this, add a
+  `TypeReference`-style overload. Deferred until a concrete need appears; the
+  recommended pattern (a single named/`sealed` action type) avoids it.
+- **OQ-002 — `GameParameters` enum typing.** Enum parameters are returned as
+  their option `String` (`getEnum`). A type-safe `<E extends Enum<E>> E
+  getEnum(String, Class<E>)` overload could be added once enum parameter usage
+  is exercised by real games.
+- **OQ-003 — Rich log formatting.** Color annotation syntax for `LogEffect`
+  remains deferred (game-contracts.md OQ-001 / game-development-experience.md
+  OQ-004); only the basic Markdown of FR-LOG-002 is in scope now.

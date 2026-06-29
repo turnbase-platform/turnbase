@@ -2,18 +2,26 @@
 
 **Date:** 2026-06-29
 
-Completed the last remaining "Significant" requirements gap: admin tooling.
+Wrote the implementation-level spec for the **public backend GDK API** — the Java
+surface third-party developers code against (`TurnBaseGame`, lifecycle hooks,
+effect/input types).
 
 **Key decisions made:**
-- Admin API is internal-only (separate localhost-bound management port, Spring Boot management port pattern); no browser UI
-- Access control via static HTTP Basic Auth credentials from environment variables — no role model in the user/session sphere
-- Three-state game badge model: **Official** (TurnBase-uploaded, bypasses review), **Verified** (community game approved via review), **Unverified** (default; private game not yet approved)
-- Review workflow: submitted games enter a pending queue; admin approves (→ Verified, public) or rejects (game stays private, developer notified with reason)
-- Private game behaviour formalised: not shown in catalog, owner-only hosting, friends/invite-link joining only, owner can submit for review at any time
+- Scope: **backend JVM API only**; frontend GDK (`TurnBaseClient`) reserved for a sibling `frontend-gdk-api.md`
+- `TurnBaseGame<S extends GameState>` — single type param; action type supplied per call via `ActionContext.action(Class<A>)`
+- State is a **method parameter + return value** on every hook except `onInit`; never on the context, never on the gRPC wire
+- `Effect` is a **sealed interface** (one record per type), constructed only via the static `Effects` factory — gives the GDK Host an exhaustive proto mapping
+- Per-hook result types (`InitResult`…`PlayerLeftResult`) with a shared fluent builder; `onPlayerJoined` is a `default` no-op (minimal game = 3 methods)
+- **Proto amended:** added `string name = 3` to the gRPC `Team` message to back `Team.name()` (FR-GDK-011); `buf lint` clean
+- Rich log color syntax stays **deferred** (game-contracts.md OQ-001); only basic Markdown in scope
+- API is **pre-release** — breaking changes acceptable; NFR-COMPAT-001 backward-compat not yet in force
 
 **Files changed:**
-- `docs/requirements/admin-tooling.md` — new requirements document
-- `docs/requirements-gaps.md` — admin tooling gap marked closed; two new OQs added (resubmission after rejection, delisting post-approval)
+- `docs/specs/gdk-api/backend-gdk-api.md` — new spec
+- `docs/specs/gdk-api/INDEX.md` — new subdirectory index
+- `docs/specs/INDEX.md` — registered `gdk-api/`
+- `docs/specs/internal-grpc/gamehost.proto` — added `Team.name` field
+- `docs/requirements/game-development-experience.md`, `game-contracts.md` — linked the new spec
 
 ---
 
