@@ -12,7 +12,7 @@
 
 - [x] Add invite link route to `platform-views.md` — added `/rooms/join/:code`
 - [x] Add in-room chat UI elements to Room Lobby and Room In Progress views in `platform-views.md`; add reconnection pinned card to Active Rooms view
-- [ ] Define at minimum the MVP scope for admin tooling — Official/Verified badge assignment, any moderation primitives
+- [x] Define at minimum the MVP scope for admin tooling — defined in `admin-tooling.md`: internal-only HTTP port, basic auth, game review queue (approve/reject), Official/Verified/Unverified badge model, private game behaviour
 - [x] Specify background job operational model — added `FR-JOB-001–005` to `platform-operations.md` (ShedLock, Spring Scheduler, failure handling, observability)
 - [x] Define the gRPC service contract (proto file) for Orchestration ↔ Game Host communication — defined in `docs/specs/internal-grpc/` (`gamehost.proto` + `orchestration-gamehost-protocol.md`)
 - [x] Define "blocked slot" used in `game-rooms.md` FR-JOIN-006 — added to Definitions; AI slots blocked permanently, grace-period slots temporarily blocked
@@ -25,6 +25,8 @@
 - [ ] `platform-architecture.md` OQ-001 — Truffle context memory overhead; needs prototype benchmark to set production scale-out thresholds
 - [ ] `platform-architecture.md` OQ-003 — Scale-in session draining mechanism (wait for natural completion vs. active migration)
 - [ ] `platform-ui-library.md` OQ-001–004 — Exact border radius, neon accent color values, WCAG contrast decision, backdrop-filter fallback
+- [ ] `admin-tooling.md` OQ-001 — Can a developer resubmit a rejected game for another review attempt, or is rejection terminal?
+- [ ] `admin-tooling.md` OQ-002 — Can an operator delist a Verified or Official game after it has gone public?
 
 ## Minor Cleanup
 

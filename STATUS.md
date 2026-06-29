@@ -1,24 +1,19 @@
 ## Last Session Summary
 
-**Date:** 2026-06-12
+**Date:** 2026-06-29
 
-Established GitHub repository strategy and pushed all Phase 0 documentation to GitHub.
+Completed the last remaining "Significant" requirements gap: admin tooling.
 
-**Repo strategy decisions:**
-- GitHub organisation: `turnbase-platform` (`github.com/turnbase-platform`)
-- Six repos: `turnbase` (landing/docs), `turnbase-common` (internal gRPC stubs), `turnbase-sdk` (public GDK), `turnbase-platform` (Platform Monolith), `turnbase-game-host` (Game Host), `turnbase-frontend` (React frontend)
-- All repos private during Phase 0; all public-facing when ready to showcase
-- Default branch: `master` across all repos
-- No git submodules between service repos; `turnbase` root registers all five as submodules (optional `--recurse-submodules` clone)
-- Commit convention: Conventional Commits (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`)
-- Design doc written to `docs/superpowers/specs/2026-06-12-repo-strategy-design.md`
+**Key decisions made:**
+- Admin API is internal-only (separate localhost-bound management port, Spring Boot management port pattern); no browser UI
+- Access control via static HTTP Basic Auth credentials from environment variables — no role model in the user/session sphere
+- Three-state game badge model: **Official** (TurnBase-uploaded, bypasses review), **Verified** (community game approved via review), **Unverified** (default; private game not yet approved)
+- Review workflow: submitted games enter a pending queue; admin approves (→ Verified, public) or rejects (game stays private, developer notified with reason)
+- Private game behaviour formalised: not shown in catalog, owner-only hosting, friends/invite-link joining only, owner can submit for review at any time
 
-**What was pushed:**
-- All Phase 0 documentation split into 8 logical commits and pushed to `github.com/turnbase-platform/turnbase`
-- Five component repos created on GitHub with initial README commits and `master` as default branch
-- All five registered as git submodules in `turnbase`
-
-**CLAUDE.md updated:** Repository structure section now reflects the full six-repo table, dependency graph, and submodule policy.
+**Files changed:**
+- `docs/requirements/admin-tooling.md` — new requirements document
+- `docs/requirements-gaps.md` — admin tooling gap marked closed; two new OQs added (resubmission after rejection, delisting post-approval)
 
 ---
 
@@ -41,6 +36,7 @@ Established GitHub repository strategy and pushed all Phase 0 documentation to G
 | `social-friends.md` | Friendship model, request lifecycle, friend cap, discovery, visibility, guest exclusion, block-requests toggle |
 | `platform-operations.md` | Service topology (monolith), availability, observability stack, CI/CD pipeline, data retention |
 | `onboarding-wizard.md` | First-time wizard overlay, pane structure, localStorage suppression, landing page re-entry |
+| `admin-tooling.md` | Internal admin API, game badge model (Official/Verified/Unverified), review queue, private game behaviour |
 
 ---
 
@@ -53,3 +49,5 @@ Established GitHub repository strategy and pushed all Phase 0 documentation to G
 | `game-contracts.md` | OQ-001: Log color annotation syntax — deferred to GDK spec |
 | `game-contracts.md` | OQ-002: AI/bot player interface — deferred to future spec |
 | `game-contracts.md` | OQ-003: Platform-managed timer system — deferred to future spec |
+| `admin-tooling.md` | OQ-001: Can a developer resubmit a rejected game, or is rejection terminal? |
+| `admin-tooling.md` | OQ-002: Can an operator delist a Verified or Official game post-approval? |
