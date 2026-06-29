@@ -98,12 +98,15 @@ message PlayerRef {
 }
 
 // A team and its assigned players, as configured in the lobby. The name is the
-// display name resolved from the manifest team template, surfaced to game code
-// via the GDK `Team.name()` accessor (game-development-experience.md FR-GDK-011).
+// instance display name ("{template.name} {index}", e.g. "Attacker 1") resolved
+// by the Orchestration Service from the manifest team template, surfaced to game
+// code via the GDK `Team.name()` accessor (game-development-experience.md
+// FR-GDK-011; see orchestration-gamehost-protocol.md "Roster and team-name
+// resolution").
 message Team {
   string team_id = 1;       // UUID
   repeated PlayerRef players = 2;
-  string name = 3;          // display name from the manifest team template
+  string name = 3;          // instance display name, e.g. "Attacker 1"
 }
 
 // Identifies a Truffle context: one per (game, version) pair (FR-CTX-001).

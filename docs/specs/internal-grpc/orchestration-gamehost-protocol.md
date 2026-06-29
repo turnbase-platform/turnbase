@@ -71,6 +71,16 @@ structurally different: it carries the `ContextKey` for context binding and trig
 **host selection** (FR-ORCH-001/004). Subsequent inputs need only the `session_id` the
 host already maps to a context (FR-SESS-002).
 
+**Roster and team-name resolution.** The Orchestration Service builds
+`CreateSessionRequest.teams` from the final lobby state. Each `Team.name` is the
+team's resolved lobby display name — `"{template.name} {index}"` (e.g.
+`"Attacker 1"`, `"Team 2"`), where `template.name` comes from the manifest
+`teamTemplates` entry and defaults to `"Team"` for a single unnamed template
+(game-rooms.md FR-TEAM, FR-MANIFEST-002). Using the instance display name (with
+index) rather than the bare template name keeps team names unique when a template
+has `count.max > 1`. The Game Host passes this value through unchanged; the GDK
+surfaces it as `Team.name()` (game-development-experience.md FR-GDK-011).
+
 ### `GameHostRegistryService` — control path (served by Orchestration)
 
 | RPC | Purpose | Requirements |

@@ -2,43 +2,43 @@
 
 **Date:** 2026-06-29
 
-Wrote the implementation-level specs for the **public GDK API** — both the Java
-backend surface (`TurnBaseGame`, lifecycle hooks, effect/input types) and the
-TypeScript frontend surface (`TurnBaseClient`, event callbacks, `sendAction`).
+**Cross-spec cleanup** of the loose ends opened by last session's GDK API specs.
 
-**Backend key decisions:**
-- `TurnBaseGame<S extends GameState>` — single type param; action type supplied per call via `ActionContext.action(Class<A>)`
-- State is a **method parameter + return value** on every hook except `onInit`; never on the context, never on the gRPC wire
-- `Effect` is a **sealed interface** (one record per type), constructed only via the static `Effects` factory — gives the GDK Host an exhaustive proto mapping
-- Per-hook result types (`InitResult`…`PlayerLeftResult`) with a shared fluent builder; `onPlayerJoined` is a `default` no-op (minimal game = 3 methods)
-- **Proto amended:** added `string name = 3` to the gRPC `Team` message to back `Team.name()` (FR-GDK-011); `buf lint` clean
-- Rich log color syntax stays **deferred** (game-contracts.md OQ-001); only basic Markdown in scope
-- API is **pre-release** — breaking changes acceptable; NFR-COMPAT-001 backward-compat not yet in force
-
-**Frontend key decisions:**
-- `TurnBaseClient<TAction, TEvent>` — class-level generics, one replaceable handler per event, explicit `start()` drives the ready handshake
-- **Shell-injected bootstrap global** (`window.__TURNBASE__ = { parentOrigin, sessionId }`) supplies the trusted origin — never inferred from message traffic; rich init context arrives as the first `init` postMessage
-- **Spectators** handled in one `onInit` via `role: 'player' | 'spectator'` + nullable `self`
-- Origin validation requires `event.origin === parentOrigin` **and** `event.source === window.parent`; outbound posts never `'*'`-targeted
-- Defined a **bootstrap contract** the future platform-frontend shell spec must honor
+- **`Team.name` resolution documented.** Pinned down the open ambiguity: `Team.name`
+  is the **instance** display name (`"{template.name} {index}"`, e.g. `"Attacker 1"`,
+  `"Team 2"`), not the bare template name — keeps names unique when a template has
+  `count.max > 1` and matches `game-rooms.md` FR-TEAM's `{name} N` display rule.
+  Added a "Roster and team-name resolution" note to the orchestration protocol spec
+  (Orchestration populates it when building `CreateSessionRequest`); aligned the proto
+  comment and both `backend-gdk-api.md` mentions. `buf lint` clean.
+- **NFR-COMPAT-001 pre-release carve-out made official** in
+  `game-development-experience.md`: the same-major-version backward-compat guarantee is
+  effective **from v1.0.0**; during 0.x the API may break without a major bump. This
+  was previously stated only in the GDK specs.
+- **FE bootstrap contract** (`window.__TURNBASE__`) — confirmed it is already the
+  authoritative definition in `frontend-gdk-api.md §9` and that the test harness must
+  satisfy it too. It cannot be *closed* until the platform-frontend shell spec is
+  written, so it remains a tracked dependency (see Next Priorities).
 
 **Files changed:**
-- `docs/specs/gdk-api/backend-gdk-api.md`, `frontend-gdk-api.md` — new specs
-- `docs/specs/gdk-api/INDEX.md` — new subdirectory index (both files registered)
-- `docs/specs/INDEX.md` — registered `gdk-api/`
-- `docs/specs/internal-grpc/gamehost.proto` — added `Team.name` field
-- `docs/requirements/game-development-experience.md`, `game-contracts.md` — linked both specs
+- `docs/specs/internal-grpc/orchestration-gamehost-protocol.md` — added team-name resolution note
+- `docs/specs/internal-grpc/gamehost.proto` — clarified `Team.name` comment (instance display name)
+- `docs/specs/gdk-api/backend-gdk-api.md` — aligned `Team.name()` wording (§6 and §10)
+- `docs/requirements/game-development-experience.md` — NFR-COMPAT-001 pre-1.0 carve-out
 
 ---
 
 ## Next Priorities
 
-- **Resolve cross-spec dependencies created by the GDK specs:**
-  - `Team.name` wire field — ensure the Platform Architecture / Orchestration spec covers the GDK Host resolving the manifest team-template name into `CreateSessionRequest.Team.name`.
-  - FE **bootstrap contract** (`window.__TURNBASE__ = { parentOrigin, sessionId }`) — the platform-frontend shell spec must inject and honor it (CON-006).
+- **Remaining GDK-adjacent specs not yet written** (requirements done; specs missing):
+  - **Manifest schema** (FR-MANIFEST-*) — single source of truth; referenced by upload
+    pipeline, bundle format, team templates, GDK version compat. Recommended next; unblocks the others.
+  - **Game bundle format + upload pipeline** (FR-BUNDLE-*, FR-UPLOAD-*) — depends on manifest schema.
+  - **Test harness** (FR-HARNESS-*) — has open distribution questions (OQ-001/002) to resolve first.
+- **Platform-frontend shell spec** (not yet written) — must inject and honor the FE
+  bootstrap contract `window.__TURNBASE__ = { parentOrigin, sessionId }` (CON-006),
+  authoritatively defined in `frontend-gdk-api.md §9`.
 - **GDK spec open questions** to revisit when real games exercise them: generic action payloads & enum-typed parameters (backend); reconnection re-init and multi-listener events (frontend).
-- **NFR-COMPAT-001 pre-release carve-out** currently lives only in the GDK specs — decide whether to make the pre-1.0 exemption official in `game-development-experience.md`.
-- Remaining GDK-adjacent specs not yet written: **manifest schema**, **game bundle format**, and **test harness** (FR-MANIFEST-*, FR-BUNDLE-*, FR-HARNESS-*).
 
 ---
 

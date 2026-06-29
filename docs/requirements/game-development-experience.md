@@ -142,7 +142,7 @@ This document defines the requirements for the Game Development Kit (GDK), game 
 | NFR-DX-002 | Developer Experience | The GDK API for a new game requires implementing a single interface with 2–4 handler methods. No boilerplate setup, configuration files, or framework initialization beyond the manifest. | ≤ 4 methods to implement | Must |
 | NFR-UPLOAD-001 | Performance | Bundle upload and validation must complete within a reasonable time for bundles up to the size limit. | < 30s for 256 MB bundle | Should |
 | NFR-UPLOAD-002 | Security | Uploaded game JARs are treated as untrusted code. The upload pipeline must not execute any code from the bundle during validation. Static analysis and metadata inspection only. | No code execution during validation | Must |
-| NFR-COMPAT-001 | Compatibility | The GDK API must maintain backward compatibility within the same major version. Games built against GDK API v1.x must run on any platform supporting GDK API v1.y where y ≥ x. Cross-major-version compatibility strategy is deferred to a future specification. | Same major version | Must |
+| NFR-COMPAT-001 | Compatibility | The GDK API must maintain backward compatibility within the same major version, **effective from the v1.0.0 release**. Games built against GDK API v1.x must run on any platform supporting GDK API v1.y where y ≥ x. During the pre-release period (0.x), the API is unstable and may introduce breaking changes between versions without a major bump; this carve-out lapses at v1.0.0. Cross-major-version compatibility strategy is deferred to a future specification. | Same major version (from v1.0.0) | Must |
 | NFR-SIZE-001 | Limits | Maximum game bundle size | 256 MB (configurable) | Must |
 
 ---

@@ -207,8 +207,10 @@ public record Team(UUID id, String name, List<Player> players) {}
 ```
 
 UUIDs are exposed as `java.util.UUID` (the wire carries canonical strings; the
-GDK Host converts). `Team.name()` is the manifest team-template display name —
-see §10 for the wire dependency this introduces.
+GDK Host converts). `Team.name()` is the team's lobby **instance** display name
+(`"{template.name} {index}"`, e.g. `"Attacker 1"`, `"Team 2"`), resolved from the
+manifest team template by the Orchestration Service — see §10 for the wire
+dependency this introduces.
 
 ### `GameParameters`
 
@@ -464,9 +466,10 @@ The GDK Host translates between this API and
 
 **Proto change made by this spec.** FR-GDK-011 requires `Team.name`, which the
 gRPC `Team` message did not carry. A `string name = 3` field was added to the
-`Team` message in `gamehost.proto` (the name is resolved from the manifest team
-template by the Orchestration Service when it builds `CreateSessionRequest`). The
-GDK exposes it as `Team.name()`.
+`Team` message in `gamehost.proto`. The Orchestration Service populates it with
+the team's instance display name (`"{template.name} {index}"`) when it builds
+`CreateSessionRequest` — see `orchestration-gamehost-protocol.md` "Roster and
+team-name resolution". The GDK exposes it as `Team.name()`.
 
 ---
 
