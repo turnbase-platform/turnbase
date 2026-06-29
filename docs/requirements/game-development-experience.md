@@ -13,6 +13,7 @@ This document defines the requirements for the Game Development Kit (GDK), game 
 
 - [gdk-api/backend-gdk-api.md](../specs/gdk-api/backend-gdk-api.md) — Backend GDK API design: `TurnBaseGame`, lifecycle hooks, contexts, effects, results, outcome, data model (implements FR-GDK-001–016)
 - [gdk-api/frontend-gdk-api.md](../specs/gdk-api/frontend-gdk-api.md) — Frontend GDK API design: `TurnBaseClient`, event callbacks, `sendAction`, origin validation, shell bootstrap (implements FR-FEGDK-001–009)
+- [manifest/manifest-schema.md](../specs/manifest/manifest-schema.md) — Game manifest schema: `manifest.json` structure, JSON Schema artifact, validation rules, error model (implements FR-MANIFEST-001–009)
 - [file-uploads.md](../specs/api-design/file-uploads.md) — Pre-signed URL upload flow for game bundles (implements FR-UPLOAD-001–009)
 - [error-handling.md](../specs/api-design/error-handling.md) — Bundle validation error format (implements FR-UPLOAD-008)
 

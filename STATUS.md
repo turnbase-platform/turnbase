@@ -1,40 +1,49 @@
 ## Last Session Summary
 
-**Date:** 2026-06-29
+**Date:** 2026-06-30
 
-**Cross-spec cleanup** of the loose ends opened by last session's GDK API specs.
+**Wrote the game manifest schema spec** (FR-MANIFEST-001–009) — the single source of
+truth for game metadata, now unblocking the bundle/upload-pipeline spec.
 
-- **`Team.name` resolution documented.** Pinned down the open ambiguity: `Team.name`
-  is the **instance** display name (`"{template.name} {index}"`, e.g. `"Attacker 1"`,
-  `"Team 2"`), not the bare template name — keeps names unique when a template has
-  `count.max > 1` and matches `game-rooms.md` FR-TEAM's `{name} N` display rule.
-  Added a "Roster and team-name resolution" note to the orchestration protocol spec
-  (Orchestration populates it when building `CreateSessionRequest`); aligned the proto
-  comment and both `backend-gdk-api.md` mentions. `buf lint` clean.
-- **NFR-COMPAT-001 pre-release carve-out made official** in
-  `game-development-experience.md`: the same-major-version backward-compat guarantee is
-  effective **from v1.0.0**; during 0.x the API may break without a major bump. This
-  was previously stated only in the GDK specs.
-- **FE bootstrap contract** (`window.__TURNBASE__`) — confirmed it is already the
-  authoritative definition in `frontend-gdk-api.md §9` and that the test harness must
-  satisfy it too. It cannot be *closed* until the platform-frontend shell spec is
-  written, so it remains a tracked dependency (see Next Priorities).
+- New `docs/specs/manifest/` directory with three files:
+  - **`manifest.schema.json`** — normative JSON Schema (Draft 2020-12), the contract
+    shared by the platform upload validator and the local test harness (FR-HARNESS-002)
+    so the two cannot drift. Verified valid Draft 2020-12; the annotated example
+    validates clean and negative cases (bad version, missing per-type parameter fields,
+    bad `key` pattern, >10 tags, wrong `manifestVersion`) are correctly rejected, while
+    an unknown key is correctly **accepted** (lenient).
+  - **`manifest-schema.md`** — field semantics, two-layer validation, lenient
+    unknown-key warnings, error model, and FR-MANIFEST traceability.
+  - **`INDEX.md`** — subdir entry point + key decisions.
+- **Decisions made this session** (via brainstorming): formal JSON Schema artifact (not
+  prose); `manifestVersion` field (`"1"`, rejects unknown) independent of
+  `gdkApiVersion`; **lenient unknown keys** surfaced as non-fatal warnings (not
+  rejected); runtime-agnostic `backend` (`path` + `entryPoint`, FQCN under `jvm`);
+  validation boundary = **manifest-in-isolation** (path existence, entry-class,
+  GDK-class conflict, version ordering, size limits all deferred to the upload-pipeline
+  spec); errors reuse the `error-handling.md` `{check, message}` 422 shape, with a new
+  separate `warnings` array for non-fatal items.
+- **Decided rather than asked** (flagged to user): `title` cap = 60 chars; the new
+  `warnings` array on the validation response.
 
 **Files changed:**
-- `docs/specs/internal-grpc/orchestration-gamehost-protocol.md` — added team-name resolution note
-- `docs/specs/internal-grpc/gamehost.proto` — clarified `Team.name` comment (instance display name)
-- `docs/specs/gdk-api/backend-gdk-api.md` — aligned `Team.name()` wording (§6 and §10)
-- `docs/requirements/game-development-experience.md` — NFR-COMPAT-001 pre-1.0 carve-out
+- `docs/specs/manifest/manifest.schema.json` — new (normative JSON Schema)
+- `docs/specs/manifest/manifest-schema.md` — new (prose spec)
+- `docs/specs/manifest/INDEX.md` — new (subdir index)
+- `docs/specs/INDEX.md` — registered the new `manifest/` subdirectory
+- `docs/requirements/game-development-experience.md` — linked the manifest spec under Related API Specifications
 
 ---
 
 ## Next Priorities
 
-- **Remaining GDK-adjacent specs not yet written** (requirements done; specs missing):
-  - **Manifest schema** (FR-MANIFEST-*) — single source of truth; referenced by upload
-    pipeline, bundle format, team templates, GDK version compat. Recommended next; unblocks the others.
-  - **Game bundle format + upload pipeline** (FR-BUNDLE-*, FR-UPLOAD-*) — depends on manifest schema.
-  - **Test harness** (FR-HARNESS-*) — has open distribution questions (OQ-001/002) to resolve first.
+- **Game bundle format + upload pipeline** (FR-BUNDLE-*, FR-UPLOAD-*) — **recommended
+  next**; now unblocked by the manifest schema. Owns the validation the manifest spec
+  explicitly deferred: archive structure, path existence (FR-UPLOAD-003), entry-class
+  implements `TurnBaseGame` (FR-UPLOAD-004), GDK-class conflict (FR-UPLOAD-005), version
+  ordering (FR-UPLOAD-006), bundle size (FR-UPLOAD-007).
+- **Test harness** (FR-HARNESS-*) — depends on manifest schema (reuses
+  `manifest.schema.json`); has open distribution questions (OQ-001/002) to resolve first.
 - **Platform-frontend shell spec** (not yet written) — must inject and honor the FE
   bootstrap contract `window.__TURNBASE__ = { parentOrigin, sessionId }` (CON-006),
   authoritatively defined in `frontend-gdk-api.md §9`.
