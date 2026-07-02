@@ -1,53 +1,53 @@
 ## Last Session Summary
 
-**Date:** 2026-06-30
+**Date:** 2026-07-02
 
-**Wrote the game manifest schema spec** (FR-MANIFEST-001–009) — the single source of
-truth for game metadata, now unblocking the bundle/upload-pipeline spec.
+**Ran the Phase-0 exit MVP readiness review** — five parallel domain reviews (platform-core
+requirements, API design/sanitation, game execution stack, DevOps/deployment for AWS,
+GRMP prototype lessons) answering: are the specs sufficient to implement and ship the
+first MVP online?
 
-- New `docs/specs/manifest/` directory with three files:
-  - **`manifest.schema.json`** — normative JSON Schema (Draft 2020-12), the contract
-    shared by the platform upload validator and the local test harness (FR-HARNESS-002)
-    so the two cannot drift. Verified valid Draft 2020-12; the annotated example
-    validates clean and negative cases (bad version, missing per-type parameter fields,
-    bad `key` pattern, >10 tags, wrong `manifestVersion`) are correctly rejected, while
-    an unknown key is correctly **accepted** (lenient).
-  - **`manifest-schema.md`** — field semantics, two-layer validation, lenient
-    unknown-key warnings, error model, and FR-MANIFEST traceability.
-  - **`INDEX.md`** — subdir entry point + key decisions.
-- **Decisions made this session** (via brainstorming): formal JSON Schema artifact (not
-  prose); `manifestVersion` field (`"1"`, rejects unknown) independent of
-  `gdkApiVersion`; **lenient unknown keys** surfaced as non-fatal warnings (not
-  rejected); runtime-agnostic `backend` (`path` + `entryPoint`, FQCN under `jvm`);
-  validation boundary = **manifest-in-isolation** (path existence, entry-class,
-  GDK-class conflict, version ordering, size limits all deferred to the upload-pipeline
-  spec); errors reuse the `error-handling.md` `{check, message}` 422 shape, with a new
-  separate `warnings` array for non-fatal items.
-- **Decided rather than asked** (flagged to user): `title` cap = 60 chars; the new
-  `warnings` array on the validation response.
+- **Verdict: not yet, but close** — 15 blocking gaps + ~30 important ones, clustered in
+  three areas: room-lifecycle contradictions on the happy path, unspecified connective
+  tissue at both ends of the game-execution chain (effect delivery destinations,
+  crash-recovery double-apply, game FE serving origin), and an almost entirely
+  undecided deployment path (provider "TBD", no IaC, no migration tool, no secrets
+  strategy, Redis durability contradiction, ingress/TLS undefined).
+- New `docs/reviews/2026-07-02-mvp-readiness/` directory: `INDEX.md` (synthesis —
+  consolidated blockers, strategic decisions needing the owner, new-spec plan,
+  existing-doc edit checklist) plus the five full domain reports.
+- Estimated closure effort: 3–4 focused spec sessions + one technical spike (Espresso
+  sandbox/startup feasibility on GraalVM CE, which may force the OQ-002
+  process-isolation fallback).
+- GRMP mining confirmed several TurnBase design choices (single WS gateway, effects-push
+  hidden-information safety, host-driven start) and surfaced missing lifecycle hygiene:
+  reconciliation sweep, durable grace timers, session-teardown ordering, shared
+  serialization component.
 
 **Files changed:**
-- `docs/specs/manifest/manifest.schema.json` — new (normative JSON Schema)
-- `docs/specs/manifest/manifest-schema.md` — new (prose spec)
-- `docs/specs/manifest/INDEX.md` — new (subdir index)
-- `docs/specs/INDEX.md` — registered the new `manifest/` subdirectory
-- `docs/requirements/game-development-experience.md` — linked the manifest spec under Related API Specifications
+- `docs/reviews/2026-07-02-mvp-readiness/` — new (INDEX.md + 5 domain reports)
+- `STATUS.md` — this update
 
 ---
 
 ## Next Priorities
 
-- **Game bundle format + upload pipeline** (FR-BUNDLE-*, FR-UPLOAD-*) — **recommended
-  next**; now unblocked by the manifest schema. Owns the validation the manifest spec
-  explicitly deferred: archive structure, path existence (FR-UPLOAD-003), entry-class
-  implements `TurnBaseGame` (FR-UPLOAD-004), GDK-class conflict (FR-UPLOAD-005), version
-  ordering (FR-UPLOAD-006), bundle size (FR-UPLOAD-007).
-- **Test harness** (FR-HARNESS-*) — depends on manifest schema (reuses
-  `manifest.schema.json`); has open distribution questions (OQ-001/002) to resolve first.
-- **Platform-frontend shell spec** (not yet written) — must inject and honor the FE
-  bootstrap contract `window.__TURNBASE__ = { parentOrigin, sessionId }` (CON-006),
-  authoritatively defined in `frontend-gdk-api.md §9`.
-- **GDK spec open questions** to revisit when real games exercise them: generic action payloads & enum-typed parameters (backend); reconnection re-init and multi-listener events (frontend).
+Work the review's action plan (`docs/reviews/2026-07-02-mvp-readiness/INDEX.md`) before
+starting new feature specs:
+
+1. **Owner decisions** (review §Strategic decisions): AWS/EKS + gVisor timing,
+   compose-first MVP profile, WS scaling model (room affinity vs Redis pub/sub),
+   availability target, GDPR/account-erasure, spike scheduling.
+2. **Blocker spec fixes** — room lifecycle (CORE-1/2/3), WS abuse controls (API-1/2),
+   game-effect delivery + crash-recovery idempotency + FE serving origin (GAME-B1/B2/B3).
+3. **New ops specs** — deployment & infrastructure, data operations, secrets &
+   production observability.
+4. **Espresso feasibility spike** — before freezing FR-CTX enforcement design and the
+   3s/5s startup Musts.
+5. **Then resume the previously planned queue**: game bundle format + upload pipeline
+   (FR-BUNDLE-*/FR-UPLOAD-*, now also owns gdkApiVersion check, serialization
+   round-trip test, asset-origin decision), test harness (FR-HARNESS-*), platform-frontend
+   shell spec (must fail closed on trust level — GRMP-F5).
 
 ---
 
