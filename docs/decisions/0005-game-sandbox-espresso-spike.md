@@ -36,6 +36,23 @@ its own process/container).
 3. **Defer the 3s/5s startup NFR Musts to post-MVP** (strategic #6). They are not
    MVP-enforceable and their feasibility depends on the spike outcome.
 
+## Spike outcome (2026-07-10)
+
+The spike ran on GraalVM CE 21.0.2 — full results in
+[`docs/reviews/2026-07-02-mvp-readiness/espresso-spike-results.md`](../reviews/2026-07-02-mvp-readiness/espresso-spike-results.md).
+**Verdict: in-JVM Espresso on CE does not satisfy the FR-CTX Musts by itself.** It cleanly provides
+cross-version heap/static isolation (FR-CTX-001/003), `System.exit` containment (FR-CTX-006),
+forced termination (FR-CTX-008), and fast startup (cold ≈ 0.6 s) — but **filesystem (FR-CTX-004)
+and network (FR-CTX-005) access leak to the host OS**, and the **per-context heap cap (FR-CTX-007)
+is Oracle-GraalVM-only**. Consequently the **OQ-002 process/container-isolation fallback is required
+for the MVP** (container-level no-network / read-only FS / cgroup memory cap), with Espresso retained
+— if at all — for in-process invocation, forced termination, and multi-version density. The Game
+Host internals spec must decide Espresso-in-hardened-container vs plain-JVM-per-process on that basis.
+gVisor and **Oracle GraalVM 21** were also evaluated (see the results doc): gVisor is the production
+mechanism for the OS-level FS/network denial (complement, not substitute); Oracle GraalVM adds only an
+enforced per-context heap cap (`sandbox.MaxHeapMemory`) — FS/network still leak — so CON-001's "CE, not
+Oracle" choice holds and the container remains mandatory.
+
 ## Consequences
 
 - **Positive:** avoids speccing against unverified capabilities; de-risks the highest-uncertainty

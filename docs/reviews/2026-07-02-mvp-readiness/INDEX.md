@@ -9,6 +9,7 @@ Phase-0 exit review: are the current requirements + specs sufficient to implemen
 | [game-execution-stack.md](game-execution-stack.md) | Game execution chain: GDK, gRPC protocol, manifest, sandbox, effect delivery |
 | [devops-deployment.md](devops-deployment.md) | Deployment, IaC, data-layer ops, CI/CD, secrets, observability, dev cadence |
 | [grmp-lessons.md](grmp-lessons.md) | Lessons mined from the GRMP prototype (`../grmp`) |
+| [espresso-spike-results.md](espresso-spike-results.md) | Results of the ADR-0005 Espresso feasibility spike on GraalVM CE for JDK 21 (gates the Game Host internals spec) |
 
 Already-tracked gaps (bundle/upload-pipeline spec, test harness spec, frontend shell spec, open questions in `docs/requirements-gaps.md`) were excluded from all reviews.
 
