@@ -1,31 +1,39 @@
 ## Last Session Summary
 
-**Date:** 2026-07-02
+**Date:** 2026-07-10
 
-**Ran the Phase-0 exit MVP readiness review** — five parallel domain reviews (platform-core
-requirements, API design/sanitation, game execution stack, DevOps/deployment for AWS,
-GRMP prototype lessons) answering: are the specs sufficient to implement and ship the
-first MVP online?
+**Resolved the room-lifecycle blocker cluster (CORE-1/2/3)** from the MVP readiness
+review — the three top blockers, all requirements-level contradictions on the
+create→play→finish happy path. Ran an interactive requirements-engineering session; all
+four decisions taken on the review's recommended path:
 
-- **Verdict: not yet, but close** — 15 blocking gaps + ~30 important ones, clustered in
-  three areas: room-lifecycle contradictions on the happy path, unspecified connective
-  tissue at both ends of the game-execution chain (effect delivery destinations,
-  crash-recovery double-apply, game FE serving origin), and an almost entirely
-  undecided deployment path (provider "TBD", no IaC, no migration tool, no secrets
-  strategy, Redis durability contradiction, ingress/TLS undefined).
-- New `docs/reviews/2026-07-02-mvp-readiness/` directory: `INDEX.md` (synthesis —
-  consolidated blockers, strategic decisions needing the owner, new-spec plan,
-  existing-doc edit checklist) plus the five full domain reports.
-- Estimated closure effort: 3–4 focused spec sessions + one technical spike (Espresso
-  sandbox/startup feasibility on GraalVM CE, which may force the OQ-002
-  process-isolation fallback).
-- GRMP mining confirmed several TurnBase design choices (single WS gateway, effects-push
-  hidden-information safety, host-driven start) and surfaced missing lifecycle hygiene:
-  reconciliation sweep, durable grace timers, session-teardown ordering, shared
-  serialization component.
+- **CORE-1 (initial teams):** On room creation, instantiate `count.min` teams per template
+  at `size.max`; host auto-assigns via FR-TEAM-005 (first team, first template). Initial
+  capacity = Σ(size.max × count.min); advertised min/max (FR-LIST-002) unchanged. New
+  **FR-TEAM-012** + FR-CREATE-003 cross-ref.
+- **CORE-2 (voluntary leave vs disconnect):** Reversed the old "no distinction" model. A
+  **confirmed** in-app action (Leave Room, abandonment-to-join-elsewhere, account deletion)
+  = immediate departure: `PLAYER_LEFT`, notify game engine now (reason `left`), no grace.
+  A bare WS loss — **including tab/browser close** — is involuntary → grace period. Joining
+  another room voids any held reservation (early expiry). New **FR-DC-005**, **FR-EXPIRY-004**;
+  amended Disconnect definition + added Voluntary Leave definition; amended FR-DC-001,
+  FR-JOIN-007, FR-LIFE-004.
+- **CORE-3 (last-human host disconnect):** In Progress + no other connected human → defer
+  host transfer and closure for the grace period; close + terminate session only on expiry.
+  FR-XFER-002's immediate closure now scoped to Lobby + explicit leaves. New **FR-HDISC-003**;
+  amended FR-HDISC-001, FR-XFER-002.
+- **Downstream contract fix:** extended `game-contracts.md` FR-IN-005 (and FR-FE-004)
+  `player_left` reason enum with `left` for immediate voluntary departures — closing the new
+  contradiction the CORE-2 decision would otherwise have introduced. The wire proto
+  (`gamehost.proto`) reason enum still needs the `left` value (already in the review's gRPC
+  edit checklist).
 
 **Files changed:**
-- `docs/reviews/2026-07-02-mvp-readiness/` — new (INDEX.md + 5 domain reports)
+- `docs/requirements/game-rooms.md` — FR-CREATE-003, new FR-TEAM-012, FR-JOIN-007,
+  FR-LIFE-004, FR-XFER-002
+- `docs/requirements/reconnection-flow.md` — Definitions, Stakeholders, FR-DC-001,
+  new FR-DC-005, new FR-EXPIRY-004, FR-HDISC-001, new FR-HDISC-003
+- `docs/requirements/game-contracts.md` — FR-IN-005, FR-FE-004 (`left` reason)
 - `STATUS.md` — this update
 
 ---
@@ -38,8 +46,9 @@ starting new feature specs:
 1. **Owner decisions** (review §Strategic decisions): AWS/EKS + gVisor timing,
    compose-first MVP profile, WS scaling model (room affinity vs Redis pub/sub),
    availability target, GDPR/account-erasure, spike scheduling.
-2. **Blocker spec fixes** — room lifecycle (CORE-1/2/3), WS abuse controls (API-1/2),
-   game-effect delivery + crash-recovery idempotency + FE serving origin (GAME-B1/B2/B3).
+2. **Blocker spec fixes** — ~~room lifecycle (CORE-1/2/3)~~ ✅ resolved 2026-07-10;
+   WS abuse controls (API-1/2), game-effect delivery + crash-recovery idempotency +
+   FE serving origin (GAME-B1/B2/B3).
 3. **New ops specs** — deployment & infrastructure, data operations, secrets &
    production observability.
 4. **Espresso feasibility spike** — before freezing FR-CTX enforcement design and the

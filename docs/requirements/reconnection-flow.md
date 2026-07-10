@@ -5,10 +5,10 @@
 | Role | Description |
 |------|-------------|
 | Player | Authenticated user (guest or registered) who disconnects from an in-progress game |
-| Host | Player who also holds the host role; subject to immediate host transfer on disconnect |
+| Host | Player who also holds the host role; on disconnect, host role transfers immediately if another human is connected, otherwise transfer and closure are deferred for the grace period (FR-HDISC-003) |
 | Room Participants | Other players and spectators present when a disconnect occurs |
-| Platform | Detects disconnection, manages grace period and slot reservation, emits events |
-| Game Engine | Receives notification only after the grace period expires; decides how to handle the loss |
+| Platform | Detects disconnection, distinguishes voluntary leave from involuntary disconnect, manages grace period and slot reservation, emits events |
+| Game Engine | Not notified during the grace period of an involuntary disconnect; notified immediately on a voluntary leave (FR-DC-005) or kick (FR-KICK-002/003), and on grace-period expiry (FR-EXPIRY-002) |
 
 ---
 
@@ -16,8 +16,9 @@
 
 | Term | Meaning |
 |------|---------|
-| **Disconnect** | Any loss of the player's WebSocket connection to the room, regardless of cause (browser close, network drop, voluntary leave). No distinction is made between voluntary and involuntary. |
-| **Grace Period** | A platform-managed window (default 60 seconds) during which a disconnected player's slot is reserved and the game engine is not notified. |
+| **Disconnect (involuntary)** | A bare loss of the player's WebSocket connection to the room with no explicit in-app intent — network drop, crash, tab or browser close, navigating away. This is the event that triggers the grace period and slot reservation. Unqualified "disconnect" in this document means an involuntary disconnect. |
+| **Voluntary Leave** | An **explicit, confirmed** in-app departure: clicking "Leave Room", confirming abandonment to join or create another room (game-rooms.md FR-JOIN-007/008), or deleting the account. A voluntary leave is processed immediately with **no** grace period and **no** slot reservation. The distinguishing signal is a deliberate user action, not merely the WebSocket closing. |
+| **Grace Period** | A platform-managed window (default 60 seconds) during which an involuntarily disconnected player's slot is reserved and the game engine is not notified. |
 | **Pinned Card** | A persistent UI element shown above the room list on the Active Rooms view, pointing the player back to the room they still hold a slot in. |
 
 ---
@@ -28,10 +29,11 @@
 
 | ID | Title | Description | Priority |
 |----|-------|-------------|----------|
-| FR-DC-001 | Disconnect trigger | A disconnect is registered when a player's WebSocket connection to the room is lost. No distinction is made between voluntary (tab close, navigate away) and involuntary (network drop) causes. | Must |
+| FR-DC-001 | Disconnect trigger | An **involuntary** disconnect is registered when a player's WebSocket connection to the room is lost without an explicit in-app leave action. This includes network drop, crash, tab close, browser close, and navigating away — the platform cannot observe intent from a bare socket loss, so all such losses are treated as involuntary and receive the grace period (In Progress) per FR-GRACE-001. An explicit, confirmed departure is instead a voluntary leave (FR-DC-005), not a disconnect. | Must |
 | FR-DC-002 | Scope — In Progress only | The grace period and slot reservation mechanic applies only to rooms in **In Progress** state. A disconnect in Lobby state is treated as an immediate leave with no slot reservation. | Must |
 | FR-DC-003 | Scope — Spectators | Spectators are dropped immediately on disconnect. No slot is reserved and no grace period is issued. Spectators may re-join freely subject to spectator capacity limits. | Must |
 | FR-DC-004 | Scope — Post-game state | When a game ends, the room is already in Lobby state (game-rooms.md FR-LIFE-002). The post-game results view is a client-side UI overlay on the Lobby state (game-rooms.md FR-LIFE-003), not a distinct server-side state. A disconnect while the results overlay is visible is therefore a Lobby disconnect and follows FR-DC-002. | Must |
+| FR-DC-005 | Voluntary leave is immediate | A voluntary leave (Definitions) from an In Progress room is processed immediately, bypassing the grace period entirely: the platform removes the player, emits `PLAYER_LEFT` (distinct from the involuntary `PLAYER_DISCONNECTED`), releases the slot with no reservation, and notifies the game engine at once that the player has departed (reason `left`; the exact input event is defined in game-contracts.md). No pinned card or reconnection alert is issued, because no slot is held. This resolves the apparent conflict with the single-room and abandonment requirements (game-rooms.md FR-JOIN-007/008, FR-LIFE-004). | Must |
 
 ### Grace Period
 
@@ -65,6 +67,7 @@
 | FR-EXPIRY-001 | Slot release | When the grace period expires without the player reconnecting, the reserved slot is released. | Must |
 | FR-EXPIRY-002 | Game engine notification | Upon grace period expiry, the platform sends a "player lost" event to the game engine. The game engine is responsible for deciding the outcome (e.g. replace with AI, continue without the player, forfeit the game). The standardized response set is defined in the Game SDK contracts document. | Must |
 | FR-EXPIRY-003 | Pinned card removal | When the grace period expires, the pinned card (FR-REJOIN-002) is removed from the player's Active Rooms view. | Must |
+| FR-EXPIRY-004 | Early release on joining another room | If a player who holds a reserved slot joins or creates another room (game-rooms.md FR-JOIN-007), the reservation is voided immediately rather than waiting for the timer: the slot is released and the game engine is notified exactly as on normal expiry (FR-EXPIRY-001/002), and the pinned card is removed (FR-EXPIRY-003). The one-room-at-a-time invariant takes precedence over the reservation. | Must |
 
 ### Kicking
 
@@ -79,8 +82,9 @@
 
 | ID | Title | Description | Priority |
 |----|-------|-------------|----------|
-| FR-HDISC-001 | Immediate host transfer | When the host disconnects, host role transfers immediately to the next human player by join order (per FR-XFER-001). Host transfer does not wait for the grace period to elapse. | Must |
+| FR-HDISC-001 | Immediate host transfer | When the host disconnects **and at least one other human player is currently connected**, host role transfers immediately to the next connected human player by join order (per FR-XFER-001). Host transfer does not wait for the grace period to elapse. If no other human is connected, FR-HDISC-003 applies instead. | Must |
 | FR-HDISC-002 | Disconnected host may reconnect | The former host's slot is still reserved for the standard grace period. If they reconnect, they return as a regular player — the transferred host role is not reclaimed. | Must |
+| FR-HDISC-003 | Last-connected-human host disconnect | When the host **involuntarily** disconnects from an **In Progress** room and no other human player is currently connected (e.g. a 1-player-vs-AI room, or all other humans are themselves in their own grace windows), host transfer and room closure are both **deferred**: the room and its game session are kept alive for the grace period. If the host reconnects within the window, they resume as host and play continues. If another human player reconnects within the window, the room becomes viable again and host role transfers to them (FR-XFER-001 / FR-HDISC-001). If the grace period expires with no human connected, the room is closed and the game session terminated (game-rooms.md FR-XFER-002/FR-XFER-003). This overrides the immediate-closure rule (game-rooms.md FR-XFER-002) for involuntary In Progress disconnects. | Must |
 
 ---
 
