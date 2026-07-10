@@ -34,8 +34,8 @@ effect model and `Effects` factory, the per-hook result types, the structured
 
 - Frontend GDK (`TurnBaseClient`, postMessage callbacks, `sendAction`) —
   reserved for a sibling `frontend-gdk-api.md`.
-- GDK Host internals (stdin/stdout, Truffle contexts, serialization engine) —
-  Platform Architecture.
+- GDK Host internals (in-process invocation, Truffle contexts, serialization
+  engine) — `../game-host/game-host-internals.md`.
 - Game bundle/manifest format, upload pipeline, test harness — covered by
   `game-development-experience.md` and forthcoming specs.
 
@@ -432,7 +432,7 @@ enforce them, surfacing violations as the `GameFailureKind` values in
 | Rule | Detail | Wire mapping on violation |
 |------|--------|---------------------------|
 | Pure function of inputs | A hook's output must depend only on `(state, context)`. No mutable static state, no clocks, no randomness without a seed carried in state. | — (correctness) |
-| No external I/O | No network, filesystem, or external calls (CON-005). The only I/O is the GDK Host protocol. | `HANDLER_EXCEPTION` (sandbox denial) |
+| No external I/O | No network, filesystem, or external calls (CON-005). The only interaction is the in-process GDK Host invocation. | — (contract obligation; **enforced at the container layer**, not an in-JVM sandbox exception — GraalVM CE does not deny FS/network in-context, ADR-0005; see `../game-host/game-host-internals.md` §4) |
 | No self-initiated comms | A hook only produces output in response to an input (FR-PROC-003). Timers/delayed events must be derived from future actions, holding deadlines in state. | — |
 | Sequential processing | Inputs for a session are delivered one at a time, in arrival order (FR-PROC-001/002). Hooks need not be thread-safe across sessions but must not share state between sessions. | — |
 | Handler timeout | A hook must return within the configured budget (default **30 s**, NFR-REL-002). | `TIMEOUT` |

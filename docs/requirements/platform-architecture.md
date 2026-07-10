@@ -41,6 +41,7 @@ This document defines the requirements for the game execution infrastructure: ho
 
 - [websocket.md](../specs/api-design/websocket.md) — STOMP-over-WebSocket: topics, authentication, message envelope for game and lobby events
 - [internal-grpc/](../specs/internal-grpc/INDEX.md) — Orchestration Service ↔ Game Host gRPC contract: `gamehost.proto`, topology decision, dispatch/registry services, error model
+- [game-host/](../specs/game-host/INDEX.md) — Game Host & execution internals: the server-side realization of the FR-CTX/FR-SESS/FR-LOAD/FR-ORCH/FR-ROUTE/FR-DELIVER/FR-FAIL requirements — Espresso topology, GDK Host + serialization, isolation-mechanism mapping, session/state model, crash recovery, effect delivery
 
 ---
 
@@ -212,7 +213,7 @@ This document defines the requirements for the game execution infrastructure: ho
 | NFR-PERF-003 | Performance | Action routing overhead (Orchestration Service queue to Game Host invocation, excluding game processing) | < 50ms p95 | Should |
 | NFR-PERF-004 | Performance | Effect delivery overhead (Game Host response to WebSocket Gateway push) | < 50ms p95 | Should |
 | NFR-SEC-001 | Security | Game code must not be able to access memory, state, or data belonging to other games or sessions | Complete isolation | Must |
-| NFR-SEC-002 | Security | Game code must not be able to access the host filesystem, network, or any platform-internal services beyond the stdin/stdout protocol managed by the Game Host | Zero capability by default | Must |
+| NFR-SEC-002 | Security | Game code must not be able to access the host filesystem, network, or any platform-internal services beyond the in-process invocation boundary managed by the Game Host (see MVP-scope note above: for trusted official Java this is enforced at the container layer, not in-JVM on GraalVM CE) | Zero capability by default | Must |
 | NFR-SEC-003 | Security | A vulnerability in game code must not compromise the Game Host process or the container host, given the two-layer isolation (gVisor + Truffle) | Defense in depth | Must |
 | NFR-SCALE-001 | Scalability | The platform must support at least 500 concurrent game sessions across all Game Host containers | 500 sessions | Must |
 | NFR-SCALE-002 | Scalability | The platform must support at least 200 distinct game titles with active sessions concurrently | 200 game titles | Should |

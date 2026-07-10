@@ -45,7 +45,7 @@ This document defines the requirements for the Game Development Kit (GDK), game 
 | Term | Meaning |
 |------|---------|
 | **GDK API** | A compile-time library providing interfaces, data types, and effect builders for game backend development. Contains no implementation. Language-specific (one per supported language). |
-| **GDK Host** | Platform-internal library that implements the GDK API interfaces. Handles stdin/stdout communication, serialization, session management. Ships in the container image, never distributed to developers. |
+| **GDK Host** | Platform-internal library that implements the GDK API interfaces. Handles in-process invocation across the host/guest boundary, serialization, session management. Ships in the container image, never distributed to developers. |
 | **FE GDK** | A JavaScript/TypeScript library wrapping the postMessage protocol. Provides event callbacks and action sending for game frontends. |
 | **Game Bundle** | A single archive file containing the game's backend code, frontend code, and manifest. The unit of upload and deployment. |
 | **Manifest** | A JSON file at the root of the game bundle declaring metadata, capabilities, entry points, and configuration. The single source of truth for game properties. |
@@ -73,7 +73,7 @@ This document defines the requirements for the Game Development Kit (GDK), game 
 | FR-GDK-012 | State marker interface | The GDK API must provide a marker interface (e.g., `GameState`) that all game state types must implement. This interface carries no methods; it signals to the GDK Host that the type is intended as game state. | Must |
 | FR-GDK-013 | State serialization via JSON | Game state types must be serializable to and from JSON. The GDK Host handles serialization transparently. The developer works with plain Java objects (POJOs, records) with serializable fields. No manual serialization code is required from the developer. | Must |
 | FR-GDK-014 | Provided dependency | The GDK API is a compile-time-only dependency. Game developers must declare it with `provided` scope (Maven) or `compileOnly` (Gradle). The GDK API classes must not be bundled in the game's JAR. The GDK Host provides these classes at runtime. | Must |
-| FR-GDK-015 | No implementation in API | The GDK API library must contain no implementation logic — no stdin/stdout handling, no serialization code, no main method. It provides only interfaces, data types, and builder utilities. | Must |
+| FR-GDK-015 | No implementation in API | The GDK API library must contain no implementation logic — no host-invocation or transport handling, no serialization code, no main method. It provides only interfaces, data types, and builder utilities. | Must |
 | FR-GDK-016 | GDK version in manifest | The manifest must declare the GDK API version the game was built against. The platform uses this for compatibility validation. | Must |
 
 ### GDK API — Frontend (JavaScript/TypeScript)

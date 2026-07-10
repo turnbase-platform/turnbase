@@ -120,8 +120,14 @@ channel as disposable on `UNAVAILABLE`.
 - **State never crosses this wire.** The Game Host holds game state in local memory and
   persists it to Redis (CON-006, FR-STATE-003). Requests carry only inputs; responses
   carry only effects.
-- **Opaque payloads are `bytes`.** Action payloads, effect payloads, lobby parameters,
-  and the `game_over` FE results are all opaque to the platform (FR-STATE-001).
+- **Opaque payloads are `bytes`.** Action payloads, effect payloads, and the
+  `game_over` FE results are opaque to the platform (FR-STATE-001). **Lobby
+  parameters are the exception:** `CreateSessionRequest.parameters` is a
+  *platform-structured* UTF-8 JSON map of manifest parameter key → value, built and
+  default-materialized by the Orchestration Service from the manifest declarations
+  and host lobby configuration (values pass through to the game via the typed
+  `GameParameters` accessors). See the `parameters` field comment in the proto and
+  `../game-host/game-host-internals.md` §3.4 (review GAME-I5).
 - **`game_over` is terminal.** After a `GameOverEffect` is processed, no further inputs
   are sent for the session (FR-EFF-006); only the first is honored (FR-EFF-007).
 

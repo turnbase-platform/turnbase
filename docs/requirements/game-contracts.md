@@ -29,7 +29,7 @@ This document defines the communication protocol between the TurnBase platform a
 | Role | Description |
 |------|-------------|
 | Platform (Orchestration Service) | Routes messages between game BE/FE, manages game state storage, enforces protocol constraints, manages session lifecycle |
-| Game Host | Platform-internal component running inside a GraalVM container; multiplexes sessions, invokes game code via Truffle contexts, manages the stdin/stdout communication layer |
+| Game Host | Platform-internal component running inside a GraalVM container; multiplexes sessions, invokes game code in-process via Truffle/Espresso contexts across the host/guest boundary (see `../specs/game-host/`) |
 | Game Backend (Game BE) | Developer-supplied code implementing game logic; receives inputs with state, returns new state and effects |
 | Game Frontend (Game FE) | Developer-supplied JS/TS code running in a sandboxed iframe; receives routed events from the platform, sends player actions |
 | Player Client | The platform's own frontend that wraps the game iframe, renders the game log, manages the WebSocket connection to the platform |
@@ -173,11 +173,11 @@ The platform communicates with the game FE via the `postMessage` API into the sa
 
 | ID | Description |
 |----|-------------|
-| CON-001 | The backend protocol uses stdin/stdout with a language-agnostic serialization format. The wire format is a Game Host implementation concern, not part of this contract. |
+| CON-001 | The backend protocol is realized by **in-process invocation** across the Game Host↔guest boundary (the Game Host invokes the game inside a GraalVM Truffle/Espresso context), using a language-agnostic JSON serialization format. The invocation mechanism and wire format are a Game Host implementation concern (see `../specs/game-host/`), not part of this contract. |
 | CON-002 | The frontend protocol uses the browser `postMessage` API between the platform parent window and the game iframe. |
 | CON-003 | The game BE code is stateless from the developer's perspective — handlers receive state and return new state. The Game Host holds state in local memory (primary) and persists it to Redis (durability). The Orchestration Service does not store or transmit game state; it routes inputs and delivers effects only. |
 | CON-004 | The game FE runs in a sandboxed iframe with no direct network access, no access to platform cookies or storage, and no ability to navigate the parent frame. |
-| CON-005 | The game BE has no network access, no filesystem access, and no ability to communicate with external systems. Its only I/O channel is the stdin/stdout protocol managed by the Game Host. |
+| CON-005 | The game BE must not use the network or filesystem or communicate with external systems; its only interaction with the platform is the in-process invocation managed by the Game Host. For the MVP's trusted official Java this is a **contract obligation** on the author, enforced at the **container layer** (no-egress network policy, read-only filesystem; gVisor in production) — **not** an in-JVM sandbox: the Espresso spike (ADR-0005) showed GraalVM CE does not deny filesystem/network in-context. See `../specs/game-host/game-host-internals.md` §4 and ADR-0006. |
 | CON-006 | The platform manages the WebSocket connection to player clients. The game BE and game FE do not manage their own transport. |
 | CON-007 | Grace period mechanics are handled entirely by the platform. The game BE is not notified of player disconnections until the grace period expires or the player is kicked (see `reconnection-flow.md`). |
 
@@ -188,7 +188,7 @@ The platform communicates with the game FE via the `postMessage` API into the sa
 - GDK library API design and language-specific bindings (Game Development Experience document)
 - Game packaging format, manifest structure, upload mechanism (Game Development Experience document)
 - Game Host internal architecture, Truffle context management, container lifecycle (Platform Architecture document)
-- stdin/stdout wire format and session multiplexing (Platform Architecture document)
+- In-process invocation mechanism and session multiplexing (Platform Architecture document; `../specs/game-host/`)
 - Platform WebSocket transport implementation (existing platform infrastructure)
 - In-room chat protocol (defined in `in-room-chat.md`)
 - Room lifecycle management and lobby mechanics (defined in `game-rooms.md`)

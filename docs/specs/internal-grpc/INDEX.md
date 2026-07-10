@@ -10,6 +10,10 @@ The internal protocols that connect the Orchestration Service (a domain within t
 Platform Monolith) to the Game Host service for game session execution: session
 lifecycle, input dispatch, effect return, and Game Host registration/health.
 
+The **server side** of this contract — how the Game Host actually loads game code,
+invokes it, persists state, and how effects are delivered — is designed in
+[../game-host/](../game-host/INDEX.md).
+
 ## Files
 
 | File | Topic |

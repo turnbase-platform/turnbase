@@ -130,7 +130,14 @@ message CreateSessionRequest {
   // state is empty; the handler's response establishes the initial state.
   repeated Team teams = 3;
 
-  // Opaque, game-defined lobby parameters. The platform never inspects this.
+  // Host-configured game parameters as UTF-8 JSON: a platform-structured map of
+  // manifest parameter key -> value, with every declared parameter present
+  // (the Orchestration Service materializes manifest defaults before send, so
+  // GameParameters getters never see an absent key). The keys/types are
+  // platform-known from the manifest; individual values pass through to the game
+  // via the typed GameParameters accessors. Distinct from the truly opaque,
+  // game-defined action/effect/state payloads. (FR-IN-002, FR-MANIFEST-005,
+  // review GAME-I5; see game-host-internals.md §3.4.)
   bytes parameters = 4;
 }
 
