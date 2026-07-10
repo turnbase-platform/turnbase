@@ -2,12 +2,22 @@
 
 This document defines the requirements for the Game Development Kit (GDK), game packaging, upload pipeline, and local development workflow. It specifies what the platform provides to game developers and the constraints on game bundles.
 
+> **MVP scope (ADR-0006):** the Espresso spike (ADR-0005) showed in-JVM Espresso on GraalVM CE cannot
+> isolate *untrusted* Java. The **MVP therefore hosts official, first-party Java games only** —
+> community-uploaded and privately-hosted **backends are disabled for the MVP**, in any language.
+> The Java (JVM) GDK described here is exercised by the official games; **untrusted third-party
+> backends return post-MVP** (hardened-container Java, and new **JS/Python GDKs** on GraalJS/GraalPy).
+> The upload/packaging requirements below describe the full target design; for the MVP they apply to
+> the first-party/official deployment path and to frontend assets, not to an untrusted backend upload
+> path. See [`../decisions/0006-game-trust-model-java-official-only.md`](../decisions/0006-game-trust-model-java-official-only.md).
+
 ## Related Documents
 
 - `game-contracts.md` — communication protocol between platform and game BE/FE
 - `game-catalog.md` — game listing, detail pages, management, versioning
 - `game-rooms.md` — room lifecycle, team templates, game parameters, host controls
 - Platform Architecture (TBD) — Game Host internals, container lifecycle, Truffle context management
+- `../decisions/INDEX.md` — ADR-0006 (game trust model — official-only Java backends for the MVP)
 
 ## Related API Specifications
 

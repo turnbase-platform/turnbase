@@ -76,7 +76,7 @@ A complete, annotated example:
 | `shortDescription` | string | Yes | 1–100 chars | Catalog summary and info-section fallback (FR-MANIFEST-001, game-catalog.md FR-GDET-003). |
 | `version` | string | Yes | `^[0-9]+\.[0-9]+\.[0-9]+$` | Game version (FR-GAME-009). Ordering vs. active version is checked by the upload pipeline. |
 | `gdkApiVersion` | string | Yes | `^[0-9]+\.[0-9]+\.[0-9]+$` | GDK API the game was built against (FR-GDK-016). Compatibility range check is the platform's job. |
-| `runtime` | string (enum) | Yes | `"jvm"` | Determines interpretation of `backend` (FR-BUNDLE-007). Future runtimes extend this enum. |
+| `runtime` | string (enum) | Yes | `"jvm"` | Determines interpretation of `backend` (FR-BUNDLE-007). Future runtimes extend this enum. Runtime selection is the language-agnostic seam of the platform contract; a **per-runtime trust policy** governs whether a runtime may host untrusted code (ADR-0006). For the MVP, `jvm` is **official-only** — untrusted Java cannot be isolated on GraalVM CE (ADR-0005) — so `runtime: "jvm"` bundles are accepted only via the first-party/official deployment path, not an untrusted upload. Post-MVP untrusted runtimes (`js`, `py`) extend this enum. |
 | `backend` | object | Yes | see below | Backend component descriptor. |
 | `frontend` | object | Yes | see below | Frontend component descriptor. |
 | `infoDoc` | string | No | non-empty | Relative path to a Markdown info/rules doc (FR-MANIFEST-007, FR-BUNDLE-005). |

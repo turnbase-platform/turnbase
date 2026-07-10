@@ -13,9 +13,19 @@ This document defines the requirements for the game execution infrastructure: ho
 > - **Scaling & startup budgets** (`FR-SCALE-*`, NFR-PERF-001 context-creation, FR-SCALE-007
 >   cold-start) are **deferred to post-MVP** (ADR-0001, ADR-0003); the MVP runs a single local
 >   Game Host instance.
-> - The **sandbox mechanism is not yet frozen**: an Espresso feasibility spike on **GraalVM CE for
->   JDK 21** (ADR-0005) gates the FR-CTX enforcement design. If CE Espresso cannot meet the
->   isolation or startup needs, the OQ-002 **process-isolation fallback** is used for the MVP.
+> - **Game trust model (ADR-0006):** the Espresso spike (ADR-0005,
+>   [results](../reviews/2026-07-02-mvp-readiness/espresso-spike-results.md)) found that in-JVM
+>   Espresso on **GraalVM CE for JDK 21 cannot isolate *untrusted* Java** — filesystem and network
+>   access leak to the host OS, and the per-context heap cap is Oracle-GraalVM-only. The MVP therefore
+>   hosts **official, first-party Java games only** (trusted code); untrusted game backends of any
+>   language are deferred to post-MVP. For the MVP the untrusted-code isolation Musts —
+>   **FR-CTX-004 (no filesystem), FR-CTX-005 (no network), FR-CTX-007 (per-context heap cap)** and
+>   **NFR-SEC-001/002** — are **not enforced in-JVM**. Robustness against *buggy* (not hostile)
+>   official games comes from **FR-CTX-008 wall-clock timeouts** (`Context.interrupt`, verified on CE)
+>   plus a **container/cgroup memory limit**, with filesystem/network denial applied as container-level
+>   defense-in-depth. Post-MVP, untrusted Java returns via the hardened-container + gVisor path
+>   (OQ-002) and untrusted JS/Python via GraalJS/GraalPy runtimes (FR-CTX-012). Trust is assigned
+>   **per runtime** (FR-CTX-011/012) — Espresso/Java is trusted-only for the MVP.
 > - "GraalVM CE 23" elsewhere in this document is the deprecated GraalVM product-version label and
 >   means **GraalVM CE for JDK 21** (the installed version; there is no CE build for JDK 23).
 
@@ -25,7 +35,7 @@ This document defines the requirements for the game execution infrastructure: ho
 - `game-development-experience.md` — GDK libraries, packaging, upload pipeline
 - `game-rooms.md` — room lifecycle, team management, game start/end triggers
 - `reconnection-flow.md` — disconnect detection, grace period, re-entry
-- `../decisions/INDEX.md` — ADR-0001 (local-first platform / gVisor production-only), ADR-0005 (Espresso spike gates the Game Host sandbox design)
+- `../decisions/INDEX.md` — ADR-0001 (local-first platform / gVisor production-only), ADR-0005 (Espresso spike gates the Game Host sandbox design), ADR-0006 (game trust model — official-only Java backends for the MVP)
 
 ## Related API Specifications
 
@@ -216,7 +226,7 @@ This document defines the requirements for the game execution infrastructure: ho
 
 | ID | Description |
 |----|-------------|
-| CON-001 | Game Host containers run on GraalVM Community Edition (CE) with Truffle framework for polyglot sandboxed execution. Oracle GraalVM is not required — Espresso and Truffle are fully available in CE, and Native Image (an Oracle GraalVM differentiator) is not used. |
+| CON-001 | Game Host containers run on GraalVM Community Edition (CE) with Truffle framework for polyglot sandboxed execution. Oracle GraalVM is not required — Espresso and Truffle are fully available in CE, and Native Image (an Oracle GraalVM differentiator) is not used. **Spike correction (ADR-0005):** CE provides Espresso/Truffle *execution*, but **not adversarial isolation of untrusted Java** — there is no in-JVM filesystem/network denial and no per-context heap cap (the `sandbox.MaxHeapMemory` control is Oracle-GraalVM-only). Untrusted-code isolation must come from the container layer; the MVP avoids the problem by hosting official-only Java (ADR-0006). Truffle's strong sandbox does apply to native-free guest languages (JS/Python) on CE — relevant to the post-MVP GraalJS/GraalPy runtimes. |
 | CON-002 | JVM game code is executed via GraalVM Espresso (Java on Truffle), included in GraalVM CE. Espresso provides a Java 21 guest environment. Game backends must target Java 21. The Game Host process runs on GraalVM CE for JDK 21. |
 | CON-003 | Container sandboxing uses gVisor as the OCI runtime. |
 | CON-004 | Orchestration Service ↔ Game Host communication uses gRPC. |
@@ -247,5 +257,5 @@ This document defines the requirements for the game execution infrastructure: ho
 ## Open Questions
 
 - **OQ-001** — Truffle context memory overhead: the actual per-context memory overhead of Espresso contexts needs to be benchmarked. This affects the scale-out thresholds and the number of contexts a single container can support. Prototype validation is needed.
-- **OQ-002** — ~~GraalVM Espresso maturity~~ **Partially resolved:** Espresso passes the Java Compatibility Kit (JCK) for Java SE 21 and is mature enough to run large applications (Eclipse IDE, Scala). Performance is 2–3x slower than HotSpot, which is acceptable for turn-based game logic given the 30-second CPU time budget. Remaining validation needed: compatibility of common Java game libraries under Espresso's Java 21 guest. Fallback (process-level isolation with standard JVMs) remains available if compatibility issues arise in practice. **This fallback is first-class for the MVP:** per ADR-0005, an Espresso feasibility spike on GraalVM CE for JDK 21 (also validating OQ-001 per-context overhead and the FR-CTX isolation controls) gates whether the MVP uses in-context Truffle isolation or the process-isolation fallback. The spike runs before the FR-CTX enforcement design is frozen.
+- **OQ-002** — ~~GraalVM Espresso maturity~~ **Partially resolved:** Espresso passes the Java Compatibility Kit (JCK) for Java SE 21 and is mature enough to run large applications (Eclipse IDE, Scala). Performance is 2–3x slower than HotSpot, which is acceptable for turn-based game logic given the 30-second CPU time budget. Remaining validation needed: compatibility of common Java game libraries under Espresso's Java 21 guest. Fallback (process-level isolation with standard JVMs) remains available if compatibility issues arise in practice. **This fallback is first-class for the MVP:** per ADR-0005, an Espresso feasibility spike on GraalVM CE for JDK 21 (also validating OQ-001 per-context overhead and the FR-CTX isolation controls) gates whether the MVP uses in-context Truffle isolation or the process-isolation fallback. The spike runs before the FR-CTX enforcement design is frozen. **Spike done (2026-07-10) — [results](../reviews/2026-07-02-mvp-readiness/espresso-spike-results.md):** in-JVM Espresso on CE does **not** satisfy FR-CTX-004 (filesystem), FR-CTX-005 (network), or FR-CTX-007 (heap cap) on its own — those leak to the host OS / are Oracle-GraalVM-only — so **this process/container-isolation fallback is required for the MVP** to enforce them, while Espresso (if retained) still provides FR-CTX-001/003 isolation, FR-CTX-006 exit-containment, and FR-CTX-008 forced termination. The Game Host internals spec chooses Espresso-in-hardened-container vs plain-JVM-per-process. OQ-001 per-context overhead remains open (out of scope for this go/no-go spike).
 - **OQ-003** — Scale-in session draining: the exact mechanism for draining sessions from a container being scaled in needs further design. With Redis-backed state, sessions can be migrated by reassigning the routing entry — the new Game Host loads state from Redis. The question is whether to wait for natural session completion or actively migrate.

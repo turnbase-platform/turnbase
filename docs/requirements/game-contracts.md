@@ -2,6 +2,11 @@
 
 This document defines the communication protocol between the TurnBase platform and game backends/frontends. It specifies the message types, data structures, routing rules, and behavioral guarantees that both sides must adhere to.
 
+> **MVP scope (ADR-0006):** this contract is language-agnostic by design — it is the seam that lets
+> different guest runtimes (Espresso/Java now; GraalJS/GraalPy later) host games behind one protocol.
+> For the MVP only the **Java runtime** is implemented and it is **official-only** (untrusted Java
+> cannot be isolated on GraalVM CE — ADR-0005). The contract itself is unchanged by this scoping.
+
 ## Related Documents
 
 - `game-rooms.md` — room lifecycle, team management, host controls
