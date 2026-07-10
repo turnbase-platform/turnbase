@@ -4,12 +4,28 @@ This document defines the requirements for the game execution infrastructure: ho
 
 > **Note:** This document uses "Orchestration Service" as a logical component name. As clarified in `platform-operations.md`, the Orchestration Service is a domain within the Platform Monolith, not a separately deployed process. References here describe logical responsibilities and module boundaries, not deployment boundaries.
 
+> **MVP scope (2026-07-10 owner decisions — see [`../decisions/`](../decisions/INDEX.md)):** This
+> document specifies the full production execution infrastructure. For the **local-first MVP**
+> several requirements are re-scoped:
+> - **gVisor** (FR-SEC-001, FR-SEC-005, CON-003, NFR-SEC-003) is **production-only** — `runsc` is
+>   unavailable on Docker Desktop/WSL2 (ADR-0001). MVP isolation relies on Truffle context
+>   sandboxing plus pod/process isolation (a single layer for the MVP).
+> - **Scaling & startup budgets** (`FR-SCALE-*`, NFR-PERF-001 context-creation, FR-SCALE-007
+>   cold-start) are **deferred to post-MVP** (ADR-0001, ADR-0003); the MVP runs a single local
+>   Game Host instance.
+> - The **sandbox mechanism is not yet frozen**: an Espresso feasibility spike on **GraalVM CE for
+>   JDK 21** (ADR-0005) gates the FR-CTX enforcement design. If CE Espresso cannot meet the
+>   isolation or startup needs, the OQ-002 **process-isolation fallback** is used for the MVP.
+> - "GraalVM CE 23" elsewhere in this document is the deprecated GraalVM product-version label and
+>   means **GraalVM CE for JDK 21** (the installed version; there is no CE build for JDK 23).
+
 ## Related Documents
 
 - `game-contracts.md` — communication protocol between platform and game BE/FE
 - `game-development-experience.md` — GDK libraries, packaging, upload pipeline
 - `game-rooms.md` — room lifecycle, team management, game start/end triggers
 - `reconnection-flow.md` — disconnect detection, grace period, re-entry
+- `../decisions/INDEX.md` — ADR-0001 (local-first platform / gVisor production-only), ADR-0005 (Espresso spike gates the Game Host sandbox design)
 
 ## Related API Specifications
 
@@ -61,7 +77,7 @@ This document defines the requirements for the game execution infrastructure: ho
 | FR-CTX-008 | Context resource limits — CPU | Each action invocation within a Truffle context must have a configurable CPU time limit (default: 30 seconds, consistent with `game-contracts.md` NFR-REL-002). When the limit is exceeded, the invocation is terminated and the session fails. | Must |
 | FR-CTX-009 | Context idle eviction | When the last active session in a Truffle context ends, an idle timer begins (configurable, default: 5 minutes). If no new session is created for that game version before the timer expires, the context is destroyed and its resources freed. | Should |
 | FR-CTX-010 | Context idle eviction — memory pressure | When the Game Host's total memory usage exceeds a configurable threshold, it must evict idle contexts using a least-recently-used (LRU) strategy, regardless of whether their idle timer has expired. Contexts with active sessions are never evicted. | Must |
-| FR-CTX-011 | Espresso for JVM | For games declaring the `jvm` runtime type, the Game Host must use GraalVM Espresso (Java on Truffle) to load and execute standard JARs within Truffle contexts. Espresso provides a Java 21 guest JVM. Game backend code must not use Java 22+ APIs. The Game Host process itself runs on GraalVM CE 23 (Java 21 host). | Must |
+| FR-CTX-011 | Espresso for JVM | For games declaring the `jvm` runtime type, the Game Host must use GraalVM Espresso (Java on Truffle) to load and execute standard JARs within Truffle contexts. Espresso provides a Java 21 guest JVM. Game backend code must not use Java 22+ APIs. The Game Host process itself runs on GraalVM CE for JDK 21 (Java 21 host). | Must |
 | FR-CTX-012 | Polyglot extensibility | The Game Host architecture must support adding new Truffle-based language runtimes (GraalJS, GraalPy, etc.) for future non-JVM game backends. Adding a new runtime requires no changes to the Orchestration Service or the game contracts. | Should |
 
 ### Game Host — Session Management
@@ -131,7 +147,7 @@ This document defines the requirements for the game execution infrastructure: ho
 
 | ID | Title | Description | Priority |
 |----|-------|-------------|----------|
-| FR-SEC-001 | gVisor runtime | Game Host containers must run under a gVisor sandbox runtime. gVisor intercepts system calls and provides a user-space kernel, limiting the attack surface available to code running inside the container. | Must |
+| FR-SEC-001 | gVisor runtime | Game Host containers must run under a gVisor sandbox runtime. gVisor intercepts system calls and provides a user-space kernel, limiting the attack surface available to code running inside the container. **MVP: deferred** — `runsc` is unavailable on Docker Desktop/WSL2; the MVP relies on Truffle context sandboxing plus pod isolation (ADR-0001). | Post-MVP |
 | FR-SEC-002 | No outbound network | Game Host containers must have no outbound network access except to: the Orchestration Service (gRPC), the Artifact Store (artifact fetching), Redis (state persistence), and the Kubernetes health check endpoint. All other network traffic must be blocked. | Must |
 | FR-SEC-003 | Read-only filesystem | The Game Host container's filesystem must be read-only, except for a designated temporary directory used for the artifact cache. | Must |
 | FR-SEC-004 | Non-root execution | The Game Host process must run as a non-root user inside the container. | Must |
@@ -147,7 +163,7 @@ This document defines the requirements for the game execution infrastructure: ho
 | FR-SCALE-004 | Scale-out threshold — memory | The memory-based scale-out threshold is a configurable percentage of the container's memory limit (e.g., 80%). | Must |
 | FR-SCALE-005 | Scale-out threshold — sessions | The session-count-based scale-out threshold is a configurable maximum number of active sessions per container. | Must |
 | FR-SCALE-006 | Scale-in | When a Game Host container's resource usage drops below a configurable threshold and another instance can absorb its remaining sessions, the platform may drain and terminate the container. New sessions are not routed to a draining container; existing sessions complete naturally. | Should |
-| FR-SCALE-007 | Cold start budget | A new Game Host container must be ready to process its first input within 5 seconds of the spin-up trigger. This includes container start, GraalVM initialization, and Game Host application readiness. | Must |
+| FR-SCALE-007 | Cold start budget | A new Game Host container must be ready to process its first input within 5 seconds of the spin-up trigger. This includes container start, GraalVM initialization, and Game Host application readiness. **MVP: deferred** — startup budget gated by the Espresso feasibility spike (ADR-0005); not enforced for the single-instance local MVP (ADR-0001). | Post-MVP |
 
 ### Failure Handling
 
@@ -181,7 +197,7 @@ This document defines the requirements for the game execution infrastructure: ho
 
 | ID | Category | Description | Target | Priority |
 |----|----------|-------------|--------|----------|
-| NFR-PERF-001 | Performance | Truffle context creation (excluding artifact fetch) | < 3s p95 | Should |
+| NFR-PERF-001 | Performance | Truffle context creation (excluding artifact fetch) — post-MVP target, gated by the Espresso feasibility spike on GraalVM CE for JDK 21 (ADR-0005) | < 3s p95 | Post-MVP |
 | NFR-PERF-002 | Performance | Artifact fetch from store on cache miss | < 5s p95 for 256 MB bundle | Should |
 | NFR-PERF-003 | Performance | Action routing overhead (Orchestration Service queue to Game Host invocation, excluding game processing) | < 50ms p95 | Should |
 | NFR-PERF-004 | Performance | Effect delivery overhead (Game Host response to WebSocket Gateway push) | < 50ms p95 | Should |
@@ -201,7 +217,7 @@ This document defines the requirements for the game execution infrastructure: ho
 | ID | Description |
 |----|-------------|
 | CON-001 | Game Host containers run on GraalVM Community Edition (CE) with Truffle framework for polyglot sandboxed execution. Oracle GraalVM is not required — Espresso and Truffle are fully available in CE, and Native Image (an Oracle GraalVM differentiator) is not used. |
-| CON-002 | JVM game code is executed via GraalVM Espresso (Java on Truffle), included in GraalVM CE. Espresso provides a Java 21 guest environment. Game backends must target Java 21. The Game Host process runs on GraalVM CE 23 / Java 21. |
+| CON-002 | JVM game code is executed via GraalVM Espresso (Java on Truffle), included in GraalVM CE. Espresso provides a Java 21 guest environment. Game backends must target Java 21. The Game Host process runs on GraalVM CE for JDK 21. |
 | CON-003 | Container sandboxing uses gVisor as the OCI runtime. |
 | CON-004 | Orchestration Service ↔ Game Host communication uses gRPC. |
 | CON-005 | Effect delivery from Orchestration Service to WebSocket Gateway uses direct push (no intermediate message bus). |
@@ -209,7 +225,7 @@ This document defines the requirements for the game execution infrastructure: ho
 | CON-007 | Artifact storage is abstracted behind an interface supporting local filesystem, MinIO (S3-compatible), and AWS S3. |
 | CON-008 | Infrastructure runs on Kubernetes. Development uses Docker Desktop Kubernetes or equivalent local cluster. Production targets cloud Kubernetes. |
 | CON-009 | All services are designed with cloud-native architecture in mind, but initial development and testing is fully local. |
-| CON-010 | The Game Host service runs on Java 21 (GraalVM CE 23). Game code executes inside an Espresso Java 21 guest context. Platform Monolith uses Java 21 with Spring Boot 3.5+. |
+| CON-010 | The Game Host service runs on Java 21 (GraalVM CE for JDK 21). Game code executes inside an Espresso Java 21 guest context. Platform Monolith uses Java 21 with Spring Boot 3.5+. |
 | CON-011 | Redis is used for game state persistence, action queue durability, and session routing metadata. All Orchestration Service state is stored in Redis, making the service stateless and horizontally scalable. |
 
 ---
@@ -231,5 +247,5 @@ This document defines the requirements for the game execution infrastructure: ho
 ## Open Questions
 
 - **OQ-001** — Truffle context memory overhead: the actual per-context memory overhead of Espresso contexts needs to be benchmarked. This affects the scale-out thresholds and the number of contexts a single container can support. Prototype validation is needed.
-- **OQ-002** — ~~GraalVM Espresso maturity~~ **Partially resolved:** Espresso passes the Java Compatibility Kit (JCK) for Java SE 21 and is mature enough to run large applications (Eclipse IDE, Scala). Performance is 2–3x slower than HotSpot, which is acceptable for turn-based game logic given the 30-second CPU time budget. Remaining validation needed: compatibility of common Java game libraries under Espresso's Java 21 guest. Fallback (process-level isolation with standard JVMs) remains available if compatibility issues arise in practice.
+- **OQ-002** — ~~GraalVM Espresso maturity~~ **Partially resolved:** Espresso passes the Java Compatibility Kit (JCK) for Java SE 21 and is mature enough to run large applications (Eclipse IDE, Scala). Performance is 2–3x slower than HotSpot, which is acceptable for turn-based game logic given the 30-second CPU time budget. Remaining validation needed: compatibility of common Java game libraries under Espresso's Java 21 guest. Fallback (process-level isolation with standard JVMs) remains available if compatibility issues arise in practice. **This fallback is first-class for the MVP:** per ADR-0005, an Espresso feasibility spike on GraalVM CE for JDK 21 (also validating OQ-001 per-context overhead and the FR-CTX isolation controls) gates whether the MVP uses in-context Truffle isolation or the process-isolation fallback. The spike runs before the FR-CTX enforcement design is frozen.
 - **OQ-003** — Scale-in session draining: the exact mechanism for draining sessions from a container being scaled in needs further design. With Redis-backed state, sessions can be migrated by reassigning the routing entry — the new Game Host loads state from Redis. The question is whether to wait for natural session completion or actively migrate.

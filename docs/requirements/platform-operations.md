@@ -8,6 +8,7 @@ This document defines operational requirements for the TurnBase platform: servic
 - `game-contracts.md` — Platform ↔ game communication protocol
 - `user-accounts.md` — Guest account lifetime, session management
 - `notifications-invitations.md` — Notification retention policy
+- `../decisions/INDEX.md` — ADR-0001 (local-first platform), ADR-0002 (WebSocket room affinity), ADR-0003 (availability target)
 
 ---
 
@@ -35,15 +36,15 @@ The Platform Monolith communicates with the Game Host over gRPC. All other inter
 
 **Note:** Earlier requirements documents (e.g., `game-rooms.md`, `platform-architecture.md`) use the term "Orchestration Service" to describe what is now the Orchestration domain within the Platform Monolith. These references are logically equivalent; the boundary is a package/module boundary, not a process boundary.
 
-### WebSocket Horizontal Scaling
+### WebSocket Scaling — Room Affinity
 
-The WebSocket Gateway is part of the Platform Monolith. To support horizontal scaling without sticky sessions, the platform must use Redis pub/sub to route effect deliveries across monolith instances:
+The WebSocket Gateway is part of the Platform Monolith. WebSocket scaling uses **room affinity** (ADR-0002): all connections for a given room are handled by a single monolith instance, selected at connection time by routing on `roomId` at the ingress.
 
-- When the Orchestration logic produces effects for a session, it publishes them to a Redis channel keyed by player connection ID.
-- All monolith instances subscribe to this channel.
-- The instance holding the target player's WebSocket connection delivers the effect.
+- Because every connection for a room lives on one instance, the Orchestration logic delivers effects and events to their recipients in-process — there is no cross-instance routing.
+- Ordering and consistency for a room are guaranteed by that single owning instance.
+- Redis is used for game-state persistence and crash recovery (see `platform-architecture.md`), **not** for routing WebSocket traffic between instances.
 
-This allows any monolith instance to handle orchestration work regardless of which instance holds the recipient's connection.
+For the MVP the platform runs as a single local instance (ADR-0001), so affinity is trivially satisfied; the `roomId`-based ingress rule becomes relevant only in a future multi-instance deployment.
 
 ---
 
@@ -134,11 +135,11 @@ This allows any monolith instance to handle orchestration work regardless of whi
 
 | ID | Category | Description | Target | Priority |
 |----|----------|-------------|--------|----------|
-| NFR-AVAIL-001 | Availability | All platform services (Platform Monolith, Game Host) must meet an availability target. Measured as percentage of time the service successfully handles requests. | 99.9% uptime | Must |
+| NFR-AVAIL-001 | Availability | MVP availability target for all platform services (Platform Monolith, Game Host), measured as percentage of time the service successfully handles requests. 99.9% is a post-MVP aspiration requiring cloud HA, staging, and on-call (ADR-0003). | 99% uptime (MVP); 99.9% aspiration | Must |
 | NFR-PERF-001 | Performance | HTTP API p95 response latency for non-game-session endpoints (user, catalog, rooms, social) | < 200ms p95 | Should |
 | NFR-PERF-002 | Performance | WebSocket effect delivery latency from Orchestration logic to client (Platform Monolith internal path, excluding Game Host processing) | < 50ms p95 | Should |
 | NFR-PERF-003 | Performance | Platform Monolith must support concurrent WebSocket connections without degrading HTTP API latency | 5,000 concurrent connections | Should |
-| NFR-SCALE-001 | Scalability | The Platform Monolith must support horizontal scaling by running multiple instances behind a load balancer. No application-level sticky session requirements (WebSocket cross-instance routing handled via Redis pub/sub). | ≥2 instances without data races | Must |
+| NFR-SCALE-001 | Scalability | The Platform Monolith is designed to scale horizontally behind a load balancer using WebSocket **room affinity** (route by `roomId`; ADR-0002) rather than cross-instance pub/sub. Multi-instance horizontal scaling, HPA, connection draining, and cold-start budgets (`FR-SCALE-*`) are **deferred to post-MVP** (ADR-0001); the MVP runs a single local instance. | ≥2 instances without data races | Post-MVP |
 | NFR-OBS-001 | Observability | All production incidents must be diagnosable using logs, metrics, and traces without requiring access to the live production environment. | Full post-incident observability | Must |
 
 ---
@@ -148,7 +149,7 @@ This allows any monolith instance to handle orchestration work regardless of whi
 | ID | Description |
 |----|-------------|
 | CON-001 | Backend services use Java 21 with Spring Boot 3.5+. |
-| CON-002 | The Platform Monolith uses PostgreSQL as its primary relational database and Redis for pub/sub (WebSocket routing) and application-level caching. |
+| CON-002 | The Platform Monolith uses PostgreSQL as its primary relational database and Redis for live game-state persistence / crash recovery and application-level caching. Redis is **not** used for WebSocket routing (room affinity — ADR-0002). |
 | CON-003 | Metrics are instrumented via Micrometer (Spring Boot native) and exposed in Prometheus format. |
 | CON-004 | Logs are structured JSON, emitted to stdout, collected by Kubernetes and forwarded to Grafana Loki. |
 | CON-005 | Distributed tracing uses the OpenTelemetry Java agent. Trace data is exported to Grafana Tempo. |
@@ -157,7 +158,7 @@ This allows any monolith instance to handle orchestration work regardless of whi
 | CON-008 | Docker images are built and pushed to a container registry as part of the CI pipeline. |
 | CON-009 | Deployments are tag-based (semver tags on `main`). No automatic deployment on untagged merges. |
 | CON-010 | Integration and E2E tests use Docker Compose to spin up real service dependencies (PostgreSQL, Redis) locally within the CI runner. |
-| CON-011 | Infrastructure runs on Kubernetes. Two environments: local (Docker Desktop Kubernetes or equivalent) and production (cloud Kubernetes, provider TBD). |
+| CON-011 | For the MVP, infrastructure runs on **local Docker Desktop Kubernetes** (WSL2), with docker-compose as a supported quick-start profile (ADR-0001). Cloud Kubernetes is a post-MVP aspiration; provider not selected. |
 
 ---
 
@@ -166,7 +167,7 @@ This allows any monolith instance to handle orchestration work regardless of whi
 - Kubernetes cluster provisioning, infrastructure-as-code, and network topology
 - Service mesh, ingress controller configuration, and TLS termination details
 - Container registry selection and image signing
-- Kubernetes provider selection (cloud provider TBD)
+- Cloud deployment for the MVP — AWS/EKS, Terraform, ALB/ACM/Route53, and Kubernetes provider selection are deferred to post-MVP (ADR-0001)
 - Game execution infrastructure observability (defined in `platform-architecture.md`)
 - Admin tooling and moderation (separate gap — not yet specified)
 - Multi-region deployment and geo-redundancy

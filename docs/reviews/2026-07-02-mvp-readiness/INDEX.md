@@ -45,6 +45,14 @@ Cross-references (e.g. CORE-1) point into the per-domain reports, which carry fu
 
 ## Strategic decisions needing the project owner
 
+> **Resolved 2026-07-10.** All six ratified in an owner decision session and recorded as ADRs in
+> [`docs/decisions/`](../../decisions/INDEX.md): the MVP is **local-first** (Docker Desktop
+> Kubernetes + compose quick-start; cloud/gVisor deferred — ADR-0001), WebSocket scaling uses
+> **room affinity** (ADR-0002), availability target is **99% MVP** / 99.9% aspiration (ADR-0003),
+> account erasure **pseudonymizes** history (ADR-0004), `FR-SCALE-*` and the 3s/5s startup NFRs are
+> **deferred to post-MVP**, and the **Espresso feasibility spike runs first** to gate the Game Host
+> spec (ADR-0005). The original options are preserved below for provenance.
+
 1. **AWS/EKS vs GKE, and gVisor timing.** gVisor-as-Must collides with EKS (custom node AMI) and with local WSL2 dev (runsc unavailable — GRMP lesson). Recommended: stay AWS/EKS per your preference, demote gVisor to **production-only, post-first-deploy hardening** (Truffle + pod isolation meanwhile), record as an ADR. Picking GKE purely for managed gVisor is the alternative.
 2. **Compose-first MVP profile.** GRMP never escaped docker-compose in 15 months. Recommended: keep K8s as the production target (it's a stated project goal) but spec docker-compose as the fully supported dev/demo profile and defer FR-SCALE-* (HPA, draining, cold-start budgets) to post-MVP.
 3. **WebSocket scaling model** (API-3): room affinity vs Redis pub/sub. Recommended: room affinity; amend `platform-operations.md`.

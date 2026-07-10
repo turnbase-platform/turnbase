@@ -5,6 +5,7 @@
 - [rest-conventions.md](../specs/api-design/rest-conventions.md) — HTTP methods, status codes, authentication via httpOnly cookie
 - [error-handling.md](../specs/api-design/error-handling.md) — RFC 9457 Problem Details, validation error format
 - [rate-limiting.md](../specs/api-design/rate-limiting.md) — Tier 1 auth endpoint rate limiting (implements NFR-SEC-003)
+- [decisions/0004-account-erasure-pseudonymization.md](../decisions/0004-account-erasure-pseudonymization.md) — ADR-0004: account deletion pseudonymizes game history (FR-ACCT-005)
 
 ## Stakeholders
 | Role | Description |
@@ -57,7 +58,7 @@
 | FR-ACCT-002 | Username update | A user may update their username at most once per rolling 30-day window. The new username must be unique at time of update. | Must |
 | FR-ACCT-003 | Email update | A user may update their email address at most once per rolling 30-day window. Not available for accounts whose email originates from an OAuth provider. The new email must be unique at time of update. | Must |
 | FR-ACCT-004 | Account deletion | A user may permanently delete their account from their profile settings. Deletion is irreversible. | Must |
-| FR-ACCT-005 | Deletion — data purge | On account deletion, all of the following are removed: the user's game history, the user's statistics, the user's uploaded games (see FR-ACCT-007), and the user's entries in all friends' friend lists. The account's UUID is retired and not reused. The email address is released and becomes available for re-registration. | Must |
+| FR-ACCT-005 | Deletion — data purge | On account deletion, the following are removed: the user's statistics, the user's uploaded games (see FR-ACCT-007), and the user's entries in all friends' friend lists. The user's **game history is pseudonymized, not removed** — retained with the person's identity replaced by a non-reversible token and PII stripped (see `game-history.md` FR-HIST-030, ADR-0004). The account's UUID is retired and not reused. The email address is released and becomes available for re-registration. | Must |
 | FR-ACCT-006 | Deletion — username reservation | On account deletion, the username is soft-deleted: it is permanently reserved and cannot be registered or claimed by any new or existing user. | Must |
 | FR-ACCT-007 | Deletion — uploaded games | Games uploaded by a deleted user are archived immediately and made invisible to the public. Archived games are permanently deleted once no active game sessions reference them. | Must |
 | FR-ACCT-008 | Deletion — statistics impact | Removal of a deleted user's personal statistics does not affect per-game session counters. Session counters are denormalized and are never decremented. See per-game-statistics.md FR-STATS-004. | Must |

@@ -9,6 +9,7 @@ This document defines the requirements for recording and displaying a registered
 - `game-contracts.md` — defines the `game_over` structured outcome that drives history recording
 - `game-catalog.md` — pagination model reused here (FR-CAT-004)
 - `platform-views.md` — profile view and settings view (amended alongside this spec)
+- `../decisions/0004-account-erasure-pseudonymization.md` — ADR-0004: account deletion pseudonymizes history
 
 ---
 
@@ -74,6 +75,12 @@ The platform derives a single human-readable label per entry from `placement`, `
 | FR-HIST-028 | Owner always sees own history | A user always sees their own history tab when viewing their own profile, regardless of privacy settings. | Must |
 | FR-HIST-029 | Visitor visibility | The history tab is visible to visitors only when the profile is public and the game history section is not hidden via per-section privacy settings (see FR-PROF-006 in `user-accounts.md`). | Must |
 
+### Account Deletion & Data Lifecycle
+
+| ID | Title | Description | Priority |
+|----|-------|-------------|----------|
+| FR-HIST-030 | Account deletion — pseudonymization | On account deletion, the user's history entries are **retained, not deleted**: the entry's link to the person is replaced with a stable, non-reversible pseudonymous token and any PII (username, email, avatar / display name) is stripped, so the rows remain valid for session and per-game statistics integrity while no longer constituting personal data (GDPR pseudonymization — ADR-0004). This **supersedes the earlier hard-delete behavior**. Pseudonymized entries no longer surface on any profile, since the account itself is soft-deleted (`user-accounts.md` FR-ACCT-009). Detailed erasure mechanics (exact fields, timing, audit trail) are deferred to a future data-operations spec. | Must |
+
 ---
 
 ## Non-Functional Requirements
@@ -82,7 +89,7 @@ The platform derives a single human-readable label per entry from `placement`, `
 |----|----------|-------------|--------|----------|
 | NFR-HIST-001 | Performance | History list query latency (paginated, with optional search filter) | p95 < 300ms | Must |
 | NFR-HIST-002 | Scalability | History queries must be backed by database indexing on user ID, completed-at timestamp, and game name snapshot to remain performant as history volume grows. | — | Must |
-| NFR-HIST-003 | Storage | History entries are retained for the lifetime of the user account. On account deletion, all history entries for that user are removed (consistent with FR-ACCT-005 in `user-accounts.md`). | — | Must |
+| NFR-HIST-003 | Storage | History entries are retained for the lifetime of the user account and beyond: on account deletion they are **pseudonymized rather than removed** (retained with the person's identity replaced by a non-reversible token), consistent with FR-HIST-030 and FR-ACCT-005 in `user-accounts.md` (ADR-0004). | — | Must |
 
 ---
 

@@ -24,7 +24,7 @@ Check [STATUS.md](STATUS.md) at the start of each session for current state, las
 | Layer | Technology | Notes |
 |-------|-----------|-------|
 | Platform Monolith | Java 21, Spring Boot 3.5+ | |
-| Game Host service | Java 21, GraalVM CE 23 + Truffle | Host JVM is Java 21; game code runs in Espresso (Java 21 guest) |
+| Game Host service | Java 21, GraalVM CE for JDK 21 + Truffle | Host JVM is Java 21; game code runs in Espresso (Java 21 guest). No CE build exists for JDK 23; the earlier "CE 23" label was the deprecated GraalVM product-version scheme. |
 | Game backends (SDK) | Java 21 (max) | Executed in Espresso; must not use Java 22+ APIs |
 | Frontend (platform) | React 19, TypeScript | Clean, responsive, modern |
 | Game UIs | Any JS-compilable language | Sandboxed iframes |
@@ -45,7 +45,7 @@ TurnBase lives under the **[turnbase-platform](https://github.com/turnbase-platf
 | [`turnbase-common`](https://github.com/turnbase-platform/turnbase-common) | Internal shared library: gRPC stubs, internal models | `io.turnbase:turnbase-grpc` (Maven) |
 | [`turnbase-sdk`](https://github.com/turnbase-platform/turnbase-sdk) | Public GDK: `TurnBaseGame` interface, effect/input types, TS types | `io.turnbase:turnbase-sdk` (Maven) + npm package |
 | [`turnbase-platform`](https://github.com/turnbase-platform/turnbase-platform) | Platform Monolith (Spring Boot 3.5+) | Docker image |
-| [`turnbase-game-host`](https://github.com/turnbase-platform/turnbase-game-host) | Game Host (GraalVM CE 23 + Truffle) | Docker image |
+| [`turnbase-game-host`](https://github.com/turnbase-platform/turnbase-game-host) | Game Host (GraalVM CE for JDK 21 + Truffle) | Docker image |
 | [`turnbase-frontend`](https://github.com/turnbase-platform/turnbase-frontend) | Platform frontend (React 19, TypeScript) | Docker image / static assets |
 
 ```
