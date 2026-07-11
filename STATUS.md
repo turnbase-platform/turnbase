@@ -1,48 +1,65 @@
 ## Last Session Summary
 
-**Date:** 2026-07-11 (session 4)
+**Date:** 2026-07-11 (session 5)
 
-**Wrote the Game Host & Execution Internals spec** (review "New spec documents" #4; STATUS priority
-#3), now unblocked by the Espresso spike (ADR-0005) and trust model (ADR-0006). Ran it through the
-brainstorming + requirements-engineering cadence; four owner decisions were taken, then three
-cross-doc contradictions the spec surfaced were reconciled.
+**Wrote the game-session WebSocket protocol** (review "New spec documents" #5; STATUS priority #4) —
+the client half of the game execution chain, picking up exactly where session 4's Game Host spec
+stopped ("Orchestration hands effect E to the Gateway, addressed to recipient set R, tagged with
+`sequence` N"). Per owner decision it was written **into `websocket.md` in place** rather than as a
+new doc. **Closes GAME-B1, GAME-I4, GAME-I6.**
 
-**Owner decisions taken this session:**
-1. **Runtime model = Espresso in a hardened container** — one GraalVM CE 21 host JVM per pod, one
-   Espresso context per game-version, sessions multiplex. Keeps the Truffle showcase + FR-CTX-012
-   polyglot roadmap. (Alternatives rejected: plain-JVM-per-process, context-per-session.)
-2. **Canonical state = serialized JSON** held in host memory + Redis; guest (de)serializes per
-   invocation. Serialization engine is a **shared component** with the test harness/upload validator
-   → structural GRMP-F4 round-trip test.
-3. **Concurrent sessions + accepted interrupt caveat** — per-session single-flight, cross-session
-   concurrency; `Context.interrupt` is context-scoped, so a timeout may abort a concurrent sibling
-   (re-dispatched, state uncommitted). Documented, not hidden.
-4. **One `TurnBaseGame` instance per session**; spec covers **both sides end-to-end** (Game Host +
-   Orchestration execution pipeline), stopping at the WS Gateway seam (STOMP left to GAME-B1).
+**The load-bearing owner decision: catch-up by `resync`, not by an effect journal.**
+The review recommended retaining every effect per session and replaying it on subscribe. The owner
+chose instead to **ask the game backend** for an attaching viewer's current view. Rationale: a journal
+means archiving every ≤10 MB effect payload of every live session in a single non-HA Redis (OPS-4);
+and only the game backend *can* compose a per-viewer snapshot, since the platform is forbidden to read
+game state (NFR-SEC-003) and each viewer is entitled to a different slice of it. ADR-0006 (first-party
+games only) makes the contract addition cheap now and expensive later.
 
-**Blockers closed:** GAME-I1/I2 (internals), **GAME-B2** (atomic Redis session record
-`{stateJson, lastAppliedSequence, lastEffects}` + idempotent `CreateSession` + `sequence`-replay →
-exactly-once application), execution half of **GAME-B1** (effect fan-out FR-DELIVER). Captured spike
-follow-ups (ship JDK 21 guest via `java.JavaHome`; drop `IOAccess.NONE`/`MaxHeapMemory` as
-enforcement; container provides FS/net/memory). Four OQs carried.
+**How it closes I6 without a race.** The client subscribes *first*, then requests a sync. The backend's
+read-only `onResync` returns the view plus the `asOfSequence` it reflects. Anything at or below that
+watermark is inside the snapshot; anything above it was fanned out *after* the client was already
+subscribed, so it was buffered and applies on top. One mechanism covers game start, reconnection, and
+late join. Falls out for free: **the resync view is always the first `game_event` a freshly loaded game
+FE receives**, so a game FE never has to distinguish a snapshot from a delta — which also resolves
+frontend-gdk OQ-001.
 
-**Three contradictions reconciled (owner-approved, all edited now):**
-- **GAME-M4** — swept `stdin/stdout` → in-process polyglot invocation across 6 references.
-- **GAME-I5** — game `parameters` reframed from "opaque, never-inspected" to a platform-materialized
-  manifest-keyed JSON map (proto comment + protocol doc corrected).
-- **I/O denial** — `CON-005` / backend-gdk §9 reframed: "no FS/network" is a trusted-author contract
-  obligation enforced at the **container layer**, not an in-JVM sandbox exception (spike reality).
+**Design decisions recorded:**
+1. **Destinations:** `broadcast`/log/lifecycle → `/topic/game.{sessionId}`; `send_to_team` →
+   `/topic/game.{sessionId}.team.{teamId}` (membership-validated subscription); `send_to_player` →
+   `/user/queue/game`. NFR-SEC-002 becomes mechanical rather than aspirational.
+2. **`(sequence, index)`** is the wire dedup/ordering key; `index: -1` for platform lifecycle events
+   sorts them ahead of the game's effects for the same input. **No gap detection** — the game stream is
+   deliberately sparse (a `send_to_player` to someone else consumes a sequence you never see), unlike
+   the room's dense `version` stream. Recovery is always by resync, never by gap.
+3. **Session affinity follows room affinity** (ADR-0002) → effect fan-out is a local call.
+4. **Action authorization (I4):** channel-level fast-fail + authoritative re-check under the session
+   lock (participation is mutable — kick, grace expiry). Spectators can never act.
+5. **`SESSION_FAILED` moved to the session topic** (it is session-wide, not a per-user command error).
+6. A failed `onResync` fails **only that client's attach** — never the session, and it does not count
+   toward the retry limit. A read cannot kill a game.
+
+**Contract ripple (the price of the resync call — all edited now):** new `resync` input
+(game-contracts FR-IN-006/FR-RESP-005, FR-DELIVER-005/006), dedicated `Resync` RPC in the proto
+(deliberately *not* a `ProcessInput` variant: no sequence, no state write, no watermark), a 4th
+required GDK hook (`onResync` → `ViewResult`), and the read-only dispatch path in the Game Host spec.
+FR-FE-001's "initial state arrives via `send_to_player`" is now false and was corrected — `onInit`
+effects are **not** delivery-guaranteed.
+
+**Also fixed in passing:** the `GAME_STARTED` topic-separator bug (review API-4), and the missing
+`PLAYER_LEFT_REASON_LEFT` proto/GDK enum value that FR-IN-005 requires.
 
 **Files changed:**
-- `docs/specs/game-host/game-host-internals.md` — **new** (the spec)
-- `docs/specs/game-host/INDEX.md` — **new**; registered in `docs/specs/INDEX.md`
-- `docs/requirements/platform-architecture.md` — game-host spec back-link; NFR-SEC-002 sweep
-- `docs/requirements/game-contracts.md` — Game Host term, CON-001, CON-005, out-of-scope sweeps
-- `docs/requirements/game-development-experience.md` — GDK Host term, FR-GDK-015 sweeps
-- `docs/specs/internal-grpc/{INDEX.md,gamehost.proto,orchestration-gamehost-protocol.md}` — back-link
-  + `parameters` model correction
-- `docs/specs/gdk-api/backend-gdk-api.md` — §1 in-process ref, §9 I/O-denial reframe
-- `STATUS.md` — this update
+- `docs/specs/api-design/websocket.md` — **the spec** (Game Session Protocol section)
+- `docs/specs/api-design/{INDEX.md,room-websocket.md}` — index entry; `GAME_STARTED` fix
+- `docs/requirements/game-contracts.md` — FR-IN-006, FR-RESP-005, FR-FE-001 correction, spec links
+- `docs/requirements/platform-architecture.md` — FR-DELIVER-005/006, spec link
+- `docs/requirements/game-development-experience.md` — FR-GDK-002/003, NFR-DX-002
+- `docs/requirements/reconnection-flow.md` — Related API Specifications
+- `docs/specs/internal-grpc/{gamehost.proto,orchestration-gamehost-protocol.md,INDEX.md}` — `Resync`
+- `docs/specs/gdk-api/{backend-gdk-api.md,frontend-gdk-api.md,INDEX.md}` — `onResync`, OQ-001 resolved
+- `docs/specs/game-host/game-host-internals.md` — read-only dispatch path, no-journal statement
+- `docs/reviews/2026-07-02-mvp-readiness/INDEX.md`, `STATUS.md` — closure record
 
 ---
 
@@ -57,20 +74,27 @@ Continue the review's action plan (`docs/reviews/2026-07-02-mvp-readiness/INDEX.
 3. **Game Host internals spec** — ✅ done (2026-07-11, session 4). Espresso-in-hardened-container;
    `docs/specs/game-host/game-host-internals.md`. Closed GAME-I1/I2, GAME-B2, exec-half of GAME-B1;
    reconciled GAME-M4, GAME-I5, and the I/O-denial contradiction.
-4. **Remaining blocker spec fixes** — WS abuse controls (API-1/2); **game-session WebSocket spec
-   (GAME-B1 client half)** — per-team topics, `/user/queue/game`, STOMP event catalogue,
-   `sequence`-based client dedup, deliver-on-subscribe replay, action-send authorization (the seam
-   this session's spec stops at); FE serving origin/CSP (GAME-B3).
-4. **New specs (mostly rescoped local-first):** local deployment & infrastructure spec (Docker
-   Desktop K8s + compose per ADR-0001), data-operations spec (Postgres/Redis local, accepted
-   game-state loss window — OPS-4), secrets & config spec, Game Host internals spec (after spike),
-   game-session WebSocket spec (GAME-B1), `input-validation.md` (API-6).
-5. **Existing-doc edit checklist cluster** (review §): game-rooms/reconnection grace timers as
+4. **Game-session WebSocket spec** — ✅ done (2026-07-11, session 5). `websocket.md` § Game Session
+   Protocol. Closed **GAME-B1** (client half), **I4**, **I6**. Catch-up is by read-only `resync`
+   (new game-contract input), not by an effect journal.
+5. **Remaining execution-chain blocker** — **GAME-B3**: game FE serving origin, iframe `sandbox`
+   attributes, and CSP. It is the last hard prerequisite for the client path, and the FE GDK's
+   bootstrap contract (frontend-gdk-api §9) plus the shell relay contract (websocket.md) both already
+   depend on the origin decision. Pairs naturally with the bundle/upload-pipeline spec.
+6. **WS abuse controls (API-1/2)** — `rate-limiting.md` WS message tier (chat flood, room-lock
+   starvation, and now `SUBMIT_ACTION`/`REQUEST_GAME_SYNC`, all reachable by guests) + guest-creation
+   bucket. The game-session spec explicitly leaves its destinations unthrottled and flags it.
+7. **New specs (rescoped local-first):** local deployment & infrastructure spec (Docker Desktop K8s +
+   compose per ADR-0001), data-operations spec (Postgres/Redis local, accepted game-state loss window
+   — OPS-4), secrets & config spec, `input-validation.md` (API-6).
+8. **Existing-doc edit checklist cluster** (review §): game-rooms/reconnection grace timers as
    persisted deadlines (GRMP-F2/F3), platform-operations reconciliation sweep (GRMP-F1) +
-   Dependabot/Trivy + frontend in FR-CICD-001, rest-conventions authz/IDOR, rate-limiting WS tier,
-   gRPC proto edits (incl. `left` reason value), platform-ui-library additions.
-6. **Then** the previously planned queue: game bundle format + upload pipeline, test harness,
-   platform-frontend shell spec (must fail closed on trust level — GRMP-F5).
+   Dependabot/Trivy + frontend in FR-CICD-001, rest-conventions authz/IDOR, platform-ui-library
+   additions. *(Two items already done: the `left` proto reason value and the `GAME_STARTED`
+   separator fix, session 5.)*
+9. **Then** the previously planned queue: game bundle format + upload pipeline, test harness,
+   platform-frontend shell spec (must fail closed on trust level — GRMP-F5; must honor the
+   `websocket.md` relay contract and the `__TURNBASE__` bootstrap contract).
 
 ---
 
@@ -110,5 +134,7 @@ ADR-0006 (game trust model — official-only Java for MVP).
 | `game-contracts.md` | OQ-001: Log color annotation syntax — deferred to GDK spec |
 | `game-contracts.md` | OQ-002: AI/bot player interface — deferred to future spec |
 | `game-contracts.md` | OQ-003: Platform-managed timer system — deferred to future spec |
+| `websocket.md` | OQ-001: Resync cost under a mass reconnect (N resyncs serialize behind one session lock) — cache the per-viewer view against `lastAppliedSequence` if it becomes a hotspot |
+| `websocket.md` | OQ-002: A game whose `onResync` returns an empty spectator view leaves spectators blank until the next `broadcast` — the test harness should warn |
 | `admin-tooling.md` | OQ-001: Can a developer resubmit a rejected game, or is rejection terminal? |
 | `admin-tooling.md` | OQ-002: Can an operator delist a Verified or Official game post-approval? |

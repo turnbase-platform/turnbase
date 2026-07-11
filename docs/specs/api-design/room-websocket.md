@@ -40,7 +40,7 @@ If the owning pod crashes, all users in its rooms lose their WebSocket connectio
 
 ## Destinations
 
-The following destinations extend [websocket.md](websocket.md). Existing destinations (`/topic/game.{sessionId}`, `/app/game.{sessionId}.action`, `/user/queue/errors`) are unchanged.
+The following destinations extend [websocket.md](websocket.md). The game-session destinations (`/topic/game.*`, `/user/queue/game`, `/app/game.*.action`, `/app/game.*.sync`) and `/user/queue/errors` are defined in [websocket.md](websocket.md) and are unchanged here.
 
 | Destination | Direction | Authorized subscribers / senders | Purpose |
 |---|---|---|---|
@@ -311,18 +311,19 @@ After receiving this event, clients should unsubscribe and navigate away. The ro
 
 #### `GAME_STARTED`
 
-The host has started the game (FR-HOST-009). Clients should subscribe to the game topic and transition to the game view.
+The host has started the game (FR-HOST-009). Clients transition to the game view and enter the game-session attach flow: subscribe to the game destinations, then request a sync. See [websocket.md § Game Session Protocol](websocket.md#game-session-protocol).
 
 ```json
 {
   "type": "GAME_STARTED",
   "version": 50,
   "payload": {
-    "sessionId": "uuid",
-    "gameTopic": "/topic/game/{sessionId}"
+    "sessionId": "uuid"
   }
 }
 ```
+
+The client derives its game destinations from `sessionId` (`/topic/game.{sessionId}`, `/topic/game.{sessionId}.team.{teamId}`, `/user/queue/game`); no topic string is sent. STOMP's path separator is `.`, not `/`.
 
 #### `GAME_ENDED`
 

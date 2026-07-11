@@ -32,8 +32,8 @@ Cross-references (e.g. CORE-1) point into the per-domain reports, which carry fu
 6. **API-3** — `room-websocket.md` room-affinity model vs `platform-operations.md` Redis-pub/sub scaling model: two incompatible architectures; one must be chosen (recommendation: room affinity).
 
 ### Game execution chain (game-execution-stack.md)
-7. **GAME-B1** — `send_to_player` / `send_to_team` effects have no secure WebSocket destination; STOMP game-event catalogue undefined; client-facing `sequence` missing.
-8. **GAME-B2** — Crash recovery as specified double-applies actions (idempotency cache not durable; `CreateSession` not idempotent). Fix: atomic Redis record `{state, lastAppliedSequence, lastEffects}`.
+7. ~~**GAME-B1**~~ — **Closed 2026-07-11.** Execution half in [`game-host-internals.md`](../../specs/game-host/game-host-internals.md) §10; client half in [`websocket.md` § Game Session Protocol](../../specs/api-design/websocket.md#game-session-protocol) — per-team topic, `/user/queue/game`, the STOMP game event catalogue, and `(sequence, index)` client dedup. **I4** (action-send authorization) and **I6** (initial-effect race) closed with it: I6 is resolved by a read-only `resync` input (game-contracts.md FR-IN-006) rather than an effect journal — the game backend composes each attaching viewer's current view, since the platform may not read game state.
+8. ~~**GAME-B2**~~ — **Closed 2026-07-11** ([`game-host-internals.md`](../../specs/game-host/game-host-internals.md) §8.1/§9): atomic Redis session record `{stateJson, lastAppliedSequence, lastEffects}` + idempotent `CreateSession` + sequence replay.
 9. **GAME-B3** — Game FE bundle serving origin/sandbox/CSP architecture unspecified, yet the FE GDK bootstrap contract depends on it. Overlaps API-5 (CSRF soundness) and GRMP-F5 (prototype shipped a fail-open trust fallback).
 
 ### Deployment (devops-deployment.md)
@@ -67,7 +67,7 @@ Cross-references (e.g. CORE-1) point into the per-domain reports, which carry fu
 2. **Data-operations spec** — RDS + backups/RPO-RTO, Flyway workflow, ElastiCache persistence/HA + accepted game-state loss window, S3 buckets. (OPS-3/4)
 3. **Secrets & production-observability spec** — Secrets Manager + External Secrets, JWT key handling, per-env config, prod monitoring stack sizing/retention, alert routing, external uptime check. (OPS-5, devops §6/§9)
 4. **Game Host internals spec** — maps each FR-CTX isolation requirement to a concrete CE-23-validated mechanism; GDK Host injection, serialization engine (shared component — GRMP-F4), guest classpath, instance-per-session model. (GAME-I1/I2)
-5. **Game session WebSocket spec** (extend `websocket.md` or new `game-websocket.md`) — per-team topics, `/user/queue/game`, STOMP event catalogue, `sequence`-based dedup, effect retention + deliver-on-subscribe replay, action-send authorization. (GAME-B1, I4, I6)
+5. ~~**Game session WebSocket spec**~~ — **Done 2026-07-11**, written into [`websocket.md` § Game Session Protocol](../../specs/api-design/websocket.md#game-session-protocol). Note the deviation from this recommendation: **no effect retention / deliver-on-subscribe replay**. A platform-held effect journal would mean archiving every ≤10 MB payload of every live session in a single non-HA Redis (OPS-4). Instead, an attaching client asks the *game backend* for its current view (read-only `resync`, FR-IN-006) — bounded, and it makes catch-up race-free by construction. Cost: a contract addition (proto `Resync` RPC, a 4th required GDK hook), cheap now that ADR-0006 scopes the MVP to first-party games. (GAME-B1, I4, I6)
 6. **`input-validation.md`** in `api-design/` — string/username/password caps, Unicode normalization, body-size limits, `parameters` cap, output-encoding statement. (API-6, CORE-6/21)
 
 ## Existing-doc edit checklist (IMPORTANT tier, groupable into 1–2 sessions)

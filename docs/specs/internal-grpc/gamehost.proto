@@ -49,6 +49,21 @@ service GameHostService {
   // (FR-IN-003/004/005, FR-ROUTE-002)
   rpc ProcessInput(ProcessInputRequest) returns (ProcessInputResponse);
 
+  // Compose the current view of the session for one viewer, by invoking the
+  // game's read-only onResync handler. (game-contracts.md FR-IN-006/FR-RESP-005)
+  //
+  // Deliberately NOT a ProcessInput variant: it mutates nothing. It allocates no
+  // sequence, does not advance lastAppliedSequence, does not write the session
+  // record, and does not touch the delivery watermark. The Orchestration Service
+  // delivers the returned view to the requesting client only.
+  //
+  // Ordering: the Game Host serves this under the session's single-flight lock,
+  // so the view is computed against a consistent state and is stamped with the
+  // sequence it reflects (as_of_sequence). This is the client's catch-up
+  // mechanism at game start, on reconnection, and on mid-game join; see
+  // ../api-design/websocket.md "Game Session Protocol".
+  rpc Resync(ResyncRequest) returns (ResyncResponse);
+
   // Force-terminate a session and free its local + Redis state. Used for host
   // kick / room close and for permanent failure after the retry limit.
   // (FR-SESS-005, FR-FAIL-005)
@@ -180,6 +195,50 @@ enum PlayerLeftReason {
   PLAYER_LEFT_REASON_UNSPECIFIED = 0;
   PLAYER_LEFT_REASON_GRACE_PERIOD_EXPIRED = 1;
   PLAYER_LEFT_REASON_KICKED = 2;
+  // Confirmed voluntary departure during an in-progress game: explicit
+  // "Leave Room", abandonment to join another room, or account deletion.
+  // Delivered immediately, bypassing the grace period (game-contracts.md
+  // FR-IN-005, reconnection-flow.md FR-DC-005).
+  PLAYER_LEFT_REASON_LEFT = 3;
+}
+
+// Read-only view request for one viewer of a live session (FR-IN-006).
+message ResyncRequest {
+  string session_id = 1;
+
+  // The viewer's role for this session. A spectator has no PlayerRef.
+  ViewerRole role = 2;
+
+  // The viewing player. Populated when role == VIEWER_ROLE_PLAYER; absent for
+  // spectators, who hold no player identity in the session.
+  PlayerRef viewer = 3;
+}
+
+enum ViewerRole {
+  VIEWER_ROLE_UNSPECIFIED = 0;
+  VIEWER_ROLE_PLAYER = 1;
+  VIEWER_ROLE_SPECTATOR = 2;
+}
+
+message ResyncResponse {
+  string session_id = 1;
+
+  // The sequence the view reflects — the session's lastAppliedSequence at
+  // invocation time. The client discards any buffered message at or below this
+  // watermark and applies the rest on top of the view, which is what makes the
+  // catch-up race-free (see websocket.md, "Why this is race-free").
+  uint64 as_of_sequence = 2;
+
+  ProcessStatus status = 3;
+
+  // Opaque, game-defined view payload for this viewer (UTF-8 JSON). Empty object
+  // is valid; delivered to the requesting client only. No effects, no state.
+  bytes view = 4;
+
+  // Populated only when status == PROCESS_STATUS_FAILED. A failed resync fails
+  // only this client's attach; it never terminates the session and does not
+  // count toward the retry limit (FR-RESP-005).
+  GameFailure failure = 5;
 }
 
 // ---------------------------------------------------------------------------

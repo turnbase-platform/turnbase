@@ -28,5 +28,6 @@ invokes it, persists state, and how effects are delivered — is designed in
 - **Channel of record is Redis, not the connection** — gRPC connections are disposable; any Orchestration replica can route any input.
 - **Unary, atomic responses** — one input in, one ordered effect list out, matching the synchronous game handler; per-session ordering enforced by the Redis queue, not the transport.
 - **Per-session `sequence` numbers** give idempotent re-dispatch (at-most-once application) plus a Redis delivery watermark for exactly-once delivery.
+- **`Resync` is the one read-only RPC** — it composes a single viewer's current view of the game and mutates nothing: no sequence, no queue entry, no state write, no watermark advance. It is how an attaching client (game start, reconnect, late join) catches up, and it exists because the platform is forbidden to read game state and so cannot compose a per-viewer snapshot itself.
 - **Two-tier error model** — transport failures via gRPC status codes (reroutable); game-code failures in-band via `ProcessStatus.FAILED` + typed `GameFailure` (retry-limited).
 - **Game state never crosses this wire**; all game-defined payloads are opaque `bytes`.

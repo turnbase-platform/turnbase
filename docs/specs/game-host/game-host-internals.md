@@ -49,7 +49,7 @@ the document that closes review blockers **GAME-I1/I2** (Game Host internals),
 |------|----------|
 | The gRPC message shapes, topology, error-model, message-size rules | [`../internal-grpc/`](../internal-grpc/INDEX.md) (settled) |
 | The `TurnBaseGame` API, contexts, effects, `GameOutcome`, determinism rules | [`../gdk-api/backend-gdk-api.md`](../gdk-api/backend-gdk-api.md) (settled) |
-| **Client-facing** realization of effect delivery — STOMP topics, `/user/queue/game`, the game-event envelope/catalogue, client-side dedup by `sequence`, deliver-on-subscribe replay, action-send authorization | **game-session WebSocket spec (GAME-B1, planned)** — this spec stops at *"Orchestration hands effect E to the WebSocket Gateway, addressed to recipient set R, tagged with `sequence` N"* |
+| **Client-facing** realization of effect delivery — STOMP topics, `/user/queue/game`, the game-event envelope/catalogue, client-side dedup by `(sequence, index)`, the `Resync`-based catch-up flow, action-send authorization | [`../api-design/websocket.md` § Game Session Protocol](../api-design/websocket.md#game-session-protocol) (GAME-B1/I4/I6) — this spec stops at *"Orchestration hands effect E to the WebSocket Gateway, addressed to recipient set R, tagged with `sequence` N"* |
 | gVisor, cluster provisioning, NetworkPolicy YAML, IaC | Deployment & infrastructure spec (planned) — this spec states the *required container properties* (§4) but not how they are provisioned |
 | Manifest validation, bundle/upload pipeline | [`../manifest/`](../manifest/INDEX.md) + upload-pipeline spec (planned) |
 
@@ -140,6 +140,7 @@ The host shim invokes these guest-bridge methods (all arguments and returns are
 | `processAction(sessionId, stateJson, playerJson, payloadJson)` | current state + action | `InvocationEnvelope` |
 | `processPlayerJoined(sessionId, stateJson, playerJson)` | current state + joiner | `InvocationEnvelope` |
 | `processPlayerLeft(sessionId, stateJson, playerJson, reason)` | current state + leaver | `InvocationEnvelope` |
+| `resync(sessionId, stateJson, viewerJson, role)` | current state + viewer | `ViewEnvelope` |
 | `disposeSession(sessionId)` | — | `void` |
 
 `teamsJson`, `playerJson`, and the `GameOutcome` in the envelope are **platform
@@ -163,6 +164,17 @@ platform-fixed schema the host also understands. Everything game-defined —
     { "type": "LOG",            "text": "…" },
     { "type": "GAME_OVER",      "outcome": { … }, "resultsPayloadJson": "…" }
   ]
+}
+```
+
+**`ViewEnvelope`** (the read-only `resync` reply — FR-IN-006):
+
+```jsonc
+{
+  "status": "OK" | "FAILED",
+  "failureKind": "HANDLER_EXCEPTION" | "MALFORMED_OUTPUT",  // FAILED only
+  "message": "diagnostic for platform logs",                // FAILED only
+  "viewJson": "…"    // opaque per-viewer view; OK only. No state, no effects.
 }
 ```
 
@@ -402,6 +414,25 @@ The persist-then-return order (step 5) implements FR-FAIL-006: the host does not
 (`OK`) until the Redis write succeeds, so a delivered success always has durable
 state behind it.
 
+**`Resync` (read-only — the client catch-up path, FR-IN-006):**
+
+```
+1. If session not in local memory → load record from Redis (same recovery as above);
+   NOT_FOUND if no record exists.
+2. Acquire the per-session single-flight lock (§6.2) — so the view is composed
+   against a fully-applied, non-torn state.
+3. bridge.resync(sessionId, record.stateJson, viewerJson, role) under the watchdog.
+4. Return ResyncResponse(view, as_of_sequence = record.lastAppliedSequence).
+```
+
+It writes **nothing**: no session record, no `lastAppliedSequence` advance, no
+sequence allocation, no queue entry, no delivery-watermark change. It therefore
+needs no idempotency machinery — a duplicate `Resync` is simply re-executed. A
+failure fails only the attaching client (`RESYNC_FAILED` to that client) and does
+**not** increment the per-session consecutive-failure counter (§9.4): a read cannot
+corrupt a game. `as_of_sequence` is what makes client catch-up race-free — see the
+[game-session WebSocket spec](../api-design/websocket.md#game-session-protocol).
+
 **`TerminateSession`:** dispose the guest instance (`disposeSession`), drop
 local-memory state, delete `session:{id}` from Redis (FR-SESS-005). Idempotent
 (terminating an already-gone session is a no-op success).
@@ -486,8 +517,14 @@ FR-RESP-004):
 - **Spectators** receive only `broadcast`, `player_joined`, `player_left`,
   `game_over` (FR-DELIVER-002).
 - **Log retention (FR-DELIVER-003).** `log` entries are stored for the session so a
-  mid-game joiner / reconnecting player can be shown the full log. Retention +
-  deliver-on-subscribe replay mechanics belong to the **game-session WebSocket spec**.
+  mid-game joiner / reconnecting player can be shown the full log. The log is the
+  **only** thing retained per session: there is no effect journal. A client's game
+  view is reconstructed on attach by the read-only `Resync` path (§9.1), not by
+  replaying past effects. Delivery of the retained log to an attaching client is the
+  **game-session WebSocket spec**'s `GAME_SYNC`.
+- **`onInit` effects are not delivery-guaranteed.** They are fanned out at sequence 0,
+  when typically no client has subscribed yet. This is by design and is why `Resync`
+  exists (game-contracts.md FR-IN-006/FR-FE-001, review **I6**).
 - **`game_over` handling.** After the game-over effect is delivered, Orchestration
   marks the session terminated, persists the `GameOutcome` to game history (see
   `game-history.md`), notifies the Room Service, then calls `TerminateSession` to
@@ -496,7 +533,11 @@ FR-RESP-004):
 
 **Seam.** This spec addresses effects *to* the Gateway with a recipient set and a
 `sequence`; the mapping onto STOMP topics/queues and the client envelope is the
-game-session WebSocket spec's job (GAME-B1).
+game-session WebSocket spec's job (GAME-B1) — now written:
+[`../api-design/websocket.md` § Game Session Protocol](../api-design/websocket.md#game-session-protocol).
+It also fixes the fan-out locality this spec left implicit: **session affinity follows
+room affinity** (ADR-0002), so the pod running a session's dispatcher is the pod
+holding every participant's WebSocket, and fan-out is a local call.
 
 ---
 

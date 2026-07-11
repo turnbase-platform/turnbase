@@ -64,6 +64,7 @@ retained only as a surgical escape hatch for oversized responses (see *Message s
 |-----|---------|--------------|
 | `CreateSession` | Bind the session to the `(game_id, game_version)` context, run `onInit` with the roster + parameters, return initial effects. | FR-SESS-004, FR-IN-002 |
 | `ProcessInput` | Process an `action` / `player_joined` / `player_left` input; return the ordered effect list. | FR-IN-003/004/005, FR-ROUTE-002 |
+| `Resync` | Compose one viewer's current view of the session by invoking the game's read-only `onResync`. Mutates nothing. | FR-IN-006, FR-RESP-005 |
 | `TerminateSession` | Force teardown; free local + Redis state. | FR-SESS-005, FR-FAIL-005 |
 
 `CreateSession` is separate from `ProcessInput` because session creation is
@@ -153,6 +154,33 @@ If the Game Host receives an input for a session it does not hold in local memor
 after re-dispatch to a fresh host), it loads state from Redis before invoking the handler
 (FR-SESS-003b) — transparently, without a distinct error. A `NOT_FOUND` is returned only
 when no state exists in Redis at all (a terminal condition).
+
+### `Resync` — the read-only path
+
+`Resync` sits outside every mechanism above, deliberately. It is the only RPC on the
+dispatch path that does not advance the session:
+
+| Property | `ProcessInput` | `Resync` |
+|---|---|---|
+| Allocates a `sequence` | Yes (Redis `INCR` at enqueue) | **No** |
+| Enters the per-session queue | Yes | **No** |
+| Writes the session record | Yes, atomically, on `OK` | **No** |
+| Advances `lastAppliedSequence` | Yes | **No** |
+| Advances the delivery watermark | Yes | **No** |
+| Result audience | The effect's recipient set | **The requesting client only** |
+| Counts toward the retry limit on failure | Yes (FR-FAIL-003) | **No** |
+
+What it *does* share with `ProcessInput` is the **per-session single-flight lock**: the
+Game Host serves a `Resync` while no handler is running for that session, so the view is
+composed against a consistent, fully-applied state and can be truthfully stamped with the
+`as_of_sequence` it reflects. That stamp is what makes client catch-up race-free — see
+[`../api-design/websocket.md`](../api-design/websocket.md#game-session-protocol),
+"Catch-up: the sync flow".
+
+Because a resync mutates nothing, it needs no idempotency machinery: a duplicate or
+re-dispatched `Resync` is simply re-executed. A failed `Resync` (`PROCESS_STATUS_FAILED`)
+fails only the attaching client, which is surfaced to that client as a `RESYNC_FAILED`
+error; the session continues unaffected (FR-RESP-005).
 
 ---
 

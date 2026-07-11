@@ -105,6 +105,26 @@ public interface TurnBaseGame<S extends GameState> {
     /** A player was confirmed lost — grace period expired or host kick
      *  (FR-IN-005). Never invoked during the grace period (CON-007). */
     PlayerLeftResult<S> onPlayerLeft(S state, PlayerLeftContext ctx);
+
+    /**
+     * Compose this viewer's current picture of the game (FR-IN-006).
+     *
+     * <p>Invoked every time a client attaches to the session: at game start, on
+     * reconnection, and on mid-game join. The returned view is delivered to that
+     * viewer alone, and is the first {@code game_event} their frontend receives.
+     *
+     * <p><b>Read-only.</b> Returns a view payload — no state, no effects. The
+     * platform persists nothing from it. Return exactly what this viewer is
+     * entitled to see: their own hidden information plus the public position for
+     * a player, and the public position alone for a spectator
+     * ({@code ctx.role()}), because the platform cannot filter an opaque payload
+     * on the game's behalf (NFR-SEC-002).
+     *
+     * <p>Initial state must be established here rather than in {@code onInit}'s
+     * effects: at game start no client has subscribed yet, so {@code onInit}
+     * effects are not delivery-guaranteed (FR-FE-001).
+     */
+    ViewResult onResync(S state, ResyncContext ctx);
 }
 ```
 
@@ -114,10 +134,12 @@ next state in its result. The state is never carried on the context; the GDK Hos
 holds it in local memory between invocations and supplies it here. A result
 **must** always carry a state, even if unchanged.
 
-**Minimal implementation surface (NFR-DX-002).** Only `onInit`, `onAction`, and
-`onPlayerLeft` are abstract; `onPlayerJoined` has a default. A game that does not
-support mid-game join implements **three** methods; the contract bottoms out at
-the 2–4-method target.
+**Minimal implementation surface (NFR-DX-002).** `onInit`, `onAction`,
+`onPlayerLeft`, and `onResync` are abstract; `onPlayerJoined` has a default. A
+game that does not support mid-game join implements **four** methods — the top of
+the 2–4-method target. `onResync` has no default deliberately: a default would
+have to return an empty view, which silently produces a blank game for every
+reconnecting player. Failing to compile is the better outcome.
 
 ---
 
@@ -174,8 +196,23 @@ public enum PlayerLeftReason {
     /** Grace period expired without reconnection (reconnection-flow.md). */
     GRACE_PERIOD_EXPIRED,
     /** The host kicked the player. */
-    KICKED
+    KICKED,
+    /** Confirmed voluntary departure mid-game; bypasses the grace period
+     *  (FR-IN-005, reconnection-flow.md FR-DC-005). */
+    LEFT
 }
+
+/** resync input — read-only view request for one viewer (FR-IN-006). */
+public interface ResyncContext {
+    /** Whether the viewer is playing or spectating. */
+    ViewerRole role();
+
+    /** The viewing player, or empty for a spectator (who holds no player
+     *  identity in the session). */
+    java.util.Optional<Player> viewer();
+}
+
+public enum ViewerRole { PLAYER, SPECTATOR }
 ```
 
 **Action typing.** `action(Class<A>)` takes a class token because
@@ -379,6 +416,38 @@ return ActionResult.from(next)
         .build();
 ```
 
+### `ViewResult` — the odd one out
+
+`onResync` is the only hook that returns neither state nor effects, so it has its
+own result type carrying a single opaque view payload (FR-RESP-005):
+
+```java
+package io.turnbase.gdk.result;
+
+/** The view one viewer sees right now. No state, no effects — a resync cannot
+ *  change the game (FR-IN-006). */
+public record ViewResult(Object view) {
+    public static ViewResult of(Object view) { return new ViewResult(view); }
+    /** For a game with nothing to show this viewer yet. */
+    public static ViewResult empty() { return new ViewResult(new Object()); }
+}
+```
+
+`view` is a developer-typed object serialized to JSON like any effect payload,
+non-null, and subject to the same 10 MB ceiling (NFR-SIZE-002). It reaches the
+viewer's frontend as their first `game_event` — so it is normally the game's own
+"full state" message type, the same one a frontend would rebuild from anyway:
+
+```java
+@Override
+public ViewResult onResync(ChessState state, ResyncContext ctx) {
+    return ViewResult.of(switch (ctx.role()) {
+        case PLAYER    -> state.viewFor(ctx.viewer().orElseThrow().id());
+        case SPECTATOR -> state.publicView();
+    });
+}
+```
+
 ---
 
 ## 8. Structured outcome (`GameOutcome`)
@@ -440,10 +509,13 @@ enforce them, surfacing violations as the `GameFailureKind` values in
 | Effect payload size | Each serialized effect payload ≤ **10 MB** (NFR-SIZE-002). | `MALFORMED_OUTPUT` |
 | Valid output | Result must be non-null with a non-null state and well-formed effects. | `MALFORMED_OUTPUT` |
 | Exceptions terminate | A thrown exception fails the input; after the retry limit the session terminates (NFR-REL-001). | `HANDLER_EXCEPTION` |
+| `onResync` is read-only | It must not mutate the state object it is handed, and its view must be derived only from `(state, viewer)`. It may be invoked at any time, any number of times, including several times for the same viewer. | `HANDLER_EXCEPTION` (fails **only** that viewer's attach — never the session, and never counted toward the retry limit; FR-RESP-005) |
 
 A failed input does not silently drop: the Orchestration Service applies
 retry-limit semantics and, on exhaustion, terminates the session and notifies
-participants (FR-FAIL-* in the gRPC protocol doc).
+participants (FR-FAIL-* in the gRPC protocol doc). `onResync` is the sole
+exception — a failed read cannot corrupt a game, so it fails only the client that
+requested it.
 
 ---
 
@@ -458,6 +530,8 @@ The GDK Host translates between this API and
 | `ActionContext` | `ActionInput` |
 | `PlayerJoinedContext` | `PlayerJoinedInput` |
 | `PlayerLeftContext` + `PlayerLeftReason` | `PlayerLeftInput` + `PlayerLeftReason` |
+| `ResyncContext` + `ViewerRole` | `ResyncRequest` + `ViewerRole` |
+| `ViewResult.view` | `ResyncResponse.view` (opaque `bytes`) |
 | `Player` | `PlayerRef` |
 | `Team` | `Team` |
 | `Effect` variants | `Effect` oneof (`BroadcastEffect`…`GameOverEffect`) |
@@ -470,6 +544,11 @@ gRPC `Team` message did not carry. A `string name = 3` field was added to the
 the team's instance display name (`"{template.name} {index}"`) when it builds
 `CreateSessionRequest` — see `orchestration-gamehost-protocol.md` "Roster and
 team-name resolution". The GDK exposes it as `Team.name()`.
+
+**`onResync` maps to its own RPC, not to `ProcessInput`.** It mutates nothing:
+no sequence, no state write, no effects, and its result goes to the requesting
+client alone. `gamehost.proto` therefore carries a dedicated `Resync` RPC — see
+`orchestration-gamehost-protocol.md` "`Resync` — the read-only path".
 
 ---
 
@@ -514,6 +593,11 @@ public final class GuessingGame implements TurnBaseGame<GuessState> {
     @Override public PlayerLeftResult<GuessState> onPlayerLeft(GuessState s, PlayerLeftContext ctx) {
         return PlayerLeftResult.of(s); // single-player; nothing to clean up
     }
+
+    @Override public ViewResult onResync(GuessState s, ResyncContext ctx) {
+        // The secret is hidden information: never put it in a view.
+        return ViewResult.of(new GuessFeedback("attempts so far: " + s.attempts(), false));
+    }
 }
 ```
 
@@ -524,12 +608,13 @@ public final class GuessingGame implements TurnBaseGame<GuessState> {
 | Requirement | Realized by |
 |-------------|-------------|
 | FR-GDK-001 | `TurnBaseGame<S>` (§3) |
-| FR-GDK-002 | `onInit`/`onAction`/`onPlayerJoined`/`onPlayerLeft` (§3) |
+| FR-GDK-002 | `onInit`/`onAction`/`onPlayerJoined`/`onPlayerLeft`/`onResync` (§3) |
 | FR-GDK-003 | Context interfaces (§4) |
 | FR-GDK-004 | `InitContext` (§4) |
 | FR-GDK-005 | `ActionContext.action(Class)` (§4) |
 | FR-GDK-006 | `PlayerJoinedContext` (§4) |
 | FR-GDK-007 | `PlayerLeftContext` + `PlayerLeftReason` (§4) |
+| FR-IN-006, FR-RESP-005 | `onResync` + `ResyncContext` + `ViewResult` (§3, §4, §7) |
 | FR-GDK-008 | `Effects` factory (§6) |
 | FR-GDK-009 | Result types + builder (§7) |
 | FR-GDK-010 | `GameOutcome` (§8) |
@@ -544,7 +629,7 @@ public final class GuessingGame implements TurnBaseGame<GuessState> {
 | FR-OUTCOME-001…004 | `GameOutcome` (§8) |
 | FR-STATE-001…005 | State model & limits (§5, §9) |
 | FR-PROC-001…003 | Determinism contract (§9) |
-| NFR-DX-002 | ≤4 methods, one default (§3) |
+| NFR-DX-002 | 4 abstract methods + 1 default (§3) |
 
 ---
 

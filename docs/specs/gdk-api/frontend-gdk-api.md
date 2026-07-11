@@ -131,7 +131,14 @@ platform ◀──────────────────────�
   no messages are processed; this guarantees the `ready` signal is sent only
   after the game has registered its handlers.
 - The platform sends exactly one `init` event, before any other event
-  (FR-FE-001). The client surfaces it via `onInit`.
+  (FR-FE-001). The client surfaces it via `onInit`. `init` carries **no game
+  state** — only role, self, roster, and teams.
+- **The first `game_event` after `init` is always the full current view** of the
+  game for this viewer, produced by the backend's `onResync` hook (FR-IN-006).
+  This holds identically at game start, on reconnection, and on mid-game join —
+  a reconnecting player is simply a new iframe, and gets the same treatment. A
+  game FE therefore never needs to distinguish a snapshot from a delta: its
+  first event is the snapshot, everything after it is a delta.
 - If the shell bootstrap is missing or malformed and no `parentOrigin` override
   was supplied, `start()` throws synchronously — the game cannot run untrusted.
 
@@ -319,10 +326,11 @@ function submit(n: number) {
 
 ## 13. Open questions
 
-- **OQ-001 — Reconnection re-init.** On reconnect (reconnection-flow.md), does
-  the platform resend `init` with current state, or a distinct `resync` event?
-  The current model assumes the game FE rebuilds from the renewed `init` +
-  replayed `game_event`s; a dedicated resync event may be added later.
+- ~~**OQ-001 — Reconnection re-init.**~~ **Resolved** (game-session WebSocket
+  spec). On reconnect the iframe is reloaded, so the client is new: it receives a
+  fresh `init`, immediately followed by the backend's per-viewer view as its first
+  `game_event` (from the read-only `resync` input, game-contracts.md FR-IN-006).
+  No distinct resync event is added to this API — see §4.
 - **OQ-002 — Multiple `onGameEvent` listeners.** A single handler is specified.
   If real games need fan-out (e.g. separate UI vs. audio listeners), an
   `addGameEventListener` variant can be added without breaking the setter form.

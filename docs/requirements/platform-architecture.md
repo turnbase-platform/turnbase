@@ -39,7 +39,7 @@ This document defines the requirements for the game execution infrastructure: ho
 
 ## Related API Specifications
 
-- [websocket.md](../specs/api-design/websocket.md) — STOMP-over-WebSocket: topics, authentication, message envelope for game and lobby events
+- [websocket.md](../specs/api-design/websocket.md) — STOMP-over-WebSocket: topics, authentication, message envelope for game and lobby events. Its **Game Session Protocol** section is the client-facing realization of FR-DELIVER-001…006: which destination each effect type is delivered on, the game event catalogue, `resync`-based client catch-up, and action-send authorization.
 - [internal-grpc/](../specs/internal-grpc/INDEX.md) — Orchestration Service ↔ Game Host gRPC contract: `gamehost.proto`, topology decision, dispatch/registry services, error model
 - [game-host/](../specs/game-host/INDEX.md) — Game Host & execution internals: the server-side realization of the FR-CTX/FR-SESS/FR-LOAD/FR-ORCH/FR-ROUTE/FR-DELIVER/FR-FAIL requirements — Espresso topology, GDK Host + serialization, isolation-mechanism mapping, session/state model, crash recovery, effect delivery
 
@@ -153,6 +153,8 @@ This document defines the requirements for the game execution infrastructure: ho
 | FR-DELIVER-002 | Effect routing rules | The Orchestration Service must enforce effect routing as defined in `game-contracts.md`: `broadcast` to all players and spectators, `send_to_player` to a single player, `send_to_team` to all players on a team. Spectators receive only `broadcast`, `player_joined`, `player_left`, and `game_over` events. | Must |
 | FR-DELIVER-003 | Game log storage | The Orchestration Service must store `log` effect entries for the duration of the game session, enabling players who join mid-game or reconnect to view the full log. | Should |
 | FR-DELIVER-004 | Effect ordering preservation | Effects must be delivered to player clients in the order they were returned by the Game Host, as guaranteed by `game-contracts.md` FR-RESP-004. | Must |
+| FR-DELIVER-005 | Client catch-up on attach | When a client attaches to a session (game start, reconnection, or mid-game join), the Orchestration Service must serve it a `resync` (`game-contracts.md` FR-IN-006) and deliver the resulting per-viewer view, the session's init context, and the retained game log to that client alone. The platform retains **no effect journal**: past effects are never replayed. Effects returned from `init` are not delivery-guaranteed, since no client is subscribed at session creation. | Must |
+| FR-DELIVER-006 | Session affinity | A session's dispatcher and effect fan-out run on the Platform Monolith pod that owns the session's room (ADR-0002), so every participant's WebSocket is local to the producing pod. | Must |
 
 ### Container Security
 

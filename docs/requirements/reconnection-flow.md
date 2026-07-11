@@ -1,5 +1,10 @@
 # Reconnection Flow Requirements
 
+## Related API Specifications
+
+- [websocket.md § Game Session Protocol](../specs/api-design/websocket.md#game-session-protocol) — how a reconnecting player is restored to an in-progress game (FR-REJOIN-004): the client re-subscribes and requests a sync, and the game backend composes that player's current view via the read-only `resync` input (game-contracts.md FR-IN-006). No effect history is replayed; the retained game log is delivered alongside the view.
+- [room-websocket.md](../specs/api-design/room-websocket.md) — `PLAYER_DISCONNECTED` / `PLAYER_RECONNECTED` / `PLAYER_LOST` presence events, and the `ROOM_STATE` snapshot that carries in-flight grace timers (FR-GRACE-004).
+
 ## Stakeholders
 
 | Role | Description |
