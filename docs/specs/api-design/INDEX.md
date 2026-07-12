@@ -18,7 +18,8 @@ These specifications cover the HTTP REST API, WebSocket protocol, and SSE channe
 | [room-websocket.md](room-websocket.md) | Room WebSocket protocol: room affinity, lobby event catalogue, command catalogue, authorization |
 | [room-chat-websocket.md](room-chat-websocket.md) | Room chat WebSocket protocol: CHAT_MESSAGE event, SEND_CHAT_MESSAGE command, spectator exclusion |
 | [sse-notifications.md](sse-notifications.md) | Server-Sent Events for platform notifications |
-| [rate-limiting.md](rate-limiting.md) | Rate limiting tiers, Bucket4j + Redis implementation |
+| [rate-limiting.md](rate-limiting.md) | Abuse controls: HTTP tiers (Redis), account-minting tier, **WebSocket frame tier** (pod-local), client-IP derivation, per-env configurability |
+| [input-validation.md](input-validation.md) | Canonicalization, field catalogue (incl. confusable-safe usernames), size limits, `CHANGE_PARAMETERS` whitelist, output encoding |
 | [openapi-documentation.md](openapi-documentation.md) | SpringDoc OpenAPI 3.x, Swagger UI, deprecation markers |
 
 ## Key Decisions
@@ -31,5 +32,8 @@ These specifications cover the HTTP REST API, WebSocket protocol, and SSE channe
 - Game effects are routed by destination, not filtered on the client: `broadcast` → session topic, `send_to_team` → membership-validated team topic, `send_to_player` → per-user queue (NFR-SEC-002)
 - A client attaching to a game session catches up by asking the **game backend** for its current view (read-only `resync`), not by replaying a platform-held effect journal
 - Separate SSE stream per authenticated user for platform notifications
-- Bucket4j + Redis for distributed rate limiting across monolith replicas
+- Rate-limit locality follows the same affinity argument as effect fan-out: **HTTP tiers are Redis-backed** (pre-auth, IP-keyed, any pod may serve them), **WebSocket buckets are pod-local** — room affinity pins a user's whole frame stream to one pod, so an in-JVM bucket is exact, and a Redis round trip per chat message and game action buys nothing
+- Account creation is throttled by a **success-counting** IP bucket; the auth tier counts only failures, which is exactly why guest minting leaked past it
+- `CHANGE_PARAMETERS` is a **whitelist** against the game manifest's declared parameter schema, not a size cap — the amplification vector is removed by construction
+- The game log is the platform's **only** non-plain-text render surface, and its content comes from game code: the Markdown renderer runs with raw HTML disabled and no links
 - CORS is default-deny and state-changing requests are **Origin-checked server-side** — CORS blocks reading a response, not sending the request, so it is not a CSRF defense on its own. Game frontends are cross-site by construction ([game-frontend/](../game-frontend/INDEX.md)), which is what keeps the `SameSite=Strict` model sound.

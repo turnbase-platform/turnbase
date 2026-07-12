@@ -4,6 +4,8 @@
 
 - [room-chat-websocket.md](../specs/api-design/room-chat-websocket.md) — Chat WebSocket wire format: `CHAT_MESSAGE` event, `SEND_CHAT_MESSAGE` command, spectator exclusion enforcement
 - [room-websocket.md](../specs/api-design/room-websocket.md) — Room affinity, versioning model, and authorization pattern shared with chat
+- [rate-limiting.md](../specs/api-design/rate-limiting.md) — Tier 6 `chat` bucket: 1 message/second, burst 5. Chat is unpersisted (FR-MSG-005), so a flood leaves no audit trail — bounding it at the source is the only control there is
+- [input-validation.md](../specs/api-design/input-validation.md) — `text` canonicalization; the 500-character limit (FR-MSG-002) is measured in Unicode code points after NFC
 
 ## Stakeholders
 

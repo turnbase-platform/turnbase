@@ -71,8 +71,8 @@ The client-facing half of game execution: how the effects a game backend produce
 | Seam | Owned by |
 |------|----------|
 | The platform HTML shell that frames the iframe, injects the `__TURNBASE__` bootstrap, and performs the STOMP↔`postMessage` relay | Platform-frontend shell spec (planned). This section defines the [relay contract](#platform-shell-relay-contract) it must satisfy. |
-| Game asset serving origin, iframe `sandbox` attributes, CSP | GAME-B3 (bundle/shell spec, planned) |
-| WebSocket message rate limiting | [rate-limiting.md](rate-limiting.md) — WS tier (API-1, planned) |
+| Game asset serving origin, iframe `sandbox` attributes, CSP | [game-frontend/game-asset-serving.md](../game-frontend/game-asset-serving.md) |
+| WebSocket frame rate limiting and size caps | [rate-limiting.md](rate-limiting.md) Tier 6; [input-validation.md](input-validation.md) § Size limits |
 | The `resync` input's backend contract | [`game-contracts.md`](../../requirements/game-contracts.md) FR-IN-006, [`gdk-api/backend-gdk-api.md`](../gdk-api/backend-gdk-api.md) §3 |
 
 ---
@@ -355,7 +355,7 @@ Accepted actions are enqueued on the session's Redis queue, where they receive t
 
 **Inbound size limit.** The STOMP inbound message size limit applies (Spring `setMessageSizeLimit`, default **256 KB**, configurable per environment). Oversized frames are rejected with `ACTION_TOO_LARGE`. This is an inbound client cap and is unrelated to NFR-SIZE-002's 10 MB *outbound* effect payload limit.
 
-**Rate limiting** of action and sync frames is the WebSocket tier of [rate-limiting.md](rate-limiting.md) (API-1, not yet written). Until it exists, this destination is unthrottled — tracked as a known gap, not a property of this design.
+**Rate limiting.** Action and sync frames are bounded by Tier 6 of [rate-limiting.md](rate-limiting.md) (per-user, pod-local): `SUBMIT_ACTION` draws on the `action` bucket (5/s, burst 10) and `REQUEST_GAME_SYNC` on the far stricter `snapshot` bucket (1 per 3s, burst 2) — it re-enters the guest VM under the session's single-flight lock, which makes it the most expensive frame a client can send.
 
 ---
 
@@ -475,5 +475,5 @@ The shell is also the component that must inject the `__TURNBASE__` bootstrap (`
 
 ## Open questions
 
-- **OQ-001 — Resync cost under load.** `onResync` is invoked once per attaching client and runs under the session's single-flight lock, so a mass reconnect (pod restart) serializes N resyncs behind one session. Bounded by MVP session sizes; if it becomes a hotspot, cache the per-viewer view against `lastAppliedSequence` and serve repeat requests from the cache without re-entering the guest.
+- **OQ-001 — Resync cost under load.** `onResync` is invoked once per attaching client and runs under the session's single-flight lock, so a mass reconnect (pod restart) serializes N resyncs behind one session. Bounded by MVP session sizes; if it becomes a hotspot, cache the per-viewer view against `lastAppliedSequence` and serve repeat requests from the cache without re-entering the guest. The *adversarial* case — one client re-requesting sync in a loop — is closed by the `snapshot` bucket ([rate-limiting.md](rate-limiting.md) Tier 6); this OQ concerns only the legitimate mass-reconnect case, where each client sends exactly one request.
 - **OQ-002 — Spectator sync of a game with no spectator view.** A game whose `onResync` returns an empty view for spectators leaves them with a blank iframe until the next `broadcast`. This is a game-authoring concern, not a platform one, but the local test harness should warn on it.

@@ -109,6 +109,14 @@ Validation errors are returned on `/user/queue/errors` using the standard error 
 | `MESSAGE_TOO_LONG` | `text` exceeds 500 characters (FR-MSG-002) |
 | `NO_TEAM_ASSIGNMENT` | `channel == TEAM` but sender has no team assignment |
 | `TEAM_CHAT_NOT_AVAILABLE` | `channel == TEAM` but the game does not declare team support (FR-TEAM-001 in in-room-chat.md) |
+| `RATE_LIMIT_EXCEEDED` | Chat frame dropped by the Tier 6 `chat` bucket ([rate-limiting.md](rate-limiting.md)) |
+
+`text` is canonicalized (NFC, control and bidi characters rejected) and its 500-character limit is
+measured in Unicode code points after normalization — see
+[input-validation.md](input-validation.md). Chat is rate limited at **1 message/second, burst 5**
+(Tier 6 `chat` bucket) and its frames are capped at 4 KB. Chat is the platform's only unpersisted
+broadcast surface (FR-MSG-005 — no history), so a flood leaves no audit trail behind: bounding it at
+the source is the only control that exists.
 
 ---
 

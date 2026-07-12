@@ -4,7 +4,8 @@
 
 - [rest-conventions.md](../specs/api-design/rest-conventions.md) — HTTP methods, status codes, authentication via httpOnly cookie
 - [error-handling.md](../specs/api-design/error-handling.md) — RFC 9457 Problem Details, validation error format
-- [rate-limiting.md](../specs/api-design/rate-limiting.md) — Tier 1 auth endpoint rate limiting (implements NFR-SEC-003)
+- [rate-limiting.md](../specs/api-design/rate-limiting.md) — Tier 1 auth rate limiting (NFR-SEC-003); Tier 5 account-minting throttle (NFR-SEC-007); client-IP derivation
+- [input-validation.md](../specs/api-design/input-validation.md) — username charset and confusable-safe uniqueness (FR-AUTH-003/013/014/015), password and email rules, canonicalization (NFR-SEC-005)
 - [decisions/0004-account-erasure-pseudonymization.md](../decisions/0004-account-erasure-pseudonymization.md) — ADR-0004: account deletion pseudonymizes game history (FR-ACCT-005)
 
 ## Stakeholders
@@ -24,10 +25,12 @@
 |----|-------|-------------|----------|
 | FR-AUTH-001 | Credential registration | The system must allow a user to register with a unique username, unique email address, password, and password confirmation. No other personal information is required. | Must |
 | FR-AUTH-002 | Email format validation | The system must validate that the submitted email address contains exactly one `@` character, with a non-empty local part before it and a domain containing at least one `.` after it. Validation is applied server-side using standard framework facilities (e.g. Bean Validation `@Email` on the backend, React form validation on the frontend). No verification email is sent. | Must |
-| FR-AUTH-003 | Username uniqueness | Usernames must be unique across all active and soft-deleted accounts at the time of registration or update. | Must |
+| FR-AUTH-003 | Username uniqueness | Usernames must be unique across all active and soft-deleted accounts at the time of registration or update. Uniqueness is evaluated on the **confusable skeleton** of the normalized, case-folded username (FR-AUTH-015), not on the raw string — so two usernames that render identically cannot coexist. | Must |
 | FR-AUTH-004 | Email uniqueness | Email addresses must be unique across all active accounts at the time of registration or update. | Must |
 | FR-AUTH-005 | Password minimum length | Passwords must be at least 8 characters. No other character composition restrictions apply. | Must |
-| FR-AUTH-013 | Reserved username prefix | Usernames submitted during registration or update must not begin with the prefix `guest-`. This prefix is reserved for system-generated guest accounts. | Must |
+| FR-AUTH-013 | Reserved username prefix | Usernames submitted during registration or update must not begin with the prefix `guest-`. This prefix is reserved for system-generated guest accounts. The check is applied to the username's confusable skeleton (FR-AUTH-015), so a visually identical prefix built from lookalike characters is also rejected. | Must |
+| FR-AUTH-014 | Username charset and length | Usernames must be 3–32 characters, composed only of letters, combining marks, decimal digits, and the ASCII characters `_` and `-`, and must begin with a letter or digit. Non-Latin scripts are supported. Spaces, emoji, symbols, and invisible formatting characters are rejected. | Must |
+| FR-AUTH-015 | Username impersonation safety | The system must prevent usernames that are visually indistinguishable from an existing username. A username must use a single script (plus common characters); mixed-script names such as Latin+Cyrillic are rejected. Uniqueness (FR-AUTH-003) is enforced on a confusable-folded form, so `Alice` and `Аlice` (Cyrillic А) cannot both exist. Rejection is reported identically to a plain duplicate, revealing nothing about which similar account exists. | Must |
 
 ### Authentication
 
@@ -103,6 +106,7 @@
 | NFR-SEC-003 | Security | All auth-related endpoints (login, registration, password change, auth method addition/removal) must enforce IP-based rate limiting. After 5 failed attempts from the same IP, the IP is locked out. The initial lockout duration is 30 seconds. Each subsequent failed attempt doubles the lockout duration. Only failed attempts increment the counter; successful operations do not affect it. | 5 failures → 30s lockout; each additional failure doubles duration | Must |
 | NFR-SEC-005 | Security | Server-side validation must be applied to all inputs regardless of client-side validation. | 100% of inputs | Must |
 | NFR-SEC-006 | Security | All platform endpoints must require a valid session token, except: the landing page, the login endpoint, the registration endpoint, user profile pages, the game catalog, game detail pages (including the per-game statistics tab). Unauthenticated requests to any other endpoint must receive a 401 response. | 100% of non-exempt endpoints | Must |
+| NFR-SEC-007 | Security | Endpoints that create an account and issue a session token — guest creation (FR-GUEST-001) and registration (FR-AUTH-001) — must enforce a **success-counting** IP-based throttle. NFR-SEC-003 counts only failures, and these operations always succeed, so they are otherwise unbounded: one IP could mint unlimited guest accounts, each a fully-privileged principal able to join rooms, chat, and submit game actions. | 5 guest accounts and 3 registrations per IP per hour | Must |
 
 ---
 

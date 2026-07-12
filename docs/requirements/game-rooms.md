@@ -6,6 +6,8 @@
 - [pagination-filtering-sorting.md](../specs/api-design/pagination-filtering-sorting.md) — Room list pagination, filtering, and sorting conventions (implements FR-LIST-003–004)
 - [websocket.md](../specs/api-design/websocket.md) — STOMP topics for lobby and game real-time events
 - [room-websocket.md](../specs/api-design/room-websocket.md) — Room WebSocket event and command catalogue: room affinity, lobby events, team management, reconnection presence
+- [input-validation.md](../specs/api-design/input-validation.md) — `CHANGE_PARAMETERS` (FR-HOST-007) is whitelist-validated against the game manifest's declared parameter schema: unknown keys, wrong types, and out-of-range values are rejected
+- [rate-limiting.md](../specs/api-design/rate-limiting.md) — Tier 6 WebSocket frame budgets for member and host commands; `REQUEST_ROOM_STATE` is throttled separately as an expensive snapshot command
 
 ## Stakeholders
 

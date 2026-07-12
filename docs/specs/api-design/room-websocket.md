@@ -645,6 +645,21 @@ Command failures are returned on `/user/queue/errors` using the base error envel
 | `AI_NOT_SUPPORTED` | `ADD_AI_PLAYER` when the game does not support AI players |
 | `KICKED` | Unicast notification to a player removed by the host (no `correlationId`) |
 | `UNKNOWN_COMMAND` | Unrecognised `type` in command envelope |
+| `UNKNOWN_PARAMETER` | `CHANGE_PARAMETERS` with a key not declared in the game's manifest |
+| `PARAMETER_TYPE_MISMATCH` | `CHANGE_PARAMETERS` value does not match the manifest's declared type |
+| `PARAMETER_OUT_OF_RANGE` | `CHANGE_PARAMETERS` value outside the manifest's declared `min`/`max`, `maxLength`, or `options` |
+| `VALIDATION_FAILED` | Command payload failed field validation ([input-validation.md](input-validation.md)); `details` names the failed fields |
+| `MESSAGE_TOO_LARGE` | Frame exceeds the per-destination size cap (input-validation.md § Size limits) |
+| `RATE_LIMIT_EXCEEDED` | Frame dropped by the Tier 6 rate limiter ([rate-limiting.md](rate-limiting.md)); carries `retryAfterMs`. Emitted from the channel interceptor without a `correlationId`, since the payload was never deserialized |
+
+Two further codes are carried on the STOMP `ERROR` frame that **closes** the connection rather than on
+`/user/queue/errors`: `RATE_LIMIT_ABUSE` (sustained rate-limit violation) and `TOO_MANY_CONNECTIONS`
+(more than 4 concurrent connections for one user). Both are defined in
+[rate-limiting.md](rate-limiting.md) Tier 6.
+
+`CHANGE_PARAMETERS` is validated as a **whitelist** against the manifest of the game version pinned to
+the room — unknown keys are rejected outright, so the broadcast `parameters` object is bounded by the
+manifest's own declared bounds. See [input-validation.md](input-validation.md).
 
 ---
 

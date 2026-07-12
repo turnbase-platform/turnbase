@@ -37,6 +37,7 @@ All REST endpoints are served under `/api/`. There is no URL version prefix. API
 | 404 Not Found | Resource does not exist (or is intentionally hidden, e.g. private game — `game-catalog.md NFR-SEC-002`) |
 | 409 Conflict | Unique constraint violation (duplicate username, email) |
 | 410 Gone | Resource existed but has been permanently removed (e.g. expired upload slot) |
+| 413 Payload Too Large | Request body exceeds the 64 KB cap — see [input-validation.md](input-validation.md) |
 | 422 Unprocessable Entity | Business rule violation (e.g. game version not strictly higher, bundle validation failure) |
 | 429 Too Many Requests | Rate limit exceeded — see [rate-limiting.md](rate-limiting.md) |
 | 500 Internal Server Error | Unexpected server failure |

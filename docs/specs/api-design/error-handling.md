@@ -47,6 +47,7 @@ This automatically wraps standard Spring MVC exceptions (`MethodNotAllowedExcept
 | `not-found` | `.../errors/not-found` | 404 | Resource does not exist |
 | `conflict` | `.../errors/conflict` | 409 | Unique constraint violations (username, email) |
 | `gone` | `.../errors/gone` | 410 | Resource existed but is permanently unavailable (e.g. expired upload slot) |
+| `payload-too-large` | `.../errors/payload-too-large` | 413 | Request body exceeds the 64 KB cap — see [input-validation.md](input-validation.md) |
 | `business-rule-violation` | `.../errors/business-rule-violation` | 422 | Domain rule failures (e.g. version not strictly higher, bundle validation errors) |
 | `rate-limit-exceeded` | `.../errors/rate-limit-exceeded` | 429 | Too many requests — see [rate-limiting.md](rate-limiting.md) |
 | `internal-error` | `.../errors/internal-error` | 500 | Unexpected server failures |
