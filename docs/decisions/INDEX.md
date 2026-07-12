@@ -14,6 +14,7 @@ Format: one file per decision, numbered sequentially (`NNNN-slug.md`). Status is
 | [0004](0004-account-erasure-pseudonymization.md) | Account erasure via history pseudonymization | Accepted |
 | [0005](0005-game-sandbox-espresso-spike.md) | Game sandbox — Espresso spike gates the Game Host spec | Accepted |
 | [0006](0006-game-trust-model-java-official-only.md) | Game trust model — Java backends are official-only for the MVP | Accepted |
+| [0007](0007-game-frontend-separate-domain.md) | Game frontends are served from a separate registrable domain | Accepted |
 
 ## Provenance
 
@@ -25,3 +26,7 @@ ADR-0006 follows from the Espresso feasibility spike run on 2026-07-10/11 (ADR-0
 in-JVM Espresso on GraalVM CE cannot isolate untrusted Java; the owner chose to scope the MVP to
 official-only Java backends and defer untrusted backends (hardened-container Java, plus JS/Python
 runtimes) to post-MVP.
+
+ADR-0007 resolves review blocker GAME-B3 (2026-07-12). It is recorded as an ADR rather than left in
+the spec because it **overturns the review's own suggested resolution** on a security argument, and
+because it carries a real-world cost (a second registered domain in production).

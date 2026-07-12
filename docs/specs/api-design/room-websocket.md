@@ -165,12 +165,13 @@ Full room state snapshot. Delivered unicast on `/user/queue/room-state` in respo
         "graceRemainingSeconds": 45
       }
     ],
-    "sessionId": "uuid | null"
+    "sessionId": "uuid | null",
+    "gameFrontendUrl": "string | null"
   }
 }
 ```
 
-`sessionId` is non-null when `state == IN_PROGRESS`. `disconnectedPlayers` contains only players currently within an active grace period; it is empty when no player is disconnected. `teams[i].memberIds` contains all player IDs assigned to that team (human and AI); cross-reference with `aiPlayers` to determine AI status. Chat history is not included — per [in-room-chat.md](../../requirements/in-room-chat.md) FR-MSG-005, the platform does not persist chat messages.
+`sessionId` is non-null when `state == IN_PROGRESS`; `gameFrontendUrl` is non-null exactly when `sessionId` is, so a reconnecting or late-joining client can construct the game iframe from the snapshot alone, with no extra round-trip. Both fields carry the same meaning as in `GAME_STARTED`. `disconnectedPlayers` contains only players currently within an active grace period; it is empty when no player is disconnected. `teams[i].memberIds` contains all player IDs assigned to that team (human and AI); cross-reference with `aiPlayers` to determine AI status. Chat history is not included — per [in-room-chat.md](../../requirements/in-room-chat.md) FR-MSG-005, the platform does not persist chat messages.
 
 #### `PLAYER_JOINED`
 
@@ -318,12 +319,15 @@ The host has started the game (FR-HOST-009). Clients transition to the game view
   "type": "GAME_STARTED",
   "version": 50,
   "payload": {
-    "sessionId": "uuid"
+    "sessionId": "uuid",
+    "gameFrontendUrl": "http://{gameId}.games.localhost:8080/play/{sessionId}"
   }
 }
 ```
 
 The client derives its game destinations from `sessionId` (`/topic/game.{sessionId}`, `/topic/game.{sessionId}.team.{teamId}`, `/user/queue/game`); no topic string is sent. STOMP's path separator is `.`, not `/`.
+
+`gameFrontendUrl` is the **absolute** URL the client loads into the game iframe. It is composed server-side from the deploy-time origin template and the game version pinned at session creation; the client never assembles it, and never derives the game origin from a build-time constant. The shell's trusted game origin for postMessage is exactly `new URL(gameFrontendUrl).origin`. See [game-frontend/game-asset-serving.md](../game-frontend/game-asset-serving.md) §3.1 and §7.
 
 #### `GAME_ENDED`
 

@@ -34,7 +34,7 @@ Cross-references (e.g. CORE-1) point into the per-domain reports, which carry fu
 ### Game execution chain (game-execution-stack.md)
 7. ~~**GAME-B1**~~ — **Closed 2026-07-11.** Execution half in [`game-host-internals.md`](../../specs/game-host/game-host-internals.md) §10; client half in [`websocket.md` § Game Session Protocol](../../specs/api-design/websocket.md#game-session-protocol) — per-team topic, `/user/queue/game`, the STOMP game event catalogue, and `(sequence, index)` client dedup. **I4** (action-send authorization) and **I6** (initial-effect race) closed with it: I6 is resolved by a read-only `resync` input (game-contracts.md FR-IN-006) rather than an effect journal — the game backend composes each attaching viewer's current view, since the platform may not read game state.
 8. ~~**GAME-B2**~~ — **Closed 2026-07-11** ([`game-host-internals.md`](../../specs/game-host/game-host-internals.md) §8.1/§9): atomic Redis session record `{stateJson, lastAppliedSequence, lastEffects}` + idempotent `CreateSession` + sequence replay.
-9. **GAME-B3** — Game FE bundle serving origin/sandbox/CSP architecture unspecified, yet the FE GDK bootstrap contract depends on it. Overlaps API-5 (CSRF soundness) and GRMP-F5 (prototype shipped a fail-open trust fallback).
+9. ~~**GAME-B3**~~ — **Closed 2026-07-12** ([`game-asset-serving.md`](../../specs/game-frontend/game-asset-serving.md)). Games are served from a **separate registrable domain**, one origin per game (`{gameId}.games.<domain>`), from a deploy-time template; `sandbox="allow-scripts allow-same-origin"` (safe only because the frame is cross-origin); `default-src 'none'` / `connect-src 'self'` CSP; a server-rendered document carries the `__TURNBASE__` bootstrap. **API-5 closed with it** — and note the review's own suggested resolution (`games.turnbase.io`) was **unsound**: `SameSite` is a *site* check, so a subdomain would have left every game able to make credentialed API calls. CSRF now has three independent layers (`connect-src`, a server-side `Origin` check, `SameSite`). **GRMP-F5** is closed by construction: the origin is server-supplied (never build-baked) and isolation is trust-independent, so there is no fail-open branch.
 
 ### Deployment (devops-deployment.md)
 10. **OPS-1** — Cloud provider/K8s flavor is "TBD"; gVisor (a Must) is a checkbox on GKE but custom-AMI work on EKS → needs an ADR (see decisions below).
@@ -75,13 +75,13 @@ Cross-references (e.g. CORE-1) point into the per-domain reports, which carry fu
 - `game-rooms.md` + `reconnection-flow.md`: CORE-1/2/3 resolutions; grace timers as persisted absolute deadlines + sweep (GRMP-F3); room-closure → `TerminateSession` ordering (GRMP-F2).
 - `platform-operations.md`: reconciliation sweep job (GRMP-F1); scaling-model fix (API-3); cost/SLO reality check; Dependabot + Trivy in CI; frontend added to FR-CICD-001.
 - `user-accounts.md`: password change FR, logout FR (+ guest warning), username constraints, OAuth email-collision rule, lockout decay, session-invalidation closes live WS/SSE.
-- `rest-conventions.md`: authorization/ownership section (IDOR), CORS/Origin policy, actuator isolation, logout endpoint, idempotency note.
+- `rest-conventions.md`: authorization/ownership section (IDOR), actuator isolation, logout endpoint, idempotency note. *(CORS/Origin policy + CSRF — done 2026-07-12, § Origin Policy and CSRF.)*
 - `rate-limiting.md`: WS message tier (API-1), guest-creation bucket (API-2), X-Forwarded-For trust policy, per-env configurability (GRMP-F6).
 - `notifications-invitations.md` + `sse-notifications.md`: alert-vs-notification event classes; friend-request/notification lifecycle coupling.
 - `websocket.md`: STOMP heartbeats 10s/10s; `GAME_STARTED` topic separator fix.
 - gRPC protocol + proto: parameters encoding (UTF-8 JSON, defaults materialized by Orchestration — GAME-I5); failed-action drop semantics (GAME-I3); sequence allocation in Redis; `GameOutcome` validation; stdin/stdout reference sweep (GAME-M4).
 - `platform-ui-library.md`: add Tabs, Select, Switch/Checkbox, Badge; fix Avatar contradiction.
-- Upload-pipeline spec (when written): `gdkApiVersion` check (GAME-I7), serialization round-trip smoke test (GRMP-F4), game-asset origin decision (GAME-B3).
+- Upload-pipeline spec (when written): `gdkApiVersion` check (GAME-I7), serialization round-trip smoke test (GRMP-F4). *(Game-asset origin decision — GAME-B3 — is done; the upload spec must unpack bundles into the `/g/{gameId}/{version}/` layout that [`game-asset-serving.md`](../../specs/game-frontend/game-asset-serving.md) §4.1 serves.)*
 
 ## What's already in good shape
 

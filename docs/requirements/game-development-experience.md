@@ -26,6 +26,7 @@ This document defines the requirements for the Game Development Kit (GDK), game 
 - [manifest/manifest-schema.md](../specs/manifest/manifest-schema.md) — Game manifest schema: `manifest.json` structure, JSON Schema artifact, validation rules, error model (implements FR-MANIFEST-001–009)
 - [file-uploads.md](../specs/api-design/file-uploads.md) — Pre-signed URL upload flow for game bundles (implements FR-UPLOAD-001–009)
 - [error-handling.md](../specs/api-design/error-handling.md) — Bundle validation error format (implements FR-UPLOAD-008)
+- [game-frontend/game-asset-serving.md](../specs/game-frontend/game-asset-serving.md) — Game FE serving origin, URL scheme, iframe sandbox & CSP, server-rendered bootstrap document (implements FR-ASSET-001–009, CON-006)
 
 ---
 
@@ -129,6 +130,25 @@ This document defines the requirements for the Game Development Kit (GDK), game 
 | FR-UPLOAD-007 | Bundle size validation | The platform must reject bundles exceeding the configured size limit (default 256 MB). | Must |
 | FR-UPLOAD-008 | Detailed error reporting | When validation fails, the platform must return a detailed error report listing all validation failures with human-readable descriptions. Multiple errors may be reported in a single response. | Must |
 | FR-UPLOAD-009 | CLI upload | Game developers can upload game bundles via a CLI tool or API endpoint, enabling integration with CI/CD pipelines. This requires API token authentication. | Could |
+
+### Game Frontend Serving & Isolation
+
+How an uploaded frontend bundle becomes a running iframe. These requirements are the browser-side
+half of the platform's trust boundary; the serving origin is part of the **authentication** model,
+not a presentation detail (see FR-ASSET-001). Realized by
+[`../specs/game-frontend/game-asset-serving.md`](../specs/game-frontend/game-asset-serving.md).
+
+| ID | Title | Description | Priority |
+|----|-------|-------------|----------|
+| FR-ASSET-001 | Separate registrable domain | Game frontends must be served from a registrable domain distinct from the platform's, so that game code is **cross-site** with the platform session cookie. A subdomain of the platform domain is insufficient: `SameSite` is a site check, not an origin check, so a same-site game frame could issue fully credentialed requests to the platform API. | Must |
+| FR-ASSET-002 | Per-game origin | Each game is served from its own origin, derived from the game's identifier, so that one game's frontend cannot read another's browser storage. The origin is produced from a configured template; collapsing the template to a constant (a single shared games origin) must remain possible without any contract change. | Must |
+| FR-ASSET-003 | Platform-rendered bootstrap document | The platform serves the iframe's HTML document itself and injects the FE GDK bootstrap (trusted parent origin + session id) into it **before** the game's JavaScript executes. The trusted parent origin comes from server configuration only — never from a URL parameter, a request header, or a compiled-in constant. | Must |
+| FR-ASSET-004 | Minimal iframe capabilities | The game iframe is granted the ability to run scripts and to have its own origin, and nothing else: it must not be able to navigate the parent frame, open popups, submit forms, open modal dialogs, trigger downloads, or use any Permissions-Policy feature (camera, microphone, geolocation). | Must |
+| FR-ASSET-005 | Content-Security-Policy on game responses | All game frontend responses must carry a CSP that denies everything by default, permits network access only to the game's own bundle (satisfying `game-contracts.md` CON-004's "no direct network access"), forbids nested frames and form submissions, and permits only the platform to frame the game. | Must |
+| FR-ASSET-006 | Isolation is trust-independent | The iframe's isolation configuration must be **identical for every game regardless of its trust badge** (Official / Verified / Unverified). No code path may weaken isolation based on a trust level, so no such path can fail open. | Must |
+| FR-ASSET-007 | Version pinning per session | The frontend bundle version is resolved once, when the game session is created, and every participant in that session is served that version for its whole lifetime. Republishing a game must not swap the code under a live session. | Must |
+| FR-ASSET-008 | Server-supplied frontend URL | The client receives the absolute game frontend URL from the server (in the game-start event and in the room snapshot) and never assembles it. The serving origin must be deploy-time configuration, never baked into a frontend build artifact. | Must |
+| FR-ASSET-009 | Route isolation by host | The platform API must not be reachable on the game serving host, and game frontend routes must not be reachable on the platform host. | Must |
 
 ### Test Harness
 

@@ -1,65 +1,66 @@
 ## Last Session Summary
 
-**Date:** 2026-07-11 (session 5)
+**Date:** 2026-07-12 (session 6)
 
-**Wrote the game-session WebSocket protocol** (review "New spec documents" #5; STATUS priority #4) —
-the client half of the game execution chain, picking up exactly where session 4's Game Host spec
-stopped ("Orchestration hands effect E to the Gateway, addressed to recipient set R, tagged with
-`sequence` N"). Per owner decision it was written **into `websocket.md` in place** rather than as a
-new doc. **Closes GAME-B1, GAME-I4, GAME-I6.**
+**Wrote the game-frontend serving/origin/sandbox spec** (STATUS priority #5) —
+`docs/specs/game-frontend/game-asset-serving.md`, a new spec directory. **Closes GAME-B3**, the last
+execution-chain blocker, **and API-5** with it. This is the browser-side counterpart to session 4's
+Game Host spec: the same platform↔game trust boundary, drawn in the client.
 
-**The load-bearing owner decision: catch-up by `resync`, not by an effect journal.**
-The review recommended retaining every effect per session and replaying it on subscribe. The owner
-chose instead to **ask the game backend** for an attaching viewer's current view. Rationale: a journal
-means archiving every ≤10 MB effect payload of every live session in a single non-HA Redis (OPS-4);
-and only the game backend *can* compose a per-viewer snapshot, since the platform is forbidden to read
-game state (NFR-SEC-003) and each viewer is entitled to a different slice of it. ADR-0006 (first-party
-games only) makes the contract addition cheap now and expensive later.
-
-**How it closes I6 without a race.** The client subscribes *first*, then requests a sync. The backend's
-read-only `onResync` returns the view plus the `asOfSequence` it reflects. Anything at or below that
-watermark is inside the snapshot; anything above it was fanned out *after* the client was already
-subscribed, so it was buffered and applies on top. One mechanism covers game start, reconnection, and
-late join. Falls out for free: **the resync view is always the first `game_event` a freshly loaded game
-FE receives**, so a game FE never has to distinguish a snapshot from a delta — which also resolves
-frontend-gdk OQ-001.
+**The review's own suggested resolution was unsound, and that is the headline.** It proposed serving
+games from `games.turnbase.io` with `allow-same-origin`, "safe because that origin holds no
+credentials." But **`SameSite` is a *site* check, not an *origin* check** — a subdomain is same-site
+with the platform, and `SameSite=Strict` does not restrict same-site requests. Every uploaded game
+would have been able to fire fully-credentialed requests at the platform API (delete account, kick
+players). The fix: games are served from a **separate registrable domain**. The serving origin is
+part of the *authentication* model, not a frontend detail.
 
 **Design decisions recorded:**
-1. **Destinations:** `broadcast`/log/lifecycle → `/topic/game.{sessionId}`; `send_to_team` →
-   `/topic/game.{sessionId}.team.{teamId}` (membership-validated subscription); `send_to_player` →
-   `/user/queue/game`. NFR-SEC-002 becomes mechanical rather than aspirational.
-2. **`(sequence, index)`** is the wire dedup/ordering key; `index: -1` for platform lifecycle events
-   sorts them ahead of the game's effects for the same input. **No gap detection** — the game stream is
-   deliberately sparse (a `send_to_player` to someone else consumes a sequence you never see), unlike
-   the room's dense `version` stream. Recovery is always by resync, never by gap.
-3. **Session affinity follows room affinity** (ADR-0002) → effect fan-out is a local call.
-4. **Action authorization (I4):** channel-level fast-fail + authoritative re-check under the session
-   lock (participation is mutable — kick, grace expiry). Spectators can never act.
-5. **`SESSION_FAILED` moved to the session topic** (it is session-wide, not a per-user command error).
-6. A failed `onResync` fails **only that client's attach** — never the session, and it does not count
-   toward the retry limit. A read cannot kill a game.
+1. **One origin per game** — `{gameId}.games.<domain>` — resolved from a **deploy-time** template
+   (`turnbase.game-frontend.origin-template`). Collapsing the template to a constant gives a shared
+   games origin, so per-game vs. shared is a **config value, not an architecture**. Locally,
+   `*.localhost` resolves to loopback with zero config in Chrome/Firefox, so this costs nothing;
+   in production it is one wildcard DNS record and one wildcard cert.
+2. **`sandbox="allow-scripts allow-same-origin"`** — the pair is safe *only* because the frame is
+   cross-origin to the parent (the classic footgun is granting both to same-origin content). It buys
+   `localStorage` (most engines throw `SecurityError` without it) and exact `event.origin` checks on
+   both sides. Nothing else granted: no top-navigation, popups, forms, modals, downloads, or
+   Permissions-Policy features.
+3. **CSP `default-src 'none'` / `connect-src 'self'`** — a game may re-read its own already-shipped
+   bundle (sprite atlases, level JSON) and reach nothing else. Plus `'wasm-unsafe-eval'`, without
+   which Pixi/Phaser/Unity builds simply do not run.
+4. **The bootstrap document is server-rendered** at `/play/{sessionId}` on the game origin. The parent
+   cannot script into a cross-origin frame, so `window.__TURNBASE__` must arrive *in* the document,
+   ahead of the game's entry script. `parentOrigin` comes from server config — never a query param.
+   A `<base href>` points relative asset resolution at the bundle root.
+5. **The parent's half of postMessage**, never previously written down: post only with
+   `targetOrigin = gameOrigin`, never `'*'`; accept only when origin **and** `event.source` match.
+   This is also the primary anti-exfiltration defense — a game that navigates its frame to `evil.com`
+   simply *stops receiving messages*, since the parent still addresses `gameOrigin`.
+6. **CSRF now has three independent layers**: `connect-src 'self'` (the request cannot be made), a
+   **server-side `Origin` check** (new — CORS default-deny does *not* stop a CSRF write; it only
+   blocks reading the response), and `SameSite=Strict`. Only the third depends on PSL "site"
+   semantics, which is why the other two exist.
+7. **GRMP-F5 closed by construction:** the client never builds the game URL (the server supplies an
+   absolute `gameFrontendUrl`), and **isolation is identical for every game regardless of trust
+   badge** — there is no trust-level branch, hence none to fail open.
 
-**Contract ripple (the price of the resync call — all edited now):** new `resync` input
-(game-contracts FR-IN-006/FR-RESP-005, FR-DELIVER-005/006), dedicated `Resync` RPC in the proto
-(deliberately *not* a `ProcessInput` variant: no sequence, no state write, no watermark), a 4th
-required GDK hook (`onResync` → `ViewResult`), and the read-only dispatch path in the Game Host spec.
-FR-FE-001's "initial state arrives via `send_to_player`" is now false and was corrected — `onInit`
-effects are **not** delivery-guaranteed.
-
-**Also fixed in passing:** the `GAME_STARTED` topic-separator bug (review API-4), and the missing
-`PLAYER_LEFT_REASON_LEFT` proto/GDK enum value that FR-IN-005 requires.
+**The reasoning that made the rest cheap:** the game iframe holds **zero authority**. Identity is
+attached server-side and all authorization lives on the WebSocket. Compromising the frame yields
+exactly what that player already had — which is why asset serving needs no auth (unguessable UUID
+paths) even though frame isolation must be strict.
 
 **Files changed:**
-- `docs/specs/api-design/websocket.md` — **the spec** (Game Session Protocol section)
-- `docs/specs/api-design/{INDEX.md,room-websocket.md}` — index entry; `GAME_STARTED` fix
-- `docs/requirements/game-contracts.md` — FR-IN-006, FR-RESP-005, FR-FE-001 correction, spec links
-- `docs/requirements/platform-architecture.md` — FR-DELIVER-005/006, spec link
-- `docs/requirements/game-development-experience.md` — FR-GDK-002/003, NFR-DX-002
-- `docs/requirements/reconnection-flow.md` — Related API Specifications
-- `docs/specs/internal-grpc/{gamehost.proto,orchestration-gamehost-protocol.md,INDEX.md}` — `Resync`
-- `docs/specs/gdk-api/{backend-gdk-api.md,frontend-gdk-api.md,INDEX.md}` — `onResync`, OQ-001 resolved
-- `docs/specs/game-host/game-host-internals.md` — read-only dispatch path, no-journal statement
-- `docs/reviews/2026-07-02-mvp-readiness/INDEX.md`, `STATUS.md` — closure record
+- `docs/specs/game-frontend/{game-asset-serving.md,INDEX.md}` — **the spec** (new directory)
+- `docs/specs/INDEX.md` — new subdirectory row
+- `docs/requirements/game-contracts.md` — CON-004 rewritten from prose into the origin/sandbox/CSP
+  contract; spec link
+- `docs/requirements/game-development-experience.md` — new FR-ASSET-001…009 section; spec link
+- `docs/specs/api-design/rest-conventions.md` — new § Origin Policy and CSRF (API-5)
+- `docs/specs/api-design/room-websocket.md` — `gameFrontendUrl` in `GAME_STARTED` + room snapshot
+- `docs/specs/gdk-api/frontend-gdk-api.md` — §9 "shell spec not yet written" hedge replaced with the
+  real mechanism; parent-side origin check cross-referenced
+- `docs/specs/api-design/INDEX.md`, `docs/reviews/2026-07-02-mvp-readiness/INDEX.md`, `STATUS.md`
 
 ---
 
@@ -77,13 +78,13 @@ Continue the review's action plan (`docs/reviews/2026-07-02-mvp-readiness/INDEX.
 4. **Game-session WebSocket spec** — ✅ done (2026-07-11, session 5). `websocket.md` § Game Session
    Protocol. Closed **GAME-B1** (client half), **I4**, **I6**. Catch-up is by read-only `resync`
    (new game-contract input), not by an effect journal.
-5. **Remaining execution-chain blocker** — **GAME-B3**: game FE serving origin, iframe `sandbox`
-   attributes, and CSP. It is the last hard prerequisite for the client path, and the FE GDK's
-   bootstrap contract (frontend-gdk-api §9) plus the shell relay contract (websocket.md) both already
-   depend on the origin decision. Pairs naturally with the bundle/upload-pipeline spec.
-6. **WS abuse controls (API-1/2)** — `rate-limiting.md` WS message tier (chat flood, room-lock
-   starvation, and now `SUBMIT_ACTION`/`REQUEST_GAME_SYNC`, all reachable by guests) + guest-creation
-   bucket. The game-session spec explicitly leaves its destinations unthrottled and flags it.
+5. **Game FE serving origin / sandbox / CSP** — ✅ done (2026-07-12, session 6).
+   `docs/specs/game-frontend/game-asset-serving.md`. Closed **GAME-B3** (the last execution-chain
+   blocker) and **API-5**. **All 15 review blockers in the game-execution chain are now closed.**
+6. **WS abuse controls (API-1/2)** — ← **next.** `rate-limiting.md` WS message tier (chat flood,
+   room-lock starvation, and now `SUBMIT_ACTION`/`REQUEST_GAME_SYNC`, all reachable by guests) +
+   guest-creation bucket. The game-session spec explicitly leaves its destinations unthrottled and
+   flags it. Group with `input-validation.md` (API-6) — both are abuse-surface work, one session.
 7. **New specs (rescoped local-first):** local deployment & infrastructure spec (Docker Desktop K8s +
    compose per ADR-0001), data-operations spec (Postgres/Redis local, accepted game-state loss window
    — OPS-4), secrets & config spec, `input-validation.md` (API-6).
@@ -92,9 +93,11 @@ Continue the review's action plan (`docs/reviews/2026-07-02-mvp-readiness/INDEX.
    Dependabot/Trivy + frontend in FR-CICD-001, rest-conventions authz/IDOR, platform-ui-library
    additions. *(Two items already done: the `left` proto reason value and the `GAME_STARTED`
    separator fix, session 5.)*
-9. **Then** the previously planned queue: game bundle format + upload pipeline, test harness,
-   platform-frontend shell spec (must fail closed on trust level — GRMP-F5; must honor the
-   `websocket.md` relay contract and the `__TURNBASE__` bootstrap contract).
+9. **Then** the previously planned queue: game bundle format + upload pipeline (must unpack into the
+   `/g/{gameId}/{version}/` layout `game-asset-serving.md` §4.1 serves), test harness,
+   platform-frontend shell spec (must honor the `websocket.md` relay contract and the iframe
+   embedding contract in `game-asset-serving.md` §6 — sandbox attrs, `frame-src`, exact-`targetOrigin`
+   postMessage).
 
 ---
 
@@ -121,7 +124,8 @@ Continue the review's action plan (`docs/reviews/2026-07-02-mvp-readiness/INDEX.
 
 **Decisions:** `docs/decisions/` — ADR-0001 (local-first platform), ADR-0002 (WS room affinity),
 ADR-0003 (availability), ADR-0004 (erasure pseudonymization), ADR-0005 (sandbox / Espresso spike),
-ADR-0006 (game trust model — official-only Java for MVP).
+ADR-0006 (game trust model — official-only Java for MVP), ADR-0007 (game FEs on a separate
+registrable domain).
 
 ---
 
@@ -138,3 +142,6 @@ ADR-0006 (game trust model — official-only Java for MVP).
 | `websocket.md` | OQ-002: A game whose `onResync` returns an empty spectator view leaves spectators blank until the next `broadcast` — the test harness should warn |
 | `admin-tooling.md` | OQ-001: Can a developer resubmit a rejected game, or is rejection terminal? |
 | `admin-tooling.md` | OQ-002: Can an operator delist a Verified or Official game post-approval? |
+| `game-asset-serving.md` | OQ-001: Fullscreen — `allow=""` grants no Permissions-Policy features; whether to add `allow="fullscreen"` is a shell-spec UX call |
+| `game-asset-serving.md` | OQ-002: Private-bundle exposure — bundle assets are unauthenticated; a signed-token variant is additive if genuinely private third-party bundles become a requirement post-MVP |
+| `game-asset-serving.md` | OQ-003: Manifest-declared stylesheets — CSS must currently be imported from JS; deferred to the bundle spec |

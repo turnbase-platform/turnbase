@@ -249,9 +249,17 @@ arrives as the first `init` postMessage event so the platform can populate it at
 session start. The local test harness satisfies the same contract by injecting
 its own bootstrap (or via the `parentOrigin` constructor override).
 
-> **Cross-spec dependency.** This contract must be honored by the
-> platform-frontend shell spec (not yet written). Recorded here as the
-> authoritative definition until that spec references it.
+**How the shell satisfies it.** The game iframe is served from a **separate registrable domain**
+(`{gameId}.games.<domain>`), so the parent cannot script into it. Instead the platform *server-renders*
+the iframe document with the bootstrap already inline, ahead of the `<script>` tag for the game's
+entry point — see
+[game-frontend/game-asset-serving.md](../game-frontend/game-asset-serving.md) §5. `parentOrigin`
+comes from server configuration; it is never read from a query parameter or a build-time constant,
+because a game that could choose its own `parentOrigin` could accept messages from anyone.
+
+That spec also defines the **parent's half** of the origin check (§6.2), which mirrors §8 above: the
+platform posts to the frame only with `targetOrigin = gameOrigin` (never `'*'`) and accepts inbound
+messages only when `event.origin === gameOrigin` **and** `event.source === frameElement.contentWindow`.
 
 ---
 

@@ -56,6 +56,19 @@ Error responses follow RFC 9457 Problem Details — see [error-handling.md](erro
 
 All endpoints except those listed as public in `user-accounts.md NFR-SEC-006` require a valid session token delivered as an `httpOnly`, `Secure`, `SameSite=Strict` cookie (`user-accounts.md CON-004`). Unauthenticated requests to protected endpoints receive a 401 response.
 
+## Origin Policy and CSRF
+
+The platform frontend is **same-origin** with the API. There is therefore no legitimate cross-origin caller, and the API is configured accordingly:
+
+- **CORS is default-deny.** No `Access-Control-Allow-Origin` header is emitted on any endpoint. The STOMP WebSocket endpoint is configured with `setAllowedOrigins(<platform origin>)`; the SSE endpoint is same-origin only.
+- **State-changing requests are Origin-checked.** Any `POST`, `PUT`, `PATCH` or `DELETE` whose `Origin` header is present and is **not** the platform origin is rejected with 403, before authentication.
+
+The second rule is not redundant with the first. **CORS default-deny does not prevent a cross-origin request from being sent** — it prevents the caller from *reading the response*. A credentialed state-changing request still lands and still takes effect. Blocking CSRF requires the server to refuse it, which is what the `Origin` check does.
+
+This exists because `SameSite=Strict` (`user-accounts.md` CON-004) is nominated as the CSRF defense, and `SameSite` is a **site** check, not an **origin** check: it does not restrict same-site requests. That defense is therefore sound only if untrusted game code never runs same-site with the session cookie. It does not — game frontends are served from a **separate registrable domain** with `connect-src 'self'`, per [game-frontend/game-asset-serving.md](../game-frontend/game-asset-serving.md) §3 and §8. The `Origin` check is the layer that holds even if that assumption is ever weakened.
+
+Neither the games origin nor any other origin is ever added to a CORS allowlist or to `setAllowedOrigins`.
+
 ## Versioning and Deprecation
 
 No version prefix is used in URLs. Breaking changes are handled by:

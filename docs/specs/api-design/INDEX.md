@@ -10,7 +10,7 @@ These specifications cover the HTTP REST API, WebSocket protocol, and SSE channe
 
 | File | Topic |
 |------|-------|
-| [rest-conventions.md](rest-conventions.md) | URL structure, HTTP methods, status codes, versioning and deprecation strategy |
+| [rest-conventions.md](rest-conventions.md) | URL structure, HTTP methods, status codes, versioning and deprecation strategy, CORS/Origin policy and CSRF |
 | [pagination-filtering-sorting.md](pagination-filtering-sorting.md) | List endpoint conventions: pagination, filtering, sorting |
 | [error-handling.md](error-handling.md) | RFC 9457 Problem Details, `@ControllerAdvice`, error taxonomy |
 | [file-uploads.md](file-uploads.md) | Pre-signed URL upload flow for game bundles |
@@ -32,3 +32,4 @@ These specifications cover the HTTP REST API, WebSocket protocol, and SSE channe
 - A client attaching to a game session catches up by asking the **game backend** for its current view (read-only `resync`), not by replaying a platform-held effect journal
 - Separate SSE stream per authenticated user for platform notifications
 - Bucket4j + Redis for distributed rate limiting across monolith replicas
+- CORS is default-deny and state-changing requests are **Origin-checked server-side** — CORS blocks reading a response, not sending the request, so it is not a CSRF defense on its own. Game frontends are cross-site by construction ([game-frontend/](../game-frontend/INDEX.md)), which is what keeps the `SameSite=Strict` model sound.
