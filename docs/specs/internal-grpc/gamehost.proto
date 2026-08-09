@@ -388,9 +388,15 @@ message TerminateSessionRequest {
 
 enum TerminationReason {
   TERMINATION_REASON_UNSPECIFIED = 0;
-  TERMINATION_REASON_HOST_ENDED = 1;    // host ended the game / kicked everyone
-  TERMINATION_REASON_ROOM_CLOSED = 2;   // room was closed
+  // 1 reserved: was HOST_ENDED ("host ended the game / kicked everyone"). No
+  // requirement produces it — there is no host abort-game feature, and a host
+  // cannot kick themselves (game-rooms.md FR-HOST-006, reconnection-flow.md
+  // FR-KICK-*), so a kicked-everyone room stays viable. Reserved rather than
+  // reused so existing wire values keep their meaning (ADR-0010).
+  reserved 1;
+  TERMINATION_REASON_ROOM_CLOSED = 2;   // room was closed (ADR-0010)
   TERMINATION_REASON_RETRY_LIMIT = 3;   // permanent failure after retries (FR-FAIL-003)
+  TERMINATION_REASON_GAME_OVER = 4;     // normal end of game (FR-SESS-005, game-host-internals §10)
 }
 
 message TerminateSessionResponse {

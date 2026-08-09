@@ -65,7 +65,13 @@ retained only as a surgical escape hatch for oversized responses (see *Message s
 | `CreateSession` | Bind the session to the `(game_id, game_version)` context, run `onInit` with the roster + parameters, return initial effects. | FR-SESS-004, FR-IN-002 |
 | `ProcessInput` | Process an `action` / `player_joined` / `player_left` input; return the ordered effect list. | FR-IN-003/004/005, FR-ROUTE-002 |
 | `Resync` | Compose one viewer's current view of the session by invoking the game's read-only `onResync`. Mutates nothing. | FR-IN-006, FR-RESP-005 |
-| `TerminateSession` | Force teardown; free local + Redis state. | FR-SESS-005, FR-FAIL-005 |
+| `TerminateSession` | Force teardown; free local + Redis state. **Idempotent** (see below). | FR-SESS-005, FR-FAIL-005, FR-XFER-002, FR-HDISC-003 |
+
+`TerminateSession` has four callers: normal `game_over` (FR-SESS-005), retry-limit
+permanent failure (FR-FAIL-005), room closure — including the grace-expiry closure of
+FR-HDISC-003 — and the reconciliation sweep re-driving an owed teardown. All four go
+through the durable-to-do mechanism in [ADR-0010](../../decisions/0010-session-teardown-ordering.md);
+none of them may treat a teardown failure as a reason to abandon the room state change.
 
 `CreateSession` is separate from `ProcessInput` because session creation is
 structurally different: it carries the `ContextKey` for context binding and triggers
@@ -100,7 +106,9 @@ ClusterIP while the dispatch path addresses individual pods.
 ## Addressing the Game Host pods
 
 The dispatch path must reach a **specific** Game Host pod (the one holding the session
-in local memory, FR-SESS-003), not a round-robin VIP. Two complementary mechanisms:
+in local memory, `platform-architecture.md` FR-SESS-003), not a round-robin VIP. The
+document qualifier matters: `user-accounts.md` independently defines an unrelated
+FR-SESS-003 (login displaces the previous session). Two complementary mechanisms:
 
 - A **headless Kubernetes Service** (`clusterIP: None`) gives each Game Host pod stable
   DNS, and/or the pod advertises its **pod IP + port** in `RegisterRequest.address`.
@@ -148,11 +156,52 @@ re-dispatched. Rules:
   Game Host replay, this yields exactly-once *application* and at-least-once *delivery*
   with client-side dedup keyed by `sequence`.
 
+**`TerminateSession` is idempotent — normative.** Terminating a session the host does not
+hold, or has already terminated, is a **no-op success**, not an error. This is load-bearing
+rather than a convenience: a lost response is indistinguishable from a real failure, so the
+re-drive in [ADR-0010](../../decisions/0010-session-teardown-ordering.md) will retry
+terminations that in fact succeeded. A host that answered anything but `OK` for an
+already-gone session would turn a completed teardown into a permanently owed one.
+
+**`TerminateSession` never waits on the per-session single-flight lock.** It marks the
+session terminated, deletes the session record from Redis, and returns immediately; the
+guest instance is disposed when the lock frees, and the in-flight invocation's result is
+discarded. The Orchestration Service discards any `ProcessResult` arriving for a session it
+has terminated. Termination must **not** be implemented with `Context.interrupt`, which is
+context-scoped and would reach sibling sessions sharing that context
+([`../game-host/game-host-internals.md`](../game-host/game-host-internals.md) §12).
+
+**Deadline: 2 seconds**, distinct from the dispatch deadline (game timeout + overhead).
+Teardown is a local dispose plus a Redis delete; it does not execute game code, which is
+exactly what the no-waiting rule above guarantees.
+
+**`player_left` may be re-delivered.** When a grace period expires, the notification is
+dispatched from a durable outbox ([ADR-0009](../../decisions/0009-grace-deadline-durability.md))
+rather than inline, so it is at-least-once.
+
+The per-`sequence` replay rules above make a redelivery harmless **only if it carries the same
+`sequence`** — which does not happen by default, because a sequence is normally allocated at
+enqueue, so a re-drained outbox row would arrive under a fresh one and be applied a second time.
+The outbox therefore allocates the sequence once, persists it on the row before the first dispatch,
+and reuses it on every retry ([`../platform/data-model.md`](../platform/data-model.md) §4.2). The
+exactly-once property above covers re-dispatch of an *already allocated* sequence, which is a
+different event from re-drain of an outbox row; conflating the two is what makes this look safe when
+it is not.
+
+A `NOT_FOUND` on this path means the session record is gone. It is terminal **only while a room still
+claims that session as active** (`room.active_session_id = :sessionId`); otherwise the session has
+been retired from its room, the absent record is the expected result of a teardown that raced the
+drain, and the outbox row is dropped. Treating it as unconditionally terminal would close a healthy
+room that had already returned to Lobby after a normal game end. The test is attachment, **not**
+teardown history — a completed teardown deletes its own record
+([`../platform/data-model.md`](../platform/data-model.md) §4.1), so history is not a fact that
+survives to be queried.
+
 ### Crash recovery
 
 If the Game Host receives an input for a session it does not hold in local memory (e.g.
 after re-dispatch to a fresh host), it loads state from Redis before invoking the handler
-(FR-SESS-003b) — transparently, without a distinct error. A `NOT_FOUND` is returned only
+(`platform-architecture.md` FR-SESS-003b) — transparently, without a distinct error. A `NOT_FOUND` is returned only
 when no state exists in Redis at all (a terminal condition).
 
 ### `Resync` — the read-only path
@@ -195,7 +244,7 @@ Two tiers, kept strictly separate:
 | `UNAVAILABLE` | Host unreachable / crashed | Reassign session to another host, re-dispatch from queue (FR-ORCH-005, FR-FAIL-002) |
 | `DEADLINE_EXCEEDED` | Call exceeded the deadline (set to the game timeout + overhead) | Treat as a processing failure; apply retry-limit semantics |
 | `RESOURCE_EXHAUSTED` | Message exceeded the configured size ceiling | Fail the session (oversized effect/state) |
-| `NOT_FOUND` | Session unknown and no Redis state | Permanently fail the session |
+| `NOT_FOUND` | Session unknown and no Redis state. **Scoped to `ProcessInput` and `Resync` only** — `TerminateSession` returns `OK` for an unknown session (idempotency, above), so a retried teardown is never read as a hard failure | Permanently fail the session |
 | `FAILED_PRECONDITION` | Context could not be loaded for the session | Fail the session |
 
 **Game-level failures → in-band `ProcessResult`.** When the game *code* fails (threw,

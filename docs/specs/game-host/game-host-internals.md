@@ -340,7 +340,9 @@ requirement on the Game Host container image, recorded here so it is not lost.
 ## 8. State representation & the shared Redis session record
 
 **Canonical state is serialized JSON** (owner decision). The host holds it as bytes
-in local memory (primary read/write path, FR-SESS-003) and mirrors it to Redis
+in local memory (primary read/write path, `platform-architecture.md` FR-SESS-003 —
+qualified because `user-accounts.md` defines an unrelated FR-SESS-003 about login
+session displacement) and mirrors it to Redis
 (FR-SESS-003a). Rich state objects exist **only transiently inside the guest**
 during an invocation. This keeps the host fully game-agnostic and makes recovery,
 eviction, and persistence portable.
@@ -435,7 +437,23 @@ corrupt a game. `as_of_sequence` is what makes client catch-up race-free — see
 
 **`TerminateSession`:** dispose the guest instance (`disposeSession`), drop
 local-memory state, delete `session:{id}` from Redis (FR-SESS-005). Idempotent
-(terminating an already-gone session is a no-op success).
+(terminating an already-gone session is a no-op success) — this guarantee is
+normative in the protocol contract, not merely an implementation property, because
+the durable re-drive of [ADR-0010](../../decisions/0010-session-teardown-ordering.md)
+retries terminations whose response was lost.
+
+**Terminate does not acquire the single-flight lock.** It marks the session
+terminated, deletes the Redis record and returns immediately (2s deadline); the guest
+instance is disposed once any in-flight handler releases the lock, and that handler's
+result is discarded. Terminate must **not** use `Context.interrupt` — that is
+context-scoped and would reach sibling sessions sharing the context (§12).
+
+**Key cleanup.** `TerminateSession` deletes `session:{id}`. The Orchestration-owned
+keys for that session — `routing:`, `queue:`, `seq:`, `delivered:`, `failcount:` — are
+deleted by the caller as part of the same teardown routine. Historically only the
+retry-limit path (§9.4) did this, which left the full key family behind on exactly the
+path room closure uses; the reconciliation sweep
+(`platform-operations.md` FR-JOB-007) collects any strays.
 
 ### 9.2 Sequence allocation & exactly-once delivery (Orchestration side)
 
@@ -472,6 +490,17 @@ dequeued without `OK`). If the dead host had actually applied it (advanced
 `lastAppliedSequence`, atomic §8.1) but died before returning, the re-dispatch hits
 §9.1 step 1 → **replay**, so the action is not double-applied (GAME-B2 closed). If it
 had not applied it, the new host applies it fresh. Either way: exactly-once.
+
+**Platform pod crash (the other direction).** When the Platform Monolith pod that owns
+a room dies, the Game Host is unaffected: the session record is intact, and no guest
+state is lost. The room is adopted by another pod under the ownership claim of
+[ADR-0008](../../decisions/0008-room-ownership-lifecycle.md), and the adopting pod
+re-creates the session dispatcher and re-dispatches the head of `queue:{sessionId}`.
+Exactly-once survives this **with no Game Host change**: replay by `sequence` (§9.1
+step 1), the `delivered:{sessionId}` watermark (§9.2) and client-side `asOfSequence`
+dedup already compose to give it. While a room is ownerless nothing dispatches its
+queue — acceptable, because by the invariant in ADR-0008 no client is attached to
+observe the pause.
 
 **Context crash / OOM (FR-FAIL-007, NFR-REL-001):** a context crash affects only its
 own sessions; other contexts continue. Affected sessions' records remain in Redis and
@@ -527,9 +556,19 @@ FR-RESP-004):
   exists (game-contracts.md FR-IN-006/FR-FE-001, review **I6**).
 - **`game_over` handling.** After the game-over effect is delivered, Orchestration
   marks the session terminated, persists the `GameOutcome` to game history (see
-  `game-history.md`), notifies the Room Service, then calls `TerminateSession` to
-  free Game Host state (FR-ORCH-003). Only the first `game_over` per session is
-  honored (FR-EFF-007); no inputs are dispatched after it (FR-EFF-006).
+  `game-history.md`), notifies the Room Service, then calls `TerminateSession` with
+  `TERMINATION_REASON_GAME_OVER` to free Game Host state (FR-ORCH-003). Only the
+  first `game_over` per session is honored (FR-EFF-007); no inputs are dispatched
+  after it (FR-EFF-006).
+
+  **The Room Service notification and the owed teardown commit together.** Game end
+  is a *detach* — the room returns to Lobby (FR-LIFE-002) while the session is torn
+  down — and it is the most frequent detach path there is. It therefore uses the same
+  durable to-do as room closure ([ADR-0010](../../decisions/0010-session-teardown-ordering.md)):
+  the room-state change and a teardown row are written in one transaction, and the
+  `TerminateSession` call follows outside it. Without this, a crash between the
+  notification and the terminate leaks the session — and the leak pins an Espresso
+  context (§6.3) and its JAR (§7.1) for the life of the process.
 
 **Seam.** This spec addresses effects *to* the Gateway with a recipient set and a
 `sequence`; the mapping onto STOMP topics/queues and the client envelope is the
@@ -605,14 +644,22 @@ by reassignment. This is the two-tier model of the protocol doc, realized.
 
 | Key | Type | Owner (writer) | Contents / TTL |
 |-----|------|----------------|----------------|
-| `session:{sessionId}` | hash/json | Game Host | the atomic session record (§8.1). Deleted on terminate. |
-| `routing:{sessionId}` | string | Orchestration | `instanceId` currently holding the session. Cleared on host failure. |
-| `queue:{sessionId}` | list | Orchestration | pending inputs in arrival order (FR-ROUTE-001). |
-| `seq:{sessionId}` | counter | Orchestration | monotonic `sequence` allocator (§9.2). |
-| `delivered:{sessionId}` | string | Orchestration | delivery watermark (§9.2). |
-| `failcount:{sessionId}` | counter | Orchestration | consecutive-failure counter (§9.4). |
+| `session:{sessionId}` | hash/json | Game Host | the atomic session record (§8.1). Deleted on terminate. **TTL 24h, refreshed on every write.** |
+| `routing:{sessionId}` | string | Orchestration | `instanceId` currently holding the session. Cleared on host failure. **TTL 24h, refreshed on every write.** |
+| `queue:{sessionId}` | list | Orchestration | pending inputs in arrival order (FR-ROUTE-001). **TTL 24h, refreshed on every write.** |
+| `seq:{sessionId}` | counter | Orchestration | monotonic `sequence` allocator (§9.2). **TTL 24h, refreshed on every write.** |
+| `delivered:{sessionId}` | string | Orchestration | delivery watermark (§9.2). **TTL 24h, refreshed on every write.** |
+| `failcount:{sessionId}` | counter | Orchestration | consecutive-failure counter (§9.4). **TTL 24h, refreshed on every write.** |
 | `hostlease:{instanceId}` | string + TTL | Game Host (via heartbeat) | liveness lease; expiry ⇒ failed (§11). |
 | `contexts:{instanceId}` | set | Game Host | reported live `ContextKey`s for warm selection (§11). |
+| `pod:{podId}:alive` | string + TTL | Platform Monolith pod (self) | pod liveness lease, TTL 10s renewed every 3s; gates room-ownership takeover ([ADR-0008](../../decisions/0008-room-ownership-lifecycle.md)). |
+| `room:{roomId}:pod` | string | claim/release scripts only | owning pod for the room. No TTL — ownership is released explicitly or taken over under the liveness gate (ADR-0008). |
+| `platform:sentinel` | string | Platform Monolith (at startup) | no TTL. Its absence while Redis is *reachable* proves the datastore was reset, letting reconciliation report one mass-loss event instead of N per-room warnings (`platform-operations.md` FR-JOB-008). |
+
+**TTLs are a backstop, not the cleanup mechanism** — teardown deletes these keys
+explicitly (§9.1). The 24h expiry exists so that any leak class, including one that
+escapes the durable re-drive, cannot grow Redis without bound. It is deliberately far
+longer than any real session, so a live game can never be collected by it.
 
 All Orchestration state is in Redis, keeping the service stateless & horizontally
 scalable (FR-ORCH-006/007, CON-011). Session-record writes are atomic (§8.1);

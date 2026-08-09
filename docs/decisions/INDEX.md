@@ -15,6 +15,9 @@ Format: one file per decision, numbered sequentially (`NNNN-slug.md`). Status is
 | [0005](0005-game-sandbox-espresso-spike.md) | Game sandbox — Espresso spike gates the Game Host spec | Accepted |
 | [0006](0006-game-trust-model-java-official-only.md) | Game trust model — Java backends are official-only for the MVP | Accepted |
 | [0007](0007-game-frontend-separate-domain.md) | Game frontends are served from a separate registrable domain | Accepted |
+| [0008](0008-room-ownership-lifecycle.md) | Room ownership is a lease-gated claim, not a lifetime assignment | Accepted |
+| [0009](0009-grace-deadline-durability.md) | Grace deadlines are persisted absolute timestamps, fired by a sweep | Accepted |
+| [0010](0010-session-teardown-ordering.md) | Session teardown is a durable to-do, not an ordering | Accepted |
 
 ## Provenance
 
@@ -30,3 +33,11 @@ runtimes) to post-MVP.
 ADR-0007 resolves review blocker GAME-B3 (2026-07-12). It is recorded as an ADR rather than left in
 the spec because it **overturns the review's own suggested resolution** on a security argument, and
 because it carries a real-world cost (a second registered domain in production).
+
+ADR-0008–0010 close the room-lifecycle durability cluster (GRMP lessons F1, F2 and F3) on 2026-08-09.
+They are three ADRs rather than one because they are independently revisitable — a future live
+migration would replace 0008 without touching 0009 or 0010 — but they were taken together, and each
+depends on the other two: the sweep of 0009 needs 0008's claim before it may broadcast, and 0010's
+re-drive is a duty of the same sweep. Two of the three also fix defects that were already latent in
+the specs: a rolling deploy would have deleted every Lobby room, and an adopting instance would have
+re-issued event versions that clients discard silently.

@@ -22,9 +22,9 @@ Already-tracked gaps (bundle/upload-pipeline spec, test harness spec, frontend s
 Cross-references (e.g. CORE-1) point into the per-domain reports, which carry full evidence and suggested resolutions.
 
 ### Room lifecycle (core-requirements.md)
-1. **CORE-1** — Initial team instantiation at room creation undefined; the room happy path forks here.
-2. **CORE-2** — Voluntary "Leave Room" during a game contradicts the no-distinction disconnect model (`reconnection-flow.md` vs `game-rooms.md`/`room-websocket.md`).
-3. **CORE-3** — Host disconnect with no other human (incl. 1-player-vs-AI rooms): immediate closure vs grace period, docs point both ways.
+1. ~~**CORE-1**~~ — **Closed 2026-07-10** (`game-rooms.md` FR-TEAM-012). Initial team instantiation at room creation undefined; the room happy path forks here. Resolved: `count.min` teams per template are instantiated at `size.max` before the host auto-assigns (FR-TEAM-005).
+2. ~~**CORE-2**~~ — **Closed 2026-07-10** (`reconnection-flow.md` FR-DC-005, FR-EXPIRY-004). Voluntary "Leave Room" during a game contradicts the no-distinction disconnect model (`reconnection-flow.md` vs `game-rooms.md`/`room-websocket.md`). Resolved: confirmed in-app leave is immediate (`PLAYER_LEFT`, no grace period); bare WS loss remains involuntary and grace-periods; joining another room voids a held reservation.
+3. ~~**CORE-3**~~ — **Closed 2026-07-10** (`reconnection-flow.md` FR-HDISC-003). Host disconnect with no other human (incl. 1-player-vs-AI rooms): immediate closure vs grace period, docs point both ways. Resolved: transfer and closure are deferred for the grace period; `game-rooms.md` FR-XFER-002's immediate closure is scoped to Lobby state and explicit departures.
 
 ### API abuse & scaling architecture (api-design.md)
 4. ~~**API-1**~~ — **Closed 2026-07-12** ([`rate-limiting.md`](../../specs/api-design/rate-limiting.md) Tier 6). Per-principal STOMP frame budgets in the inbound `ChannelInterceptor`, **pod-local** rather than Redis-backed: room affinity (ADR-0002) pins a user's whole frame stream to one pod, so an in-JVM bucket is *exact*, and a Redis round trip per chat message and game action would buy nothing. Six buckets, sized by cost — the strictest is `snapshot` (1 per 3s), because `REQUEST_GAME_SYNC` re-enters the guest VM under the session's single-flight lock and is the most expensive frame a client can send. Penalty ladder: drop + `RATE_LIMIT_EXCEEDED` → connection close on sustained violation → Redis-backed reconnect lockout (30s, doubling). Closing a connection mid-game starts the flooder's own grace period — escalation removes persistent abusers from live games with no separate mechanism.
@@ -72,8 +72,8 @@ Cross-references (e.g. CORE-1) point into the per-domain reports, which carry fu
 
 ## Existing-doc edit checklist (IMPORTANT tier, groupable into 1–2 sessions)
 
-- `game-rooms.md` + `reconnection-flow.md`: CORE-1/2/3 resolutions; grace timers as persisted absolute deadlines + sweep (GRMP-F3); room-closure → `TerminateSession` ordering (GRMP-F2).
-- `platform-operations.md`: reconciliation sweep job (GRMP-F1); scaling-model fix (API-3); cost/SLO reality check; Dependabot + Trivy in CI; frontend added to FR-CICD-001.
+- ~~`game-rooms.md` + `reconnection-flow.md`: CORE-1/2/3 resolutions~~ — **Done 2026-07-10** (commit `a541cb8`, predates this checklist's other entries). ~~Remaining from this line: grace timers as persisted absolute deadlines + sweep (GRMP-F3); room-closure → `TerminateSession` ordering (GRMP-F2).~~ — **Done 2026-08-09** ([ADR-0009](../../decisions/0009-grace-deadline-durability.md), [ADR-0010](../../decisions/0010-session-teardown-ordering.md)).
+- `platform-operations.md`: ~~reconciliation sweep job (GRMP-F1)~~ — **Done 2026-08-09** (FR-JOB-006…011); scaling-model fix (API-3); cost/SLO reality check; Dependabot + Trivy in CI; frontend added to FR-CICD-001.
 - `user-accounts.md`: password change FR, logout FR (+ guest warning), username constraints, OAuth email-collision rule, lockout decay, session-invalidation closes live WS/SSE.
 - `rest-conventions.md`: authorization/ownership section (IDOR), actuator isolation, logout endpoint, idempotency note. *(CORS/Origin policy + CSRF — done 2026-07-12, § Origin Policy and CSRF.)*
 - ~~`rate-limiting.md`~~: **Done 2026-07-12** — WS message tier (API-1), guest-creation bucket (API-2), X-Forwarded-For trust policy *(plus IPv6 /64-prefix keying, without which every IP tier is bypassable by anyone holding a routed /64)*, per-env configurability (GRMP-F6, with `enabled=false` permitted only under the `test`/`e2e` profile — the app fails to start otherwise, so the escape hatch that makes e2e runs bearable cannot ship to production).

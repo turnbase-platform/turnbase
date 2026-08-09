@@ -97,9 +97,10 @@ The platform derives a single human-readable label per entry from `placement`, `
 
 | ID | Description |
 |----|-------------|
-| CON-001 | History entries are only created from `game_over` structured outcomes; no other completion signal creates a history record. |
+| CON-001 | History entries are only created from `game_over` structured outcomes; no other completion signal creates a history record. A session that ends any other way — room closed mid-game, session failed back to Lobby by reconciliation (`platform-operations.md` FR-JOB-007) — produces **no** history entry. |
 | CON-002 | History search and pagination are server-side; client-side filtering is not acceptable. |
 | CON-003 | The platform does not interpret or validate the contents of stats maps beyond storing them as-is. |
+| CON-004 | History entries are keyed by session and hold no reference to the room record. Rooms are purged 7 days after closure (`platform-operations.md` FR-RET-006) while history is retained indefinitely (FR-RET-003), so a dependency on the room row would make that purge either destroy history or fail. |
 
 ---
 

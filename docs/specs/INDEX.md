@@ -9,6 +9,7 @@ Requirements documents live in `docs/requirements/` and link to the relevant spe
 | Directory | Topic |
 |-----------|-------|
 | [api-design/](api-design/INDEX.md) | REST conventions, error handling, pagination, file uploads, WebSocket, SSE, rate limiting, OpenAPI |
+| [platform/](platform/INDEX.md) | Platform Monolith internals: room ownership and adoption, event versioning, grace-deadline enforcement, session teardown, reconciliation sweeps, and the relational data model behind them |
 | [internal-grpc/](internal-grpc/INDEX.md) | Internal service-to-service gRPC contracts (Orchestration Service ↔ Game Host) |
 | [game-host/](game-host/INDEX.md) | Game Host & execution internals: Espresso topology, GDK Host + serialization boundary, isolation mechanisms, session/state model, crash recovery, effect delivery |
 | [game-frontend/](game-frontend/INDEX.md) | Game FE serving origin, iframe sandbox & CSP, shell bootstrap document — the browser-side trust boundary between platform and game code |

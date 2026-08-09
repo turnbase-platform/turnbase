@@ -12,29 +12,37 @@ This specification defines the STOMP-over-WebSocket protocol for room lobby real
 - [room-chat-websocket.md](room-chat-websocket.md) — chat send/receive wire format
 - [game-rooms.md](../../requirements/game-rooms.md) — room lifecycle, team management, and host control requirements
 - [reconnection-flow.md](../../requirements/reconnection-flow.md) — grace period and reconnection requirements
+- [ADR-0008](../../decisions/0008-room-ownership-lifecycle.md) — room ownership as a lease-gated claim; source of the V1/V2 rules below and the `RECONNECT_REQUIRED`/`ROOM_UNAVAILABLE_RETRY` codes
+- [room-lifecycle.md](../platform/room-lifecycle.md) — the claim/release mechanism, key table, and adoption procedure behind § Room Affinity
 
 ---
 
 ## Room Affinity and WebSocket Routing
 
-All real-time room events for a given room are produced by a single Platform Monolith pod — the pod that owns that room. Room ownership is assigned at room creation and stored in Redis (`room:{roomId}:pod → podId`). Ownership persists for the lifetime of the room.
+All real-time room events for a given room are produced by a single Platform Monolith pod — the pod that owns that room (ADR-0002). Ownership is **not** a lifetime assignment: it is a revocable claim gated on the incumbent's liveness lease, stored in Redis (`room:{roomId}:pod → podId`). A room may sit ownerless indefinitely — nothing reassigns it until a client or the reconciliation sweep next needs it. The claim mechanism (liveness lease, atomic claim/release scripts, split-brain prevention) is specified in [ADR-0008](../../decisions/0008-room-ownership-lifecycle.md) and [room-lifecycle.md](../platform/room-lifecycle.md); this section covers only what it means for the WebSocket protocol.
 
 ### Routing on join
 
-When a player joins or creates a room via the REST endpoint, the server sets a routing hint in the response (implementation detail: an HTTP cookie or header, e.g. `X-Room-Pod: {podId}`). The ingress layer uses this hint to route all subsequent requests from that client — including the WebSocket upgrade — to the owning pod.
+When a player joins or creates a room via the REST endpoint, the server claims the room if it is ownerless (or confirms the existing claim) and sets a routing hint in the response (implementation detail: an HTTP cookie or header, e.g. `X-Room-Pod: {podId}`). The ingress layer uses this hint to route all subsequent requests from that client — including the WebSocket upgrade — to the owning pod.
 
-The client establishes its WebSocket connection (`/ws`) **after** receiving the join or create response. Because the routing hint is set before the connection is opened, the WebSocket upgrade goes directly to the owning pod. No reconnection or migration is ever required at room entry.
+The client establishes its WebSocket connection (`/ws`) **after** receiving the join or create response. Because the routing hint is set before the connection is opened, the WebSocket upgrade goes directly to the owning pod. **In the common case** — the room already has a live owner — no reconnection or migration occurs at room entry; the hint simply names the pod that was already serving the room. This does not hold across a claim change: see Pod failure below.
 
 ### Consequences
 
-- All subscribers to `/topic/room.{roomId}` are connected to the same pod.
+- All subscribers to `/topic/room.{roomId}` are connected to the same pod, for as long as that pod holds the claim.
 - Per-room state mutations use a JVM-local `ReentrantLock` (keyed by room ID) — no distributed lock is required.
-- Per-room version counters are in-JVM `AtomicLong` values — no Redis counter is required.
+- Per-room version counters are in-JVM `AtomicLong` values, **committed to the database before publish** (V1, below) — no Redis counter is required.
 - `SimpMessagingTemplate.convertAndSend(...)` and `convertAndSendToUser(...)` always reach their targets locally.
 
 ### Pod failure
 
-If the owning pod crashes, all users in its rooms lose their WebSocket connections simultaneously. Room state is persisted to the database on every mutation. Clients reconnect via the standard join flow (which assigns a new owning pod) and re-request a state snapshot.
+If the owning pod crashes or is drained for a deploy, every client of its rooms loses its WebSocket connection simultaneously (ADR-0008 Invariant I1). The stale `room:{roomId}:pod` entry is **not** self-correcting: it still names the dead pod until something invalidates it. Reconnection therefore does not go through "the standard join flow assigns a new owning pod" — no step in that flow invalidates a live-looking entry. Instead:
+
+- A crash is invalidated by the liveness gate: the claim script sees the incumbent's `pod:{podId}:alive` lease has expired (TTL 10s) and takes over.
+- A graceful drain releases the claim explicitly before the pod exits, so the next claimant hits the free branch immediately — no lease wait.
+- The reconciliation sweep can also claim an ownerless room on demand (e.g. to fire a grace deadline) with no client attached.
+
+A rejoin attempt that lands while the old claim is still live (within the lease TTL after a crash) is redirected to retry rather than routed to a corpse; worst case ≈10s (ADR-0008 Consequences). Room state itself is unaffected — it is persisted to the database on every mutation (V1, below), independent of which pod currently holds the claim.
 
 ---
 
@@ -92,13 +100,17 @@ Every room state mutation — whether REST-originated (join, leave, create) or S
 1. Read current room state.
 2. Validate preconditions (room state, role, capacity, business rules).
 3. Apply the mutation.
-4. Increment the room version counter.
-5. Publish the delta event to `/topic/room.{roomId}` via the local broker.
+4. Increment the room version counter and **commit the new version and state to the database.**
+5. Publish the delta event to `/topic/room.{roomId}` via the local broker, only after the commit succeeds.
 6. Release the lock.
 
 Publishing the event inside the lock (step 5) guarantees that no delta with a higher version can be queued before a lower-version delta. STOMP's per-destination FIFO order then delivers them in sequence. Clients can apply deltas strictly in version order without additional coordination.
 
-The version counter is an in-JVM `AtomicLong` per room, initialised from the database when the room is assigned to this pod.
+The version counter is an in-JVM `AtomicLong` per room, initialised from the database when the room is claimed by this pod.
+
+**V1 — persist before publish (ADR-0008).** Step 4's commit must complete before step 5's publish. This is not merely lock hygiene: it guarantees `room.version >= every version ever broadcast`, so an adopting pod resuming from the database can never reuse a version a client has already applied. If a pod published before committing, a crash between the two would let an adopting pod — which initialises its counter from the database — re-issue a version a client has already seen. Clients discard `delta.version <= localVersion` (Client Reconciliation, below), so that divergence would be silent and permanent rather than a detectable gap.
+
+The commit is a **fenced** conditional update, `WHERE room_id = :id AND version = :expected AND owner_epoch = :myEpoch` — the epoch, not the version, is what excludes a stale owner. A room-scoped version cannot fence, because the legitimate owner advances through the very value a stale owner is holding. The nesting is normative: **lock outer → transaction inner → publish after the commit returns, before the lock is released.** The natural `@Transactional`-on-the-handler arrangement commits after the method returns — that is, after the publish — which silently reinstates the race V1 exists to close. See [room-lifecycle.md](../platform/room-lifecycle.md) §1.5 and §2.1.
 
 ---
 
@@ -291,7 +303,7 @@ Host role has changed — voluntarily (FR-XFER-004), automatically on host depar
 
 #### `ROOM_CLOSED`
 
-The room has been permanently closed (FR-XFER-002). Delivered to all current subscribers before the room is torn down.
+The room has been permanently closed. Delivered to all current subscribers before the room is torn down.
 
 ```json
 {
@@ -299,12 +311,24 @@ The room has been permanently closed (FR-XFER-002). Delivered to all current sub
   "version": 49,
   "payload": {
     "roomId": "uuid",
-    "reason": "NO_PLAYERS_REMAINING"
+    "reason": "NO_PLAYERS_REMAINING | GRACE_EXPIRED_NO_HUMAN | ACCOUNT_DELETED | IDLE_TIMEOUT | SESSION_UNRECOVERABLE"
   }
 }
 ```
 
-After receiving this event, clients should unsubscribe and navigate away. The room cannot be rejoined (FR-XFER-003).
+`reason` is the closed set persisted as `room.closed_reason` ([data-model.md](../platform/data-model.md) § Closure reasons):
+
+| Reason | Trigger |
+|---|---|
+| `NO_PLAYERS_REMAINING` | An explicit host leave with no other human player remaining (FR-XFER-002). |
+| `GRACE_EXPIRED_NO_HUMAN` | An In Progress room's last-connected-human host disconnected and the grace period expired with no human reconnecting (reconnection-flow.md FR-HDISC-003), closing the room via FR-XFER-002/FR-XFER-003. |
+| `ACCOUNT_DELETED` | The host's account was deleted, which counts as a confirmed voluntary departure (FR-LIFE-004). |
+| `IDLE_TIMEOUT` | A Lobby room sat with no connected participant past the configured idle window (`platform-operations.md` FR-JOB-007d, `game-rooms.md` FR-LIFE-007). |
+| `SESSION_UNRECOVERABLE` | An In Progress room's game session state was gone and could not be failed back to Lobby (FR-JOB-007c, FR-LIFE-007). |
+
+The last two are the platform-initiated causes. They are kept distinct rather than collapsed into a single "reconciliation" value because they mean different things to the player — an abandoned lobby was reclaimed, versus a game was lost — and only `SESSION_UNRECOVERABLE` is evidence of a defect.
+
+After receiving this event, clients not already told the room was closed by one of the above (e.g. a client that was never attached, or was mid-reconnect when the sweep acted) still learn the outcome via `ROOM_CLOSED` if subscribed, or via the standard rejoin flow reporting the room as closed (reconnection-flow.md FR-REJOIN-008) otherwise. Clients should unsubscribe and navigate away on receipt. The room cannot be rejoined (FR-XFER-003).
 
 ---
 
@@ -644,6 +668,8 @@ Command failures are returned on `/user/queue/errors` using the base error envel
 | `PLAYER_NOT_FOUND` | Targeted `playerId` does not exist in this room |
 | `AI_NOT_SUPPORTED` | `ADD_AI_PLAYER` when the game does not support AI players |
 | `KICKED` | Unicast notification to a player removed by the host (no `correlationId`) |
+| `SLOT_RELEASED` | A reconnection attempt lost the race to its own grace expiry — the reservation was resolved before the client returned (reconnection-flow.md FR-EXPIRY-005). The client falls into the late-join path (FR-REJOIN-007); this is an ordinary outcome of returning as the window closes, not a fault |
+| `ROOM_UNAVAILABLE_RETRY` | `SUBSCRIBE` to a room this pod does not own — ownership changed between the REST join and the subscription (see below). Carries `retryAfterMs`; the client backs off and re-runs the join flow. Also returned by the REST join/rejoin call, where it is an HTTP error rather than a frame |
 | `UNKNOWN_COMMAND` | Unrecognised `type` in command envelope |
 | `UNKNOWN_PARAMETER` | `CHANGE_PARAMETERS` with a key not declared in the game's manifest |
 | `PARAMETER_TYPE_MISMATCH` | `CHANGE_PARAMETERS` value does not match the manifest's declared type |
@@ -652,10 +678,34 @@ Command failures are returned on `/user/queue/errors` using the base error envel
 | `MESSAGE_TOO_LARGE` | Frame exceeds the per-destination size cap (input-validation.md § Size limits) |
 | `RATE_LIMIT_EXCEEDED` | Frame dropped by the Tier 6 rate limiter ([rate-limiting.md](rate-limiting.md)); carries `retryAfterMs`. Emitted from the channel interceptor without a `correlationId`, since the payload was never deserialized |
 
-Two further codes are carried on the STOMP `ERROR` frame that **closes** the connection rather than on
+Three further codes are carried on the STOMP `ERROR` frame that **closes** the connection rather than on
 `/user/queue/errors`: `RATE_LIMIT_ABUSE` (sustained rate-limit violation) and `TOO_MANY_CONNECTIONS`
-(more than 4 concurrent connections for one user). Both are defined in
-[rate-limiting.md](rate-limiting.md) Tier 6.
+(more than 4 concurrent connections for one user), both defined in
+[rate-limiting.md](rate-limiting.md) Tier 6; and `RECONNECT_REQUIRED`, sent to every client attached to
+a room whose owning pod is gracefully draining, immediately before the pod releases its ownership claim
+and exits (ADR-0008 decision point 5). Unlike a crash, a drain is a clean signal: clients receiving
+`RECONNECT_REQUIRED` should immediately re-run the standard join flow rather than waiting out a
+disconnect-detection timeout, because the claim is released (not merely expiring) and the next claimant
+lands on the free branch with no lease wait.
+
+A claim attempt that instead arrives while the *previous* owner's liveness lease is still live (the
+crash case, not drain) cannot be satisfied immediately. The receiving pod retries the claim internally
+for **a few hundred milliseconds** — deliberately not seconds: the retry holds a request thread, and on
+a rolling deploy every client reconnects at once, so a multi-second internal retry converts a routing
+hiccup into thread-pool exhaustion ([room-lifecycle.md](../platform/room-lifecycle.md) §1.7). If the
+claim is still unresolved when the call must respond, it returns `ROOM_UNAVAILABLE_RETRY` with a
+bounded `retryAfterMs`; worst case ≈10s of client-side retrying, bounded by the liveness lease TTL
+(ADR-0008 Consequences). The client retries rather than treating this as a terminal failure.
+
+`ROOM_UNAVAILABLE_RETRY` arises at **two** points, not one, and a client must handle both:
+
+- On the REST join/rejoin call, as above — a REST-layer error, since no WebSocket exists yet.
+- On `SUBSCRIBE` to `/topic/room.{roomId}`, as a frame on `/user/queue/errors`. The claim runs during
+  the REST join, but between that call and the client's `SUBSCRIBE` another pod's reconciliation sweep
+  can take a room that was momentarily free. The handler therefore **re-verifies ownership at subscribe
+  time** and rejects rather than serving a subscription to a room it does not own — holding a client's
+  socket is never evidence of owning that client's room. The client's response is the same: back off
+  for `retryAfterMs` and re-run the join flow, which re-resolves the affinity hint.
 
 `CHANGE_PARAMETERS` is validated as a **whitelist** against the manifest of the game version pinned to
 the room — unknown keys are rejected outright, so the broadcast `parameters` object is bounded by the
@@ -665,15 +715,17 @@ manifest's own declared bounds. See [input-validation.md](input-validation.md).
 
 ## Client Reconciliation
 
-The client maintains `localVersion` initialised from the `ROOM_STATE` snapshot.
+The client maintains `localVersion`, set from the `ROOM_STATE` snapshot.
+
+**V2 — assign, never `max()` (ADR-0008).** On receiving a `ROOM_STATE` snapshot, the client sets `localVersion = snapshot.version` **unconditionally** — it must not keep a previously-held value if that value happens to be higher. After a takeover, the new owning pod's counter is initialised from the database (V1 guarantees this is never behind what clients have seen, but a client's in-memory `localVersion` from a stale in-page state is not authoritative once a new snapshot arrives); the snapshot is always the source of truth.
 
 | Condition | Action |
 |---|---|
 | `delta.version == localVersion + 1` | Apply delta; set `localVersion = delta.version` |
 | `delta.version <= localVersion` | Discard (state already reflected) |
-| `delta.version > localVersion + 1` | Gap detected — send `REQUEST_ROOM_STATE`; discard deltas until new snapshot arrives |
+| `delta.version > localVersion + 1` | Gap detected — send `REQUEST_ROOM_STATE`; discard deltas until new snapshot arrives (apply V2 on receipt) |
 
-Under the room affinity model, gaps should not occur in normal operation (single producer, STOMP per-destination FIFO delivery). The gap-detection path guards against edge cases such as pod restart during a session.
+Within a single, uninterrupted claim, gaps should not occur (single producer, STOMP per-destination FIFO delivery). The gap-detection path is not just an edge-case guard: it is the mechanism that makes a claim change safe. A takeover (Pod failure, above) always produces a forward gap for attached clients reconnecting to the new owner — V1 guarantees the new pod's version is never lower than the last one broadcast, so "gap" and "stale/wrong" cannot be confused — and the client's normal `REQUEST_ROOM_STATE` path resolves it with no special-cased reconnection logic.
 
 ---
 
@@ -681,4 +733,4 @@ Under the room affinity model, gaps should not occur in normal operation (single
 
 Spectators subscribe to `/topic/room.{roomId}` and receive all events in that topic, including readiness, team, and parameter events. They do not subscribe to chat topics (`/topic/room.{roomId}.chat`, `/topic/room.{roomId}.team.{teamId}`); the `SubscriptionInterceptor` rejects spectator subscriptions to those destinations silently.
 
-Spectator visibility of game effects during an active session is governed by game-contracts.md (FR-DELIVER-002, FR-FE-006), which restricts spectators to `broadcast` effects only. The permissive lobby visibility policy does not extend to the game topic.
+Spectator visibility of game effects during an active session is governed by `platform-architecture.md` FR-DELIVER-002 and `game-contracts.md` FR-FE-006, which restrict spectators to `broadcast` effects only. The permissive lobby visibility policy does not extend to the game topic.

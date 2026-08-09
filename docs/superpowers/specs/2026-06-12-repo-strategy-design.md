@@ -23,7 +23,7 @@ All repos live under the `turnbase-platform` GitHub organisation (`github.com/tu
 | `turnbase-common` | Internal shared library: gRPC stubs, shared internal models | `io.turnbase:turnbase-grpc` (Maven / GitHub Packages) |
 | `turnbase-sdk` | Public GDK: `TurnBaseGame` interface, effect/input types, TypeScript types | `io.turnbase:turnbase-sdk` (Maven) + npm package |
 | `turnbase-platform` | Platform Monolith (Spring Boot 3.5+) | Docker image |
-| `turnbase-game-host` | Game Host (GraalVM CE 23 + Truffle) | Docker image |
+| `turnbase-game-host` | Game Host (GraalVM CE for JDK 21 + Truffle) | Docker image |
 | `turnbase-frontend` | Platform frontend (React 19, TypeScript) | Docker image / static assets |
 
 All repos are **private** during Phase 0. Visibility may be changed to public when the project is ready to showcase.
