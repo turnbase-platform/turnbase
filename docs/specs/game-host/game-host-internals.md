@@ -267,7 +267,7 @@ the guest JDK's native methods run against the (container-restricted) host OS.
 
   | Check | Failure |
   |-------|---------|
-  | serialized `stateJson` > 10 MB (NFR-SIZE-001, FR-STATE-004) | `STATE_TOO_LARGE` |
+  | serialized `stateJson` > 10 MB (`game-contracts.md` NFR-SIZE-001, FR-STATE-004) | `STATE_TOO_LARGE` |
   | any serialized effect payload > 10 MB (NFR-SIZE-002) | `MALFORMED_OUTPUT` |
   | result null / null state / unserializable / `ActionDecodeException` / any hook throw | `HANDLER_EXCEPTION` or `MALFORMED_OUTPUT` per backend-gdk §9 |
 

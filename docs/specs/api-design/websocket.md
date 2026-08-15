@@ -6,6 +6,29 @@ Single STOMP-over-WebSocket connection per client, established at `/ws`. Spring'
 
 SockJS is **not** used. Modern browsers and the React frontend support native WebSocket without a fallback transport.
 
+### Heartbeats
+
+STOMP heartbeats are negotiated at `CONNECT` as **10 000 / 10 000** — ten seconds in each direction.
+
+This is not a keepalive nicety; it is the platform's disconnect detector. A bare TCP connection
+through a NAT or a proxy can stay open for minutes after the peer has gone, and until the server
+notices, the player's `connection_count` is wrong: no grace period opens, no `PLAYER_DISCONNECTED`
+is broadcast, and the room shows a player who is not there. Ten seconds bounds that gap well inside
+the 60-second grace period (`reconnection-flow.md` FR-GRACE-002), so a disconnected player's
+reservation still leaves them most of the window to return.
+
+The value interacts with two things that must be checked when it changes:
+
+- **The ingress `proxy-read-timeout`** must exceed it comfortably, or the proxy closes idle
+  connections the protocol considers healthy ([`../deployment/local-environment.md`](../deployment/local-environment.md) §4).
+- **The `connection` rate-limit bucket** (10/s, burst 30) is charged per inbound frame. Client
+  heartbeats are frames; at one per ten seconds they are negligible, but a client misconfigured to
+  heartbeat aggressively would spend its own budget.
+
+Spring's `SimpleBrokerMessageHandler` requires a `TaskScheduler` for server-side heartbeats to be
+emitted at all — without one the server advertises heartbeats it never sends, and clients drop
+connections that are fine.
+
 ## Authentication
 
 The `httpOnly` session cookie is sent automatically by the browser with the WebSocket upgrade request (same-origin). A Spring `ChannelInterceptor` validates the session token on the STOMP `CONNECT` frame before the connection is established. Unauthenticated `CONNECT` frames are rejected with a STOMP `ERROR` frame and the connection is closed.
@@ -352,6 +375,12 @@ Authorized for any participant of an active session — players **and** spectato
 **Player identity is never supplied by the client** (FR-FA-002, NFR-SEC-001). The Orchestration Service resolves the acting player from the STOMP principal and attaches it to the `ActionInput` before routing to the game backend. A payload field purporting to carry identity is ignored — it is opaque game data, and the game backend receives the platform's `PlayerRef`, never the client's claim.
 
 Accepted actions are enqueued on the session's Redis queue, where they receive their `sequence` (game-host-internals.md §9.2). The client receives no acknowledgement; the action's observable outcome is whatever effects the game returns. Rejected actions produce an error on `/user/queue/errors` carrying the `correlationId`.
+
+**An action that the *game* fails on also produces an error, and this is not the same rejection.** A frame rejected at admission — wrong role, terminated session, oversized, rate-limited — never reaches the game. A frame that is admitted, enqueued, dispatched, and then fails inside the game handler (`PROCESS_STATUS_FAILED`: threw, timed out in-context, malformed output) produces `ACTION_REJECTED` on `/user/queue/errors`, carrying the `correlationId` and the failure *kind* — never the failure message, which is text from untrusted game code.
+
+Without it the failure is invisible. The handler threw, so no effect is fanned out, and the game simply appears to hang for the acting player. They retry, which is a **fresh** input with a fresh sequence, so it fails again and consumes another of the three allowed consecutive failures (`platform-architecture.md` FR-FAIL-003) — three clicks and the session terminates for everyone, with no client ever having been told why.
+
+The failed input is **dropped, not re-dispatched**, and its sequence is consumed: a game fault is deterministic and replaying it reproduces it. The hole in the sequence is invisible because the game stream is sparse by design and clients must not gap-detect on it. See [internal-grpc/orchestration-gamehost-protocol.md](../internal-grpc/orchestration-gamehost-protocol.md) § *What happens to the input that failed*.
 
 **Inbound size limit.** The STOMP inbound message size limit applies (Spring `setMessageSizeLimit`, default **256 KB**, configurable per environment). Oversized frames are rejected with `ACTION_TOO_LARGE`. This is an inbound client cap and is unrelated to NFR-SIZE-002's 10 MB *outbound* effect payload limit.
 

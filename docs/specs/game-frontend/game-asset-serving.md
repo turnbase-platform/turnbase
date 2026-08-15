@@ -137,16 +137,43 @@ opponents are running.
 `gameId` against the one in the `Host` header**, 404ing on mismatch. This prevents game A's origin
 from serving game B's code, which would silently defeat the per-game origin isolation.
 
-### 4.2 Assets are unauthenticated, and that is correct
+### 4.2 Assets are unauthenticated, so not every archive entry may be published
 
 The games origin receives **no cookies** — that is the entire point of §3, not an oversight — so the
-asset handler cannot know who is asking. Bundle assets are therefore served to anyone who knows the
-path (`gameId` and `sessionId` are UUIDs; unguessable, but not secrets).
+asset handler cannot know who is asking. Anything reachable under `/g/{gameId}/{version}/` is
+reachable by **anyone**, and the path is not even a secret: `gameId` is in the hostname and the
+current version is a public catalog column (`game-catalog.md` FR-CAT-002), so both components are
+derivable from a catalog page.
 
-This is sound because a game bundle is JavaScript, CSS and sprites. **The secret is the game
-*state*,** and that is delivered over the platform's WebSocket under two-layer authorization
-(NFR-SEC-002). Someone who fetches a private game's bundle acquires the ability to render a game they
-cannot join. Combined with ADR-0006 (official games only for the MVP), the private-bundle exposure is
+That is sound for JavaScript, CSS and sprites — **the secret is the game *state***, delivered over
+the platform's WebSocket under two-layer authorization (NFR-SEC-002), and someone who fetches a
+bundle acquires only the ability to render a game they cannot join.
+
+**It is not sound for the whole archive.** §5's `<base href="/g/{gameId}/{version}/">` plus an
+archive-relative `frontend.entryPoint` means the served tree must preserve archive-relative paths —
+which reads as "unpack the archive and serve it". Do that literally and
+`GET /g/{gameId}/{version}/backend/chess.jar` returns the **backend** to any anonymous caller. For
+the MVP that is the platform's own game code; post-MVP it is every third-party developer's
+proprietary JAR, handed to anyone who loads their game once.
+
+**Publication is therefore filtered.** The unpack step writes the archive-relative tree, and the
+asset route refuses a deny list rooted in what a browser can never legitimately need:
+
+| Never published | Why |
+|---|---|
+| `manifest.json` | Platform metadata; already served through the catalog API in the form clients should read |
+| `backend.path` (the value from the manifest) | The backend artifact. Fetched by the Game Host from the artifact store, never over HTTP |
+| `*.jar`, `*.war`, `*.class` anywhere in the tree | The deny list must not depend on the developer declaring the path correctly |
+| `infoDoc` | Rendered through the catalog's sanitizing Markdown path (`FR-GDET-004`), not served raw |
+
+A deny list is the conservative shape here rather than the right one, and the difference is worth
+stating: the correct model is an **allow list** rooted at a manifest-declared `frontend.root`, so
+publication is opt-in and a new backend artifact type cannot be published by default. That needs a
+manifest field, which makes it a bundle-format change —
+[`../manifest/bundle-format.md`](../manifest/bundle-format.md) §5.2 carries it, together with
+OQ-003 below.
+
+Combined with ADR-0006 (official games only for the MVP), the residual private-bundle exposure is
 theoretical today and cheap to harden later (§12, OQ-002) without changing any contract here.
 
 ---

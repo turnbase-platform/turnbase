@@ -18,6 +18,7 @@ Format: one file per decision, numbered sequentially (`NNNN-slug.md`). Status is
 | [0008](0008-room-ownership-lifecycle.md) | Room ownership is a lease-gated claim, not a lifetime assignment | Accepted |
 | [0009](0009-grace-deadline-durability.md) | Grace deadlines are persisted absolute timestamps, fired by a sweep | Accepted |
 | [0010](0010-session-teardown-ordering.md) | Session teardown is a durable to-do, not an ordering | Accepted |
+| [0011](0011-schema-migrations.md) | Schema migrations — Flyway, forward-only, backward-compatible | Accepted |
 
 ## Provenance
 
@@ -41,3 +42,9 @@ depends on the other two: the sweep of 0009 needs 0008's claim before it may bro
 re-drive is a duty of the same sweep. Two of the three also fix defects that were already latent in
 the specs: a rolling deploy would have deleted every Lobby room, and an adopting instance would have
 re-issued event versions that clients discard silently.
+
+ADR-0011 closes OPS-3, open since the review and never addressed: the corpus defined roughly thirty
+tables while naming no migration tool at all. It is recorded as an ADR rather than as a spec section
+because two of its rules constrain every future change — forward-only, and backward-compatible with
+the previous application version — and because the second is what makes the image rollback the CI/CD
+pipeline already promises (FR-CICD-008) true rather than nominal.

@@ -291,6 +291,35 @@ State types are plain JSON-serializable Java objects — `record`s or POJOs with
 serializable fields (FR-GDK-013, CON-004). No serialization code is written by
 the developer; the GDK Host serializes/deserializes transparently.
 
+### 5.1 What "transparently" requires of your state type
+
+FR-GDK-013 promises no serialization code, and that promise holds only inside a boundary. The
+`ObjectMapper` is **platform-owned, guest-side and not configurable by the game**: there is no hook to
+register a module, a `KeyDeserializer` or a mix-in, because the GDK is an interfaces-only artifact
+that carries no Jackson at all. So anything the default configuration cannot round-trip, nothing can.
+
+These are **normative**. The upload pipeline rejects a violating state type
+([`../manifest/bundle-format.md`](../manifest/bundle-format.md) §4), and the state is serialized on
+**every** invocation (`../game-host/game-host-internals.md` §8), so a violation that reaches
+production fails on the first action of the first game rather than lurking.
+
+| Rule | Why | Violation |
+|---|---|---|
+| A `record`, or a class compiled with `-parameters` | Deserialization needs constructor parameter names, which are erased without that flag. A build that silently loses it is the GRMP defect this rule exists for | **Fatal** |
+| Map keys are `String`, `enum`, `UUID` or a boxed integral type | A key of any other type serializes via `toString()` and deserializes to garbage, and you cannot register a `KeyDeserializer`. `Map<Position, Piece>` — the most natural board representation on a board-game platform — is exactly this trap | **Fatal** |
+| No interface-typed, abstract-typed or `Object`-typed fields | Polymorphic deserialization needs `@JsonTypeInfo`, and the annotation is not on your classpath. A `List<Piece>` where `Piece` is an interface loses every subtype | **Fatal** |
+| No reference cycles | Jackson recurses until it overflows. Model the back-reference as an id | **Warning** — statically undecidable in general |
+| Prefer `int`/`long` over `float`/`double` for values that must compare exactly | JSON has one number type; a round trip is lossy at the edges | Advisory |
+| `Set` and `Map` iteration order is not preserved | Use a `List` if order is part of the state | Advisory |
+
+Collections of records, nested records, enums, `Optional`, `String`, boxed and primitive numerics,
+`boolean`, `UUID` and `java.time` types all round-trip without any of this mattering. A state type
+built from those and nothing else cannot violate the fatal rules.
+
+**The state is a value, not an object graph.** Every rule above is a restatement of that: if the
+state can be written down as JSON and read back as an equal value, it is a valid game state, and if
+it cannot, the GDK's transparency promise was never going to hold for it.
+
 ---
 
 ## 6. Effects (Game BE → Platform)
@@ -505,7 +534,7 @@ enforce them, surfacing violations as the `GameFailureKind` values in
 | No self-initiated comms | A hook only produces output in response to an input (FR-PROC-003). Timers/delayed events must be derived from future actions, holding deadlines in state. | — |
 | Sequential processing | Inputs for a session are delivered one at a time, in arrival order (FR-PROC-001/002). Hooks need not be thread-safe across sessions but must not share state between sessions. | — |
 | Handler timeout | A hook must return within the configured budget (default **30 s**, NFR-REL-002). | `TIMEOUT` |
-| State size | Serialized state ≤ **10 MB** (NFR-SIZE-001, FR-STATE-004). | `STATE_TOO_LARGE` |
+| State size | Serialized state ≤ **10 MB** (`game-contracts.md` NFR-SIZE-001, FR-STATE-004). | `STATE_TOO_LARGE` |
 | Effect payload size | Each serialized effect payload ≤ **10 MB** (NFR-SIZE-002). | `MALFORMED_OUTPUT` |
 | Valid output | Result must be non-null with a non-null state and well-formed effects. | `MALFORMED_OUTPUT` |
 | Exceptions terminate | A thrown exception fails the input; after the retry limit the session terminates (NFR-REL-001). | `HANDLER_EXCEPTION` |

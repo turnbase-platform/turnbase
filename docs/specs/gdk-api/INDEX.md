@@ -19,6 +19,7 @@ developer-facing half of `docs/requirements/game-contracts.md`.
 |------|-------|
 | [backend-gdk-api.md](backend-gdk-api.md) | JVM backend API: `TurnBaseGame<S>`, the five lifecycle hooks (four mutating + the read-only `onResync`), context interfaces (typed inputs), the sealed `Effect` model + `Effects` factory, per-hook result types, `GameOutcome`, `GameState` marker, `Player`/`Team`/`GameParameters`, and the runtime/determinism contract |
 | [frontend-gdk-api.md](frontend-gdk-api.md) | TS/JS frontend API: `TurnBaseClient` (generics for action/event payloads), lifecycle & ready handshake, the five inbound event callbacks, `sendAction`, `InitContext` with role/spectator handling, origin validation, and the platform-shell bootstrap contract |
+| [test-harness.md](test-harness.md) | The local test harness: running a game with no platform — topology, two-origin serving, simulated players and lifecycle inputs, the executing serialization round trip, and an explicit list of what it cannot tell you |
 
 ## Key Decisions
 
@@ -57,5 +58,20 @@ developer-facing half of `docs/requirements/game-contracts.md`.
   and a nullable `self`.
 - **Origin validation** requires both `event.origin === parentOrigin` and
   `event.source === window.parent`; outbound posts are never `'*'`-targeted.
-- New **bootstrap contract** (§9) that the future platform-frontend shell spec
-  must honor.
+- New **bootstrap contract** (§9), honored by
+  [`../platform-frontend/shell-architecture.md`](../platform-frontend/shell-architecture.md).
+
+### Test harness
+
+- **The harness does not sandbox, and says so.** Embedding a guest JDK and a Truffle context in a
+  developer tool would trade a millisecond startup for a multi-hundred-megabyte download, to catch a
+  class of mistake the platform catches anyway. It audits and warns instead.
+- **It serves two origins locally** (`localhost` and `game.localhost`). One origin would be simpler
+  and would hide every mistake the origin separation exists to catch — a shell accepting `'*'`, or a
+  game reading `window.parent.document`, works perfectly until it is deployed.
+- **The executing serialization round trip lives here and nowhere else** (FR-HARNESS-010). Upload
+  validation is static because NFR-UPLOAD-002 forbids running game code; the two halves together are
+  the answer to GRMP lesson F4.
+- **It shares the validator and the `ObjectMapper` configuration** rather than reimplementing them. A
+  rule enforced differently from the platform is worse than one not enforced, because it teaches the
+  developer something false.

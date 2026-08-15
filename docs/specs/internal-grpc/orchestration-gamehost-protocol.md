@@ -258,11 +258,76 @@ This separation matters: transport codes are *retryable/reroutable infrastructur
 signals, while `GameFailure` is a *deterministic game-code* signal that re-dispatching
 will not fix.
 
+### What happens to the input that failed (GAME-I3)
+
+"Counts failures and terminates after the limit" leaves the more common case — a failure *below* the
+limit — unspecified, and there are four separate questions in it. All four are answered here because
+getting any of them wrong produces a game that looks frozen.
+
+| Question | Answer |
+|---|---|
+| Is the input re-dispatched? | **No.** A `GameFailure` is deterministic; replaying it reproduces it, and three retries of one bad action would exhaust the limit from a single click |
+| Is the `sequence` consumed? | **Yes.** It is burned. The game stream is deliberately sparse (`../api-design/websocket.md`) and a hole carries no information, so no client notices |
+| Does `lastAppliedSequence` advance? | **Yes**, to the failed input's sequence. A redelivery of the same sequence must be a replay returning the same failure, not a second invocation of a handler that has already run and thrown |
+| Is anybody told? | **Yes** — and this is the part that was missing. The acting player receives a unicast `ACTION_REJECTED` on `/user/queue/errors`, carrying the `GameFailure` kind but **not** its message |
+
+**The failure detail is not forwarded to the client.** A `GameFailure` message is a stack trace or an
+exception string from game code, and game code is untrusted (ADR-0006 makes the MVP's Java
+first-party, but the contract is written for the general case). Forwarding it leaks internals and
+hands an attacker a channel to place arbitrary text in another user's client. The player is told their
+action was rejected; the detail goes to the log, correlated by `session_id`.
+
+Without the notification, the failure is invisible: the player clicks, no effect is fanned out
+because the handler threw, and the game appears to hang. They retry — which is a *fresh* input with a
+*fresh* sequence, so it fails again and consumes a second of the three allowed. Three clicks and the
+session is dead with no explanation to anyone.
+
+**The counter is over *consecutive* failures and resets on any success** (`FR-FAIL-003`, which says
+consecutive). One bad action in a two-hour game must not accumulate toward a limit alongside two
+unrelated ones an hour later. It is held in `failcount:{sessionId}` in Redis, which is why that key
+is deleted by `terminateAndCleanup`.
+
+**Re-dispatch is the *other* path, and it also counts.** FR-FAIL-003's "across container restarts or
+re-dispatches" refers to `UNAVAILABLE` and crash recovery (FR-FAIL-002/004), where the input *is*
+re-dispatched from the Redis queue because the failure was infrastructural. Those attempts count
+toward the same limit, so a session that cannot survive being resumed also terminates — but by a
+different route, and one that a retry can legitimately fix.
+
+### `GameOutcome` validation
+
+A `GameOverEffect` carries the structured outcome the platform writes to history and statistics
+(`game-contracts.md` FR-OUTCOME-001…004). It is game-supplied, and FR-OUTCOME-001 bounds nothing
+beyond "a placement (integer, 1-based finishing position)".
+
+**Orchestration validates it before it reaches Postgres**, and the reason is that the database cannot
+be the thing that rejects it. `game_history_entry` has `CHECK (placement >= 1 AND placement <= team_count)`;
+a violation aborts the whole recording transaction, and `game_over` is terminal (FR-EFF-006), so
+there is no retry that can succeed. A single out-of-range integer would erase a completed session
+from history *and* from per-game statistics.
+
+| Check | Rule |
+|---|---|
+| `teamResults` non-empty | at least one team |
+| `placement` | `1 ≤ placement ≤ len(teamResults)` for every entry |
+| placement coverage | placements form a valid ranking; ties are permitted **only** when `draw` is true (FR-OUTCOME-003) |
+| `playerResults` player ids | every id is a participant of this session |
+| team ids | every `teamResults` team id is a team of this session |
+| stat maps | present or absent; contents **not** inspected (FR-OUTCOME-004, `game-history.md` CON-003) |
+
+On failure the platform records the session as **completed** — the engine reported completion, which
+is all `per-game-statistics.md` FR-STATS-001 asks — increments the per-game counter, writes **no**
+history entries, and logs ERROR with the session, game and version. Statistics stay correct; only the
+malformed per-player history is lost. See
+[`../platform/data-model-history.md`](../platform/data-model-history.md) §2.
+
+This is deliberately *not* a `GameFailure`: the game completed successfully and its FE results
+payload is still delivered. Only the platform-facing outcome was unusable.
+
 ---
 
 ## Message size
 
-Individual effect and state payloads may reach 10 MB (NFR-SIZE-001/002), and a response
+Individual effect and state payloads may reach 10 MB (`game-contracts.md` NFR-SIZE-001/002), and a response
 carries an ordered *list* of effects — so the gRPC default ~4 MB inbound limit will be
 exceeded. Mitigation:
 

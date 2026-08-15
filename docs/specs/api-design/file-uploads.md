@@ -69,8 +69,25 @@ The monolith returns immediately. Bundle validation runs asynchronously in a bac
 3. Verifies backend and frontend entry points exist in the archive (`FR-UPLOAD-003`)
 4. For JVM bundles: verifies entry class implements `TurnBaseGame` (`FR-UPLOAD-004`)
 5. Checks that GDK API classes are not bundled in the JAR (`FR-UPLOAD-005`)
-6. On success: transitions version to `ACTIVE`, clears `Verified` status (`game-catalog.md FR-GAME-014`)
-7. On failure: transitions version to `FAILED`, stores structured error details
+6. On success: transitions version to `ACTIVE`, and — **only if the game's badge is `VERIFIED`** — clears it to `UNVERIFIED` (`game-catalog.md FR-GAME-014`)
+7. On failure: transitions version to `FAILED`, stores structured error details, and deletes the stored bundle object
+
+The full stage list, the archive-safety rules and the `check` identifiers are in
+[`../manifest/bundle-format.md`](../manifest/bundle-format.md); this document owns only the transport.
+
+**Step 6's badge clause is conditional, and applying it unconditionally breaks every official
+upload.** An Official game has `owner_user_id IS NULL`, and `game_official_ownerless_ck` ties the two
+together as an equivalence — so writing `badge = 'UNVERIFIED'` on it aborts the activation
+transaction. Under ADR-0006 every MVP game is Official, so an unconditional clear means no game can
+ever be updated. FR-GAME-014 speaks only of *Verified* status; see
+[`../platform/data-model-catalog.md`](../platform/data-model-catalog.md) §2.
+
+**Step 1's version-ordering check is advisory; the authoritative one is at activation.** Two slots can
+be open at once. Request `1.3.0` against an active `1.2.0` (accepted), request `1.2.5` (also accepted,
+also higher than `1.2.0`), let `1.3.0` activate, then activate `1.2.5` — and the active version has
+gone **backwards**, which is exactly what `FR-GAME-009` says the platform rejects. Step 1 exists to
+save the developer a doomed 256 MB upload, not to enforce the rule; the activation transaction
+re-checks against the version that is active *then*.
 
 Validation is static analysis only — no game code is executed (`game-development-experience.md NFR-UPLOAD-002`).
 
@@ -87,16 +104,38 @@ Returns the version record with its current status:
   "uploadId": "550e8400-e29b-41d4-a716-446655440000",
   "version": "1.2.0",
   "status": "ACTIVE",
-  "createdAt": "2026-06-11T13:00:00Z"
+  "createdAt": "2026-06-11T13:00:00Z",
+  "warnings": [ ]
 }
 ```
+
+This is a **`200`** whether validation passed or failed — the failure is the state of the resource,
+not a failure of the request. The `errors` and `warnings` arrays are documented in
+[error-handling.md](error-handling.md).
 
 | Status | Meaning |
 |--------|---------|
 | `PENDING` | Upload slot created, awaiting upload and confirm |
-| `PROCESSING` | Confirm received, validation in progress |
+| `PROCESSING` | Confirm received, validation in progress. Held under a lease — see below |
 | `ACTIVE` | Validation passed, version is live |
-| `FAILED` | Validation failed; error details returned in response |
+| `FAILED` | Validation failed; `errors` populated, bundle object deleted |
+| `EXPIRED` | Confirm never arrived before `expiresAt` |
+| `SUPERSEDED` | A newer version activated; rooms may still be running on this one |
+| `DISCARDED` | Retired and unreferenced; bundle purged |
+
+The last three are defined in [`../platform/data-model-catalog.md`](../platform/data-model-catalog.md)
+§2, which owns the state machine. They are listed here because a client polling this endpoint will
+see them.
+
+**`PROCESSING` is leased.** A validation job whose instance dies would otherwise leave the row in
+`PROCESSING` forever — and since `(gameId, version)` is unique, that **permanently burns the version
+number**: the developer could never retry `1.2.0`. The validator holds a lease on the row and
+`platform-operations.md` FR-JOB-012 moves an expired one to `FAILED`.
+
+**A version number is reclaimable only from `FAILED` or `EXPIRED`.** Re-requesting a slot for a
+version whose row is in either state reuses the row. `ACTIVE`, `SUPERSEDED` and `DISCARDED` are
+refused: those numbers were live, and `room.game_version` and `game_history_entry.game_version` are
+text columns that may still name them.
 
 When the client has an active SSE connection (`sse-notifications.md`), the platform also pushes a `BUNDLE_VALIDATION_COMPLETE` notification to the user so polling is not required.
 

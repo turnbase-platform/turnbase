@@ -77,18 +77,60 @@ Stack traces are logged at `ERROR` level with the correlation request ID but are
 
 ## Bundle Validation Errors
 
-Upload validation failures (`game-development-experience.md FR-UPLOAD-008`) return 422 `business-rule-violation` with the `errors` extension populated with all validation failures in a single response — same field error structure as validation failures, with `field` replaced by `check` to identify the failed validation rule:
+Bundle validation failures (`game-development-experience.md FR-UPLOAD-008`) use the `{check, message}`
+entry shape — the same structure as field validation errors, with `field` replaced by `check` to
+identify the failed rule. They are reported over **two** different responses, because validation
+happens in two phases and no single response can carry both.
+
+### Synchronous — `422` from the request that failed
+
+Checks that run before the platform accepts the upload — version ordering, declared size — fail the
+request that made them. `POST /api/games/{gameId}/versions` is the only one:
 
 ```json
 {
   "type": "https://turnbase.io/errors/business-rule-violation",
-  "title": "Bundle Validation Failed",
+  "title": "Upload Rejected",
   "status": 422,
-  "detail": "The uploaded bundle failed validation.",
-  "instance": "/api/games/abc/versions/upload-id/confirm",
+  "detail": "The requested version cannot be uploaded.",
+  "instance": "/api/games/abc/versions",
   "errors": [
-    { "check": "manifest.version", "message": "Version 1.0.0 is not strictly higher than current version 1.2.0" },
-    { "check": "backend.gdkClasses", "message": "JAR contains GDK API classes. Declare the GDK API as 'provided' scope." }
+    { "check": "manifest.version", "message": "Version 1.0.0 is not strictly higher than current version 1.2.0" }
   ]
 }
 ```
+
+### Asynchronous — `200` from the version resource
+
+Everything that requires the bundle bytes — manifest schema, entry points, GDK class absence,
+serializability — runs **after** `confirm` has already returned `202 Accepted`
+([file-uploads.md](file-uploads.md)). There is no request left to fail. The result is the **state of
+the version resource**, read from `GET /api/games/{gameId}/versions/{uploadId}`:
+
+```json
+{
+  "uploadId": "550e8400-e29b-41d4-a716-446655440000",
+  "version": "1.2.0",
+  "status": "FAILED",
+  "createdAt": "2026-06-11T13:00:00Z",
+  "errors": [
+    { "check": "backend.gdkClasses", "message": "JAR contains GDK API classes. Declare the GDK API as 'provided' scope." }
+  ],
+  "warnings": [
+    { "check": "manifest.capabilites", "message": "Unrecognized key 'capabilites' — did you mean 'capabilities'?" }
+  ]
+}
+```
+
+**A Problem Detail is wrong here and the distinction is not pedantic.** The `GET` succeeded: it was
+asked for the state of a version and it returned it. Answering `422` would tell a client that *its
+request* was unprocessable, and a client that treats 4xx as "retry differently" will loop against a
+resource whose state is never going to change. `FR-UPLOAD-008`'s "all failures in one response" holds
+within each phase, which is the most that is possible — a check on the archive cannot be reported by
+a response sent before the archive was uploaded.
+
+`warnings` is present on success too, carrying non-fatal findings such as unrecognized manifest keys
+(`manifest-schema.md`), and never on its own causes a rejection.
+
+*An earlier version of this section showed one `422` from `…/confirm` mixing a step-1 synchronous
+check with an async one — a response that cannot be produced, from an endpoint that returns `202`.*

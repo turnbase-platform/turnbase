@@ -1,0 +1,293 @@
+# Platform Frontend — Shell Architecture
+
+The React 19 / TypeScript application at the platform origin. Its two load-bearing responsibilities
+are the WebSocket relay to the game iframe
+([`../api-design/websocket.md`](../api-design/websocket.md) § *Platform-shell relay contract*) and
+the iframe embedding contract
+([`../game-frontend/game-asset-serving.md`](../game-frontend/game-asset-serving.md) §6). Everything
+else is an ordinary single-page application, and this document spends its length on the parts that
+are not.
+
+Realizes `../../requirements/platform-views.md`, and consumes
+[`../../requirements/platform-ui-library.md`](../../requirements/platform-ui-library.md) rather than
+restating it.
+
+---
+
+## 1. The one-sentence description
+
+**The shell is the only thing standing between untrusted game code and an authenticated WebSocket.**
+Every other decision below follows from that.
+
+---
+
+## 2. Structure
+
+```
+src/
+├── app/          routes, layouts, the auth-tier gate
+├── features/     one directory per domain: auth, rooms, catalog, profile,
+│                 friends, notifications, game
+├── shared/       api client, WebSocket client, hooks, types
+└── ui/           re-exports @turnbase/ui only — no component definitions
+```
+
+Feature-first, not layer-first. A layer-first tree (`components/`, `hooks/`, `services/`) puts the
+three files that change together for one feature in three directories, and every change becomes a
+three-directory diff.
+
+`ui/` contains no components. `platform-ui-library.md` CON-002 publishes the library as a separate
+npm package, and a local component that "just wraps" a library one is how a design system dies —
+FR-COMP-010's `className` escape hatch is the only supported override.
+
+### Stack
+
+| Concern | Choice | Note |
+|---|---|---|
+| Build | Vite | CLAUDE.md |
+| Routing | React Router | File-based routing buys little for ~15 routes |
+| Server state | TanStack Query | Caching, invalidation and request dedup for the REST surface |
+| Realtime | `@stomp/stompjs` | Not wrapped in Query — see §4 |
+| Client state | React context + `useReducer` | There is no global client state worth a store; room and game state are server-owned |
+| Forms | React Hook Form + Zod | Zod schemas mirror the server's validation, and are the client half of `input-validation.md` |
+
+**No Redux, no Zustand, no Jotai.** The state that matters is the room and the session, both of
+which are authoritative on the server and arrive as events. A client store holding a second copy is
+the same divergence class the room `version` exists to prevent, moved into the browser.
+
+---
+
+## 3. Auth tiers and routing
+
+`platform-views.md` defines three tiers and a redirect table; the shell implements it as one route
+guard, and there is one rule about it:
+
+**The guard is UX, not security.** `CON-002` of `platform-views.md` says view-level access is backed
+by server-side token validation and client-side hiding is supplemental. So the guard exists to avoid
+rendering a page that will 401, never to protect anything.
+
+| Situation | Behaviour | Source |
+|---|---|---|
+| Unauth hits an auth-required route | `/login?redirect=<path>` | VW-REDIR-002 |
+| Guest hits a registered-only route | 403 page, "requires a registered account" | VW-REDIR-003 |
+| Authenticated hits `/login` or `/register` | `/rooms` | VW-REDIR-001 |
+| Any 401 from any request | Clear the cached principal, redirect to `/login?redirect=<current>` | VW-REDIR-007 |
+
+**The `redirect` parameter is validated as an internal path before use** (`NFR-SEC-001`,
+VW-REDIR-005/006). Concretely: it must start with a single `/` and not `//`, must not parse as an
+absolute URL, and is resolved against the platform origin before navigation. `//evil.com` is a
+protocol-relative URL that a naive "starts with /" check accepts, and it is the whole of this
+vulnerability.
+
+**Gated elements are removed from the DOM, never disabled** (`NFR-USAB-001`).
+
+---
+
+## 4. The WebSocket client
+
+One STOMP connection per browser tab, at `/ws`, opened after the principal is known and reused for
+every room and game subscription (`websocket.md`).
+
+| Concern | Behaviour |
+|---|---|
+| Heartbeats | 10 s / 10 s, negotiated at `CONNECT`. The client must actually send them, or the server reads it as gone within ~20 s and opens a grace period on a live player |
+| Reconnect | Exponential backoff with jitter, 1 s → 30 s. Jitter is not decoration: a rolling deploy disconnects every client at once, and un-jittered backoff reconnects them all in the same millisecond |
+| Resubscribe | On reconnect the client re-subscribes and then re-syncs. It does **not** assume its subscriptions survived |
+| Errors | `/user/queue/errors` is subscribed once, globally, and routed to the alert system |
+
+### Room state: the `version` contract
+
+Every room event carries a monotonic `version`. The client:
+
+1. Applies an event with `version == local + 1`.
+2. **Discards** an event with `version <= local` — a duplicate.
+3. On `version > local + 1`, a gap: **requests a snapshot**, does not guess.
+
+The room stream is dense — every room event reaches every subscriber — so a gap is real information.
+
+### Game state: no gap detection, ever
+
+The game stream is the opposite and the client must treat it so. `sequence` is an ordering and dedup
+key **only**. A `send_to_player` addressed to another player consumes a sequence this client will
+never see, and so does another team's `send_to_team`; holes are normal and carry no information.
+
+**A client that requested a snapshot on a "missing" game sequence would re-enter the guest VM under
+the session's single-flight lock, once per hole, on every turn** — a self-inflicted denial of service
+that looks like careful engineering. Recovery on the game stream is triggered by *reconnection*,
+never by a gap.
+
+### The attach order is mandatory
+
+```
+1. learn sessionId          (GAME_STARTED, or ROOM_STATE for a room already In Progress)
+2. SUBSCRIBE /topic/game.{sessionId}, /user/queue/game, and the team topic
+   ── and buffer everything from this moment ──
+3. SEND REQUEST_GAME_SYNC
+4. on GAME_SYNC: discard buffered sequence <= asOfSequence, apply the rest in
+   (sequence, index) order, then go live
+```
+
+Subscribing *after* the sync request opens a window in which a message is in neither the snapshot nor
+the buffer, and it is lost silently. Steps 2 and 3 are not reorderable.
+
+---
+
+## 5. The game iframe — the trust boundary
+
+This is the part of the shell that has security consequences.
+
+```tsx
+<iframe
+  src={gameFrontendUrl}
+  sandbox="allow-scripts"
+  allow=""
+  referrerPolicy="no-referrer"
+/>
+```
+
+| Rule | Why |
+|---|---|
+| `src` is the server-supplied **absolute** `gameFrontendUrl` from `GAME_STARTED` | The client never assembles it and never derives the game origin from a build-time constant |
+| `trustedGameOrigin = new URL(gameFrontendUrl).origin`, computed once | The origin the server chose is the only one that is correct; ADR-0007's whole isolation argument rests on it |
+| `sandbox="allow-scripts"` **without** `allow-same-origin` | Together they would return the frame to its own origin and undo the sandbox entirely |
+| No `allow-popups`, `allow-top-navigation`, `allow-modals`, `allow-forms` | A game has no legitimate need to navigate the platform away or open a window |
+
+### Inbound `postMessage` — three checks, all mandatory
+
+```ts
+function onMessage(e: MessageEvent) {
+  if (e.origin !== trustedGameOrigin) return;   // 1
+  if (e.source !== iframeRef.current?.contentWindow) return;   // 2
+  const msg = GameMessage.safeParse(e.data);    // 3
+  if (!msg.success) return;
+  relay(msg.data);
+}
+```
+
+1. **Origin equality.** Never `startsWith`, never a regex, never `'*'`. `https://evil-turnbase.io`
+   passes a `startsWith('https://turnbase')` check.
+2. **Source identity.** Origin alone is insufficient: any frame or popup on the game origin can post
+   to this window, and with per-game origins that includes *another game* the user has open in a
+   different tab.
+3. **Shape validation.** The payload is untrusted input from untrusted code and is parsed, not cast.
+
+Outbound posts always target `trustedGameOrigin` explicitly. `postMessage(data, '*')` broadcasts game
+state — including one player's private view — to whatever happens to be in the frame.
+
+### The relay is thin, and stays thin
+
+The shell translates between two message formats and does not interpret payloads:
+
+| From game | To server |
+|---|---|
+| `{type: 'action', payload}` | `SEND /app/game.{sessionId}.action` |
+| `{type: 'ready'}` | Triggers the shell to post the `init` context |
+
+| From server | To game |
+|---|---|
+| `GAME_EVENT`, `GAME_SYNC` | `{type: 'game_event', payload}` |
+| `GAME_PLAYER_JOINED/LEFT`, `GAME_OVER` | corresponding message |
+
+**The shell never adds player identity to an outbound action.** `FR-FA-002` and `NFR-SEC-001` make
+the acting player the server's determination from the STOMP principal; a client-supplied identity
+field is ignored server-side, and adding one here would imply otherwise.
+
+### Bootstrap
+
+`window.__TURNBASE__` must exist before the game's JS runs
+(`frontend-gdk-api.md` §9). The shell cannot script into a cross-origin frame, which is exactly why
+`/play/{sessionId}` is server-rendered with the bootstrap already in it. **The shell's only
+obligation is to not try** — no `contentWindow` access, no injected script, no `srcdoc`.
+
+The ready handshake: the game posts `ready`, the shell responds with the `init` context. Until
+`ready` arrives the shell buffers; a game that never sends it gets a visible timeout rather than a
+blank frame.
+
+---
+
+## 6. Notifications and alerts
+
+Two classes, two behaviours — `notifications-invitations.md` FR-ALERT-006 and
+[`../api-design/sse-notifications.md`](../api-design/sse-notifications.md):
+
+| Class | SSE event | Rendering | Persistence |
+|---|---|---|---|
+| **Alert** | `event: alert` | Toast, auto-dismiss, queued sequentially (FR-ALERT-003/004) | None; lost if the tab is closed, by design |
+| **Notification** | `event: notification` | Bell badge + notification center | Server-side; unread count from the API |
+
+One `EventSource` per tab, at `/api/notifications/stream`. On error the browser reconnects
+automatically; the shell does not implement its own backoff for it.
+
+**The unread badge reads the API, not the stream.** The stream is an accelerator and its delivery is
+at-least-once at best — SSE has no acknowledgement — so a count maintained by incrementing on each
+pushed event drifts. The count comes from the server, refreshed on panel open and on each pushed
+notification.
+
+`SESSION_DISPLACED` is an alert and is terminal: show it, then redirect to `/login`. The stream and
+the WebSocket are both about to be closed by the server (`FR-SESS-010`).
+
+---
+
+## 7. Two views worth specifying
+
+**The room view is one component across three states.** `platform-views.md` presents Lobby, In
+Progress and Post-Game Results as three sections, but the third is not a server state at all — the
+room is already `LOBBY` and the results view is a client-side overlay over a still-mounted iframe
+(`FR-LIFE-003`). Implementing it as a third route would unmount the iframe and destroy the results
+the player is reading.
+
+So: one route, one mounted iframe, and an overlay. `GAME_ENDED` sets an overlay flag; **Return to
+Lobby** clears it and unmounts.
+
+**The reconnection card is global, not room-scoped.** `VW-ROOMS-005` and `FR-REJOIN-002` pin a card
+to `/rooms` for as long as the player holds a reserved slot — which they see *while not in the room*.
+It is driven by a field on the rooms list response, not by a WebSocket subscription to a room the
+client is no longer attached to.
+
+---
+
+## 8. Testing
+
+| Layer | Tool | Scope |
+|---|---|---|
+| Unit | Vitest + Testing Library | Component behaviour, hooks, the reducers |
+| Contract | Vitest + MSW | The API client against fixtures generated from the OpenAPI document |
+| Relay | Vitest with a fake `MessageEvent` | **Every rejection path of §5** — wrong origin, wrong source, malformed payload |
+
+The third is small and non-negotiable. The relay's rejection paths are the platform's browser-side
+trust boundary, they are three `if` statements, and a regression in any of them is invisible in
+manual testing because the happy path is unaffected.
+
+There is no browser-based e2e tier here: `platform-operations.md` FR-CICD-005 puts end-to-end
+coverage on HTTP and WebSocket clients rather than a browser.
+
+---
+
+## 9. What is deliberately absent
+
+- **No SSR, no Next.js.** Every meaningful view requires a session; the two that do not (catalog,
+  profile) are not worth a second runtime.
+- **No client-side state store.** §2.
+- **No service worker or offline mode.** The platform is useless offline.
+- **No i18n.** Out of scope in `platform-ui-library.md`.
+- **No light theme.** `FR-THM-001`, and CON-005 rules out even `prefers-color-scheme`.
+- **No route-level code splitting for the MVP.** The bundle is small; the game iframe is the heavy
+  thing and it is already a separate document on a separate origin.
+
+---
+
+## 10. Requirements traceability
+
+| Requirement | Realized by |
+|---|---|
+| `platform-views.md` VW-* | §3 routing and the auth gate; §7 |
+| VW-REDIR-005/006, NFR-SEC-001 | §3 redirect validation |
+| NFR-USAB-001 | §3 — removal, not disabling |
+| `websocket.md` relay contract | §4, §5 |
+| `game-asset-serving.md` §6 embedding | §5 iframe attributes |
+| `frontend-gdk-api.md` §8/§9 | §5 origin checks and the bootstrap obligation |
+| FR-ALERT-001…006, FR-NOTIF-001/002 | §6 |
+| FR-LIFE-003, VW-RRESULT-* | §7 room view |
+| FR-REJOIN-002, VW-ROOMS-005 | §7 reconnection card |
+| `platform-ui-library.md` | §2 — consumed, never re-implemented |
+</content>

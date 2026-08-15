@@ -57,6 +57,102 @@ Error responses follow RFC 9457 Problem Details — see [error-handling.md](erro
 
 All endpoints except those listed as public in `user-accounts.md NFR-SEC-006` require a valid session token delivered as an `httpOnly`, `Secure`, `SameSite=Strict` cookie (`user-accounts.md CON-004`). Unauthenticated requests to protected endpoints receive a 401 response.
 
+The session lifecycle is four endpoints:
+
+| Endpoint | Effect |
+|---|---|
+| `POST /api/auth/login` | Revokes any existing session for the account, issues a new one (`FR-SESS-002/003`) |
+| `POST /api/auth/guest` | Mints a guest account and a session (`FR-GUEST-001/003`) |
+| `POST /api/auth/logout` | Revokes the current session, clears the cookie, returns `204` (`FR-SESS-011`) |
+| `GET /api/auth/session` | Returns the current principal, or `401`. The frontend's tier check on load |
+
+**Logout is a `POST`, not a `DELETE`.** It is not the removal of an addressable resource — the caller
+cannot name the session, and must not be able to, since a session identifier in a URL is a
+credential in a URL. `POST` to an action endpoint is the honest shape, and it keeps logout inside the
+`Origin` check below, which a `GET` would not be.
+
+**Logout must also close the session's live WebSocket and SSE connections** (`FR-SESS-010`).
+Revoking the row does nothing to a socket already open, and for a guest this is irreversible —
+`FR-SESS-011` requires a confirmation before the platform destroys the only key to the account.
+
+## Authorization and Ownership
+
+Authentication answers *who is calling*; every endpoint below also has to answer *may this caller act
+on this object*. Getting the second wrong is an IDOR, and it is the most common serious flaw in an
+API shaped like this one — resources are addressed by UUID, and a UUID in a path looks like an
+authorization decision without being one.
+
+**The rule: possession of an identifier is never authorization.** Every handler that takes a resource
+id resolves the object and evaluates an explicit predicate against the authenticated principal,
+inside the same transaction as the mutation.
+
+| Resource | Predicate | Failure |
+|---|---|---|
+| `/api/users/me/**` | Implicit — the principal *is* the resource. No user id is ever accepted in the path for a self-scoped operation | — |
+| `/api/games/{id}` (mutate) | `game.owner_user_id = principal` | `404` if the game is unlisted (`game-catalog.md` NFR-SEC-002), else `403` |
+| `/api/games/{id}` (read, unlisted) | `game.owner_user_id = principal` | `404` — never `403`, which would confirm existence |
+| `/api/rooms/{id}` (mutate) | `principal` is a participant; host commands additionally `room.host_user_id = principal`, re-checked under the room lock | `403` |
+| `/api/notifications/{id}` | `notification.user_id = principal` | `404` |
+| `/api/friend-requests/{id}` | `principal ∈ {sender, recipient}`, and the action must match the side | `403` |
+| `/api/users/{username}` (read) | Public, subject to the profile privacy resolution in `user-accounts.md` FR-PROF-003…007 | — |
+| `/admin/**` | Basic auth on the management port; never reachable from the public listener (`admin-tooling.md` FR-ADM-001) | `401` |
+
+**`404` versus `403` is a deliberate choice per resource, not a house style.** A `403` confirms that
+the object exists, which for a private game is exactly the enumeration `NFR-SEC-002` forbids. Where
+existence is already public — a room, a profile — `403` is the honest answer and hiding it would only
+confuse the client.
+
+**Ownership is re-evaluated under the lock for anything mutable at runtime.** Room host is the case
+that matters: a channel-level or filter-level check reads state that `TRANSFER_HOST` can invalidate
+between the check and the write. The pattern throughout the platform is a cheap guard early and the
+authoritative check in the handler, under the lock — see
+[room-websocket.md](room-websocket.md)'s authorization model.
+
+**Collections are scoped by the principal, never filtered client-side.** `GET /api/notifications`
+returns the caller's notifications because the query is `WHERE user_id = :principal`, not because the
+caller asked for their own.
+
+## Idempotency
+
+| Method | Behaviour |
+|---|---|
+| `GET`, `PUT`, `DELETE` | Idempotent by construction. A `DELETE` of an already-deleted resource returns `204`, not `404` — the caller's desired state holds |
+| `PATCH` | Idempotent as specified here: every `PATCH` in the API sets absolute values, never deltas |
+| `POST` | **Not** idempotent, with two exceptions below |
+
+Two `POST`s need protection, for different reasons:
+
+- **`POST /api/games/{gameId}/versions`** — a retried upload-slot request must not create a second
+  `game_version` row and a second pre-signed URL. `(game_id, version)` is unique, so a retry with the
+  same declared version fails on the constraint rather than duplicating; the handler translates that
+  into the existing slot when it is still `PENDING`.
+- **`POST /api/auth/guest`** — a retry mints a second account, which is exactly what
+  `NFR-SEC-007`'s throttle is counting. This is accepted rather than solved: an idempotency key would
+  have to be client-supplied, and an unauthenticated caller can supply a fresh one every time.
+
+**No `Idempotency-Key` header is defined.** It would be dead weight on an API whose only unbounded
+create is guest minting, where it provides nothing. If a future endpoint needs it, it is additive.
+
+## Actuator and the Management Port
+
+Actuator endpoints are **not** served on the public listener. `management.server.port` is `8081` and
+`management.server.address` is `127.0.0.1`
+([`../deployment/local-environment.md`](../deployment/local-environment.md) §1).
+
+This is not defence in depth over an endpoint allow-list — it is the control. `admin-tooling.md`
+FR-ADM-001 requires the admin API to be bound exclusively to localhost and CON-001 puts it on the
+Spring management port, so actuator and the admin API are the **same listener**. Anything reachable
+on `8081` is reachable by an operator with a shell and by nobody else.
+
+Consequences worth stating:
+
+- `/actuator/prometheus` (FR-MET-007) is scraped over the cluster-internal network, never through the
+  ingress.
+- `/actuator/health/liveness` and `/readiness` are probed by the kubelet on the pod IP, which is why
+  binding to `127.0.0.1` is correct in compose and must be the pod IP in Kubernetes — a probe cannot
+  reach a loopback-only listener from outside the container's network namespace.
+- No Ingress rule and no `LoadBalancer` Service ever names port 8081.
+
 ## Origin Policy and CSRF
 
 The platform frontend is **same-origin** with the API. There is therefore no legitimate cross-origin caller, and the API is configured accordingly:

@@ -7,8 +7,12 @@ durable work tables that make cross-store side effects survive a crash. This is 
 relational schema document in the corpus; before it, four independent designs each invented their own
 column names for the same concepts.
 
-It covers only what room lifecycle requires. Accounts, social, catalog, history and notification
-schemas are out of scope and belong to their own documents when written.
+It covers only what room lifecycle requires. The rest of the relational schema lives in sibling
+documents that share this document's conventions:
+[accounts](data-model-accounts.md), [social](data-model-social.md), [catalog](data-model-catalog.md),
+[history & statistics](data-model-history.md), [notifications](data-model-notifications.md).
+`app_user`, referenced below by `room.host_user_id` and `room_participant.user_id`, is defined in the
+accounts document; `game`, referenced by `room.game_id`, in the catalog document.
 
 **Authority.** PostgreSQL is authoritative for everything in this document. Redis holds live game
 state, routing and leases ([`../game-host/game-host-internals.md`](../game-host/game-host-internals.md)
@@ -19,6 +23,13 @@ instance with an accepted loss window (ADR-0001).
 these concepts by name, and the point of this document is that they agree. Timestamps are
 `timestamptz` and are always written with the **database** clock (`now()`), never an application
 clock; see [ADR-0009](../../decisions/0009-grace-deadline-durability.md).
+
+**Authority over the migrations.** These six documents are normative for **names** and for
+**reasons**. They are not what the database is: the Flyway migrations in the `turnbase-platform`
+submodule are, and when the two disagree the migration wins
+([ADR-0011](../../decisions/0011-schema-migrations.md) §4). A schema change is incomplete until both
+are updated, and the DDL here is the design of the change rather than a transcript of it — see
+[`../deployment/schema-migrations.md`](../deployment/schema-migrations.md).
 
 ---
 
@@ -57,6 +68,7 @@ CREATE INDEX room_idle_lobby_idx ON room (last_activity_at) WHERE state = 'LOBBY
 CREATE INDEX room_closed_purge_idx ON room (closed_at) WHERE state = 'CLOSED';
 CREATE INDEX room_active_session_idx ON room (active_session_id)
   WHERE active_session_id IS NOT NULL;
+CREATE INDEX room_open_game_idx ON room (game_id, game_version) WHERE state <> 'CLOSED';
 ```
 
 **`version`** is the per-room event version carried by every WebSocket delta
@@ -117,6 +129,17 @@ because a crash can leave connection flags stale, but a genuinely live room cann
 | `ACCOUNT_DELETED` | Host's account was deleted | FR-LIFE-004 |
 | `IDLE_TIMEOUT` | Lobby room with no participants past the idle window | FR-JOB-007d |
 | `SESSION_UNRECOVERABLE` | In Progress room whose session state is gone and could not be failed back | FR-JOB-007c |
+
+**Every one of these five paths owes the same two side effects**, and they are listed here because
+this is the only place the producers appear together. Closure must, in the transaction that sets
+`state = 'CLOSED'`:
+
+1. record the owed session teardown, if a session is attached (FR-XFER-005, §4.1); and
+2. delete the room's `room_invitation` rows (FR-INV-008), whose notifications then cascade
+   ([`data-model-notifications.md`](data-model-notifications.md) §2).
+
+The second is easy to miss because a foreign-key cascade already exists for it — but that cascade
+fires at FR-JOB-009's purge, seven days later, not at closure.
 
 `IDLE_TIMEOUT` and `SESSION_UNRECOVERABLE` are the two platform-initiated causes named by FR-LIFE-007
 and are kept distinct rather than collapsed into one "reconciliation" value: they mean different
@@ -353,6 +376,11 @@ rows in a terminal state:
 - `room_active_session_idx` spans only rooms with a live session, and answers the one question the
   game-input drain asks on `NOT_FOUND` (§4): is this session still attached to a room? Partial,
   because a room without an active session can never be the answer.
+- `room_open_game_idx` spans only non-closed rooms and serves the two questions the catalog asks of
+  the room table: how many players are currently in rooms for a game (FR-GDET-005), and whether a
+  superseded game version may be discarded (`game-catalog.md` FR-GAME-011). Both are
+  questions about *live* rooms only, and the 7-day tail of closed rooms would otherwise dominate the
+  scan.
 
 ---
 

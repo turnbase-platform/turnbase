@@ -1,5 +1,126 @@
 ## Last Session Summary
 
+**Date:** 2026-08-15 (session 9)
+
+**Finished Phase 0.** The corpus is now implementation-ready: every table is defined, the services
+are wired and startable, config and secrets have a home, the schema has an evolution story, and eight
+end-to-end journeys trace the whole system across components. **21 new files, ~35 edited.**
+
+### What was written
+
+| Stage | Output |
+|---|---|
+| 1 — the rest of the data model | Five sibling schema docs under `docs/specs/platform/`: accounts, social, catalog, history & statistics, notifications. ~30 tables |
+| 2 — schema migrations (**closes OPS-3**) | **ADR-0011** (Flyway, forward-only, backward-compatible) + `deployment/schema-migrations.md` + FR-DB-001…004, CON-012 |
+| 3 — system wiring | `deployment/local-environment.md`: nine containers, ports, startup and readiness budget, K8s-vs-compose, seeds, testing, and **the consolidated configuration surface** — every tunable in the corpus in one table |
+| 4 — secrets (**closes OPS-5**) | `deployment/secrets-and-configuration.md` + FR-CRED-001…005. JWT key set with graceful rotation |
+| 5 — end-to-end flows | `docs/specs/flows/` — INDEX + eight journeys |
+| 6 — remaining specs | `manifest/bundle-format.md` (subagent), `gdk-api/test-harness.md`, `platform-frontend/shell-architecture.md` |
+| 7 — edit backlog | platform-operations, user-accounts, rest-conventions, sse-notifications, websocket, the gRPC sweep, platform-ui-library, and the ID-qualification rule |
+
+**Stage 1 decided five files rather than one.** Each domain runs 250–400 lines in the established
+voice, and the INDEX is the navigation layer the corpus already uses. `data-model.md` keeps the
+shared conventions the five inherit.
+
+### The defects — 27, found in three distinct ways
+
+**A gate review of Stage 1 returned 4 blockers, 14 defects, 8 nits and 6 coverage gaps.** All were
+accepted; the three claims I had made about defects in the *requirements* were independently
+confirmed real rather than manufactured, but **two of my resolutions did not execute**:
+
+1. **`DISCARDED` was unreachable for the version my own FR-ACCT-007 amendment had to discard.** The
+   status required `SUPERSEDED`, which requires a newer version — which never arrives for a
+   single-version game whose owner is gone. The amendment purged nothing in the common case.
+   "Retired" is now two disjoint conditions.
+2. **The erasure scatter stranded three live objects** — an open `game_review` sitting in the admin
+   queue forever addressed to a developer who cannot be notified, `room_invitation` on both legs, and
+   `room`/`room_participant` entirely, despite `data-model.md` already defining
+   `closed_reason = 'ACCOUNT_DELETED'` with no writer. **Nothing happens by cascade on that path**,
+   because a registered deletion is soft — which is exactly what made the omissions look handled.
+
+Also from that review: a `room_invitation` with no expiry made its notification **permanently
+unpurgeable** (three retention requirements silently narrowed); `ghe_placement_ck` would abort the
+whole recording transaction on a malformed outcome with no possible retry; the two columns whose
+entire purpose is `ON DELETE CASCADE` had no index; and my partial-index rationale contradicted what
+the sibling document said correctly about NULL distinctness.
+
+**The reviewer also caught that all five files ended in literal `</content></invoke>` tool
+scaffolding.** It was eight files, not five.
+
+**The bundle-format subagent found an MVP-blocking defect by composing two correct documents.**
+`file-uploads.md` clears Verified status unconditionally at activation; `game_official_ownerless_ck`
+ties `badge='OFFICIAL'` to `owner_user_id IS NULL` as an equivalence. Under ADR-0006 every MVP game is
+Official — so **every official upload aborts its activation transaction, and no official game can
+ever be updated.** The only path the MVP exercises. Narrowed to `VERIFIED → UNVERIFIED` only.
+
+It also found that unpacking the whole archive under `/g/{gameId}/{version}/` **publishes the backend
+JAR to anonymous callers** — `gameId` is in the hostname and the version is a public catalog column,
+so the URL is derivable from a catalog page. `game-asset-serving.md` §4.2 argued the exposure was
+acceptable because "a bundle is JavaScript, CSS and sprites", which stops being true the moment you
+unpack all of it. Publication now filters.
+
+Plus: `PROCESSING` had no exit at all, and because `(game_id, version)` is unique, a validation job
+that died with its pod **permanently burned that version number**; the bundle-validation `422` in
+`error-handling.md` mixed a synchronous check with an async one in a response no endpoint can
+produce; `FR-UPLOAD-006` was checked only at slot creation, so two open slots could walk the active
+version **backwards**; and the seed path bypassed the pipeline it depends on, producing exactly the
+"lists and cannot start" outcome the same paragraph said it was avoiding.
+
+**Writing the flows found the rest.** `FR-INV-008` requires invitations deleted at room *closure*,
+and the only mechanism was a foreign-key cascade that fires seven days later at purge — a correct
+rule, stated once, in a document none of its five producers is written from. Same shape as last
+session's worst finding. And `FR-FAIL-001` terminated the session on the *first* game failure while
+`FR-FAIL-003` allows three, with nothing anywhere saying what happens to the failed input or telling
+the acting player: the game appears to hang, they retry, and three clicks kill the session for
+everyone with no client ever told why.
+
+### Decisions worth carrying
+
+1. **Erasure uses a random token, not an HMAC.** ADR-0004 requires non-reversibility; `HMAC(user_id,
+   pepper)` is reversible by enumeration over a small id space given the key. Only a construction
+   that discards its input qualifies.
+2. **Guest exclusion is a foreign key.** `friendship` references `app_user (user_id, kind)` with a
+   local `CHECK kind = 'REGISTERED'`, so FR-SOC-020 cannot be violated from any code path.
+3. **Guest purge is two-phase**, because a literal 24-hour delete fails permanently on
+   `room_participant`'s FK and the cascade that would "fix" it would silently remove a seated player
+   from a live game. FR-RET-002 amended to state the real bound (~8 days).
+4. **Project only what needs an index shape the source cannot provide.** Tags get a table; the
+   capability columns do not. The one exception — `title`/`short_description` — is named, because
+   FR-GAME-008 makes them owner-editable and therefore not projections of anything.
+5. **A notification's subject foreign key marks actionability**, and the retention purge is indexed
+   *partially on having no subject* — so it can never remove an actionable message out from under a
+   live object.
+6. **The deploy is a rolling update even at one replica.** Under `Recreate`, ADR-0008's claim path
+   never runs against a live incumbent, and `platform-operations.md`'s claim that it is "continuously
+   tested rather than dormant" would be false.
+7. **The monolith's readiness must not depend on the Game Host** — coupling them lets a Game Host
+   restart drop every WebSocket on the platform, including rooms not running a game at all.
+8. **Static serializability at upload, the executing round trip in the harness.** NFR-UPLOAD-002
+   forbids running game code at upload; an executor gated on "ADR-0006 says trusted" is GRMP-F5's
+   fail-open with a different variable name. New FR-HARNESS-010 makes the harness half a requirement
+   rather than an assumption.
+
+### Process
+
+Both lessons from last session held. The Stage-1 reviewer returned a **bare idle notification**; a
+re-task with an explicit file list, explicit scenarios and an explicit "an idle notification is not a
+usable answer" recovered it and produced the session's best findings. Both subagents were given owned
+file lists and both complied — verified with `git status`, not assumed.
+
+**New lesson: a constraint that turns a silent corruption into a loud failure is doing its job, and
+will look like the bug.** Tightening `game_official_ownerless_ck` from an implication to an
+equivalence is what surfaced the MVP-blocking badge defect. The right response was to fix the
+transition, not to loosen the check.
+
+**Verification:** every relative link in `docs/` resolves (0 broken); no dangling FR/NFR citations
+across all specs, decisions and requirements; no duplicate IDs within any document; every file
+registered in its nearest INDEX. Four ID collisions I introduced during the session (`FR-SEC-001…005`,
+`FR-ALERT-006`, `FR-HARNESS-006`, `FR-SESS-005`) were caught by the collision audit and renumbered.
+
+---
+
+## Previous Session Summary
+
 **Date:** 2026-08-09 (session 8)
 
 **Closed the room-lifecycle durability cluster — GRMP lessons F1, F2 and F3** — with three ADRs, a
@@ -128,141 +249,60 @@ no duplicate IDs within any document.
 
 ---
 
-## Previous Session Summary
-
-**Date:** 2026-07-12 (session 7)
-
-**Wrote the abuse-control specs** (STATUS priority #6) — `rate-limiting.md` rewritten and
-`input-validation.md` written new. **Closes API-1, API-2 and API-6**, plus api-design review gap 8
-(client-IP derivation) and GRMP lesson F6 (per-env configurability). These were the review's
-"unthrottled spam vectors" — the reason its verdict was *"not yet safe to expose on the public
-internet."*
-
-**The architectural call: WebSocket rate limiting is pod-local, not Redis-backed.** The existing doc
-opened with "Bucket4j backed by Redis" and the review assumed the same. But **room affinity (ADR-0002)
-pins every frame a user sends about a room to that room's pod**, so an in-JVM bucket keyed by principal
-observes that user's *entire* frame stream — it is exact, not approximate. Redis would have put a
-network round trip on the inbound path of every chat message and every game action to buy nothing.
-Rate-limit locality follows the same affinity argument as effect fan-out. HTTP tiers stay Redis-backed:
-they are IP-keyed and run *before* authentication, so any pod may serve them.
-
-**Two places the review's suggested fix was weaker than what the specs already allowed:**
-
-1. **`parameters` is a whitelist, not a size cap.** The review proposed capping the `CHANGE_PARAMETERS`
-   object at 4 KB. But `manifest-schema.md` **already declares a typed parameter schema**
-   (`key`/`type`/`default`/`min`/`max`/`options`), so unknown keys can simply be *rejected*. The
-   amplification vector is gone **by construction** rather than merely bounded, and a host can no
-   longer push attacker-chosen data through the platform into every room member's client.
-2. **NFC does not stop impersonation.** The review proposed NFC-normalizing usernames. NFC does nothing
-   about `Аlice` (Cyrillic А) vs `Alice` — they are distinct strings that render identically. Usernames
-   now carry an ICU4J **confusable-skeleton uniqueness index** plus a **mixed-script restriction**
-   (`MODERATELY_RESTRICTIVE`), which is where homoglyph attacks actually live. The `guest-` reserved
-   prefix (FR-AUTH-013) is checked against the *skeleton* too — otherwise a Cyrillic `е` walks past it.
-
-**Design decisions recorded:**
-1. **Tier 6 buckets are sized by cost, not uniformly.** The strictest is `snapshot` (1 per 3s):
-   `REQUEST_GAME_SYNC` **re-enters the guest VM** (`onResync`) under the session's single-flight lock,
-   making it the most expensive frame a client can send — a flood is a self-DoS of the whole session,
-   strictly worse than a chat flood. `REQUEST_ROOM_STATE` shares a destination with other member
-   commands, so it is charged the cheap `command` bucket at the interceptor and the `snapshot` bucket
-   *inside its handler*, where `type` is already deserialized — the same fast-fail/authoritative split
-   the authorization model uses.
-2. **Penalty ladder: drop → close → Redis reconnect lockout** (30s, doubling, capped 15m). Closing a
-   connection mid-game starts the flooder's *own* grace period, so escalation removes persistent
-   abusers from live games with no separate mechanism. The numbers compose: a first offence (30s)
-   resolves inside a 60s grace period; a repeat offender's lockout outlives it and they are dropped.
-   **The error emission is itself throttled** (1/bucket/second) — otherwise the abuse control becomes
-   an amplifier, emitting 1 000 unicast errors/s at a client sending 1 000 frames/s.
-3. **Tier 5 counts *successes*.** Tier 1 counts only failures, and guest creation *always succeeds* —
-   which is precisely why it leaked past it. 5 guests + 3 registrations per IP/hour; the two counters
-   coexist on the same endpoints and do not interact. (New requirement: NFR-SEC-007.)
-4. **IPv6 IP-tiers key on the /64 prefix.** A routed /64 gives one attacker 2^64 addresses; keying on
-   the full address makes every IP-based tier silently worthless.
-5. **`enabled=false` is permitted only under the `test`/`e2e` profile** — the app fails to start
-   otherwise. GRMP's hardcoded login limit blocked every test session for months (workaround: deleting
-   Redis keys by hand), so the escape hatch is mandatory *and* must not be shippable.
-6. **The game log is the platform's only non-plain-text render surface**, and its content is composed
-   by *game code* — the one place "React escapes by default" does not save us. Markdown renderer runs
-   with raw HTML disabled, no links, no autolinking. Accepted residual: a username containing Markdown
-   metacharacters can corrupt log *formatting* (cosmetic, never markup).
-7. **BCrypt silently truncates at 72 bytes**, so a 128-char Unicode password loses entropy without a
-   word. Argon2id (already NFR-SEC-001) is now load-bearing, not merely preferred.
-
-**Files changed:**
-- `docs/specs/api-design/rate-limiting.md` — **rewritten**: two enforcement domains, client-IP
-  derivation, Tier 5 (minting), Tier 6 (WebSocket), penalty ladder, configuration
-- `docs/specs/api-design/input-validation.md` — **new**: pipeline, canonicalization, field catalogue,
-  size limits, `CHANGE_PARAMETERS` whitelist, output encoding
-- `docs/requirements/user-accounts.md` — FR-AUTH-014/015 (username charset, impersonation safety),
-  NFR-SEC-007 (minting throttle); FR-AUTH-003/013 amended to run on the skeleton
-- `docs/specs/api-design/websocket.md` — the two "unthrottled / known gap" hedges replaced with the
-  real budgets; OQ-001 narrowed to the legitimate mass-reconnect case
-- `docs/specs/api-design/room-websocket.md` — 6 new error codes (parameters, validation, rate limit)
-- `docs/specs/api-design/room-chat-websocket.md`, `rest-conventions.md` (413), `INDEX.md`
-- `docs/requirements/game-rooms.md`, `in-room-chat.md` — spec links
-- `docs/reviews/2026-07-02-mvp-readiness/INDEX.md`, `STATUS.md`
-
----
-
 ## Next Priorities
 
-Continue the review's action plan (`docs/reviews/2026-07-02-mvp-readiness/INDEX.md`).
+**Phase 0 is complete.** All 15 review blockers are closed, OPS-3 and OPS-5 are closed, the existing-doc
+edit backlog is worked, and the corpus answers every question the session-9 goal set: what every table
+looks like, how the services are wired and started, how config and secrets reach them, how the schema
+evolves, and how each primary journey flows end to end.
 
-**Blocker status: all 15 of the review's blockers are now closed or decided.** The game-execution
-chain (GAME-B1/B2/B3), the API abuse surface (API-1/API-2), and the room-lifecycle contradictions
-(CORE-1/2/3) are fully closed; API-3 and OPS-1…6 are *decided* (ADR-0001…0006) with doc edits
-outstanding. The room-lifecycle **durability** work (ADR-0008/0009/0010) closed GRMP lessons F1, F2
-and F3 — a second pass over the same area, prompted by a self-contradiction found in
-`room-websocket.md`, not a reopening of CORE-1/2/3.
+**The next session should start implementing**, not specifying. Suggested order, which follows the
+dependency graph rather than the document order:
 
-**What remains is no longer blocker work: it is the deployment/ops specs (item 9), the existing-doc
-edit backlog (item 8), and the previously planned build-out queue (item 10).**
+1. **Bootstrap the repositories and the local stack.** `turnbase-platform` skeleton, the compose file
+   and Helm chart of `deployment/local-environment.md`, and the Flyway baseline transcribed from the
+   six schema documents. Finishing here means `docker compose up` gives a running, migrated, seeded
+   database — and the baseline is the first real test of whether the schema is self-consistent.
+2. **Accounts and sessions**, end to end: registration, login, guest minting, the session table and
+   the JWT key set. It is the shortest vertical slice that exercises REST, Postgres, Redis and the
+   rate limiter, and everything else needs a principal.
+3. **Rooms and the WebSocket**, up to `START_GAME`. The room-lifecycle machinery — claim, epoch fence,
+   version ordering, the sweeps — is the most thoroughly specified and the most subtle; building it
+   before the catalog means the hard part is behind the easy part.
+4. **The Game Host and one official game.** ADR-0006 makes the MVP official-only, so the first game is
+   also the proof the GDK contract works.
+5. **Catalog, history, notifications, social** — the CRUD tail, in whatever order is convenient.
 
-1. **Owner decisions** — ✅ done (ADR-0001…0005, 2026-07-10).
-2. **Espresso feasibility spike** (ADR-0005) — ✅ done (2026-07-11) → **ADR-0006** (official-only Java).
-3. **Game Host internals spec** — ✅ done (session 4). Closed GAME-I1/I2, GAME-B2, exec-half of B1.
-4. **Game-session WebSocket spec** — ✅ done (session 5). Closed **GAME-B1**, **I4**, **I6**.
-5. **Game FE serving origin / sandbox / CSP** — ✅ done (session 6). Closed **GAME-B3**, **API-5**.
-6. **WS abuse controls + input validation** — ✅ done (2026-07-12, session 7). `rate-limiting.md`
-   (rewritten) + `input-validation.md` (new). Closed **API-1**, **API-2**, **API-6**, review gap 8,
-   GRMP-F6.
-7. **Room-lifecycle contradictions (CORE-1/2/3)** — ✅ done (2026-07-10, commit `a541cb8`, before
-   items 2–6 above). Initial team instantiation (new FR-TEAM-012), voluntary leave vs. disconnect (new
-   FR-DC-005, FR-EXPIRY-004), and last-connected-human host disconnect (new FR-HDISC-003) are all
-   resolved in `game-rooms.md` and `reconnection-flow.md`. This item previously sat here marked "next"
-   after the resolution had already shipped — the review's own action-plan checklist below inherited
-   the same staleness and has been corrected alongside it.
-8. **Room-lifecycle durability (GRMP-F1/F2/F3)** — ✅ done (2026-08-09, session 8). ADR-0008
-   (ownership as a lease-gated claim), ADR-0009 (persisted deadlines, sweep-only), ADR-0010
-   (teardown as a durable to-do); new `docs/specs/platform/` with `room-lifecycle.md` and the
-   corpus's first `data-model.md`; FR-JOB-006…011. Fixed two latent defects: a rolling deploy would
-   have deleted every Lobby room, and an adopting pod would have re-issued event versions that
-   clients discard silently. A final full-corpus review closed a further 18 defects — including an
-   unfenced adoption write, FR-HDISC-004 having no mechanism at all, and a `NOT_FOUND` rule whose
-   supporting state the design itself deletes.
-9. **Existing-doc edit checklist, remainder:** `platform-operations.md` (~~reconciliation sweep
-   GRMP-F1~~ done; **replace the Redis-pub/sub scaling text with room affinity — the API-3 doc
-   edit**; Dependabot/Trivy + frontend in FR-CICD-001), `rest-conventions.md` (authz/IDOR ownership model,
-   actuator on a separate management port, logout endpoint, idempotency), `user-accounts.md` (password
-   change FR, logout FR, OAuth email-collision rule, lockout decay), notifications/SSE event classes,
-   `platform-ui-library.md` (Tabs/Select/Switch/Badge; Avatar contradiction), gRPC proto sweep
-   (GAME-I3 failed-action drop semantics, `GameOutcome` validation).
-   **Also: requirement IDs are numbered per-document, so the same ID string means different things
-   in different files.** A corpus audit found `FR-SESS-003` defined twice with unrelated meanings
-   (`platform-architecture.md` = Game Host in-memory state; `user-accounts.md` = login displaces
-   previous session), cited unqualified in specs — now qualified at those call sites. `NFR-PERF-001`
-   is defined 8 times, `NFR-SEC-001` and others similarly. It works today only because most
-   citations carry disambiguating context. Worth one pass to require a document qualifier on every
-   cross-document ID citation, before the corpus grows another collision.
-10. **New specs (rescoped local-first) — the top of the queue now:** local deployment &
-   infrastructure (Docker Desktop K8s + compose per ADR-0001), data-operations (Postgres/Redis local,
-   accepted game-state loss window — OPS-4; note `data-model.md` now exists and the schema for rooms
-   belongs to it, so this spec covers migrations/backups rather than restating tables), secrets &
-   config (OPS-5).
-11. **Then** the previously planned queue: game bundle format + upload pipeline (must unpack into the
-    `/g/{gameId}/{version}/` layout `game-asset-serving.md` §4.1 serves; `gdkApiVersion` check
-    GAME-I7), test harness, platform-frontend shell spec (must honor the `websocket.md` relay contract
-    and the iframe embedding contract in `game-asset-serving.md` §6).
+### Spec work that remains, and none of it blocks implementation
+
+- **`FR-SESS-005` is defined twice** (`platform-architecture.md` = Game Host state discard;
+  `user-accounts.md` did not define it, which is why the new session-invalidation requirement took
+  FR-SESS-010). The corpus-wide qualification rule is now stated in `docs/specs/INDEX.md`, but it is a
+  rule for new text, not a completed retrofit: **50 identifiers are still defined in more than one
+  requirements document** (`NFR-PERF-001` nine times, `CON-001` in seventeen). A mechanical pass to
+  qualify existing bare citations is worth one session and has no deadline.
+- **Open questions raised this session**, all deferred rather than dropped:
+  - `data-model-catalog.md` OQ-001 — a rejected re-review leaves a community game stuck with an
+    `ACTIVE` version an operator refused and no rollback in the status machine. Dormant under ADR-0006;
+    must be resolved before community uploads open.
+  - `data-model-catalog.md` OQ-003 — FR-REV-001's pending-review state has no owner-facing
+    representation, so a second submission fails as a raw unique violation.
+  - `local-environment.md` OQ-001 — the startup budget is a target, not a measurement, and
+    `FR-JOB-008`'s 120-second window depends on it.
+  - `local-environment.md` OQ-002 — **no backup or restore story for the local Postgres volume.** For
+    a seedable local MVP this is arguably right, but it is undecided rather than decided, and the first
+    genuinely valuable data the platform holds is game history, which FR-RET-003 retains indefinitely
+    and nothing protects.
+  - `bundle-format.md` OQ-1…5 — notably the deny-list-versus-`frontend.root` question (which ties to
+    `game-asset-serving.md` OQ-003) and the unmeasured NFR-UPLOAD-001 30-second validation budget.
+- **`admin-tooling.md` OQ-001/OQ-002** (resubmission after rejection; delisting a Verified game
+  post-approval) are now load-bearing for `data-model-catalog.md` OQ-001 rather than merely deferred.
+
+### Review action plan
+
+`docs/reviews/2026-07-02-mvp-readiness/INDEX.md` is fully worked. Every blocker, every strategic
+decision, and every item on the existing-doc checklist is closed or explicitly deferred with a named
+open question.
 
 ---
 
@@ -287,14 +327,19 @@ edit backlog (item 8), and the previously planned build-out queue (item 10).**
 | `onboarding-wizard.md` | First-time wizard overlay, pane structure, localStorage suppression, landing page re-entry |
 | `admin-tooling.md` | Internal admin API, game badge model (Official/Verified/Unverified), review queue, private game behaviour |
 
-**Specs:** `docs/specs/` — api-design, internal-grpc, game-host, game-frontend, gdk-api, manifest, and
-**platform** (new: room lifecycle, ownership, sweeps, relational data model).
+**Specs:** `docs/specs/` — **flows** (new: eight end-to-end journeys — start here), **deployment**
+(new: local environment and the configuration surface, schema migrations, secrets and key rotation),
+**platform-frontend** (new: the React shell and the iframe trust boundary), platform (room lifecycle
+plus the **complete relational data model** across six documents), api-design, internal-grpc,
+game-host, game-frontend, gdk-api (now including the **test harness**), manifest (now including the
+**bundle format and upload pipeline**).
 
 **Decisions:** `docs/decisions/` — ADR-0001 (local-first platform), ADR-0002 (WS room affinity),
 ADR-0003 (availability), ADR-0004 (erasure pseudonymization), ADR-0005 (sandbox / Espresso spike),
 ADR-0006 (game trust model — official-only Java for MVP), ADR-0007 (game FEs on a separate
 registrable domain), ADR-0008 (room ownership as a lease-gated claim), ADR-0009 (grace deadlines
-persisted and swept), ADR-0010 (session teardown as a durable to-do).
+persisted and swept), ADR-0010 (session teardown as a durable to-do), ADR-0011 (schema migrations —
+Flyway, forward-only, backward-compatible).
 
 ---
 
@@ -321,3 +366,9 @@ persisted and swept), ADR-0010 (session teardown as a durable to-do).
 | `room-lifecycle.md` | OQ-001: Lease/window numbers (10s TTL, 3s renew, 6s self-evict, 20s migration window, 5s/60s sweeps) are reasoned defaults with no measurement behind them; the relationships that must hold matter more than the values |
 | `room-lifecycle.md` | OQ-002: Self-eviction uses a local monotonic clock while the lease expires in Redis — the 4s guard band covers single-node skew, but this is the one place a local clock still affects a correctness bound; re-examine before multi-node |
 | `room-lifecycle.md` | OQ-003: Flapping clients — each disconnect starts a fresh window, so a connect/disconnect loop can hold a slot indefinitely; the Tier 6 reconnect lockout dampens it, but whether a hard cap per session is needed is deferred until observed |
+| `data-model-catalog.md` | OQ-001: A rejected re-review leaves a community game with an `ACTIVE` version an operator refused, its previously approved version `SUPERSEDED` and unreactivatable, and no rollback in the status machine. §5.1 preserves the artifact; nothing says how to recover the state. Dormant under ADR-0006 |
+| `data-model-catalog.md` | OQ-002: `game_review.decided_by` identifies a shared static credential, not a person (`admin-tooling.md` CON-002) — adequate for one operator, not as an audit trail beyond that |
+| `data-model-catalog.md` | OQ-003: FR-REV-001's pending-review state has no owner-facing representation, so a second submission fails as a raw unique violation rather than a domain error |
+| `local-environment.md` | OQ-001: The startup budget (≤30s to readiness, ≤60s to Game Host registration) is a target, not a measurement, and FR-JOB-008's 120-second suppression window depends on it |
+| `local-environment.md` | OQ-002: **No backup, restore or disaster-recovery story for the local Postgres volume.** Undecided rather than decided; the first genuinely valuable data the platform holds is game history, retained indefinitely by FR-RET-003 and protected by nothing |
+| `bundle-format.md` | OQ-1…5: publication deny list vs. a manifest `frontend.root` allow list (ties to `game-asset-serving.md` OQ-003); no integrity digest on published objects; the harness cannot check `gdkApiVersion` offline; NFR-UPLOAD-001's 30s validation budget is unmeasured; a version orphaned by a GDK-range move has no user-facing representation |
