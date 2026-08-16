@@ -166,7 +166,7 @@ The platform communicates with the game FE via the `postMessage` API into the sa
 | NFR-SIZE-001 | Limits | Maximum serialized game state size per session | 10 MB (configurable) | Must |
 | NFR-SIZE-002 | Limits | Maximum individual effect payload size | 10 MB (configurable) | Must |
 | NFR-SEC-001 | Security | Player identity on actions is determined server-side from session context; the game FE cannot spoof player identity | No client-side trust | Must |
-| NFR-SEC-002 | Security | Effect routing enforced server-side; `send_to_player` and `send_to_team` payloads are never delivered to unauthorized recipients | No client-side trust | Must |
+| NFR-SEC-002 | Security | Effect routing enforced server-side; `send_to_player` and `send_to_team` payloads are never delivered to unauthorized recipients. Enforced by validating every effect address against the producing session's membership at fan-out (`../specs/api-design/websocket.md` § `GAME_EVENT`), not by the addressing of the underlying destination — a per-user queue prevents a client from *subscribing* to another user's messages, but not a game from *addressing* one | No client-side trust | Must |
 | NFR-SEC-003 | Security | Game state is opaque to the platform; no platform component reads, modifies, or makes decisions based on state contents | Full opacity | Must |
 | NFR-SEC-004 | Security | The game FE iframe is sandboxed; the platform validates postMessage origins on every message received from the iframe | Origin validation | Must |
 | NFR-REL-001 | Reliability | If the game BE fails to respond to an input (crash, timeout, malformed output), the platform terminates the game session and notifies all participants | Graceful degradation | Must |

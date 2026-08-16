@@ -258,7 +258,32 @@ An opaque game payload from a `broadcast`, `send_to_player`, or `send_to_team` e
 { "type": "GAME_EVENT", "sessionId": "uuid", "sequence": 42, "index": 1, "payload": { } }
 ```
 
-This routing is what makes NFR-SEC-002 mechanically true rather than aspirational: a `send_to_player` payload rides a per-user queue whose destination a client cannot guess or subscribe to on another's behalf, and a `send_to_team` payload rides a topic whose subscription is membership-validated server-side. Spectators are refused team-topic subscriptions outright, so they can receive `broadcast`-originated events only (FR-FE-006).
+**Every effect address is validated against session membership at fan-out, before delivery.** An
+effect's destination is chosen by *game code*, and game code is untrusted (ADR-0006 makes the MVP's
+games first-party; the contract is written for the general case). Before dispatching:
+
+| Effect | Check | On failure |
+|---|---|---|
+| `send_to_player` | `player_id` is a current participant of the session that produced the effect | Drop the effect; WARN with `session_id` and the offending id; increment `turnbase.effect.address_rejected.total{kind="player"}` |
+| `send_to_team` | `team_id` is a team of that session | Drop the effect; WARN; increment with `kind="team"` |
+| `broadcast` | none needed — the audience *is* the session | — |
+
+The roster is already in memory: the session's participant and team sets are held for `InitContext`
+construction, so this is a set membership test, not a query.
+
+**The per-user queue is not the control, and reading it as one is the trap.** It is genuinely true
+that a client cannot subscribe to another user's `/user/queue/game` — that secures the *subscription*.
+It says nothing about the *address*: Spring resolves `/user/queue/game` from whatever principal the
+server hands it, so a `player_id` naming a user in an entirely different room is delivered to that
+user faithfully. NFR-SEC-002 holds because of the membership check above, not because of the queue's
+addressing. The same distinction applies to `send_to_team`: the *subscription* to
+`/topic/game.{sessionId}.team.{teamId}` is membership-validated server-side, which does not constrain
+which `team_id` the game names. Spectators are refused team-topic subscriptions outright, so they can
+receive `broadcast`-originated events only (FR-FE-006).
+
+A rejected address is a defect in the game, not an attack in the MVP — but it is logged at WARN and
+metered precisely so that it is visible before third-party games arrive, rather than discovered by
+one.
 
 ### `GAME_LOG`
 
