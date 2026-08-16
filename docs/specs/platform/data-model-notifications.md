@@ -196,8 +196,9 @@ the notification pointing at it can never be purged.
 `notification_purge_idx` is partial on having no subject (§1), so FR-JOB-002's 30-day sweep skips
 every actionable notification by design: an actionable message must be removed by its subject, not by
 a clock that knows nothing about whether the subject is still live. That rule closes for
-`FRIEND_REQUEST` only because `friend_request` carries `expires_at` and a purge job, so every request
-is guaranteed a deleter. Give `room_invitation` no deadline and the guarantee fails on its second
+`FRIEND_REQUEST` only because `friend_request` carries `expires_at` and the expiry purge job
+(`platform-operations.md` FR-JOB-013), so every request is guaranteed a deleter. That job is the sole
+deleter for `room_invitation` too, and it scans `room_invitation_expiry_idx`. Give `room_invitation` no deadline and the guarantee fails on its second
 leg: an ignored invitation to a room that never closes — an In-Progress room with connected players
 never trips FR-JOB-007d's idle sweep — keeps its notification alive forever, in direct violation of
 FR-NOTIF-006, FR-JOB-002 and FR-RET-001, all three of which state the 30-day purge with no exception.

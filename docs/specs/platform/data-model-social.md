@@ -149,7 +149,7 @@ unexplainable change to a user's Pending tab. Storing the absolute deadline, wri
 database clock at insert as `now() + :window`, is the same reasoning ADR-0009 applies to grace
 deadlines: the deadline is a property of the request, not of the current configuration.
 
-`friend_request_expiry_idx` serves the purge job. Unlike the room sweeps it is not partial — every
+`friend_request_expiry_idx` serves the expiry purge job (`platform-operations.md` FR-JOB-013). Unlike the room sweeps it is not partial — every
 row in this table has a deadline, so there is no subset to narrow to.
 
 ### The request is the durable object; the notification is a pointer to it

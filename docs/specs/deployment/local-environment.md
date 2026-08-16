@@ -381,6 +381,7 @@ others is how this design breaks.
 | `turnbase.jobs.reconcile.orphan-age` | `10m` | `TURNBASE_JOBS_RECONCILE_ORPHAN_AGE` | FR-JOB-007b |
 | `turnbase.jobs.guest-cleanup.interval` | `1h` | `TURNBASE_JOBS_GUEST_CLEANUP_INTERVAL` | FR-JOB-001, FR-GUEST-005 |
 | `turnbase.jobs.notification-purge.interval` | `24h` | `TURNBASE_JOBS_NOTIFICATION_PURGE_INTERVAL` | FR-JOB-002 |
+| `turnbase.jobs.expiry-purge.interval` | `1h` | `TURNBASE_JOBS_EXPIRY_PURGE_INTERVAL` | FR-JOB-013 |
 | `turnbase.jobs.room-purge.interval` | `24h` | `TURNBASE_JOBS_ROOM_PURGE_INTERVAL` | FR-JOB-009 |
 | `turnbase.jobs.upload-slot-cleanup.interval` | `15m` | `TURNBASE_JOBS_UPLOAD_SLOT_CLEANUP_INTERVAL` | FR-JOB-012 |
 | `turnbase.uploads.validation-lease` | `10m` | `TURNBASE_UPLOADS_VALIDATION_LEASE` | FR-JOB-012(b) |
