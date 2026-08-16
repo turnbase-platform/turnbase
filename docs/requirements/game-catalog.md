@@ -5,6 +5,7 @@
 - [rest-conventions.md](../specs/api-design/rest-conventions.md) — HTTP methods, status codes, public endpoint authentication rules
 - [pagination-filtering-sorting.md](../specs/api-design/pagination-filtering-sorting.md) — Pagination, filtering, and sorting conventions (implements FR-CAT-004–008, NFR-SCAL-001)
 - [file-uploads.md](../specs/api-design/file-uploads.md) — Pre-signed URL upload flow for game bundles (implements FR-GAME-001)
+- [input-validation.md](../specs/api-design/input-validation.md) — the info document's Markdown renderer and allow-list (implements FR-GDET-004)
 
 ## Stakeholders
 

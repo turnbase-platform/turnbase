@@ -179,12 +179,16 @@ markup, none are ever rendered as markup. React escapes by default; `dangerously
 **banned platform-wide**, enforced as `react/no-danger: error` in ESLint so CI fails on it rather than
 a reviewer having to catch it (FR-CICD-001).
 
-### The one exception: game log entries
+### Two rendered surfaces, and neither uses an HTML string
 
 `GAME_LOG` entries support basic Markdown (`game-contracts.md` FR-LOG-002) and are rendered by the
-platform UI outside the iframe (FR-LOG-005). This is **the only surface where the platform renders
-anything other than plain text** — and its content is composed by *game code*, which makes it the one
-place "React escapes by default" does not save us.
+platform UI outside the iframe (FR-LOG-005). This is one of **two** surfaces where the platform
+renders anything other than plain text. The other is the game detail page's info document (below).
+Both render *Markdown*, neither renders HTML, and neither needs `dangerouslySetInnerHTML` — which is
+what keeps the platform-wide ban above absolute rather than a rule with exceptions.
+
+The game log's content is composed by *game code*, which makes it a place "React escapes by default"
+does not save us.
 
 The Markdown renderer must therefore run **locked down**:
 
@@ -200,6 +204,46 @@ the Queen of Spades`). A username containing Markdown metacharacters can therefo
 script injection — and it is accepted. (Under ADR-0006 the MVP runs official games only, so the
 composing code is first-party; the renderer restriction is what keeps this bounded when third-party
 games arrive.)
+
+### The game info document
+
+`game-catalog.md` FR-GDET-003/004: a game may ship a Markdown info document, rendered on the game
+detail page. Its content comes from an **uploaded artifact** and it renders on the **platform origin**,
+which holds the session cookie — so it is the highest-value XSS sink in the product, and the only one
+whose input is a file rather than a form field.
+
+**Rendered client-side, Markdown → React elements, never to an HTML string.** The renderer produces a
+React tree directly (`react-markdown` with `skipHtml`, or equivalent); no HTML text is ever
+constructed, so `dangerouslySetInnerHTML` is not needed and the ESLint ban stands unweakened. There is
+no sanitized-HTML column and no server-side sanitization pass: storing a second, cleaned
+representation of the artifact means a later tightening of the allow-list has to be back-applied to
+every document ever uploaded, and the one that is missed is the one that matters.
+
+The allow-list is wider than the game log's, because FR-GDET-004 names the content it must support:
+
+| Allowed | Notes |
+|---|---|
+| Headings, paragraphs, lists, blockquotes | Plain structure |
+| Emphasis, strong, inline code, fenced code blocks | No syntax highlighting — a highlighter is a second parser over untrusted input |
+| Links | `http`/`https` only, rendered with `rel="noopener noreferrer nofollow"` and `target="_blank"`. **Any other scheme is dropped, not escaped** — `javascript:`, `data:` and `vbscript:` are the whole attack |
+| Images | `https` only, from any host. Lazy-loaded, with a `referrerpolicy="no-referrer"` |
+| Tables | The one construct developers most reliably want and hand-write badly |
+
+Everything else is dropped: **raw HTML passthrough disabled** (`skipHtml`), no autolinking of bare
+text, no footnotes, no directives, no math, no embedded SVG. `iframe`, `script`, `object`, `embed` and
+`style` cannot appear because no HTML is parsed at all.
+
+**Two rules that are not obvious:**
+
+- **The image and link allow-lists are enforced on the parsed AST, not by a regex over the source.**
+  A regex over Markdown text is defeated by reference-style links, entity encoding and whitespace; the
+  AST node carries the resolved URL.
+- **The info document is excluded from the published game-asset bundle**
+  ([`../manifest/bundle-format.md`](../manifest/bundle-format.md)), so the raw Markdown is never
+  fetchable from the games origin. That exclusion exists to force every reader through this renderer,
+  and removing it would route around FR-GDET-004 entirely.
+
+`bundle-format.md`'s exclusion table already states this; the rule it depends on is here.
 
 ### Response hygiene
 
