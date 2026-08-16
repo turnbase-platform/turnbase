@@ -36,8 +36,10 @@ option java_outer_classname = "GameHostProto";
 // handler's synchronous atomic contract (game-contracts.md FR-RESP-001a/004).
 //
 // Per-session ordering is enforced by the Orchestration Service's Redis-backed
-// queue (FR-ROUTE-002), NOT by the transport. The Game Host still rejects
-// out-of-order/duplicate sequences defensively (see ProcessInputRequest.sequence).
+// queue (FR-ROUTE-002), NOT by the transport. The Game Host deduplicates a
+// sequence at or below its watermark by replaying the recorded outcome, and
+// ACCEPTS forward gaps: a burned sequence from a failed input makes the stream
+// sparse by design (see ProcessInputRequest.sequence).
 service GameHostService {
   // Create a new session: bind it to the (game_id, game_version) Truffle
   // context, invoke the game's onInit handler with the roster + parameters,
@@ -159,10 +161,16 @@ message CreateSessionRequest {
 message ProcessInputRequest {
   string session_id = 1;
 
-  // Monotonic per-session sequence number assigned by the Orchestration Service.
-  // Enables idempotent re-dispatch after a replica/host failure: the Game Host
-  // applies each sequence at most once and replays the cached result for a
-  // duplicate (see ProcessResult and the protocol doc, "Idempotency").
+  // Monotonic per-session sequence allocated by Orchestration.
+  //   sequence <= lastAppliedSequence : replay. Return the recorded outcome
+  //     (OK + lastEffects, or FAILED + lastFailure). Do NOT invoke the handler.
+  //   sequence == lastAppliedSequence + 1 : the ordinary case.
+  //   sequence >  lastAppliedSequence + 1 : a FORWARD GAP. Accept and process
+  //     it. Gaps are normal — a failed input burns its sequence without
+  //     advancing state, and the stream is deliberately sparse. Rejecting a
+  //     gap freezes the session after its first failed action.
+  // See orchestration-gamehost-protocol.md "What happens to the input that
+  // failed" and game-host-internals.md §9.1.
   // (FR-ROUTE-003, FR-FAIL-002/004)
   uint64 sequence = 2;
 
