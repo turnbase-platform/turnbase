@@ -357,16 +357,31 @@ once you already know it.
 
 Durations use ISO-8601 or Spring's shorthand (`60s`, `30m`, `7d`). Sizes use `KB`/`MB`.
 
-### 7.1 Room lifecycle and deadlines
+### 7.1 Room lifecycle, capacity and deadlines
 
 | Property | Default | Env | Source |
 |---|---|---|---|
 | `turnbase.room.grace-period` | `60s` | `TURNBASE_ROOM_GRACE_PERIOD` | FR-GRACE-002 |
 | `turnbase.room.migration-window` | `20s` | `TURNBASE_ROOM_MIGRATION_WINDOW` | FR-HDISC-004, room-lifecycle §1.4 |
 | `turnbase.room.idle-window` | `30m` | `TURNBASE_ROOM_IDLE_WINDOW` | FR-JOB-007d |
+| `turnbase.room.spectator-capacity` | `8` | `TURNBASE_ROOM_SPECTATOR_CAPACITY` | `game-rooms.md` NFR-SPEC-001 |
 | `turnbase.room.lease.ttl` | `10s` | `TURNBASE_ROOM_LEASE_TTL` | room-lifecycle §1.1 |
 | `turnbase.room.lease.renew-interval` | `3s` | `TURNBASE_ROOM_LEASE_RENEW_INTERVAL` | room-lifecycle §1.1 |
 | `turnbase.room.lease.self-evict-after` | `6s` | `TURNBASE_ROOM_LEASE_SELF_EVICT_AFTER` | room-lifecycle §1.5 layer 3 |
+
+**`spectator-capacity` is a platform limit, and deliberately the only capacity in this table.**
+NFR-SPEC-001 says hosts have no control over it, so it is not a room column and not a create-request
+field; a host chooses *whether* a room allows spectating (`spectatingEnabled`) and the platform
+chooses how many. It is not per-game either — a game's manifest declares whether it supports
+spectating at all, not a headcount, because the cost being bounded here is the platform's fan-out
+rather than anything the game does.
+
+The value is read at every capacity check
+([`../api-design/room-rest-api.md`](../api-design/room-rest-api.md) §3, §5) and is echoed on the wire
+as `spectatorCapacity` in the room resource and in `ROOM_STATE`. **The wire field is the resolved
+value, not a stored one** — lowering the property does not evict anybody, so a room can sit above
+capacity until spectators leave. That is the intended behaviour: the alternative is disconnecting
+people mid-game to satisfy a config change.
 
 The three lease values are a **set**, not three independent knobs. `renew-interval ≪ ttl` (so a single
 missed renewal is survivable) and `self-evict-after < ttl` with a guard band (so an instance stops

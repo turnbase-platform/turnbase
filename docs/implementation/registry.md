@@ -305,10 +305,10 @@ Secret path; **no secret has a working default in committed configuration** — 
 and `.env.example` carries keys with no values; the application role is `turnbase_app` and holds no
 superuser (FR-CRED-005); the JWT key set supports two concurrent keys for graceful rotation.
 
-**§7 is *intended* to be the whole tunable surface, and is not quite.** `game-rooms.md` NFR-SPEC-001
-requires spectator capacity to be configurable and no property name has been assigned to it
-(**IR-24**, open). Escalate rather than inventing a key — a name chosen here and a different name
-chosen in `local-environment.md` later is exactly the drift §7 exists to prevent.
+**§7 is the whole tunable surface — treat a missing key as a specification defect, not as licence to
+invent one.** A property named at a call site and never registered in §7 is invisible to whoever next
+audits the configuration, which is how the table stops being true. The last gap was
+`turnbase.room.spectator-capacity` (IR-24, now closed and in §7.1).
 
 ---
 
@@ -652,8 +652,11 @@ VW-JOIN-001…003
 (IMP-M2-05, M2-06). Adding a REST route for any of them puts a second writer outside the per-room
 serialization `room-websocket.md` depends on, and the ordering guarantee is gone.
 
-**IR-24 is open here too:** `canSpectate` tests `spectatorCount < spectatorCapacity`, and no
-configuration key has been assigned for that capacity. Escalate; do not name it yourself.
+**`canSpectate`'s capacity is `turnbase.room.spectator-capacity`** (default `8`,
+`local-environment.md` §7.1) — a platform property, not a room column and not a create-request field.
+Hosts choose whether a room allows spectating; they do not choose how many (NFR-SPEC-001). The wire
+field `spectatorCapacity` is the resolved value, so lowering the property never evicts a seated
+spectator.
 
 ---
 
@@ -1636,15 +1639,16 @@ Recorded here because a future reader will otherwise reopen them.
 from either document, which is why it is written down here.
 <!-- GATES:END -->
 
-### Open, and not gating anything
+### Raised during remediation — both closed
 
-Two findings were raised during the remediation itself. IR-25 is now closed; **IR-24 is the only
-open finding in the corpus**, and it blocks no item.
-
-| ID | What | Where it bites |
+| ID | What | Resolution |
 |---|---|---|
-| IR-24 | `game-rooms.md` NFR-SPEC-001 requires spectator capacity to be configurable, and no property name is assigned in `local-environment.md` §7 | IMP-M0-09 and IMP-M2-01. Escalate rather than inventing a key |
-| ~~IR-25~~ | ~~`docs/requirements/` has no `INDEX.md`~~ | **Closed.** [`../requirements/INDEX.md`](../requirements/INDEX.md) now lists all seventeen documents and the requirement prefixes each one *defines* — use it to resolve a qualifier before citing one |
+| ~~IR-24~~ | ~~`game-rooms.md` NFR-SPEC-001 requires spectator capacity to be configurable, and no property name is assigned~~ | **Closed.** `turnbase.room.spectator-capacity`, default `8`, in `local-environment.md` §7.1 and named at all four call sites |
+| ~~IR-25~~ | ~~`docs/requirements/` has no `INDEX.md`~~ | **Closed.** [`../requirements/INDEX.md`](../requirements/INDEX.md) lists all seventeen documents and the requirement prefixes each one *defines* — use it to resolve a qualifier before citing one |
+
+**No review finding is open anywhere in the corpus.** The `OQ-*` questions tracked inside individual
+specs remain — those are open *decisions*, not defects, and the only one an item meets early is
+`design-system.md` OQ-002 (the literal hex palette) at IMP-M6-01.
 
 **On the *Satisfies* qualifiers above.** Each names the document that **defines** the requirement, not
 one that merely cites it. The two are easy to confuse: `game-history.md` discusses `FR-RET-003` at

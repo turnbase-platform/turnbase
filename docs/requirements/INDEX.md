@@ -90,5 +90,5 @@ Every other prefix in the table above is unique corpus-wide and may be cited bar
   every critical and significant item is checked off. Kept as a record of what was found missing and
   when.
 - [`../reviews/2026-08-16-implementation-readiness/INDEX.md`](../reviews/2026-08-16-implementation-readiness/INDEX.md)
-  — the audit that qualified this corpus for implementation. All 23 blockers closed; IR-24 and IR-25
-  remain open and non-blocking.
+  — the audit that qualified this corpus for implementation. All 23 blockers closed, and the two
+  findings raised during remediation (IR-24, IR-25) with them. **Nothing is open.**

@@ -189,6 +189,12 @@ Full room state snapshot. Delivered unicast on `/user/queue/room-state` in respo
 
 `sessionId` is non-null when `state == IN_PROGRESS`; `gameFrontendUrl` is non-null exactly when `sessionId` is, so a reconnecting or late-joining client can construct the game iframe from the snapshot alone, with no extra round-trip. Both fields carry the same meaning as in `GAME_STARTED`. `disconnectedPlayers` contains only players currently within an active grace period; it is empty when no player is disconnected. `teams[i].memberIds` contains all player IDs assigned to that team (human and AI); cross-reference with `aiPlayers` to determine AI status. Chat history is not included — per [in-room-chat.md](../../requirements/in-room-chat.md) FR-MSG-005, the platform does not persist chat messages.
 
+`spectatorCapacity` is the resolved value of the platform property
+`turnbase.room.spectator-capacity` (default `8`, `local-environment.md` §7.1) — a platform limit, not
+a per-room or per-game one, per `game-rooms.md` NFR-SPEC-001. It is sent in the snapshot so a client
+can render occupancy without reading configuration, and it is **not** versioned state: a config change
+is picked up by the next snapshot and emits no delta.
+
 **`aiPlayers` is always empty in v1.** The AI player interface is deferred (`game-contracts.md`
 OQ-002) and the AI execution environment with it (`platform-architecture.md` *Out of Scope*), so no v1
 game declares `capabilities.ai` and no AI can be seated. The field is present rather than removed

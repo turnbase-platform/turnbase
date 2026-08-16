@@ -161,7 +161,7 @@ Teams are displayed as `{name} N` (e.g. "Attacker 1", "Defender 1", "Team 1", "T
 | NFR-SEC-001 | Security | Visibility and access rules enforced server-side on every join attempt | No client-side trust | Must |
 | NFR-SEC-002 | Security | Invite link identifiers are cryptographically random and not sequentially enumerable | — | Must |
 | NFR-USAB-001 | Usability | Pagination metadata includes: total items, total pages, current page, page size | — | Must |
-| NFR-SPEC-001 | Scalability | Maximum spectators per room is configurable at the platform level; default is 8; hosts have no control over this limit | Default: 8 | Must |
+| NFR-SPEC-001 | Scalability | Maximum spectators per room is configurable at the platform level; default is 8; hosts have no control over this limit. The key is `turnbase.room.spectator-capacity` (`local-environment.md` §7.1) | Default: 8 | Must |
 
 ---
 

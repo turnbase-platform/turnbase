@@ -183,6 +183,11 @@ canSpectate(room, viewer) :=
   AND spectatorCount < spectatorCapacity                                            -- NFR-SPEC-001
 ```
 
+`spectatorCapacity` is the platform property `turnbase.room.spectator-capacity` (default `8`,
+[`../deployment/local-environment.md`](../deployment/local-environment.md) §7.1), not a per-room or
+per-game value. NFR-SPEC-001 gives hosts no control over it; the game manifest declares whether
+spectating is supported, not how many spectators fit.
+
 A room the viewer can neither join nor spectate is **excluded from the list**, not returned with both
 buttons disabled. FR-LIST-001 says so, and the reason it says so is that a list of rooms you cannot
 enter is not a room list.
@@ -308,7 +313,8 @@ The full room resource. Superset of a list row.
 `inviteCode` is present **only when the caller is the host** (FR-HOST-002 gives the host the link to
 share; nobody else needs to re-derive it). `version` is the room's current event version, so a client
 that opens its socket immediately after this call knows whether the first delta it receives is
-contiguous.
+contiguous. `spectatorCapacity` is the resolved value of `turnbase.room.spectator-capacity` (§3), sent
+so a client can render "3 / 8 watching" without knowing the platform's configuration.
 
 **No participant list, no team list.** Both are in `ROOM_STATE` on the socket
 (`room-websocket.md`), which is delivered under the room lock with a version stamp. Returning them
@@ -363,7 +369,8 @@ Inside one transaction, against the room row locked `FOR UPDATE`:
    occupied by an AI player or held by a live grace-period reservation (`game-rooms.md` Definitions);
    a reservation that has expired is not blocked, which is what makes FR-JOIN-006's
    "becomes unblocked mid-session" work with no extra mechanism. For `SPECTATOR`:
-   `spectatorCount < spectatorCapacity` (NFR-SPEC-001).
+   `spectatorCount < spectatorCapacity`, where the capacity is `turnbase.room.spectator-capacity`
+   (NFR-SPEC-001).
 5. **Release the caller's current room** — FR-JOIN-007, below.
 6. **Insert** the `room_participant` row with the next `join_order`, and for `PLAYER` auto-assign a
    team (FR-TEAM-005 in Lobby, FR-TEAM-011 in progress).

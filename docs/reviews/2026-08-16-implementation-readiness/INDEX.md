@@ -739,10 +739,9 @@ open**; the registry's gates block now records how each one closed.
 
 ## Found during remediation, not by the review
 
-Two items surfaced while executing the plan. **IR-25 is closed**; IR-24 remains open and does not
-block Phase 1.
+Two items surfaced while executing the plan. **Both are now closed.**
 
-#### IR-24 — NFR-SPEC-001's spectator capacity has no configuration key · **OPEN**
+#### IR-24 — NFR-SPEC-001's spectator capacity has no configuration key — **CLOSED**
 
 **Where:** `game-rooms.md` NFR-SPEC-001 ("configurable at the platform level; default is 8") versus
 `local-environment.md` §7, which opens by claiming it holds "every tunable named anywhere in the
@@ -755,6 +754,27 @@ the wire as `ROOM_STATE.spectatorCapacity`, so an implementer will need a key an
 minting a key that then disagrees with the one §7 eventually gets.
 
 **Fix owner:** `local-environment.md` §7.4, one row. Severity: GAP.
+
+**Closed:** the key is **`turnbase.room.spectator-capacity`**, default `8`, env
+`TURNBASE_ROOM_SPECTATOR_CAPACITY`. It landed in **§7.1**, not §7.4 as suggested above — the finding
+guessed at *Accounts and social* because that section holds `social.friend-cap`, but a spectator limit
+is a property of a room, and every other `turnbase.room.*` key is in §7.1. The section is retitled
+*Room lifecycle, capacity and deadlines* to stop being a lie.
+
+Two things were decided rather than merely named, because the key is useless without them:
+
+- **It is a platform limit, and not per-game.** A game's manifest declares *whether* it supports
+  spectating, not a headcount. What the limit bounds is the platform's fan-out cost, which is the same
+  regardless of the game — and NFR-SPEC-001 already denies hosts any control, so a per-game value
+  would be a third party's opinion about the platform's budget.
+- **The wire field is the resolved value, not stored state.** Lowering the property evicts nobody; a
+  room can sit above capacity until spectators leave of their own accord. The alternative is
+  disconnecting people mid-game to satisfy a config change. `ROOM_STATE` therefore carries
+  `spectatorCapacity` but emits no delta when it changes — it is not versioned state.
+
+Named at all four call sites: `local-environment.md` §7.1, `game-rooms.md` NFR-SPEC-001,
+`room-rest-api.md` §3 and §5, `room-websocket.md` `ROOM_STATE`. The two work items that told the
+implementer to escalate — IMP-M0-09 and IMP-M2-01 — now state the key instead.
 
 #### IR-25 — `docs/requirements/` has no `INDEX.md` — **CLOSED**
 

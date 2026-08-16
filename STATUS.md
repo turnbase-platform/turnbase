@@ -2,10 +2,41 @@
 
 **Date:** 2026-08-16 (session 11)
 
-Three pieces of work. **Closed all 23 implementation-readiness blockers**, **completed the
-implementation registry** (the weaker artifact once the blockers were gone), then **wrote
-`docs/requirements/INDEX.md` and ran a corpus-wide sanity check**. Documents only — no code exists
-yet. **IR-24 is now the single open finding in the corpus, and it blocks nothing.**
+Four pieces of work. **Closed all 23 implementation-readiness blockers**, **completed the
+implementation registry** (the weaker artifact once the blockers were gone), **wrote
+`docs/requirements/INDEX.md` and ran a corpus-wide sanity check**, then **named the last missing
+configuration key**. Documents only — no code exists yet.
+
+**No review finding is open anywhere in the corpus** — 23 blockers plus IR-24 and IR-25, all closed.
+What remains open are the tracked `OQ-*` design questions inside specs, which are decisions rather
+than defects; the only one an implementer meets early is `design-system.md` OQ-002, the literal hex
+palette, and IMP-M6-01 says to escalate it rather than pick one.
+
+### Part 4 — `turnbase.room.spectator-capacity` (IR-24)
+
+The last open finding: NFR-SPEC-001 required spectator capacity to be "configurable at the platform
+level" and no property name existed, so four documents referred to a `spectatorCapacity` that came
+from nowhere. The key is **`turnbase.room.spectator-capacity`**, default `8`, env
+`TURNBASE_ROOM_SPECTATOR_CAPACITY`.
+
+It landed in `local-environment.md` **§7.1**, not §7.4 as the finding suggested — that guess came
+from `social.friend-cap` living in §7.4, but a spectator limit is a property of a room and every other
+`turnbase.room.*` key is in §7.1. The section is retitled *Room lifecycle, capacity and deadlines*.
+
+Two things had to be decided, not just named, because the key is useless without them:
+
+- **Platform-level, and not per-game.** A manifest declares *whether* a game supports spectating, not
+  a headcount. What the limit bounds is the platform's fan-out cost, which is the same whatever the
+  game is — and NFR-SPEC-001 already denies hosts any say, so a per-game number would be a third
+  party's opinion about the platform's budget.
+- **The wire field is the resolved value, not stored state.** Lowering the property evicts nobody; a
+  room sits above capacity until spectators leave. The alternative is disconnecting people mid-game to
+  satisfy a config change. `ROOM_STATE` therefore carries `spectatorCapacity` and emits **no delta**
+  when it changes — it is not versioned state.
+
+Named at all four call sites, and the two work items that said *escalate* (IMP-M0-09, IMP-M2-01) now
+state the key. IMP-M0-09 keeps a sharpened version of the warning: **§7 is the whole tunable surface,
+so a missing key is a specification defect rather than licence to invent one.**
 
 ### Part 3 — the requirements index, and what writing it found
 
@@ -27,7 +58,7 @@ silently swallows `VW-RLOBBY-008`, struck through as *(removed)* in `platform-vi
 This is exactly the hazard `specs/INDEX.md` names — *"a wrong qualifier is worse than a bare ID"* —
 and it had gone undetected because every check written before now used the loose definition.
 
-**Sanity check, whole corpus, all five clean:** 614 relative links resolve; 0 mis-qualified or
+**Sanity check, whole corpus, all clean:** 619 relative links resolve; 0 mis-qualified or
 nonexistent requirement citations; 0 dangling `§` references; every document registered in an
 `INDEX.md`; all 59 live work items carry all five fields. Checks 2 and 3 are the ones worth
 reconstructing after any documentation change — they are the two that found real defects.
@@ -95,18 +126,17 @@ closure ride the deferred tail. The second half, narrowing duty 2 on `leave_reas
 against a writer that forgets. Doing only the narrowing would have left the column meaning something
 other than its name, which is how the defect arose.
 
-### Two new findings — IR-25 closed in Part 3, IR-24 still open and non-blocking
+### Two new findings, both closed in Part 3
 
-- **IR-24** — NFR-SPEC-001's spectator capacity has no configuration key, though `local-environment.md`
-  §7 claims to hold every tunable in the corpus. `room-rest-api.md` deliberately refers to
-  `spectatorCapacity` rather than inventing a property name.
-- ~~**IR-25**~~ — `docs/requirements/` had no `INDEX.md`. **Closed in Part 3.**
+- ~~**IR-24**~~ — NFR-SPEC-001's spectator capacity had no configuration key. **Closed:**
+  `turnbase.room.spectator-capacity`, default `8`, `local-environment.md` §7.1.
+- ~~**IR-25**~~ — `docs/requirements/` had no `INDEX.md`. **Closed.**
 
-Both are in the review INDEX under *Found during remediation*. IR-24 is the only one still open.
+Both are in the review INDEX under *Found during remediation*, each with a `**Closed:**` line.
 
 ### Corpus state
 
-**614 relative links, 0 broken** (the 19 flagged inside `remediation-plan.md` are snippets whose
+**619 relative links, 0 broken** (the 19 flagged inside `remediation-plan.md` are snippets whose
 paths are relative to their target documents, not to the plan). A 23-assertion grep gauntlet over
 every fix passes; it is in the plan's Task 26 and is worth re-running after any edit to the affected
 documents. The five-part sanity check of Part 3 is the broader net and passes clean.
@@ -302,8 +332,10 @@ Three things worth knowing before the milestone that needs them:
 - **`docs/requirements/INDEX.md` now exists** (IR-25 closed) and carries the twelve genuinely
   colliding prefixes. Use it to resolve a qualifier before writing one — the qualifier names the
   document that **defines** the requirement, never one that merely cites it.
-- **Still open:** NFR-SPEC-001's spectator capacity has no configuration key (IR-24). One row in
-  `local-environment.md` §7.4 closes it, and it wants a decision on the property name.
+- **`turnbase.room.spectator-capacity`** (IR-24 closed) is in `local-environment.md` §7.1, whose
+  title is now *Room lifecycle, capacity and deadlines*. §7 is again true when it claims to hold every
+  tunable in the corpus — keep it that way: a property named at a call site and never registered there
+  is invisible to the next configuration audit.
 - The 62 non-blocking findings are in the per-slice files under
   `docs/reviews/2026-08-16-implementation-readiness/`, with the ten most likely to cost an implementer
   time called out in that directory's INDEX.
@@ -313,8 +345,8 @@ Three things worth knowing before the milestone that needs them:
 `docs/reviews/2026-07-02-mvp-readiness/INDEX.md` — fully worked, **closed**.
 
 `docs/reviews/2026-08-16-implementation-readiness/INDEX.md` — **closed.** 23 of 23 blockers resolved;
-each entry carries a `**Closed:**` line. Two follow-on findings (IR-24, IR-25) are open and
-non-blocking.
+each entry carries a `**Closed:**` line. The two follow-on findings raised during remediation (IR-24,
+IR-25) are closed too. **Nothing in the corpus is open.**
 
 ---
 
@@ -361,7 +393,7 @@ IDs it satisfies and a done-when clause. Nothing is gated.
 `2026-08-16-implementation-readiness` (**closed**: 23 of 23 blockers resolved; 62 lesser findings
 remain recorded, across eight per-slice files plus five machine-extracted inventories covering the
 API surface, the schema, the configuration surface, ten state machines, and requirement→spec
-coverage). Two findings raised during remediation — IR-24 and IR-25 — are open and non-blocking.
+coverage). The two findings raised during remediation — IR-24 and IR-25 — are also closed.
 
 **Coverage caveat — now largely closed.** Of the four areas that had requirements but no implementing
 specification, three were written this session: the design system
