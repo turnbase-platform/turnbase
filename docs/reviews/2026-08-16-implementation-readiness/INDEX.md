@@ -63,6 +63,7 @@ rejected on verification and are recorded under *Claims rejected* at the end.
 | [api-conventions.md](api-conventions.md) | REST shape, errors, validation, pagination, rate limits | 1 BLOCKER, 2 GAP, 1 DRIFT, 1 NIT |
 | [history-notifications.md](history-notifications.md) | History, statistics, notifications, invitations | 1 BLOCKER, 1 GAP, 1 DRIFT, 1 NIT |
 | [inventories/](inventories/) | Machine-extracted reference tables (see below) | — |
+| [remediation-plan.md](remediation-plan.md) | The task-by-task plan that closes all 23 blockers, with the four scope decisions taken before execution | — |
 
 ### Inventories
 
