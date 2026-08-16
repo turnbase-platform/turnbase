@@ -297,5 +297,3 @@ trail is only as good as there being exactly one operator.
 | FR-ADM-002, NFR-CRED-001 | §1, §6, §7 |
 | NFR-SEC-002 | §4 (client-facing today; inward is §7) |
 | ADR-0011 §1/§6 | §4 role split |
-</content>
-</invoke>

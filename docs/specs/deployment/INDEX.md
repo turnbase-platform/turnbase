@@ -32,5 +32,3 @@ escalation path rather than deferring the whole subject to a cloud phase that ha
 - **Redis runs `maxmemory-policy noeviction`, asserted at startup.** Any `allkeys-*` policy lets memory pressure evict a liveness lease and permit a wrongful ownership takeover with no operator action and no error ([ADR-0008](../../decisions/0008-room-ownership-lifecycle.md)).
 - **The platform and games origins must remain different registrable domains** ([ADR-0007](../../decisions/0007-game-frontend-separate-domain.md)), and the monolith refuses to boot if they are not — misconfiguring this removes the isolation the CSRF argument depends on, silently.
 - **Signing keys rotate without invalidating every session.** Tokens name the key that signed them, so a retired key revokes exactly the sessions it issued.
-</content>
-</invoke>

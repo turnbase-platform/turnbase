@@ -15,7 +15,7 @@ Requires authentication. Returns `Content-Type: text/event-stream`. The connecti
 ## Two event classes
 
 The stream carries **two** kinds of message, and the distinction is not cosmetic — it decides whether
-a message is stored, replayed, or dropped (`notifications-invitations.md` FR-ALERT-006).
+a message is stored, replayed, or dropped (`notifications-invitations.md` FR-ALERT-010).
 
 | | `event: notification` | `event: alert` |
 |---|---|---|

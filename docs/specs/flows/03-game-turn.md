@@ -181,4 +181,3 @@ Found by asking what happens when a *game* is wrong rather than when the platfor
 watchdog machinery is thorough about a game that throws or hangs, and had nothing for a game that
 returns successfully with a structurally invalid outcome — the one failure mode that reaches
 Postgres.
-</content>

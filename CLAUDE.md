@@ -15,9 +15,17 @@ TurnBase is a platform for hosting and playing multiplayer games online. It prov
 
 ## Current Phase
 
-**Phase 0 — Requirements & Specification** (in progress)
+**Phase 1 — Implementation** (starting). Phase 0 is complete and has been audited for
+implementation-readiness.
 
-Check [STATUS.md](STATUS.md) at the start of each session for current state, last session summary, and next priorities.
+Check [STATUS.md](STATUS.md) at the start of each session for current state, last session summary,
+and next priorities.
+
+**Before writing any code**, read [docs/implementation/INDEX.md](docs/implementation/INDEX.md) — the
+work-item registry — and check your item against its *Readiness gates*. 23 blocking specification
+defects are open, recorded in
+[docs/reviews/2026-08-16-implementation-readiness/INDEX.md](docs/reviews/2026-08-16-implementation-readiness/INDEX.md).
+A gated item's fix belongs in the specification, not in code.
 
 ## Tech Stack
 
@@ -58,6 +66,9 @@ turnbase/                    # This repo (landing + docs)
 │       ├── INDEX.md         # Entry point — lists all spec subdirectories
 │       ├── api-design/      # REST, WebSocket, SSE, error handling, uploads, rate limiting
 │       └── internal-grpc/   # Orchestration ↔ Game Host gRPC contract
+│   ├── decisions/           # ADRs — one numbered file per architectural decision
+│   ├── implementation/      # Implementation registry — work items, gates, done-when clauses
+│   └── reviews/             # Dated review rounds; each has its own INDEX.md
 ├── turnbase-common/         # git submodule
 ├── turnbase-sdk/            # git submodule
 ├── turnbase-platform/       # git submodule

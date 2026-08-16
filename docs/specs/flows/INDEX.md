@@ -47,4 +47,3 @@ fails. The previous session's three worst defects were all found this way. Defec
 writing these files were fixed in the documents that own them and are listed in each file's
 *Defects surfaced* section, with the fix, rather than left as prose describing a system that does
 not behave that way.
-</content>

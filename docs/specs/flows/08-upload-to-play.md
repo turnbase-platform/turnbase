@@ -207,4 +207,3 @@ one that was rejected — reached entirely by individually correct operations.
 | Whether activation rebuilds `title`/`short_description` from the manifest was unspecified; one reading silently reverts an accepted rename, the other makes a required manifest field permanently ignored | Manifest seeds them once, at `game` row creation ([catalog §1](../platform/data-model-catalog.md)) |
 | `game_review.version_id` was nullable on a premise the status machine denies (`DISCARDED` is a record, not a deletion), defeating stale-decision detection | `NOT NULL` |
 | An open review outlived its owner's account deletion, sitting in the admin queue forever addressed to a developer who cannot be notified | `WITHDRAWN` decision, written by the erasure transaction |
-</content>

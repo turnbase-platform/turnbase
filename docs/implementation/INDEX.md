@@ -1,0 +1,84 @@
+# Implementation Registry
+
+The tracker for building TurnBase v1. One row per unit of implementable work, each pointing at the
+documents that already decided how it behaves.
+
+## What this directory is for
+
+`docs/requirements/` says **what** the system must do. `docs/specs/` says **how** it is designed.
+Neither says **what to build next, in what order, and how you know it is finished.** That is this
+document.
+
+It exists because Phase 1 is executed largely by implementation agents running at low reasoning
+effort. Such an agent is good at writing code against a precise brief and bad at reconstructing
+architecture from seventeen requirements documents. Every work item below therefore carries an
+explicit **Read first** list — the minimum set of documents that fully determine the item — and a
+**Done when** clause that is checkable without judgement.
+
+If you are an implementation agent: find your work item, read exactly the documents it names, and
+build exactly what the *Done when* clause describes. If the documents contradict each other or leave
+a decision to you, **stop and escalate** — do not choose. An unrecorded choice made here is a defect
+that surfaces three milestones later. Record it against the item's *Gate* field.
+
+## Files
+
+| File | Purpose |
+|------|---------|
+| [INDEX.md](INDEX.md) | This file — conventions, milestone map, and the work-item register |
+| [registry.md](registry.md) | The per-item detail: read-lists, requirements satisfied, done-when clauses |
+
+## Related
+
+- [`../reviews/2026-08-16-implementation-readiness/INDEX.md`](../reviews/2026-08-16-implementation-readiness/INDEX.md) — the audit that qualified this corpus for implementation, and the open findings that gate specific items below.
+- [`../specs/INDEX.md`](../specs/INDEX.md) — design specifications.
+- [`../specs/flows/INDEX.md`](../specs/flows/INDEX.md) — read the relevant flow before starting any item that spans components.
+
+---
+
+## Conventions
+
+### Item identifiers
+
+`IMP-<milestone>-<nn>`, e.g. `IMP-M1-03`. Identifiers are permanent; a cancelled item is struck
+through rather than renumbered, and its number is never reused.
+
+### Status vocabulary
+
+| Status | Meaning |
+|---|---|
+| `BLOCKED` | A gate is open. The item cannot start. The gate is named in the item's *Gate* field. |
+| `READY` | All gates closed, all dependencies `DONE`. An agent may pick this up now. |
+| `WIP` | In progress. The owning session or agent is named. |
+| `REVIEW` | Code complete, awaiting review or a passing pipeline. |
+| `DONE` | Merged, tests green, and — if the item touches a submodule — the submodule ref in this repo is updated. |
+
+### The `DONE` bar
+
+Per `CLAUDE.md`, a submodule ref in this repo is updated **only after** that submodule's build and
+tests pass. An item is not `DONE` because the code exists; it is `DONE` when the pipeline is green
+and the ref is bumped.
+
+### Gates
+
+A **gate** is an open question or audit finding that must be resolved before the item can be built
+correctly. Gates cite the audit finding ID from
+[`../reviews/2026-08-16-implementation-readiness/INDEX.md`](../reviews/2026-08-16-implementation-readiness/INDEX.md)
+or an `OQ-*` in a spec. An item with an open gate is `BLOCKED`, and the fix belongs in the
+**specification**, not in the code.
+
+---
+
+## Milestone map
+
+Ordering follows the dependency graph rather than document order, per `STATUS.md`.
+
+| Milestone | Theme | Rationale for its position |
+|---|---|---|
+| **M0** | Repositories, local stack, schema baseline | Nothing can be built or run until `docker compose up` yields a migrated, seeded database. The baseline is also the first real test of whether the six schema documents are mutually consistent. |
+| **M1** | Accounts, sessions, auth | The shortest vertical slice that exercises REST, Postgres, Redis and the rate limiter. Everything downstream needs a principal. |
+| **M2** | Rooms and the realtime protocol | The most thoroughly specified and most subtle machinery in the corpus. Built before the catalog so the hard part is behind the easy part. |
+| **M3** | Game Host and the first official game | ADR-0006 makes the MVP official-only, so the first game is simultaneously the proof that the GDK contract works. |
+| **M4** | Catalog, upload, asset serving | Depends on M3 for a bundle worth validating. |
+| **M5** | History, statistics, notifications, social | The CRUD tail. Order within it is a convenience. |
+| **M6** | Platform frontend | Runs **in parallel** from M1 onward, not after M5 — each vertical slice needs a UI to be exercised by hand. Listed last only because its internal ordering follows the backend's. |
+

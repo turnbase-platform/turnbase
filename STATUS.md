@@ -1,5 +1,142 @@
 ## Last Session Summary
 
+**Date:** 2026-08-16 (session 10)
+
+**Audited the whole corpus for implementation-readiness and built the registry Phase 1 executes
+from.** No new specification was written. The session asked one question — *can an implementation
+agent running at low reasoning effort build this without re-deriving architecture?* — and answered it
+with evidence.
+
+**Verdict: substantially ready, but not at the bar Phase 1 requires. 23 blockers.** Nineteen are
+drift or omission in sound designs and are cheap. Four are the absence of design work altogether.
+
+### How it was run
+
+Thirteen agents, three model tiers, one shared brief (severity ladder, evidence standard, output
+format) plus per-slice scenario lists.
+
+| Tier | N | Work |
+|---|---|---|
+| Haiku | 4 | Mechanical inventories — API surface, schema, config/ops, state machines |
+| Sonnet | 6 | Domain audits — accounts, catalog, history, frontend, API conventions, deployment |
+| Opus | 2 | Rooms/realtime concurrency, and the game-execution trust boundary |
+
+Four checks were **scripted rather than delegated**, because they are deterministic and an agent adds
+only hallucination risk: link integrity, ID-collision mapping, requirement→spec coverage, and
+misqualified citations. That was the right call twice over — the coverage script independently
+corroborated the room-REST-API blocker, and the citation script found a defect class no agent was
+looking for.
+
+### The 23 blockers
+
+Full register with quotes, failure scenarios and fix owners:
+`docs/reviews/2026-08-16-implementation-readiness/INDEX.md`. Distribution: **M2 rooms 8, M3 execution
+4, M6 frontend 4, M0 bootstrap 4, M4 catalog 2, M1 1** (IR-05), **M5 1** (IR-20).
+
+The ones that matter most:
+
+1. **A Lobby grace expiry aborts permanently on a `NOT NULL` violation** (IR-06). §3.3's in-transaction
+   side effects insert a `player_left` outbox row *unconditionally*; `game_input_outbox.session_id` is
+   `NOT NULL`; a Lobby room's `active_session_id` is null — which the same section says out loud four
+   paragraphs later. Step 4 carries a carefully reasoned Lobby exemption. **Step 2 does not.** The
+   reservation never resolves and the sweep retries it every 5 seconds forever.
+2. **No REST specification exists for the room API** (IR-13). `POST /api/rooms` appears in a flow
+   narrative and a pagination example. Nowhere are the room endpoints' paths, bodies or status codes
+   defined. It is the entry point to every join, create and rejoin scenario, and it gates all of M2.
+3. **NFR-SEC-002 fails open on the trust model** (IR-17). `websocket.md` argues the property is
+   "mechanically true rather than aspirational" because a client cannot subscribe to another's
+   `/user/queue`. That secures the *subscription*. Nothing validates the *address* — that a
+   game-chosen `SendToPlayerEffect.player_id` belongs to the session that produced it. Not exploitable
+   under ADR-0006, which is precisely the GRMP-F5 shape.
+4. **No job purges expired friend requests or room invitations** (IR-20). Two schema documents assert
+   "the purge job" exists and the notification partial-index design depends on it. FR-JOB-001…012
+   contains no such job. **This is a regression of the bug session 9 believed it had fixed** — adding
+   `expires_at` made expiry expressible; nothing acts on it.
+5. **The game iframe `sandbox` attribute is contradicted between its two owning documents** (IR-21),
+   with opposite security rationales and no cross-reference. If `shell-architecture.md`'s version
+   ships, `event.origin` becomes `"null"` and the shell's own origin check silently drops every
+   message the game sends.
+6. **AI players are load-bearing on the wire and in the closure predicate, and absent from the
+   schema** (IR-12). `game-contracts.md` OQ-002 defers the AI interface — legitimately — but two
+   shipped mechanisms already depend on the representation it postponed. **The one mislabelled
+   deferral found anywhere in the corpus.**
+
+### Four structural gaps — design work, not edits
+
+Not fixable by editing: **the design system** (`platform-ui-library.md`, ~30 requirements, 24 cited by
+no spec), **the onboarding wizard** (all 16 requirements, the entire document referenced by nothing
+else in the corpus), **the room REST API**, and **observability** (all ten `FR-MET-*`/`FR-TRACE-*`
+uncited; four container images with nothing between them and the requirement text).
+
+Three of the four are off the backend critical path. The room REST API is not. And onboarding is the
+only one that could simply be cut from v1 without weakening what the project exists to demonstrate.
+
+### What checked out — stated because a defect list misrepresents this corpus
+
+**481 relative links resolve, zero broken. Zero dangling FR/NFR/CON citations. Only 4 misqualified
+citations corpus-wide.** No config key has two defaults; no timing constant has two values; all six
+job intervals agree across two documents; all seven secrets have a rotation story; every
+`REFERENCES` target exists; across ten state machines, every CHECK enum value has a documented writer.
+
+Agents sent to find defects confirmed instead: the **erasure scatter** is genuinely fixed on all five
+objects; **erasure non-reversibility** is consistent across three documents with HMAC rejected twice
+for the right reason; the **two-phase guest purge** is structurally guaranteed, not merely asserted;
+**FR-INV-008's fix landed in the document that produces the closure**, not only the one stating the
+rule; the **upload pipeline core** is coherent everywhere it is touched and `manifest.schema.json`
+matches its prose exactly; the **postMessage trust boundary agrees message-for-message** across three
+documents. The M2 blockers cluster in the *edges* — expiry, closure, chat, sweeps — while the
+ownership and versioning core is clean.
+
+### Fixes applied
+
+**14 files still carried `</content>`/`</invoke>` tool scaffolding.** Session 9 reported this fixed
+and had cleaned only the five data-model files; all eight flow documents, both deployment documents,
+both `platform-frontend/` files and `test-harness.md` still had it.
+
+Three citation fixes. Two sites cited `notifications-invitations.md FR-ALERT-006` — **document-qualified
+and confidently wrong.** `FR-ALERT-006` exists, in `platform-operations.md`, as an unrelated
+reconciliation alert, so the qualifier delivers a reader to a real requirement about something else.
+Both meant FR-ALERT-010. A bare ID would have been safer than a wrong one. The third cited
+`platform-operations.md FR-SEC-002` for a fail-startup rule that is FR-CRED-002.
+
+One correction was **deliberately not made**: `data-model-accounts.md:392` cites FR-INV-002 for
+invitation deletion on erasure, which is wrong, but the intended target is genuinely unclear. Recorded
+rather than guessed.
+
+### The registry
+
+`docs/implementation/` — **60 work items across 7 milestones**, each carrying repo, dependencies, a
+**Read first** list that should be sufficient on its own, the requirement IDs it satisfies, and a
+*Done when* clause checkable without judgement. Every blocker is wired in as a **gate** against the
+items it blocks, so an agent hits the block before writing code rather than after.
+
+The invariants sessions 8 and 9 paid for are written into the items that need them — epoch fence not
+room version, teardown keyed by session, commit-before-publish, two-phase guest purge, random-token
+erasure, publication filtering — so an implementer meets each one at the point of use instead of
+having to read this file.
+
+### Process
+
+**Both Opus agents — the two largest slices — returned bare idle notifications**, the failure mode
+STATUS.md has now flagged three sessions running. It cost nothing here only because the brief
+required findings to be written to a file first; both had produced 70 KB and 68 KB of good work. **The
+mitigation is the file, not the reply.** Keep briefs file-first.
+
+**Verify agent claims.** Four were checked and three did not survive: a "dangling `FR-JOB-007d`" is a
+sub-duty convention used consistently in eight places; the `FR-GDK`/`FR-FEGDK`/`FR-HARNESS`
+"duplicate definitions" are traceability matrices in the implementing specs — a feature, not a
+collision; one of four "unindexed FK columns" is covered by a partial index. Reported as found, they
+would have generated three phantom fix tasks.
+
+**Two agents independently found the same manifest defect** (IR-18), which is the strongest evidence
+in the round. The sharpest detail is theirs: `manifest/INDEX.md` states the *correct* async model, so
+following the corpus's own "read the INDEX first" rule does not save you — the document it points at
+is wrong in its body.
+
+---
+
+## Previous Session Summary
+
 **Date:** 2026-08-15 (session 9)
 
 **Finished Phase 0.** The corpus is now implementation-ready: every table is defined, the services
@@ -119,190 +256,72 @@ registered in its nearest INDEX. Four ID collisions I introduced during the sess
 
 ---
 
-## Previous Session Summary
-
-**Date:** 2026-08-09 (session 8)
-
-**Closed the room-lifecycle durability cluster — GRMP lessons F1, F2 and F3** — with three ADRs, a
-new `docs/specs/platform/` subdirectory, and edits across ten existing documents.
-
-**First, a correction to this file.** The previous "Next Priorities" listed CORE-1/2/3 as "the last
-undecided blockers." They had in fact been resolved on 2026-07-10 (commit `a541cb8`): FR-TEAM-012,
-FR-DC-005/FR-EXPIRY-004, and FR-HDISC-003. What actually remained of that cluster was its
-*durability* half — where a grace deadline lives, what happens when the owning pod dies, and who
-tears the game session down. That is what this session did. The review INDEX had the same stale
-entries and is now struck through.
-
-**Four questions were resolved by a team of parallel expert subagents, then each answer gate-reviewed
-before dependent work proceeded.** Two of the four corrected the framing they were given:
-
-1. **Ownership is a lease-gated claim, not a lifetime assignment (ADR-0008).** `room-websocket.md`
-   was self-contradictory: ownership "persists for the lifetime of the room" (line 20) versus a crash
-   "assigns a new owning pod" (line 37), where the join flow assigns nothing on rejoin. **As written,
-   post-crash rejoins routed to a corpse forever.** The claim script is now also the failure
-   detector — no dead-pod watcher exists anywhere. Rejected eager reassignment: adopting a room with
-   no clients attached computes nothing in a turn-based game.
-2. **Grace deadlines are persisted absolute timestamps, swept, with no in-process timer (ADR-0009).**
-   Sweep-as-primary rather than sweep-as-backstop: two mechanisms enforcing one deadline is a dual
-   write and a three-way race to arbitrate on every reconnect. The Postgres clock became the single
-   time authority, which removes clock skew **by construction** rather than by tolerance.
-3. **Teardown is a durable to-do, not an ordering (ADR-0010).** GRMP's own fix (terminate before
-   persist) solves a problem TurnBase does not have — its leak came from `DELETE`ing the reference.
-   The reviewer also corrected the proposed design: the to-do must be keyed by `sessionId`, **not** a
-   flag on the room, because a rematch would overwrite the previous session's owed teardown and
-   reintroduce the exact bug class. Keying by session is what pulled **normal game end** into the
-   fix — the most frequent detach path, tearing down with no crash-safety at all.
-4. **Reconciliation is three jobs, and one duty was deleted rather than specified.** Orphaned
-   participant rows get `ON DELETE CASCADE`; a job there is permanent penance for a missing
-   constraint. An In-Progress room with no session **fails back to Lobby, not closed** — recoverable,
-   reuses FR-FAIL-005, and the idle sweep collects it later if truly abandoned.
-
-**Two live defects were found and fixed, both independent of the new design:**
-
-- **A rolling deploy would have deleted every Lobby room.** FR-DC-002 makes a Lobby disconnect an
-  immediate leave; FR-XFER-002 closes a room when the host has left with no humans left. Chain them
-  at pod drain and every Lobby room deletes itself. Fixed by FR-DC-007's carve-out.
-- **An adopting pod would have silently corrupted every client's view.** The version counter was an
-  in-JVM `AtomicLong` published with no stated ordering against the DB commit, while clients
-  **discard** `delta.version <= localVersion`. A pod adopting a room whose DB version lagged would
-  re-issue seen versions and every client would drop them — permanent and undetected, strictly worse
-  than a gap. Fixed by V1 (commit before publish); V2 (assign, never `max()`) is defence in depth,
-  not a second defect — the snapshot flow already said "assign".
-
-**One blocker was caught by gate review, in my own first draft of ADR-0008:** I claimed the room
-version could serve as the ownership fence token. It cannot. The version is *room*-scoped and both
-producers advance it densely from the same sequence, so a stale owner holding a fixed expected value
-is eventually **reached** by the legitimate owner — at which point the stale CAS matches and commits
-on top of it. Fixed by introducing an **owner epoch**, burned by the claim script at each change of
-tenure. The same review found that self-eviction was triggering on the wrong event (renewal failure
-rather than lease *lapse*, which a stop-the-world pause longer than the TTL slips past entirely) and
-that invariant I1 was circular in its sweep leg — an unowned room is not necessarily a clientless
-one, since a Redis flush unowns a room whose sockets are all still alive.
-
-**Also fixed, found while writing:** `TerminateSession` idempotency existed only in the
-implementation spec, not the contract, though the whole re-drive depends on it; `NOT_FOUND` was
-unscoped, so a retried teardown read as a hard failure; there was no termination reason for
-`game_over`; `TERMINATION_REASON_HOST_ENDED` had no producing requirement anywhere (reserved); six
-Redis session keys had no TTL.
-
-### Final review round — 18 further defects, three of them correctness holes
-
-A full-corpus review followed the gate reviews: my own pass, a scenario-walk (`cohesion-final`, three
-end-to-end failure traces across all three ADRs), and a citation-semantics audit (`xref-final`, ~90
-cross-document references checked against the cited text rather than for mere existence).
-
-**The most important finding was a bug in a fix from earlier the same session.** I had made `NOT_FOUND`
-on the game-input drain "terminal only if no teardown was ever recorded" — but `terminateAndCleanup`
-**deletes** the `session_teardown` row on success, so the history that rule reads is erased by the very
-event it is trying to detect. It produced the exact failure it was written to prevent: a re-driven
-teardown succeeds, deletes its row, and a surviving outbox row then reads as "session lost" and fails a
-**healthy live rematch** back to Lobby. Replaced with a test of the durable fact —
-`room.active_session_id = :sessionId` — which needs no schema addition and stays correct after purge.
-
-**Two more correctness holes:**
-
-- **The adoption write was itself unfenced.** The claim script is atomic, so no two tenures share an
-  epoch — but nothing orders their *Postgres* writes. A claimant that stalled after claiming could
-  stamp a lower `owner_epoch` over a later tenure's, making every one of the legitimate owner's fenced
-  mutations match zero rows: it self-evicts and drops all its clients, while the stale adoption puts
-  its *connected* players into grace windows. Fixed with `WHERE owner_epoch < :myEpoch`.
-- **FR-HDISC-004 had no mechanism on its only path.** Adoption "started" a migration window that
-  nothing ever ended: `§3.1`'s host-transfer line sits on the individual-disconnect path, which
-  adoption never routes through. A host who did not return left the room **permanently headless**.
-  Fixed with a persisted `migration_window_expires_at` and a sweep duty that closes it.
-
-**Also fixed:** the outbox drain was ownership-partitioned though it is a gRPC call needing no
-ownership, so an unowned room's `player_left` went undelivered and the game sat "on a turn that never
-comes" — ADR-0009's own words for the failure the outbox exists to remove; NFR-JOB-002 required
-re-ownership in <30s from a sweep running every 60s (retargeted to <90s, with the adopt duty exempted
-from both FR-JOB-008 guards, which would otherwise have blocked adoption for 120s after every
-restart); grace expiry in a **Lobby** room would have re-deleted the rooms FR-DC-007 exists to save;
-`ownerless_since` had no writer anywhere; `room-websocket.md` contradicted `room-lifecycle.md` on both
-where `ROOM_UNAVAILABLE_RETRY` may appear and the internal retry duration; `dispatched_at` was
-undefined as attempt-vs-ACK while the teardown discard is scoped on it; and `§4`'s "benign window"
-still carried a justification ADR-0010 had already disproven. New: `EARLY_RELEASE` leave reason,
-`room_active_session_idx`, and a host-role rule added to FR-HDISC-003 for the state the schema was
-designed for but no requirement covered.
-
-**A note on process.** Two lessons, both worth carrying forward:
-
-1. **Subagents dispatched as read-only reviewers edited files anyway.** Competent and on-brief, but
-   uncoordinated: it collided with edits in flight and introduced three inconsistencies (the
-   `ROOM_CLOSED` reason set, how `RECONNECT_REQUIRED` is delivered, pod-vs-instance naming), all
-   reconciled. Grant edit rights explicitly with an owned file list, or verify read-only compliance
-   rather than assuming it.
-2. **A fix can read correctly and still depend on a fact the design deletes.** Both the `NOT_FOUND`
-   rule and the migration window were self-consistent prose whose supporting state had no writer, or
-   an eraser. When a rule tests history, ask what deletes that history. Reviewing the *diff* would not
-   have caught either; walking the scenario end-to-end did.
-3. Reviewers repeatedly returned bare idle notifications instead of findings. Re-tasking with a
-   **self-contained brief** — explicit files, explicit scenarios, explicit "an idle notification is
-   not a usable answer" — recovered both, and produced the session's best findings.
-
-**Files:** new — `docs/decisions/0008/0009/0010`, `docs/specs/platform/{INDEX,room-lifecycle,data-model}.md`.
-Edited — `game-rooms.md`, `reconnection-flow.md`, `platform-operations.md`, `platform-architecture.md`,
-`game-history.md`, `room-websocket.md`, `websocket.md`, `game-host-internals.md`,
-`orchestration-gamehost-protocol.md`, `gamehost.proto`, both INDEXes, review INDEX + `grmp-lessons.md`.
-
-**Verification:** every relative markdown link in `docs/` resolves; no dangling FR/NFR/CON citations;
-no duplicate IDs within any document.
-
 ---
 
 ## Next Priorities
 
-**Phase 0 is complete.** All 15 review blockers are closed, OPS-3 and OPS-5 are closed, the existing-doc
-edit backlog is worked, and the corpus answers every question the session-9 goal set: what every table
-looks like, how the services are wired and started, how config and secrets reach them, how the schema
-evolves, and how each primary journey flows end to end.
+**Phase 1 has started. Work from [`docs/implementation/INDEX.md`](docs/implementation/INDEX.md), not
+from this file.** The registry holds 60 work items with read-lists, dependencies and done-when
+clauses; this section only says which of them to pick up.
 
-**The next session should start implementing**, not specifying. Suggested order, which follows the
-dependency graph rather than the document order:
+### The next session
 
-1. **Bootstrap the repositories and the local stack.** `turnbase-platform` skeleton, the compose file
-   and Helm chart of `deployment/local-environment.md`, and the Flyway baseline transcribed from the
-   six schema documents. Finishing here means `docker compose up` gives a running, migrated, seeded
-   database — and the baseline is the first real test of whether the schema is self-consistent.
-2. **Accounts and sessions**, end to end: registration, login, guest minting, the session table and
-   the JWT key set. It is the shortest vertical slice that exercises REST, Postgres, Redis and the
-   rate limiter, and everything else needs a principal.
-3. **Rooms and the WebSocket**, up to `START_GAME`. The room-lifecycle machinery — claim, epoch fence,
-   version ordering, the sweeps — is the most thoroughly specified and the most subtle; building it
-   before the catalog means the hard part is behind the easy part.
-4. **The Game Host and one official game.** ADR-0006 makes the MVP official-only, so the first game is
-   also the proof the GDK contract works.
-5. **Catalog, history, notifications, social** — the CRUD tail, in whatever order is convenient.
+**Close the M0 gates, then build the bootstrap.** Specifically:
 
-### Spec work that remains, and none of it blocks implementation
+1. **IR-01 and IR-02** — one short specification session. The MinIO bucket has no name and no
+   creation step, and the two-role Postgres model has no provisioning mechanism. Both block
+   `docker compose up` on a clean machine, which everything else is eventually tested against. IR-02's
+   failure is silent rather than loud: a naive compose file makes the application role the superuser
+   and violates FR-CRED-005 while appearing to work.
+2. **IMP-M0-01 through IMP-M0-06** — all five repository skeletons plus the Flyway baseline. These
+   are `READY` now and do not wait on the gates above.
 
-- **`FR-SESS-005` is defined twice** (`platform-architecture.md` = Game Host state discard;
-  `user-accounts.md` did not define it, which is why the new session-invalidation requirement took
-  FR-SESS-010). The corpus-wide qualification rule is now stated in `docs/specs/INDEX.md`, but it is a
-  rule for new text, not a completed retrofit: **50 identifiers are still defined in more than one
-  requirements document** (`NFR-PERF-001` nine times, `CON-001` in seventeen). A mechanical pass to
-  qualify existing bare citations is worth one session and has no deadline.
-- **Open questions raised this session**, all deferred rather than dropped:
-  - `data-model-catalog.md` OQ-001 — a rejected re-review leaves a community game stuck with an
-    `ACTIVE` version an operator refused and no rollback in the status machine. Dormant under ADR-0006;
-    must be resolved before community uploads open.
-  - `data-model-catalog.md` OQ-003 — FR-REV-001's pending-review state has no owner-facing
-    representation, so a second submission fails as a raw unique violation.
-  - `local-environment.md` OQ-001 — the startup budget is a target, not a measurement, and
-    `FR-JOB-008`'s 120-second window depends on it.
-  - `local-environment.md` OQ-002 — **no backup or restore story for the local Postgres volume.** For
-    a seedable local MVP this is arguably right, but it is undecided rather than decided, and the first
-    genuinely valuable data the platform holds is game history, which FR-RET-003 retains indefinitely
-    and nothing protects.
-  - `bundle-format.md` OQ-1…5 — notably the deny-list-versus-`frontend.root` question (which ties to
-    `game-asset-serving.md` OQ-003) and the unmeasured NFR-UPLOAD-001 30-second validation budget.
-- **`admin-tooling.md` OQ-001/OQ-002** (resubmission after rejection; delisting a Verified game
-  post-approval) are now load-bearing for `data-model-catalog.md` OQ-001 rather than merely deferred.
+**IMP-M0-06 is the highest-value item in the registry.** Transcribing `V1__baseline.sql` from the six
+schema documents is the first mechanical test of whether they are mutually consistent, and the audit
+already named two hazards to expect: the `bigserial` versus `GENERATED ALWAYS AS IDENTITY` split
+across three sibling documents, and `schema-migrations.md`'s claim that
+`room_participant.team_id → room_team` is one of "the two circular foreign keys" when by its own
+stated table order it is not. Any further disagreement found while transcribing is a **specification**
+defect — fix the document, then the SQL. Do not reconcile silently in the migration.
+
+### Then, in order
+
+3. **IR-13 — design the room REST API.** A design session. It gates all of M2, the longest milestone,
+   and nothing else in the corpus can substitute for it.
+4. **IR-06 … IR-12 — the seven remaining M2 correctness fixes**, as one pass. They are all edits to
+   `room-lifecycle.md` and its neighbours and are best done by someone holding the whole ownership
+   model in their head at once.
+5. **IR-18** — propagate the async upload error contract to the three stale documents. Mechanical.
+6. **IR-03, IR-05, IR-20** — three independent single-document fixes.
+7. **IR-14 … IR-17** — the M3 execution-boundary fixes, before M3 starts. IR-17 should be scheduled
+   deliberately rather than left standing as a trust-model fail-open.
+8. **IR-19, IR-21, IR-22** — before any frontend work begins.
+9. **IR-04 and IR-23** — the three remaining design sessions: observability, the design system, and
+   onboarding. Independent of the backend critical path; **do not let them block it.** Onboarding is
+   a legitimate v1 scope cut if the schedule needs one.
+
+### Spec hygiene that still has no deadline
+
+- **The ID-qualification retrofit.** `docs/specs/INDEX.md` states the rule and it holds for new text.
+  The corpus predates it. The highest-traffic collision is `FR-SESS-001…004`, defined in both
+  `user-accounts.md` (account sessions) and `platform-architecture.md` (Game Host in-memory state);
+  seven citations were individually checked this session and all resolve correctly by context, so this
+  is a hazard rather than a defect. Note that a **wrong** qualifier is worse than a bare ID — that is
+  what the FR-ALERT-006 fixes were.
+- **The `FR-JOB-007a…e` sub-duty convention** is used consistently in eight places and declared
+  nowhere. One sentence in `docs/specs/INDEX.md`.
+- **`data-model-accounts.md:392`** cites FR-INV-002 for invitation deletion on erasure. Wrong; correct
+  target unclear. Left for whoever owns that document.
+- The 62 non-blocking findings are in the per-slice files under
+  `docs/reviews/2026-08-16-implementation-readiness/`, with the ten most likely to cost an implementer
+  time called out in that directory's INDEX.
 
 ### Review action plan
 
-`docs/reviews/2026-07-02-mvp-readiness/INDEX.md` is fully worked. Every blocker, every strategic
-decision, and every item on the existing-doc checklist is closed or explicitly deferred with a named
-open question.
+`docs/reviews/2026-07-02-mvp-readiness/INDEX.md` — fully worked, closed.
+
+`docs/reviews/2026-08-16-implementation-readiness/INDEX.md` — **open.** 23 blockers, none closed.
+Gates are wired into the registry per work item.
 
 ---
 
@@ -341,6 +360,20 @@ registrable domain), ADR-0008 (room ownership as a lease-gated claim), ADR-0009 
 persisted and swept), ADR-0010 (session teardown as a durable to-do), ADR-0011 (schema migrations —
 Flyway, forward-only, backward-compatible).
 
+**Implementation:** `docs/implementation/` — the registry Phase 1 executes from. 60 work items across
+7 milestones, each with a read-list, dependencies, requirements satisfied, a done-when clause, and the
+readiness gates that block it.
+
+**Reviews:** `docs/reviews/` — `2026-07-02-mvp-readiness` (closed) and
+`2026-08-16-implementation-readiness` (**open**: 23 blockers, 62 lesser findings, eight per-slice
+files plus five machine-extracted inventories covering the API surface, the schema, the configuration
+surface, ten state machines, and requirement→spec coverage).
+
+**Coverage caveat.** Four areas have requirements but **no implementing specification**: the design
+system (`platform-ui-library.md`), the onboarding wizard (`onboarding-wizard.md`), the room REST API,
+and observability (`FR-MET-*`, `FR-TRACE-*`). The table above lists requirement coverage, not design
+coverage, and for these four the difference is the whole design.
+
 ---
 
 ## Open Questions Remaining in Existing Docs
@@ -350,7 +383,7 @@ Flyway, forward-only, backward-compatible).
 | `reconnection-flow.md` | Game engine response set after "player lost" event — deferred to Game SDK contracts |
 | `game-history.md` | OQ-002: Pagination reuse — shared UI component vs. API pattern deferred to implementation |
 | `game-contracts.md` | OQ-001: Log color annotation syntax — deferred to GDK spec |
-| `game-contracts.md` | OQ-002: AI/bot player interface — deferred to future spec |
+| `game-contracts.md` | OQ-002: AI/bot player interface — deferred to future spec. **Mislabelled: this now blocks M2 (IR-12).** `ROOM_STATE` carries AI participants on the wire and the room-closure predicate turns on "not an AI", but `room_participant` has no discriminator — so the closure predicate cannot be written. Either add the column or remove AI from the protocol for the MVP |
 | `game-contracts.md` | OQ-003: Platform-managed timer system — deferred to future spec |
 | `websocket.md` | OQ-001: Resync cost under a *legitimate* mass reconnect (N resyncs serialize behind one session lock) — cache the per-viewer view against `lastAppliedSequence` if it becomes a hotspot. The adversarial case is now closed by the Tier 6 `snapshot` bucket |
 | `websocket.md` | OQ-002: A game whose `onResync` returns an empty spectator view leaves spectators blank until the next `broadcast` — the test harness should warn |

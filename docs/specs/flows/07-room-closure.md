@@ -208,4 +208,3 @@ completes leaks bounded state rather than unbounded.
 Same shape as last session's worst finding: a correct rule, stated once, in a document that none of
 its producers is written from. The fix is not only to state it in the right place but to make the
 failure *bounded* if somebody still misses it — which is what the expiry does.
-</content>

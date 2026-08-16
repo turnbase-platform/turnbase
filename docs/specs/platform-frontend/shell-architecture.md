@@ -207,7 +207,7 @@ blank frame.
 
 ## 6. Notifications and alerts
 
-Two classes, two behaviours — `notifications-invitations.md` FR-ALERT-006 and
+Two classes, two behaviours — `notifications-invitations.md` FR-ALERT-010 and
 [`../api-design/sse-notifications.md`](../api-design/sse-notifications.md):
 
 | Class | SSE event | Rendering | Persistence |
@@ -290,4 +290,3 @@ coverage on HTTP and WebSocket clients rather than a browser.
 | FR-LIFE-003, VW-RRESULT-* | §7 room view |
 | FR-REJOIN-002, VW-ROOMS-005 | §7 reconnection card |
 | `platform-ui-library.md` | §2 — consumed, never re-implemented |
-</content>

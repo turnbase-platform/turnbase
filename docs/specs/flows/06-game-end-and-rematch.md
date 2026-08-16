@@ -190,4 +190,3 @@ The second is the sharper one: the counter is *explicitly* required to be monoto
 decremented, which means every over-count is unfixable. A denormalized counter with no independent
 derivation is also a number nobody can ever check — so the completion table serves twice, as the
 idempotency key and as the thing that makes the counter verifiable.
-</content>

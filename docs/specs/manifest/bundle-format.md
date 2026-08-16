@@ -595,7 +595,7 @@ ships in the Game Host image. Exactly one GDK version is on the guest classpath 
 deployed artifact, and a configuration key that could disagree with it would eventually disagree with
 it. The bridge JAR declares its GDK version in its manifest; the monolith reads it at startup, and the
 configured `turnbase.gdk.supported-range` is an **assertion** checked against it, failing startup on
-mismatch. This mirrors `platform-operations.md` FR-SEC-002's rule that a missing or wrong
+mismatch. This mirrors `platform-operations.md` FR-CRED-002's rule that a missing or wrong
 configuration must fail startup rather than silently pick a default.
 
 The range is expressed as a closed interval of `x.y.z` versions and evaluated with the same

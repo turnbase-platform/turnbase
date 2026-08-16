@@ -34,4 +34,3 @@ separately published component library.
 - **No client-side state store.** Room and game state are server-authoritative and arrive as events; a second copy in the browser is the divergence class the room `version` exists to prevent, relocated.
 - **The route guard is UX, not security** (`platform-views.md` CON-002). It avoids rendering a page that will 401; it protects nothing.
 - **One room route across three visual states.** The post-game results view is not a server state — the room is already in Lobby — so a separate route would unmount the iframe and destroy the results the player is reading.
-</content>

@@ -175,4 +175,3 @@ seconds are not independent knobs.** `NFR-JOB-001` bounds enforcement at "deadli
 interval", so raising the interval loosens a stated correctness bound rather than saving work. Both
 are now in the configuration surface with that noted
 ([`local-environment.md`](../deployment/local-environment.md) §7.2).
-</content>

@@ -218,4 +218,3 @@ Two things the trace makes visible that no single document states:
 - **Adoption and the Game Host are fully decoupled.** Nothing in C or D talks to it, and the flow
   completes whether it is up or down. That is what lets the monolith's readiness probe exclude it
   ([`local-environment.md`](../deployment/local-environment.md) §3) without weakening recovery.
-</content>

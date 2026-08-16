@@ -216,4 +216,3 @@ posture the platform would like third-party games to arrive in.
 | FR-HARNESS-010 | §6 — the executing round trip |
 | `websocket.md` OQ-002 | §4 — empty-spectator-view warning |
 | GRMP lesson F4 | §6, together with the static half in `../manifest/bundle-format.md` §4 |
-</content>

@@ -164,4 +164,3 @@ The schema forces the question rather than permitting a silent duplicate — the
 | No logout requirement existed at all, and logging out a guest destroys the account irrecoverably | **`FR-SESS-011`**, with a mandatory confirmation for guests |
 | `NFR-SEC-003`'s lockout doubles without bound or decay — a shared address accumulates unrelated failures for days and reaches a lockout measured in weeks, with no password reset (`CON-003`) and no mail (`CON-002`) to recover through | Cap at 15 minutes, counter resets after 1 hour idle |
 | Guests are shown the notifications bell (`VW-NAV-005`) but can receive no notification of any type | Recorded as a UI observation in [notifications §5](../platform/data-model-notifications.md); not a schema change |
-</content>

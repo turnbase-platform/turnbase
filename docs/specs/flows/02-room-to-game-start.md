@@ -172,4 +172,3 @@ Two things worth recording as *not* defects, because both look like one:
   timestamps ([ADR-0009](../../decisions/0009-grace-deadline-durability.md)), so an unowned room's
   deadlines are still enforceable — by whichever instance adopts it, bounded by `NFR-JOB-002` at 90
   seconds.
-</content>
