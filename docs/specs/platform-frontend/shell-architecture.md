@@ -139,7 +139,7 @@ This is the part of the shell that has security consequences.
 ```tsx
 <iframe
   src={gameFrontendUrl}
-  sandbox="allow-scripts"
+  sandbox="allow-scripts allow-same-origin"
   allow=""
   referrerPolicy="no-referrer"
 />
@@ -149,7 +149,7 @@ This is the part of the shell that has security consequences.
 |---|---|
 | `src` is the server-supplied **absolute** `gameFrontendUrl` from `GAME_STARTED` | The client never assembles it and never derives the game origin from a build-time constant |
 | `trustedGameOrigin = new URL(gameFrontendUrl).origin`, computed once | The origin the server chose is the only one that is correct; ADR-0007's whole isolation argument rests on it |
-| `sandbox="allow-scripts"` **without** `allow-same-origin` | Together they would return the frame to its own origin and undo the sandbox entirely |
+| `sandbox="allow-scripts allow-same-origin"` — **normative value owned by [`../game-frontend/game-asset-serving.md`](../game-frontend/game-asset-serving.md) §6.1** | The well-known footgun is granting both to a *same-origin* frame, which lets it remove its own sandbox. This frame is cross-origin by construction (ADR-0007 puts game frontends on a separate **registrable domain**), so the pair grants the game a real origin of its own and nothing more. **`allow-scripts` alone would break the relay outright:** an opaque origin makes `event.origin` the string `"null"`, so the origin check below drops every message the game sends, and the game silently receives nothing. It also costs the game `localStorage` and `IndexedDB`. |
 | No `allow-popups`, `allow-top-navigation`, `allow-modals`, `allow-forms` | A game has no legitimate need to navigate the platform away or open a window |
 
 ### Inbound `postMessage` — three checks, all mandatory

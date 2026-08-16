@@ -227,6 +227,11 @@ local origin, or via the `parentOrigin` constructor override already defined in
 
 ### 6.1 Embedding attributes (platform shell)
 
+**This document owns the `sandbox` value.** [`../platform-frontend/shell-architecture.md`](../platform-frontend/shell-architecture.md)
+§5 renders the element and cites this section for the attribute; the two must not be changed
+independently. The value follows from ADR-0007's separate registrable domain, which is a property of
+the *serving* design specified here, not of the shell.
+
 ```html
 <iframe src="{gameFrontendUrl}"
         sandbox="allow-scripts allow-same-origin"
