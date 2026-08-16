@@ -398,6 +398,14 @@ requirement above is what makes recovery correct *given* a surviving Redis.
 4. Return ProcessResult(sequence = 0, OK, effects).
 ```
 
+Step 1's guard is only correct because **`session:{sessionId}` has exactly one writer, the Game Host**
+(§13). Its presence means "onInit has already run and its effects are recorded", and nothing else may
+create it. An Orchestration pre-write of the same key — plausible, since Orchestration allocates the
+`sessionId` and writes every other key of the family — turns the idempotency guard into an
+unconditional short-circuit: the first `CreateSession` returns an empty `lastEffects` with `OK`, the
+handler never runs, and the game begins with no state and no opening effects. Flow 02 step 6 names the
+keys Orchestration does write.
+
 **`ProcessInput` (idempotent replay by `sequence`):**
 
 ```

@@ -112,7 +112,7 @@ the host.
 | 3 | Monolith | Under the room lock, **re-validate host identity** and every `FR-TEAM-009` condition | — |
 | 4 | Monolith | Any condition fails → `START_CONDITIONS_NOT_MET` listing them, unicast. Stop | — |
 | 5 | Monolith | Materialize parameter defaults from the manifest for keys the host never set — the Game Host receives a complete set, never a partial one | — |
-| 6 | Monolith | Allocate `sessionId`; write the session record and routing keys to Redis | **Redis session keys** |
+| 6 | Monolith | Allocate `sessionId`; write the **Orchestration-owned** Redis keys — `routing:`, `queue:`, `seq:`, `delivered:`, `failcount:`. **Not** `session:{sessionId}` — that record is the Game Host's (`../game-host/game-host-internals.md` §13) and pre-writing it would satisfy `CreateSession`'s idempotency guard on the very first call, so `onInit` would never run | **Redis routing keys** |
 | 7 | Monolith | gRPC `CreateSession(sessionId, gameId, version, roster, teams, parameters)` → Game Host | — |
 | 8 | Game Host | Selects or creates an Espresso context for `(gameId, version)`; loads the bundle from the artifact store; invokes `onInit` at **sequence 0** | Game Host in-memory + Redis |
 | 9 | Monolith | On OK: under the room lock, `room.state='IN_PROGRESS'`, `room.active_session_id=sessionId`, `version++`, commit | **`room`** |
