@@ -15,7 +15,7 @@ round-trip), and it is the document
 unpacking of the ZIP belongs elsewhere.
 
 **Realizes:** `game-development-experience.md` FR-BUNDLE-001…007, FR-UPLOAD-002…008,
-NFR-UPLOAD-001/002, `game-contracts.md` NFR-SIZE-001, FR-GDK-016; `game-catalog.md` FR-GAME-009/010/011/014.
+NFR-UPLOAD-001/002, FR-GDK-016, `game-contracts.md` NFR-SIZE-001; `game-catalog.md` FR-GAME-009/010/011/014.
 
 **Depends on / must not contradict:**
 

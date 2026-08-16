@@ -739,9 +739,10 @@ open**; the registry's gates block now records how each one closed.
 
 ## Found during remediation, not by the review
 
-Two items surfaced while executing the plan and are **open**. Neither blocks Phase 1.
+Two items surfaced while executing the plan. **IR-25 is closed**; IR-24 remains open and does not
+block Phase 1.
 
-#### IR-24 — NFR-SPEC-001's spectator capacity has no configuration key
+#### IR-24 — NFR-SPEC-001's spectator capacity has no configuration key · **OPEN**
 
 **Where:** `game-rooms.md` NFR-SPEC-001 ("configurable at the platform level; default is 8") versus
 `local-environment.md` §7, which opens by claiming it holds "every tunable named anywhere in the
@@ -755,7 +756,7 @@ minting a key that then disagrees with the one §7 eventually gets.
 
 **Fix owner:** `local-environment.md` §7.4, one row. Severity: GAP.
 
-#### IR-25 — `docs/requirements/` has no `INDEX.md`
+#### IR-25 — `docs/requirements/` has no `INDEX.md` — **CLOSED**
 
 `CLAUDE.md` states that "`docs/requirements/` and `docs/specs/` are index-oriented" and that reading
 must "always start from the relevant `INDEX.md`". Seventeen requirement documents exist and there is
@@ -767,3 +768,21 @@ own banner instead, which is where a reader arriving from a link will see it —
 the directory has nothing to warn them.
 
 **Fix owner:** a new `docs/requirements/INDEX.md`. Severity: GAP.
+
+**Closed:** [`docs/requirements/INDEX.md`](../../requirements/INDEX.md) written. Seventeen documents,
+each with a one-line scope and **the requirement prefixes it defines** — the second column is the part
+that earns its keep, because it turns "which document owns `FR-XFER`?" from a grep into a lookup.
+
+Writing it surfaced a better number for the collision problem. `specs/INDEX.md` says fifty identifiers
+are defined in more than one document; that count comes from matching IDs anywhere in a file, which
+counts *citations* as definitions. Counting only definitions, **twelve prefixes genuinely collide**,
+and the new index lists all twelve. The distinction matters: a scripted check built on the loose
+definition silently accepts a citation qualified with the wrong document, which is the failure mode
+`specs/INDEX.md` calls worse than a bare ID.
+
+That check, run strictly over the corpus, found **19 mis-qualified citations** — 18 in
+`implementation/registry.md` (for example `` `game-history.md` FR-RET-003 ``, where `game-history.md`
+cites the requirement but `platform-operations.md` defines it) and one in `manifest/bundle-format.md`
+(`` `game-contracts.md` FR-GDK-016 ``, owned by `game-development-experience.md`). All 19 are
+corrected. It also caught `VW-RLOBBY-001…017`, a range that silently includes `VW-RLOBBY-008` —
+struck through as *(removed)* in `platform-views.md`.

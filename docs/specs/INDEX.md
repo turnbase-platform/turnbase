@@ -2,7 +2,7 @@
 
 Implementation-level design decisions for the TurnBase platform. Each subdirectory covers one design domain and contains its own `INDEX.md` as an entry point.
 
-Requirements documents live in `docs/requirements/` and link to the relevant specs here when an API or protocol design is involved.
+Requirements documents live in [`../requirements/`](../requirements/INDEX.md) and link to the relevant specs here when an API or protocol design is involved.
 
 ## Subdirectories
 

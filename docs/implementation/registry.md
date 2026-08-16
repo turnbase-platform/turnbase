@@ -297,7 +297,7 @@ live incumbent.
   Postgres split (§4), and §6 *What must never be written down*
 - `docs/specs/deployment/local-environment.md` §7 — the consolidated configuration surface
 
-**Satisfies:** `platform-operations.md` FR-CRED-001…005, NFR-CONF-003
+**Satisfies:** `platform-operations.md` FR-CRED-001…005
 
 **Done when:** every key in §7 is bound to a typed configuration property with the stated default;
 every secret in `secrets-and-configuration.md` has a local-dev provisioning path and a Kubernetes
@@ -486,11 +486,10 @@ at write time is bypassed by every later rename path.
 **Read first:**
 - `docs/requirements/user-accounts.md` FR-GUEST-001…010
 - `docs/specs/platform/data-model-accounts.md` §1 (the `kind` discriminator)
-- `docs/requirements/platform-operations.md` FR-GUEST-003, FR-GUEST-005, FR-RET-002
+- `docs/requirements/platform-operations.md` FR-RET-002 (the guest purge window)
 - `docs/specs/deployment/local-environment.md` §7.3
 
-**Satisfies:** `user-accounts.md` FR-GUEST-001…010; `platform-operations.md` FR-GUEST-003,
-FR-GUEST-005, FR-RET-002
+**Satisfies:** `user-accounts.md` FR-GUEST-001…010; `platform-operations.md` FR-RET-002
 
 **Done when:** a guest principal can be minted without registration; guest serials are unique
 (FR-GUEST-002); guests have no auth method, no friends, no statistics and no uploads (FR-GUEST-004,
@@ -511,8 +510,7 @@ literal 24-hour delete fails permanently on `room_participant`'s FK, and the cas
 - `docs/specs/api-design/websocket.md` § *Authentication*; `docs/specs/api-design/sse-notifications.md`
   § *Endpoint*
 
-**Satisfies:** `user-accounts.md` FR-SESS-001…004, FR-SESS-010…011; `platform-operations.md`
-FR-SESS-001, FR-SESS-010
+**Satisfies:** `user-accounts.md` FR-SESS-001…004, FR-SESS-010…011
 
 **Done when:** at most one active session per account holds as a **database** invariant, not as a
 service-layer check (FR-SESS-002); a new login revokes the previous session and writes
@@ -566,8 +564,7 @@ FR-ACCT-009 placeholder rather than a 404; a guest profile returns the username 
   `data-model-notifications.md` §2 — the three documents that own the non-account objects §5 disposes of
 - `docs/specs/platform/room-lifecycle.md` §4, §5.1 duty 2 — how an owed room closure is discharged
 
-**Satisfies:** `user-accounts.md` FR-ACCT-004…010, FR-RET-005; `game-history.md` FR-ACCT-005,
-FR-ACCT-009; `platform-operations.md` FR-RET-001
+**Satisfies:** `user-accounts.md` FR-ACCT-004…010; `platform-operations.md` FR-RET-001, FR-RET-005
 
 **Done when:** erasure is non-reversible — **a random token, not an HMAC**; `HMAC(user_id, pepper)`
 is reversible by enumeration over a small id space given the key, which ADR-0004 forbids. Every
@@ -594,7 +591,7 @@ may not own, which is precisely the write ADR-0008's epoch fence exists to rejec
 - `docs/requirements/notifications-invitations.md` FR-FREQ-001…006
 - `docs/requirements/user-accounts.md` FR-GUEST-007
 
-**Satisfies:** `social-friends.md` FR-SOC-001…021, FR-FREQ-003…005; `notifications-invitations.md`
+**Satisfies:** `social-friends.md` FR-SOC-001…021; `notifications-invitations.md`
 FR-FREQ-001…006; `user-accounts.md` FR-GUEST-007
 
 **Done when:** guest exclusion is enforced by the foreign key — `friendship` references
@@ -752,7 +749,7 @@ gap. Chat is excluded from the counter entirely (`version: null`, IMP-M2-11).
 - `docs/specs/flows/02-room-to-game-start.md`
 
 **Satisfies:** `game-rooms.md` FR-JOIN-001…011, FR-TEAM-001…012, FR-READY-001…004, FR-LIFE-005…006,
-NFR-SPEC-001; `platform-views.md` VW-RLOBBY-001…017
+NFR-SPEC-001; `platform-views.md` VW-RLOBBY-001…007, VW-RLOBBY-009…017
 
 **Done when:** auto-assignment follows FR-TEAM-005, and FR-TEAM-012's team instantiation happens
 **before** the host is seated on room creation — a host assigned first has nowhere to go;
@@ -773,13 +770,13 @@ branch, and do not build an AI seat to make it reachable.
 
 **Read first:**
 - `docs/requirements/game-rooms.md` FR-HOST-001…003, FR-HOST-006…009, FR-XFER-001…005
-- `docs/requirements/reconnection-flow.md` FR-HDISC-001…004, FR-XFER-001…003
+- `docs/requirements/reconnection-flow.md` FR-HDISC-001…004
 - `docs/specs/platform/room-lifecycle.md` §3 (grace deadlines), §5 (the sweeps)
 - `docs/specs/platform/data-model.md` §1 — `migration_window_expires_at`
 - `docs/specs/api-design/room-websocket.md` — the host command set
 
 **Satisfies:** `game-rooms.md` FR-HOST-001…003, FR-HOST-006…009, FR-XFER-001…005; `reconnection-flow.md`
-FR-HDISC-001…004, FR-XFER-001…003; `platform-operations.md` FR-HDISC-003…004, FR-XFER-005
+FR-HDISC-001…004
 
 **Done when:** `migration_window_expires_at` is persisted and a sweep duty closes it. Without it a
 host who does not return leaves the room permanently headless — adoption never routes through the
@@ -803,8 +800,7 @@ individual-disconnect path that would otherwise end the window. FR-HOST-003 (add
 - `docs/specs/flows/04-disconnect-and-return.md`
 
 **Satisfies:** `reconnection-flow.md` FR-DC-001…007, FR-GRACE-001…006, FR-EXPIRY-001…006,
-FR-KICK-001…004, NFR-CONF-001…003, NFR-PERF-001…003; `platform-operations.md` FR-EXPIRY-001,
-FR-EXPIRY-005, FR-HDISC-003…004
+FR-KICK-001…004, FR-HDISC-001…004, NFR-CONF-001…003, NFR-PERF-001…003
 
 **Done when:** deadlines are **persisted absolute timestamps, swept** — with no in-process timer. Two
 mechanisms enforcing one deadline is a dual write and a three-way race on every reconnect. The
@@ -854,7 +850,7 @@ expiry is an ordinary join and is subject to every capacity rule.
 - `docs/requirements/notifications-invitations.md` FR-INV-008
 
 **Satisfies:** `game-rooms.md` FR-LIFE-007, FR-XFER-002…003, FR-XFER-005;
-`notifications-invitations.md` FR-INV-008; `platform-operations.md` FR-LIFE-007
+`notifications-invitations.md` FR-INV-008
 
 **Done when:** `detachSession` step 3 is a single fenced, version-bumping `UPDATE`:
 
@@ -892,8 +888,7 @@ uses (IMP-M1-08).
 - `docs/specs/deployment/local-environment.md` §7.2
 - `docs/specs/flows/05-owner-loss-and-adoption.md`
 
-**Satisfies:** `platform-operations.md` FR-JOB-001…013, NFR-JOB-001…002; `reconnection-flow.md`
-FR-JOB-006…007
+**Satisfies:** `platform-operations.md` FR-JOB-001…013, NFR-JOB-001…002
 
 **Done when:** the three reconciliation duties run per `platform-operations.md` FR-JOB-*; an
 In-Progress room with no session **fails back to Lobby, not closed**; the adopt duty is exempt from
@@ -917,8 +912,8 @@ inline path stamps `lost_announced_at` itself (IR-09).
 - `docs/specs/api-design/input-validation.md` § *Output encoding*, § *Size limits*
 - `docs/specs/api-design/rate-limiting.md` Tier 6
 
-**Satisfies:** `in-room-chat.md` FR-MSG-001…006, FR-CHAN-001…004, FR-TEAM-001…004, FR-TEAM-011,
-FR-SWITCH-001…002, NFR-SEC-001…003, NFR-PERF-001
+**Satisfies:** `in-room-chat.md` FR-MSG-001…006, FR-CHAN-001…004, FR-TEAM-001…004,
+FR-SWITCH-001…002, NFR-SEC-001…003, NFR-PERF-001; `game-rooms.md` FR-TEAM-011
 
 **Done when:** chat frames carry `version: null` and **never advance the room version counter**
 (IR-08); the channel a message lands on is derived from the sender's current team **server-side**,
@@ -936,14 +931,13 @@ that filters chat sees a permanent gap in the room stream and resyncs forever.
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-01, IMP-M1-09
 
 **Read first:**
-- `docs/requirements/notifications-invitations.md` FR-INV-001…009, FR-LINK-001…002, FR-JOIN-003,
-  FR-JOIN-006…008
+- `docs/requirements/notifications-invitations.md` FR-INV-001…009, FR-LINK-001…002
 - `docs/specs/platform/data-model-notifications.md` §2 (`room_invitation`)
 - `docs/specs/api-design/room-rest-api.md` §3 — invite-code resolution
 - `docs/requirements/game-rooms.md` FR-HOST-001…002, FR-JOIN-003…004, NFR-SEC-002
 
-**Satisfies:** `notifications-invitations.md` FR-INV-001…009, FR-LINK-001…002, FR-JOIN-003,
-FR-JOIN-006…008; `game-rooms.md` FR-HOST-001…002, FR-JOIN-003…004, NFR-SEC-002
+**Satisfies:** `notifications-invitations.md` FR-INV-001…009, FR-LINK-001…002; `game-rooms.md`
+FR-HOST-001…002, FR-JOIN-003…004, FR-JOIN-006…008, NFR-SEC-002
 
 **Done when:** the invite identifier is cryptographically random and non-sequential (NFR-SEC-002);
 resolution goes through `GET /api/rooms?inviteCode=…` and returns an empty list rather than a `404`
@@ -1132,8 +1126,8 @@ test `room.active_session_id = :sessionId`, a durable fact, rather than the pres
 - `docs/requirements/platform-architecture.md` FR-FAIL-001…007
 - `docs/requirements/game-contracts.md` FR-FA-001…003, NFR-REL-001…002
 
-**Satisfies:** `platform-architecture.md` FR-FAIL-001…007; `platform-operations.md` FR-FAIL-003,
-FR-FAIL-005…006; `game-contracts.md` FR-FA-001…003, NFR-REL-001…002
+**Satisfies:** `platform-architecture.md` FR-FAIL-001…007; `game-contracts.md` FR-FA-001…003,
+NFR-REL-001…002
 
 **Done when:** the acting player is told why. `platform-architecture.md` FR-FAIL-001 and FR-FAIL-003
 must be coherent about first-failure versus three-failure termination, and the failed input has a
@@ -1323,7 +1317,7 @@ uploads bypass the queue entirely (FR-OFF-002); every admin action writes an aud
 - `docs/specs/flows/06-game-end-and-rematch.md`
 
 **Satisfies:** `game-history.md` FR-HIST-001…006, FR-HIST-010…013, FR-HIST-020…030,
-NFR-HIST-001…003, FR-OUTCOME-001, FR-OUTCOME-004
+NFR-HIST-001…003; `game-contracts.md` FR-OUTCOME-001, FR-OUTCOME-004
 
 **Done when:** a malformed outcome from game code cannot abort the whole recording transaction with
 no retry path (`ghe_placement_ck`).
@@ -1390,8 +1384,7 @@ alert is for.
 - `docs/specs/deployment/local-environment.md` §7.2 (job scheduling), §7.3 (retention windows)
 
 **Satisfies:** `platform-operations.md` FR-RET-001…006, FR-JOB-001…013, NFR-JOB-001…002;
-`game-history.md` FR-RET-003, FR-RET-006; `notifications-invitations.md` FR-RET-006;
-`user-accounts.md` FR-RET-005
+`game-history.md` NFR-HIST-003
 
 **Done when:** every retention window comes from the §7.3 configuration keys and none is hard-coded;
 the FR-JOB-013 expiry purge exists, is named, and is the **only** mechanism that ever removes an
@@ -1424,7 +1417,7 @@ document is retained as a record of a deferred feature and implements nothing.
 - `docs/requirements/platform-ui-library.md` **in full**
 
 **Satisfies:** `platform-ui-library.md` FR-TOK-001…008, FR-COMP-001…014, FR-LYT-001…003,
-FR-THM-001…002, NFR-DX-001…004, NFR-PERF-001…002, NFR-VER-001, NFR-USAB-002
+FR-THM-001…002, NFR-DX-001…004, NFR-PERF-001…002, NFR-VER-001
 
 **Done when:**
 
@@ -1507,11 +1500,11 @@ vulnerability.
 - `docs/specs/platform-frontend/shell-architecture.md` §4 (the WebSocket client)
 - `docs/specs/api-design/room-websocket.md` **in full**, and `room-chat-websocket.md`
 - `docs/specs/api-design/room-rest-api.md` — the affinity hint and the `503` contract
-- `docs/requirements/platform-views.md` VW-ROOMS-001…005, VW-JOIN-001…003, VW-RLOBBY-001…017,
+- `docs/requirements/platform-views.md` VW-ROOMS-001…005, VW-JOIN-001…003, VW-RLOBBY-001…007, VW-RLOBBY-009…017,
   VW-RGAME-001…008, VW-RRESULT-001…005
 - `docs/requirements/reconnection-flow.md` FR-REJOIN-001…008
 
-**Satisfies:** `platform-views.md` VW-ROOMS-001…005, VW-JOIN-001…003, VW-RLOBBY-001…017,
+**Satisfies:** `platform-views.md` VW-ROOMS-001…005, VW-JOIN-001…003, VW-RLOBBY-001…007, VW-RLOBBY-009…017,
 VW-RGAME-001…008, VW-RRESULT-001…005; `game-rooms.md` NFR-PERF-001…002; `in-room-chat.md`
 FR-CHAN-001…004, FR-SWITCH-001…002
 
@@ -1645,10 +1638,15 @@ from either document, which is why it is written down here.
 
 ### Open, and not gating anything
 
-Two findings were raised during the remediation itself. Neither blocks an item; both are
-documentation defects and both have a named home above.
+Two findings were raised during the remediation itself. IR-25 is now closed; **IR-24 is the only
+open finding in the corpus**, and it blocks no item.
 
 | ID | What | Where it bites |
 |---|---|---|
 | IR-24 | `game-rooms.md` NFR-SPEC-001 requires spectator capacity to be configurable, and no property name is assigned in `local-environment.md` §7 | IMP-M0-09 and IMP-M2-01. Escalate rather than inventing a key |
-| IR-25 | `docs/requirements/` has no `INDEX.md`, which `CLAUDE.md` makes mandatory for everything under `docs/` | Navigation only. Every read-list above names requirement documents by path, so no item is blocked by it |
+| ~~IR-25~~ | ~~`docs/requirements/` has no `INDEX.md`~~ | **Closed.** [`../requirements/INDEX.md`](../requirements/INDEX.md) now lists all seventeen documents and the requirement prefixes each one *defines* — use it to resolve a qualifier before citing one |
+
+**On the *Satisfies* qualifiers above.** Each names the document that **defines** the requirement, not
+one that merely cites it. The two are easy to confuse: `game-history.md` discusses `FR-RET-003` at
+length, but `platform-operations.md` defines it. Nineteen citations in this corpus had it the wrong
+way round and were corrected; `../requirements/INDEX.md` is the lookup that prevents the next one.

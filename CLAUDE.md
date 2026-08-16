@@ -61,7 +61,7 @@ turnbase/                    # This repo (landing + docs)
 ├── CLAUDE.md
 ├── STATUS.md
 ├── docs/
-│   ├── requirements/        # What the system must do (per-feature requirement documents)
+│   ├── requirements/        # What the system must do (INDEX.md + per-feature requirement documents)
 │   └── specs/               # How it is designed (implementation-level design specs)
 │       ├── INDEX.md         # Entry point — lists all spec subdirectories
 │       ├── api-design/      # REST, WebSocket, SSE, error handling, uploads, rate limiting
@@ -89,7 +89,7 @@ turnbase-frontend — no Maven dependency (postMessage with game FEs only)
 
 **Docs structure — INDEX-based navigation (mandatory):**
 
-- `docs/requirements/` and `docs/specs/` are index-oriented. Every subdirectory under `docs/specs/` has an `INDEX.md` as its entry point.
+- `docs/requirements/` and `docs/specs/` are index-oriented. `docs/requirements/INDEX.md` lists all seventeen requirement documents and the requirement-ID prefixes each one **defines**; every subdirectory under `docs/specs/` has an `INDEX.md` as its entry point.
 - **Reading:** always start from the relevant `INDEX.md` when looking for information in `docs/`. Do not scan files directly — follow the index to the right file.
 - **Writing:** when adding a new file or subdirectory anywhere under `docs/`, register it in the nearest `INDEX.md` (one-line entry with description) before considering the work done. When updating an existing file, check whether its `INDEX.md` entry needs to be updated too.
 - Requirements documents link to related spec files via "Related API Specifications" sections; keep those links up to date when specs change.

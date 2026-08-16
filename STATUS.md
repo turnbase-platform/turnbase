@@ -2,9 +2,35 @@
 
 **Date:** 2026-08-16 (session 11)
 
-Two pieces of work. **Closed all 23 implementation-readiness blockers**, then **completed the
-implementation registry**, which turned out to be the weaker of the two artifacts once the blockers
-were gone. Documents only — no code exists yet.
+Three pieces of work. **Closed all 23 implementation-readiness blockers**, **completed the
+implementation registry** (the weaker artifact once the blockers were gone), then **wrote
+`docs/requirements/INDEX.md` and ran a corpus-wide sanity check**. Documents only — no code exists
+yet. **IR-24 is now the single open finding in the corpus, and it blocks nothing.**
+
+### Part 3 — the requirements index, and what writing it found
+
+[`docs/requirements/INDEX.md`](docs/requirements/INDEX.md) closes IR-25. Seventeen documents, each
+with a one-line scope and **the requirement-ID prefixes it defines** — that second column is the part
+worth having, because it turns "which document owns `FR-XFER`?" into a lookup.
+
+Writing it corrected the corpus's own account of the collision problem. `specs/INDEX.md` says fifty
+identifiers are defined in more than one document; that count matches IDs *anywhere* in a file, so it
+counts citations as definitions. Counting definitions only, **twelve prefixes genuinely collide** —
+all twelve are listed, with `FR-SESS` flagged as the one that actually bites.
+
+Checking citations strictly against *definitions* then found **19 mis-qualified citations**: 18 in
+`implementation/registry.md` — `FR-RET-003` qualified with `game-history.md`, for instance, which
+discusses the requirement at length though `platform-operations.md` defines it — and one in
+`manifest/bundle-format.md`. All corrected. The same pass caught `VW-RLOBBY-001…017`, a range that
+silently swallows `VW-RLOBBY-008`, struck through as *(removed)* in `platform-views.md`.
+
+This is exactly the hazard `specs/INDEX.md` names — *"a wrong qualifier is worse than a bare ID"* —
+and it had gone undetected because every check written before now used the loose definition.
+
+**Sanity check, whole corpus, all five clean:** 614 relative links resolve; 0 mis-qualified or
+nonexistent requirement citations; 0 dangling `§` references; every document registered in an
+`INDEX.md`; all 59 live work items carry all five fields. Checks 2 and 3 are the ones worth
+reconstructing after any documentation change — they are the two that found real defects.
 
 ### Part 2 — the registry is now complete and current
 
@@ -69,23 +95,21 @@ closure ride the deferred tail. The second half, narrowing duty 2 on `leave_reas
 against a writer that forgets. Doing only the narrowing would have left the column meaning something
 other than its name, which is how the defect arose.
 
-### Two new findings, both open, neither blocking
+### Two new findings — IR-25 closed in Part 3, IR-24 still open and non-blocking
 
 - **IR-24** — NFR-SPEC-001's spectator capacity has no configuration key, though `local-environment.md`
   §7 claims to hold every tunable in the corpus. `room-rest-api.md` deliberately refers to
   `spectatorCapacity` rather than inventing a property name.
-- **IR-25** — `docs/requirements/` has no `INDEX.md`, so CLAUDE.md's mandatory "start from the
-  INDEX" rule is unsatisfiable across seventeen documents. Surfaced when the onboarding cut called for
-  annotating an index entry that does not exist.
+- ~~**IR-25**~~ — `docs/requirements/` had no `INDEX.md`. **Closed in Part 3.**
 
-Both are in the review INDEX under *Found during remediation*.
+Both are in the review INDEX under *Found during remediation*. IR-24 is the only one still open.
 
 ### Corpus state
 
-**586 relative links, 0 broken** (the 19 flagged inside `remediation-plan.md` are snippets whose
+**614 relative links, 0 broken** (the 19 flagged inside `remediation-plan.md` are snippets whose
 paths are relative to their target documents, not to the plan). A 23-assertion grep gauntlet over
 every fix passes; it is in the plan's Task 26 and is worth re-running after any edit to the affected
-documents.
+documents. The five-part sanity check of Part 3 is the broader net and passes clean.
 
 Ten non-blocking findings from the review survive this round and are recorded in the plan's
 self-review. **The two most likely to cost time** are `test-harness.md`'s claim that the Game Host
@@ -275,8 +299,11 @@ Three things worth knowing before the milestone that needs them:
   a defect. A **wrong** qualifier is worse than a bare ID.
 - **Done this session:** the `FR-JOB-007a…e` sub-duty convention is declared in `docs/specs/INDEX.md`,
   and `data-model-accounts.md:392`'s wrong FR-INV-002 citation is corrected.
-- **New and open:** `docs/requirements/` has no `INDEX.md` (IR-25), and NFR-SPEC-001's spectator
-  capacity has no configuration key (IR-24).
+- **`docs/requirements/INDEX.md` now exists** (IR-25 closed) and carries the twelve genuinely
+  colliding prefixes. Use it to resolve a qualifier before writing one — the qualifier names the
+  document that **defines** the requirement, never one that merely cites it.
+- **Still open:** NFR-SPEC-001's spectator capacity has no configuration key (IR-24). One row in
+  `local-environment.md` §7.4 closes it, and it wants a decision on the property name.
 - The 62 non-blocking findings are in the per-slice files under
   `docs/reviews/2026-08-16-implementation-readiness/`, with the ten most likely to cost an implementer
   time called out in that directory's INDEX.
