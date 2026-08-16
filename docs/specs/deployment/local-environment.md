@@ -13,9 +13,9 @@ only by reading prose in a spec that owns something else.
 
 ## 1. What runs
 
-Nine containers. Four are the system, five are the observability stack that
-`platform-operations.md` OQ-003 puts inside the local environment because operating it is a stated
-learning goal.
+Nine long-running containers plus a one-shot MinIO init job. Four are the system, five are the
+observability stack that `platform-operations.md` OQ-003 puts inside the local environment because
+operating it is a stated learning goal.
 
 | Component | Image | In-cluster ports | Depends on |
 |---|---|---|---|
@@ -24,6 +24,7 @@ learning goal.
 | **PostgreSQL 16** | `postgres:16-alpine` | `5432` | — |
 | **Redis 7** | `redis:7-alpine` | `6379` | — |
 | **MinIO** | `minio/minio` | `9000` S3 API, `9001` console | — |
+| MinIO init (`minio-init`) | `minio/mc` | — | MinIO. Runs to completion, then exits |
 | Prometheus | `prom/prometheus` | `9090` | — |
 | Grafana | `grafana/grafana` | `3000` | Prometheus, Loki, Tempo |
 | Loki | `grafana/loki` | `3100` | — |
@@ -274,6 +275,38 @@ Then `http://turnbase.localhost:8080`. Grafana on `http://localhost:3000`.
 The inner loop for backend work is neither of those: run the dependencies in compose and the monolith
 from the IDE against them, which is what the `local` Spring profile's defaults in §7 point at.
 
+### The bundle bucket is created by an init step, not by the application
+
+`turnbase.artifact-store.bucket` (§7.9) must exist before the monolith issues its first pre-signed
+URL. It is created by a one-shot `minio/mc` init container that runs to completion before the
+monolith starts:
+
+```yaml
+minio-init:
+  image: minio/mc
+  depends_on: { minio: { condition: service_healthy } }
+  entrypoint: >
+    /bin/sh -c "
+    mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
+    mc mb --ignore-existing local/$$TURNBASE_ARTIFACT_STORE_BUCKET &&
+    mc anonymous set none local/$$TURNBASE_ARTIFACT_STORE_BUCKET"
+```
+
+Under Kubernetes the same three commands run as a `Job` with the chart's `minio` credentials.
+
+`--ignore-existing` makes the step idempotent, which matters because it runs on every
+`docker compose up` and a second run must not fail the stack. `mc anonymous set none` is explicit
+rather than relying on the default: a bundle bucket that is publicly listable exposes every
+unpublished game version, and the published-assets route
+([`../game-frontend/game-asset-serving.md`](../game-frontend/game-asset-serving.md) §4) serves through
+the monolith precisely so the bucket never needs to be public.
+
+**The application asserts, it does not create.** On startup the monolith checks the bucket exists and
+fails with a message naming `TURNBASE_ARTIFACT_STORE_BUCKET` if it does not — the same posture
+FR-CRED-005 takes on `CREATE EXTENSION` (§4 of
+[`secrets-and-configuration.md`](secrets-and-configuration.md)), and for the same reason: a service
+that provisions its own infrastructure needs privileges it should not hold at runtime.
+
 ---
 
 ## 6. Seed data
@@ -442,6 +475,7 @@ set inconsistently.
 | `spring.datasource.hikari.maximum-pool-size` | `20` | `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE` |
 | `spring.data.redis.url` | `redis://redis:6379` | `SPRING_DATA_REDIS_URL` |
 | `turnbase.artifact-store.endpoint` | `http://minio:9000` | `TURNBASE_ARTIFACT_STORE_ENDPOINT` |
+| `turnbase.artifact-store.bucket` | `turnbase-bundles` | `TURNBASE_ARTIFACT_STORE_BUCKET` |
 | `management.server.port` | `8081` | `MANAGEMENT_SERVER_PORT` |
 | `management.server.address` | `127.0.0.1` (compose) / **unset** (Kubernetes) | `MANAGEMENT_SERVER_ADDRESS` |
 | `logging.level.root` | `INFO` | `LOGGING_LEVEL_ROOT` |

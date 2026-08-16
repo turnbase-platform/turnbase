@@ -208,6 +208,11 @@ monolith needs write access to issue pre-signed upload URLs
 ([`../api-design/file-uploads.md`](../api-design/file-uploads.md)). A single credential does both
 locally; the production escalation is two IAM roles, one read-only.
 
+The bucket itself is **not** a secret and is therefore in
+[`local-environment.md`](local-environment.md) §7.9, not here. It is created by the init step in §5 of
+that document, using the same root credentials; the application's own credential needs only object
+read/write on it.
+
 **A pre-signed URL is itself a bearer credential** with the lifetime of
 `turnbase.uploads.slot-ttl`. It appears in a `201` response body and therefore in any client that
 logs responses, which is one of the specific reasons for §6's rule about response logging.
