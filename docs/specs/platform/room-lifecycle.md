@@ -514,8 +514,14 @@ detachSession(roomId, sessionId, reason, nextState):
   TX — Postgres only. No gRPC, no Redis, no remote call of any kind.
     1. SELECT ... FROM room WHERE room_id = :roomId FOR UPDATE
     2. if room.active_session_id <> :sessionId: COMMIT; return    -- already detached, idempotent
-    3. room.state = nextState; room.active_session_id = NULL
-       if CLOSED: closed_at = now(), closed_reason = :reason
+    3. UPDATE room
+          SET state = :nextState, active_session_id = NULL,
+              version = :expected + 1,
+              closed_at = CASE WHEN :nextState = 'CLOSED' THEN now() END,
+              closed_reason = CASE WHEN :nextState = 'CLOSED' THEN :reason END
+        WHERE room_id = :roomId AND version = :expected AND owner_epoch = :myEpoch;
+       -- zero rows ⇒ a later tenure owns this room: abort the transaction,
+       --   publish nothing, self-evict (§1.5 layer 4). Do NOT retry in place.
        release slots / clear reservations / reset readiness per the path
     4. INSERT INTO session_teardown (session_id, room_id, reason)
          VALUES (...) ON CONFLICT (session_id) DO NOTHING
@@ -538,6 +544,25 @@ terminateAndCleanup(sessionId, reason):
      (The inline attempt is the common failure — a Game Host restart — so leaving the
      bookkeeping to §5.2 would hide the first and most frequent one.)
 ```
+
+**Step 3 is a fenced, version-bumping mutation like every other write to the `room` row**, and it was
+once neither. §1.5's rule is "every mutation of the `room` row", with exactly one carve-out —
+resolving a reservation, which touches `room_participant` only. Closure is not that carve-out: it
+writes `state`, `active_session_id`, `closed_at` and `closed_reason`.
+
+Both halves matter and they fail differently. Without the **epoch fence**, a stale owner can close a
+room under the legitimate owner — the precise scenario ADR-0008 introduced the epoch for, and worse
+here than elsewhere because closure is irreversible. Without the **version bump**, clients receive a
+`ROOM_CLOSED` at a version they have already applied and discard it silently
+([`../api-design/room-websocket.md`](../api-design/room-websocket.md) Client Reconciliation drops
+`delta.version <= localVersion`), so the room vanishes server-side while every attached client still
+renders it as live.
+
+Step 0's claim is what supplies `:myEpoch`, and the `FOR UPDATE` of step 1 is what supplies
+`:expected` — closure is the one mutation that may read the version inside the transaction, because
+its caller may be an instance that has just adopted the room and has no in-memory counter yet. That is
+safe here and nowhere else: the epoch, not the version, is doing the fencing, and the row lock is
+already held.
 
 **The gRPC call is never inside the transaction.** The room row is taken `FOR UPDATE` by every join,
 leave, reconnect and readiness path; holding it across a call to a service that can hang turns one
