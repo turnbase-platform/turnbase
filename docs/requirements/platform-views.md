@@ -65,6 +65,9 @@ The navigation bar is present on every view.
 | VW-LAND-003 | Register button | Visible | Hidden | Hidden |
 | VW-LAND-004 | Play as Guest button | Visible | Hidden | Hidden |
 
+No onboarding CTA is present. `onboarding-wizard.md` FR-ONB-004 requires one; that document is
+**Post-MVP** (IR-23) and the row is deliberately absent rather than missing.
+
 ---
 
 ### Login Page (`/login`)
