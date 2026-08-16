@@ -276,7 +276,7 @@ frame-src http://*.games.localhost:8080;
 ```
 
 This blocks the frame from navigating itself anywhere else at all, closing the exfiltration channel a
-second time, in a second layer. (The rest of the shell's CSP belongs to the frontend shell spec.)
+second time, in a second layer. (The rest of the shell's CSP is [`../platform-frontend/shell-architecture.md`](../platform-frontend/shell-architecture.md) §6.)
 
 ### 6.4 CSP on game responses
 

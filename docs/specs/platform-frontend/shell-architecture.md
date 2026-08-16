@@ -205,7 +205,55 @@ blank frame.
 
 ---
 
-## 6. Notifications and alerts
+## 6. Content-Security-Policy
+
+The shell document is served from the platform origin, which holds the session cookie. This is the
+policy [`../game-frontend/game-asset-serving.md`](../game-frontend/game-asset-serving.md) §6.3
+delegates here; that document owns `frame-src` and this one owns everything else.
+
+```
+default-src 'self';
+script-src 'self';
+style-src 'self';
+img-src 'self' data: https:;
+font-src 'self';
+connect-src 'self';
+frame-src {gameFrontendOrigin};
+frame-ancestors 'none';
+form-action 'self';
+base-uri 'none';
+object-src 'none';
+```
+
+Sent as a response header on the shell document, not as a `<meta>` tag: a header applies to the
+response that carries it and cannot be displaced by injected markup earlier in the document.
+
+| Directive | Why this value |
+|---|---|
+| `script-src 'self'` | No `'unsafe-inline'` and no `'unsafe-eval'`. Vite emits external modules in production, so neither is needed — and if a future dependency demands one, that is a dependency decision, not a CSP relaxation |
+| `img-src ... https:` | Info-document images (`game-catalog.md` FR-GDET-004, [`../api-design/input-validation.md`](../api-design/input-validation.md)) come from arbitrary hosts. `data:` covers inline icons. This is the one deliberately wide directive, and it is wide for content that renders as an `<img>` and nothing else |
+| `connect-src 'self'` | REST, STOMP and SSE are all same-origin. **The games origin is never added** — the shell talks to game frontends through `postMessage`, never over the network |
+| `frame-src {gameFrontendOrigin}` | Owned by `game-asset-serving.md` §6.3. Pinned to the games origin, which blocks the frame from navigating itself off-origin and closes the exfiltration channel a second time |
+| `frame-ancestors 'none'` | The platform is never embedded. This replaces `X-Frame-Options`, which is not sent |
+| `base-uri 'none'` | An injected `<base>` retargets every relative URL in the document — including the script tags — which turns a single injection into full script control |
+| `object-src 'none'` | Nothing on the platform uses a plugin element |
+
+**No `nonce` and no hash allow-list**, because there is no inline script to permit. Adding a nonce
+mechanism before there is anything to nonce creates the exact affordance — "put the nonce on it" —
+that inline script bans exist to remove.
+
+**The games origin has its own, stricter policy** (`../game-frontend/game-asset-serving.md` §6.4).
+The two are separate documents for separate origins and must not be merged; the whole point of
+ADR-0007 is that they are different security contexts.
+
+**`report-uri` is deliberately absent for the MVP.** There is no collection endpoint and a
+report-only header nobody reads is worse than none — it reads as monitored. When observability lands
+([`../deployment/observability.md`](../deployment/observability.md)), a `report-to` group is the
+natural addition.
+
+---
+
+## 7. Notifications and alerts
 
 Two classes, two behaviours — `notifications-invitations.md` FR-ALERT-010 and
 [`../api-design/sse-notifications.md`](../api-design/sse-notifications.md):
@@ -228,7 +276,7 @@ the WebSocket are both about to be closed by the server (`FR-SESS-010`).
 
 ---
 
-## 7. Two views worth specifying
+## 8. Two views worth specifying
 
 **The room view is one component across three states.** `platform-views.md` presents Lobby, In
 Progress and Post-Game Results as three sections, but the third is not a server state at all — the
@@ -246,7 +294,7 @@ client is no longer attached to.
 
 ---
 
-## 8. Testing
+## 9. Testing
 
 | Layer | Tool | Scope |
 |---|---|---|
@@ -263,7 +311,7 @@ coverage on HTTP and WebSocket clients rather than a browser.
 
 ---
 
-## 9. What is deliberately absent
+## 10. What is deliberately absent
 
 - **No SSR, no Next.js.** Every meaningful view requires a session; the two that do not (catalog,
   profile) are not worth a second runtime.
@@ -276,17 +324,17 @@ coverage on HTTP and WebSocket clients rather than a browser.
 
 ---
 
-## 10. Requirements traceability
+## 11. Requirements traceability
 
 | Requirement | Realized by |
 |---|---|
-| `platform-views.md` VW-* | §3 routing and the auth gate; §7 |
+| `platform-views.md` VW-* | §3 routing and the auth gate; §8 |
 | VW-REDIR-005/006, NFR-SEC-001 | §3 redirect validation |
 | NFR-USAB-001 | §3 — removal, not disabling |
 | `websocket.md` relay contract | §4, §5 |
 | `game-asset-serving.md` §6 embedding | §5 iframe attributes |
 | `frontend-gdk-api.md` §8/§9 | §5 origin checks and the bootstrap obligation |
-| FR-ALERT-001…006, FR-NOTIF-001/002 | §6 |
-| FR-LIFE-003, VW-RRESULT-* | §7 room view |
-| FR-REJOIN-002, VW-ROOMS-005 | §7 reconnection card |
+| FR-ALERT-001…006, FR-NOTIF-001/002 | §7 |
+| FR-LIFE-003, VW-RRESULT-* | §8 room view |
+| FR-REJOIN-002, VW-ROOMS-005 | §8 reconnection card |
 | `platform-ui-library.md` | §2 — consumed, never re-implemented |

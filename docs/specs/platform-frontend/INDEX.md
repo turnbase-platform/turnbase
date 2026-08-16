@@ -22,7 +22,7 @@ separately published component library.
 
 | File | Topic |
 |------|-------|
-| [shell-architecture.md](shell-architecture.md) | Structure and stack, routing and auth tiers, the WebSocket client, the game-iframe trust boundary, notifications and alerts, room and results views, testing |
+| [shell-architecture.md](shell-architecture.md) | Structure and stack, routing and auth tiers, the WebSocket client, the game-iframe trust boundary, the platform origin's Content-Security-Policy, notifications and alerts, room and results views, testing |
 
 ## Key Decisions
 
