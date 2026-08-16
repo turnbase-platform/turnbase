@@ -291,14 +291,22 @@ Note: Chat behavior, channel rules, and message format are fully specified in `i
 
 Profile content depends on the account type and privacy settings of the viewed user (see user-accounts.md).
 
+**The owner is exempt from their own privacy settings.** Every visibility condition in the table below
+is evaluated against the *viewer*, and when the viewer is the profile's owner it resolves to visible
+regardless of the setting. A private profile is private to other people; it is not a way to hide your
+own statistics from yourself, and VW-PROF-008's Edit Profile link would otherwise appear beside a
+"Profile is private" message on the owner's own page. This restates `user-accounts.md` FR-PROF-007
+and `social-friends.md` FR-SOC-018 at the point of use, because the tables read as complete without
+it.
+
 | ID | Element / Action | Condition | Unauth | Guest | Registered |
 |----|-----------------|-----------|--------|-------|------------|
 | VW-PROF-001 | Username | Always | Visible | Visible | Visible |
-| VW-PROF-002 | Profile section — statistics | Public profile; statistics section not hidden | Visible | Visible | Visible |
-| VW-PROF-002a | Profile section — game history tab | Public profile; game history section not hidden | Visible | Visible | Visible |
-| VW-PROF-002b | Profile section — friends list | Public profile; friends section not hidden | Visible | Visible | Visible |
-| VW-PROF-002c | Profile section — uploaded games | Public profile; uploaded games section not hidden | Visible | Visible | Visible |
-| VW-PROF-003 | "Profile is private" message | Private registered profile | Visible | Visible | Visible |
+| VW-PROF-002 | Profile section — statistics | Viewer is the owner, or (public profile and statistics section not hidden) | Visible | Visible | Visible |
+| VW-PROF-002a | Profile section — game history tab | Viewer is the owner, or (public profile and game history section not hidden) | Visible | Visible | Visible |
+| VW-PROF-002b | Profile section — friends list | Viewer is the owner, or (public profile and friends section not hidden) | Visible | Visible | Visible |
+| VW-PROF-002c | Profile section — uploaded games | Viewer is the owner, or (public profile and uploaded games section not hidden) | Visible | Visible | Visible |
+| VW-PROF-003 | "Profile is private" message | Private registered profile, viewed by someone other than the owner | Visible | Visible | Visible |
 | VW-PROF-004 | Empty profile (username only) | Guest profile | Visible | Visible | Visible |
 | VW-PROF-005 | "Account no longer exists" message | Deleted account profile | Visible | Visible | Visible |
 | VW-PROF-006 | Add Friend button | Other registered user; not already friends | Hidden | Hidden | Enabled |
@@ -323,6 +331,11 @@ Profile content depends on the account type and privacy settings of the viewed u
 | VW-FREN-003 | Remove Friend action | Enabled |
 | VW-FREN-004 | Pending incoming friend requests list | Visible |
 | VW-FREN-005 | Accept / Decline friend request | Enabled |
+
+The owner exemption above applies here too: `social-friends.md` FR-SOC-018 hides a friends list from
+others, never from its owner. `/friends` is a self-scoped route — there is no viewer who is not the
+owner — so the exemption is trivially satisfied, and it is stated so that a future "view a friend's
+friends" feature does not inherit the wrong default.
 
 ---
 
