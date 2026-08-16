@@ -22,6 +22,7 @@ separately published component library.
 
 | File | Topic |
 |------|-------|
+| [design-system.md](design-system.md) | Tokens, CSS strategy, component inventory, composition rules, accessibility baseline and the import boundary for the platform component library |
 | [shell-architecture.md](shell-architecture.md) | Structure and stack, routing and auth tiers, the WebSocket client, the game-iframe trust boundary, the platform origin's Content-Security-Policy, notifications and alerts, room and results views, testing |
 
 ## Key Decisions

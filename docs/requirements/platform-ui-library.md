@@ -1,5 +1,10 @@
 # Platform UI Library Requirements
 
+## Related API Specifications
+
+- [design-system.md](../specs/platform-frontend/design-system.md) — tokens, CSS strategy, component inventory, composition rules, accessibility baseline and the import boundary (implements FR-TOK-*, FR-COMP-*, FR-LYT-*, FR-THM-*, NFR-DX-*, CON-001…005)
+- [shell-architecture.md](../specs/platform-frontend/shell-architecture.md) — the application that consumes the library: routing, auth tiers, page layout
+
 ## Stakeholders
 
 | Role | Description |
@@ -75,7 +80,7 @@
 | ID | Description |
 |----|-------------|
 | CON-001 | React 19 and TypeScript are the only supported runtime environments. The library is not required to work as plain CSS or web components. |
-| CON-002 | The library lives in a standalone repository, registered as a submodule of the TurnBase orchestrator repo, and is published as a scoped npm package. |
+| CON-002 | The component library is a self-contained module with a single public entry point and no dependency on application code. **For v1 it lives inside the `turnbase-frontend` repository** at `src/design-system/` rather than in its own submodule: it has exactly one consumer, and a separate repository would add an npm publish step and a version bump to every UI change for a boundary that lint already enforces. The module boundary — not the repository boundary — is the constraint, and it is enforced by an ESLint rule forbidding deep imports. Extracting it to its own package later is a `git filter-repo` and a `package.json`, because nothing in the design depends on co-location. See [`../specs/platform-frontend/design-system.md`](../specs/platform-frontend/design-system.md) §1. |
 | CON-003 | Peer dependencies: React 19, TypeScript. No runtime CSS-in-JS library that requires a Babel transform (avoids build-time coupling to consuming apps). |
 | CON-004 | Figtree is the only permitted typeface. It must be loaded by the library or its setup instructions; consuming apps must not bundle a second typeface. |
 | CON-005 | Dark theme only. No light-mode styles, no `prefers-color-scheme` media query support. |
