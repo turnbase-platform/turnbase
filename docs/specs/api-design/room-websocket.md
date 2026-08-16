@@ -118,6 +118,10 @@ The commit is a **fenced** conditional update, `WHERE room_id = :id AND version 
 
 All events below are delivered on `/topic/room.{roomId}` and carry the `version` field. Spectators receive all events on this topic. Chat events are on separate topics (see [room-chat-websocket.md](room-chat-websocket.md)) and are not received by spectators.
 
+Chat events carry `version: null` and do **not** advance the counter, because their topics reach a
+subset of this topic's subscribers and a partially-delivered sequence cannot be gap-detected — see
+[room-chat-websocket.md](room-chat-websocket.md).
+
 ---
 
 ### Membership and Lifecycle

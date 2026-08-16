@@ -26,9 +26,26 @@ These destinations complement the room lobby destinations defined in [room-webso
 
 ## Message Envelope and Versioning
 
-Chat events use the same `{ "type", "version", "payload" }` envelope as room lobby events (defined in [room-websocket.md](room-websocket.md)). The `version` counter is shared with the room lobby event stream — each `CHAT_MESSAGE` event increments the same per-room version sequence as lobby events.
+Chat events use the `{ "type", "version", "payload" }` envelope shape of the room lobby stream
+(defined in [room-websocket.md](room-websocket.md)), but **`version` is always `null` on a chat event
+and chat never advances the room version counter.**
 
-This means a client receiving chat events and lobby events on `/topic/room.{roomId}.*` can apply them in a single monotonic version sequence for gap detection (see Client Reconciliation in [room-websocket.md](room-websocket.md)).
+This is not an inconsistency to be tidied away. The room `version` is a gap-detection sequence: a
+client that receives version *n+2* having last seen *n* knows it missed something and requests a
+snapshot. That only works if every subscriber to the sequence receives every member of it. Chat does
+not satisfy that: `/topic/room.{roomId}.chat` excludes spectators and
+`/topic/room.{roomId}.team.{teamId}` reaches one team. If a chat message consumed a version, every
+spectator would observe a permanent gap on every message sent in the room, and every off-team player
+on every team message — each one triggering a `REQUEST_ROOM_STATE`, which is the most expensive
+command in the protocol. An ordinary conversation in a spectated room would be a self-inflicted
+resync storm.
+
+**Chat needs no sequence of its own.** It has no ordering requirement against lobby events, no gap
+semantics — FR-MSG-006 delivers once with no retry and no replay, so a missed message is *defined* as
+lost rather than as a gap to repair — and `messageId` already handles duplicates. A second counter
+would be state to maintain in service of a repair that must never happen.
+
+Clients must therefore ignore `version` on `CHAT_MESSAGE` and must not update `localVersion` from it.
 
 ---
 
@@ -39,7 +56,7 @@ Delivered on `/topic/room.{roomId}.chat` for room-channel messages, or on `/topi
 ```json
 {
   "type": "CHAT_MESSAGE",
-  "version": 62,
+  "version": null,
   "payload": {
     "messageId": "uuid",
     "channel": "ROOM | TEAM",
@@ -54,6 +71,7 @@ Delivered on `/topic/room.{roomId}.chat` for room-channel messages, or on `/topi
 
 | Field | Description |
 |---|---|
+| `version` | Always `null`. Chat does not participate in room version sequencing — see *Message Envelope and Versioning*. |
 | `messageId` | Server-generated UUID for deduplication. Clients should discard duplicates by `messageId`. |
 | `channel` | `ROOM` for the room-wide channel; `TEAM` for the team-scoped channel. |
 | `teamId` | Present when `channel == TEAM`; null otherwise. |
