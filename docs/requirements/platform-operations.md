@@ -10,6 +10,7 @@ This document defines operational requirements for the TurnBase platform: servic
 - `notifications-invitations.md` — Notification retention policy
 - `../decisions/INDEX.md` — ADR-0001 (local-first platform), ADR-0002 (WebSocket room affinity), ADR-0003 (availability target), ADR-0011 (schema migrations)
 - `../specs/deployment/INDEX.md` — local environment and service topology, schema migrations, secrets and configuration
+- `../specs/deployment/observability.md` — the wiring for FR-OBS-*, FR-MET-*, FR-TRACE-* and FR-ALERT-*
 
 ---
 

@@ -25,9 +25,15 @@ belongs in version control and in a `ConfigMap`, and nothing here ever does.
 | Google OAuth client ID + secret | Platform Monolith | Yes (Google permits two) | `.env`, absent by default |
 | Admin Basic-auth credentials | Platform Monolith | Restart | `.env` |
 | Grafana admin password | Grafana | Restart | `.env` |
+| Alert webhook URL (`TURNBASE_ALERT_WEBHOOK_URL`) | Alertmanager | Replace the URL | `.env`, absent by default |
 
-Eight secrets, one of which rotates on a schedule. The rest rotate when something has gone wrong,
+Nine secrets, one of which rotates on a schedule. The rest rotate when something has gone wrong,
 which is why only the first gets a mechanism and the others get a procedure.
+
+**A Slack or email webhook URL is a bearer credential**, not a configuration value: anyone holding it
+can post into the channel. It is in this table rather than in `local-environment.md` §7 for that
+reason, and it is absent by default — see [`observability.md`](observability.md) §6, which states what
+still works when it is unset.
 
 **The OAuth client secret is absent by default and the platform starts anyway.** `FR-AUTH-007`'s
 Google login is unavailable without it, and the login page hides the button rather than offering one

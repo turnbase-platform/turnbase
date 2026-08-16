@@ -13,9 +13,10 @@ only by reading prose in a spec that owns something else.
 
 ## 1. What runs
 
-Nine long-running containers plus a one-shot MinIO init job. Four are the system, five are the
+Eleven long-running containers plus a one-shot MinIO init job. Five are the system, six are the
 observability stack that `platform-operations.md` OQ-003 puts inside the local environment because
-operating it is a stated learning goal.
+operating it is a stated learning goal. The observability set is wired in
+[`observability.md`](observability.md); this section only says what runs.
 
 | Component | Image | In-cluster ports | Depends on |
 |---|---|---|---|
@@ -29,6 +30,8 @@ operating it is a stated learning goal.
 | Grafana | `grafana/grafana` | `3000` | Prometheus, Loki, Tempo |
 | Loki | `grafana/loki` | `3100` | — |
 | Tempo | `grafana/tempo` | `4317` OTLP gRPC, `3200` HTTP | — |
+| Promtail | `grafana/promtail` | — | Loki. Tails the container log directory (`observability.md` §3) |
+| Alertmanager | `prom/alertmanager` | `9093` | — |
 
 ### Host port map
 
@@ -135,7 +138,7 @@ RDB snapshot" to "the last second", for one line of configuration.
 | 1 | Postgres, Redis, MinIO | `pg_isready` / `PING` / `mc ready` | everything |
 | 2 | Platform Monolith | Flyway complete, Postgres pool live, Redis reachable with the right eviction policy, `platform:sentinel` written | Game Host registration; all client traffic |
 | 3 | Game Host | Espresso context factory warm, Redis reachable, artifact store reachable, `Register` acknowledged by the monolith | game *sessions* only |
-| 4 | Prometheus, Loki, Tempo, Grafana | own probes | nothing |
+| 4 | Prometheus, Loki, Tempo, Grafana, Promtail, Alertmanager | own probes | nothing |
 
 ### The monolith's readiness must not depend on the Game Host
 
@@ -483,6 +486,7 @@ set inconsistently.
 | `management.server.port` | `8081` | `MANAGEMENT_SERVER_PORT` |
 | `management.server.address` | `127.0.0.1` (compose) / **unset** (Kubernetes) | `MANAGEMENT_SERVER_ADDRESS` |
 | `logging.level.root` | `INFO` | `LOGGING_LEVEL_ROOT` |
+| `management.otlp.tracing.endpoint` | `http://tempo:4317` | `MANAGEMENT_OTLP_TRACING_ENDPOINT` |
 | `management.tracing.sampling.probability` | `0.1` | `MANAGEMENT_TRACING_SAMPLING_PROBABILITY` |
 | `spring.profiles.active` | `local` | `SPRING_PROFILES_ACTIVE` |
 
