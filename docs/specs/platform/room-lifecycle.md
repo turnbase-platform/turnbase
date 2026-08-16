@@ -166,7 +166,10 @@ Four layers, of which only the last is a correctness bound:
    `SET pod:{podId}:alive <v> XX PX 10000`. The `XX` is the whole point: it succeeds only if the key
    still exists, so a **nil reply proves the lease lapsed** and is unconditionally fatal — drop every
    owned room, close those sockets with `RECONNECT_REQUIRED`, drop in-memory state, and **never
-   recreate the key**. Triggering on "N consecutive renewal failures" instead would miss the
+   recreate the key**. Those closes are instance-initiated in the sense of §1.6 and are suppressed
+   identically: self-eviction is the ungraceful sibling of a drain — the instance has lost its lease
+   and is severing sockets it may no longer serve, not observing players leaving.
+   Triggering on "N consecutive renewal failures" instead would miss the
    dangerous case entirely: an instance that stalls for longer than the TTL (a stop-the-world pause)
    loses its lease, is taken over, then resumes and its *next* renewal succeeds — resurrecting a
    valid-looking lease having never observed a single failure. On the same tick the instance also
@@ -227,6 +230,21 @@ or to hold ownership keys in a dedicated logical database.
 Same policy as a crash — these are involuntary disconnects — but a distinct fast lane, because
 applying the crash path to a deploy means a lease wait plus a full grace-period scare for every
 player on the instance.
+
+**Every socket this sequence closes is marked instance-initiated, and the disconnect handler must
+skip such closures entirely.** Closing a socket fires `SessionDisconnectEvent` exactly as a network
+drop does, and in a Lobby room `../../requirements/reconnection-flow.md` FR-DC-002 makes a disconnect
+an immediate leave. Chained with `../../requirements/game-rooms.md` FR-XFER-002 — close a room whose
+host has left with no humans remaining — an unsuppressed drain closes every Lobby room on the
+instance, which is precisely the cascade FR-DC-007 exists to prevent, reached by a route its wording
+does not cover. FR-DC-006/007 classify owner-instance loss as a mass event in *every* room state; a
+drain is the graceful form of the same event and inherits the same classification.
+
+Mechanically: the drain tags the STOMP session before closing it, and the disconnect handler returns
+early on a tagged session without decrementing `connection_count`, without opening a reservation and
+without evaluating FR-XFER-002. The participants' `connection_count` is instead zeroed by the *next*
+owner during adoption (§1.4 step 5), which is the actor that can also open the reservations FR-DC-007
+does permit.
 
 1. Fail readiness; the ingress stops routing new traffic here.
 2. **Enter drain mode: refuse to claim ownership of any new room.** An in-flight room creation can
