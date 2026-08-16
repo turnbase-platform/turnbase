@@ -48,3 +48,10 @@ wrong requirement and concluding the spec is wrong.
 This is a rule for new and edited text rather than a completed retrofit: the corpus predates it and
 most existing bare citations resolve from context. What it prevents is the next collision being
 introduced silently.
+
+**Sub-duty suffixes.** A requirement that enumerates lettered duties in its body may be cited by
+suffix: `FR-JOB-007d` is duty (d) of `platform-operations.md` FR-JOB-007. The suffix is not a separate
+requirement ID and will not be found by a grep for a definition. This convention is used for
+FR-JOB-007(a–e) and FR-JOB-008(a–c). It is declared here because a scripted citation check flagged
+`FR-JOB-007d` as dangling and was wrong — a convention used in eight places and written down in none
+generates false findings every time somebody automates the check.

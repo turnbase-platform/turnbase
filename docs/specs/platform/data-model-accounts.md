@@ -389,7 +389,7 @@ transaction:
 | `user_session` | all rows revoked, `ACCOUNT_DELETED` | FR-ACCT-004 |
 | `user_privacy_settings` | row deleted | no profile remains to configure |
 | `friendship`, `friend_request` | all rows deleted, both directions | FR-SOC-012, FR-ACCT-005 |
-| `room_invitation` | all rows deleted, **both** as inviter and as invitee | FR-ACCT-005 (amended), FR-INV-002 |
+| `room_invitation` | all rows deleted, **both** as inviter and as invitee | FR-ACCT-005 (amended); `notifications-invitations.md` FR-INV-001 |
 | `notification` | all rows deleted (own), plus the subject cascade from the two rows above | FR-ACCT-005 (amended) |
 | `room_participant` | every non-closed room the user occupies is left as a **confirmed voluntary departure** | FR-LIFE-004, FR-DC-005 |
 | `room` | rooms hosted with no other human remaining are **owed** a closure with `closed_reason = 'ACCOUNT_DELETED'`; otherwise a host transfer is owed. Neither happens in this transaction — see below | FR-XFER-002, FR-LIFE-004 |
