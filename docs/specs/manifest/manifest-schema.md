@@ -108,9 +108,17 @@ of one another.
 
 | Field | Meaning |
 |-------|---------|
-| `ai` | Game supports AI (bot) players. |
+| `ai` | Game supports AI (bot) players. **Must be `false` in v1** — see below. |
 | `spectators` | Game supports the spectator role. |
 | `midGameJoin` | Players may join a session already in progress (game-rooms.md FR-JOIN-006 / FR-TEAM-011). |
+
+**`capabilities.ai: true` is rejected while `game-contracts.md` OQ-002 is open.** A supplementary
+check fails the bundle with `check: "manifest.capabilities.ai"` and a message naming the deferral. The
+flag stays in the schema — its shape is settled and the platform surface that reads it already exists
+(`../api-design/room-websocket.md`'s `aiPlayers`, always empty in v1) — but there is no AI execution
+environment (`platform-architecture.md` *Out of Scope*), so a game that declared support would be
+accepted, listed, and then unable to seat the AI the host asked for. Rejecting at validation is the
+only point where the developer learns this before their players do.
 
 ### `teamTemplates`
 

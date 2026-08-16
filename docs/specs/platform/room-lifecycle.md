@@ -430,12 +430,19 @@ After commit, by the winner only:
 3. Bump version; broadcast `PLAYER_LOST` with the `team_id` from `RETURNING`; set
    `lost_announced_at`.
 4. Evaluate closure — **only if the room is `IN_PROGRESS`**. If no participant remains with
-   `left_at IS NULL AND role = 'PLAYER'` that is not
-   an AI, detach the session (§4) with next state `CLOSED` and `closed_reason = GRACE_EXPIRED_NO_HUMAN`
+   `left_at IS NULL AND role = 'PLAYER'`,
+   detach the session (§4) with next state `CLOSED` and `closed_reason = GRACE_EXPIRED_NO_HUMAN`
    (distinct from the participant's own `leave_reason = GRACE_EXPIRED` — one records why the room
    closed, the other why a slot was released). Because a
    participant in grace still has `left_at IS NULL`, this single predicate keeps the room alive while
    *any* human still holds a reservation — exactly FR-HDISC-003.
+
+**The predicate has no "and not an AI" clause, and in v1 it needs none.** `room_participant` holds
+humans only — an AI has no `app_user` row and the table's primary key is `(room_id, user_id)` — and
+`aiPlayers` is always empty ([`../api-design/room-websocket.md`](../api-design/room-websocket.md)).
+When the AI interface lands (`game-contracts.md` OQ-002) it must add both a representation *and* this
+clause; the OQ is recorded as owing that pair rather than only the interface, because the closure
+question — does a room of AI players survive the last human? — is decided here and not there.
 
 **A `LOBBY` room is deliberately exempt from step 4, and the exemption is load-bearing.** Reservations
 normally exist only in `IN_PROGRESS` rooms (§3.1, FR-DC-002), but §1.4 step 4 opens them in *any*

@@ -411,3 +411,10 @@ rows in a terminal state:
   either destroy history or fail.
 - **No `is_host` flag on the participant.** The host is `room.host_user_id`; a flag would be a second
   source of truth for a single-valued fact.
+- **No AI participant representation.** `room_participant` is keyed `(room_id, user_id)` against
+  `app_user`, so it models humans only. The wire protocol carries an `aiPlayers` array
+  ([`../api-design/room-websocket.md`](../api-design/room-websocket.md)) that is always empty in v1,
+  because the AI player interface and its execution environment are both deferred
+  (`game-contracts.md` OQ-002, `platform-architecture.md` *Out of Scope*). Adding AI later is a new
+  table rather than a column: a synthetic `app_user` row per AI would put bots into friend search,
+  statistics and the guest purge. That is a design note, not a decision made here.

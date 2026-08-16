@@ -189,6 +189,12 @@ Full room state snapshot. Delivered unicast on `/user/queue/room-state` in respo
 
 `sessionId` is non-null when `state == IN_PROGRESS`; `gameFrontendUrl` is non-null exactly when `sessionId` is, so a reconnecting or late-joining client can construct the game iframe from the snapshot alone, with no extra round-trip. Both fields carry the same meaning as in `GAME_STARTED`. `disconnectedPlayers` contains only players currently within an active grace period; it is empty when no player is disconnected. `teams[i].memberIds` contains all player IDs assigned to that team (human and AI); cross-reference with `aiPlayers` to determine AI status. Chat history is not included — per [in-room-chat.md](../../requirements/in-room-chat.md) FR-MSG-005, the platform does not persist chat messages.
 
+**`aiPlayers` is always empty in v1.** The AI player interface is deferred (`game-contracts.md`
+OQ-002) and the AI execution environment with it (`platform-architecture.md` *Out of Scope*), so no v1
+game declares `capabilities.ai` and no AI can be seated. The field is present rather than removed
+because its shape is settled and removing it would be a breaking change to add back; a client must
+render an empty array as "no AI players", never as an error.
+
 #### `PLAYER_JOINED`
 
 A human player or spectator has joined the room. Emitted after the REST join call completes and the participant is added to room state.
@@ -567,10 +573,18 @@ Authorized only for the current room host. The channel-level guard evaluates `pr
 | `REMOVE_TEAM` | `teamId: uuid` | Lobby; team has zero current members |
 | `RESIZE_TEAM` | `teamId: uuid, newSize: integer` | Lobby; `newSize ∈ [size.min, size.max]`; `newSize ≥` current member count (FR-TEAM-010) |
 | `REASSIGN_PLAYER` | `playerId: uuid, toTeamId: uuid` | Lobby; target team has an available slot |
-| `ADD_AI_PLAYER` | `teamId: uuid` | Lobby; game supports AI players (FR-HOST-003); target team has an available slot |
+| `ADD_AI_PLAYER` | `teamId: uuid` | Lobby; game supports AI players (FR-HOST-003); target team has an available slot. **In v1 this always fails with `AI_NOT_SUPPORTED`** — see below |
 | `CHANGE_PARAMETERS` | `parameters: object` | Lobby; game exposes configurable parameters (FR-HOST-007) |
 | `START_GAME` | *(none)* | Lobby; all FR-TEAM-009 conditions satisfied |
 | `TRANSFER_HOST` | `newHostId: uuid` | Target is a human player (not spectator or AI) in the room; valid in Lobby and In Progress |
+
+**`ADD_AI_PLAYER` is specified but unreachable in v1.** The handler is implemented and returns
+`AI_NOT_SUPPORTED` unconditionally, because no v1 game may declare `capabilities.ai` — bundle
+validation rejects a manifest that sets it while `game-contracts.md` OQ-002 is open
+([`../manifest/manifest-schema.md`](../manifest/manifest-schema.md) § `capabilities`). Implementing
+the rejection rather
+than omitting the command keeps the error catalogue honest and gives the frontend a defined response
+to a button it may still render disabled.
 
 **`KICK_PLAYER`:** Works for human players, AI players, and spectators. In In Progress state, kicking a human player voids any active grace period and triggers the `player_left` game backend input with `reason: kicked`. The kicked party receives a unicast `KICKED` error on `/user/queue/errors`.
 
