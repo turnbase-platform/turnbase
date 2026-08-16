@@ -18,14 +18,15 @@ belongs in version control and in a `ConfigMap`, and nothing here ever does.
 | Secret | Consumer | Rotatable without downtime | Local source |
 |---|---|---|---|
 | JWT signing key | Platform Monolith | **Yes** — §3 | generated at first start into `.secrets/` |
-| PostgreSQL password | Platform Monolith | With a two-phase change | `.env` |
+| PostgreSQL **owner** password (`turnbase_owner`) | Provisioning only — never held by a running service | Restart of the init step | `.env` |
+| PostgreSQL **application** password (`turnbase_app`) | Platform Monolith | With a two-phase change | `.env` |
 | Redis password | Monolith, Game Host | With a two-phase change | `.env` |
 | MinIO access key + secret | Monolith, Game Host | Yes (second key pair, then retire) | `.env` |
 | Google OAuth client ID + secret | Platform Monolith | Yes (Google permits two) | `.env`, absent by default |
 | Admin Basic-auth credentials | Platform Monolith | Restart | `.env` |
 | Grafana admin password | Grafana | Restart | `.env` |
 
-Seven secrets, one of which rotates on a schedule. The rest rotate when something has gone wrong,
+Eight secrets, one of which rotates on a schedule. The rest rotate when something has gone wrong,
 which is why only the first gets a mechanism and the others get a procedure.
 
 **The OAuth client secret is absent by default and the platform starts anyway.** `FR-AUTH-007`'s
@@ -189,6 +190,32 @@ old one when it disappears: create a second role or set a new password with the 
 restart the application, then invalidate the old. With one instance this is a restart; with a rolling
 deploy the overlap means both passwords must work briefly, which PostgreSQL does not support on a
 single role — hence "second role" as the general answer.
+
+**Where the split is actually made.** `postgres:16-alpine` runs every `*.sql` and `*.sh` in
+`/docker-entrypoint-initdb.d` once, on an empty data directory, as the superuser named by
+`POSTGRES_USER`. That is the only hook, and it is where the two roles are created:
+
+```sql
+-- deploy/compose/initdb/01-roles.sql
+CREATE ROLE turnbase_app LOGIN PASSWORD :'app_password';
+GRANT CONNECT ON DATABASE turnbase TO turnbase_app;
+GRANT USAGE, CREATE ON SCHEMA public TO turnbase_app;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+```
+
+`POSTGRES_USER` is therefore `turnbase_owner`, **not** `turnbase_app` — the container's own user is
+the superuser by construction, so naming the application role there would hand it superuser and
+violate FR-CRED-005 with nothing appearing to be wrong. The application connects as `turnbase_app`
+with `TURNBASE_DB_APP_PASSWORD`; `turnbase_owner`'s password reaches the init step and nothing else.
+
+`GRANT ... CREATE ON SCHEMA public` is what lets Flyway run in-process under the application role
+(ADR-0011 §1). `CREATE EXTENSION` stays with the owner because it needs superuser, and the baseline
+migration only *asserts* the extension's presence ([`schema-migrations.md`](schema-migrations.md) §5).
+
+**This runs on an empty data directory only.** A volume that already holds a database skips
+`initdb` entirely, so a developer who adds a role after first start must apply it by hand or
+`make reset-db`. Under Kubernetes the equivalent is a `Job` with the same SQL, guarded by
+`IF NOT EXISTS`, because a `StatefulSet`'s PVC survives `helm upgrade`.
 
 ### Redis
 

@@ -230,6 +230,8 @@ turnbase-platform/deploy/
 ├── compose/
 │   ├── docker-compose.yml            # the four core services
 │   ├── docker-compose.observability.yml
+│   ├── initdb/
+│   │   └── 01-roles.sql              # FR-CRED-005 two-role split
 │   └── .env.example
 └── helm/turnbase/
     ├── Chart.yaml
@@ -472,6 +474,7 @@ set inconsistently.
 | Property | Default | Env |
 |---|---|---|
 | `spring.datasource.url` | `jdbc:postgresql://postgres:5432/turnbase` | `SPRING_DATASOURCE_URL` |
+| `spring.datasource.username` | `turnbase_app` | `SPRING_DATASOURCE_USERNAME` |
 | `spring.datasource.hikari.maximum-pool-size` | `20` | `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE` |
 | `spring.data.redis.url` | `redis://redis:6379` | `SPRING_DATA_REDIS_URL` |
 | `turnbase.artifact-store.endpoint` | `http://minio:9000` | `TURNBASE_ARTIFACT_STORE_ENDPOINT` |
