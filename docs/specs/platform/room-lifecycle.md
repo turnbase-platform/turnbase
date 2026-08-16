@@ -375,7 +375,8 @@ After commit: bump the version, broadcast `PLAYER_DISCONNECTED`, and apply host 
 ```sql
 UPDATE room_participant
    SET left_at = now(), leave_reason = :reason,
-       grace_reservation_id = NULL, grace_expires_at = NULL
+       grace_reservation_id = NULL, grace_expires_at = NULL,
+       lost_announced_at = CASE WHEN :announceInline THEN now() ELSE NULL END
  WHERE room_id = :roomId AND user_id = :userId
    AND grace_reservation_id = :reservationId
    AND left_at IS NULL
@@ -391,6 +392,12 @@ Every predicate earns its place:
 - **`grace_expires_at <= now()`** (expiry only) — **this is what makes clock skew a non-issue.** An
   instance with a fast clock evaluates early, updates zero rows, and moves on. No other clock can
   release a slot early.
+- **`lost_announced_at`** — set to `now()` when the resolving instance owns the room and will
+  broadcast immediately, and left null when it does not, which is the *only* thing that marks a
+  resolution as owing a deferred tail (§5.1 duty 2). `:announceInline` is `true` exactly when the
+  claim of §3.3 returned `1` or `2`. Every other path that sets `left_at` — voluntary leave, kick,
+  closure, account deletion on the owning instance — must stamp it too, for the same reason: an
+  unstamped release is a promise that somebody will announce it.
 
 **The rowcount is the entire idempotency story.** `1` → this caller won and owns *all* side effects.
 `0` → someone else resolved it, or it is not due → do nothing. Sweep and any other actor therefore
@@ -583,10 +590,20 @@ into a room it does not own, which is the whole reason the partition exists.
 The tick runs four duties, **in this order**:
 
 1. **Due expiries** — the query above, resolved per §3.2 with the side effects of §3.3.
-2. **Deferred tails** — resolutions committed by a foreign instance
-   (`left_at IS NOT NULL AND lost_announced_at IS NULL`, §3.3): bump version → broadcast
-   `PLAYER_LOST` → set `lost_announced_at` → **evaluate closure**. The closure evaluation is the
-   load-bearing half; omitting it strands rooms whose last human left from another instance.
+2. **Deferred tails** — resolutions committed by a foreign instance, identified by
+   `left_at IS NOT NULL AND lost_announced_at IS NULL AND leave_reason IN ('GRACE_EXPIRED',
+   'EARLY_RELEASE', 'LEFT')` on a room this instance owns: bump version → broadcast `PLAYER_LOST` →
+   set `lost_announced_at` → **evaluate closure**. The closure evaluation is the load-bearing half;
+   omitting it strands rooms whose last human left from another instance.
+
+   **Both halves of the predicate are required and neither is redundant.** `lost_announced_at IS NULL`
+   is the primary test and is now written by every inline path (§3.2), so a resolution that was
+   already announced cannot match. The `leave_reason` list is the backstop: it is the set of reasons a
+   *foreign* instance can produce, and it excludes `KICKED`, `ROOM_CLOSED` and `GAME_ENDED`, which are
+   only ever produced by the owner under the room lock and can never legitimately owe a tail. Without
+   the backstop, one path that forgets to stamp the column resurrects the defect as a phantom
+   `PLAYER_LOST` for every ordinary leave, one sweep interval late — visible to players, and easy to
+   read as a reconnection bug rather than a sweep bug.
 3. **Elapsed migration windows** — `migration_window_expires_at <= now()` on a room this instance
    owns. Clear the column, and if the host is disconnected or released while another human is
    connected, perform the FR-HDISC-001 transfer now. **Without this duty FR-HDISC-004 has no

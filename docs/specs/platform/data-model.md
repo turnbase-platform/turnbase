@@ -180,6 +180,10 @@ CREATE TABLE room_participant (
 CREATE INDEX room_participant_grace_due_idx
   ON room_participant (grace_expires_at)
   WHERE grace_expires_at IS NOT NULL AND left_at IS NULL;
+
+CREATE INDEX room_participant_unannounced_idx
+  ON room_participant (room_id)
+  WHERE left_at IS NOT NULL AND lost_announced_at IS NULL;
 ```
 
 `ON DELETE CASCADE` is deliberate and load-bearing: the GRMP prototype needed a scheduled job purely
@@ -221,6 +225,12 @@ the instance handling that join is not the one that owns the old room. It can pe
 event path (ADR-0002). The column records that the release happened but the announcement has not, so
 the owning instance emits it on its next sweep. Without it the event is simply lost the first day the
 platform runs more than one instance.
+
+It is written by **every** path that sets `left_at`, not only by grace expiry: `now()` when the acting
+instance owns the room and broadcasts immediately, null when it does not. A null value is therefore
+the assertion "this departure is owed an announcement", and `room_participant_unannounced_idx` (§5)
+is the index that makes finding those cheap. The sweep duty that consumes it is narrowed on
+`leave_reason` as well, as a backstop against a writer that forgets — see `room-lifecycle.md` §5.1.
 
 ---
 
@@ -370,6 +380,11 @@ rows in a terminal state:
 - `room_participant_grace_due_idx` spans only players *currently in grace*, not the participant
   table. At any plausible scale this is tens of rows, so the 5-second deadline sweep is an index-only
   scan of a nearly empty index rather than a table scan.
+- `room_participant_unannounced_idx` spans only released participants whose departure has not been
+  announced — the deferred tails of `room-lifecycle.md` §5.1 duty 2. Its steady-state size is zero,
+  because the sweep's success is what removes a row from it. It is partial on the *opposite*
+  predicate to `room_participant_grace_due_idx`, and both are needed: the 5-second sweep runs two
+  queries per tick and neither would otherwise have an index.
 - `room_open_state_idx` and `room_idle_lobby_idx` exclude closed rooms, which accumulate for 7 days
   (FR-RET-006) and are never of interest to the sweeps.
 - `session_teardown_due_idx` is over a table whose steady-state size is zero.
