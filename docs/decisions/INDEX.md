@@ -19,6 +19,7 @@ Format: one file per decision, numbered sequentially (`NNNN-slug.md`). Status is
 | [0009](0009-grace-deadline-durability.md) | Grace deadlines are persisted absolute timestamps, fired by a sweep | Accepted |
 | [0010](0010-session-teardown-ordering.md) | Session teardown is a durable to-do, not an ordering | Accepted |
 | [0011](0011-schema-migrations.md) | Schema migrations — Flyway, forward-only, backward-compatible | Accepted |
+| [0012](0012-repo-strategy-polyrepo-submodules.md) | Repository strategy — polyrepo under an organisation, with submodules | Accepted |
 
 ## Provenance
 
@@ -42,6 +43,13 @@ depends on the other two: the sweep of 0009 needs 0008's claim before it may bro
 re-drive is a duty of the same sweep. Two of the three also fix defects that were already latent in
 the specs: a rolling deploy would have deleted every Lobby room, and an adopting instance would have
 re-issued event versions that clients discard silently.
+
+ADR-0012 is the oldest decision here and the last to be filed. It was taken at inception and lived
+as a loose design note outside the ADR directory, unreferenced by anything, while `CLAUDE.md` carried
+its conclusion — the five-repo table and the one-line submodule rule — without its argument. The
+argument is the part worth keeping: why not a monorepo (the SDK needs a public artifact with no
+internal dependencies leaking transitively), and why the proto lives in `turnbase-common` rather than
+a `turnbase-contracts` repo of its own.
 
 ADR-0011 closes OPS-3, open since the review and never addressed: the corpus defined roughly thirty
 tables while naming no migration tool at all. It is recorded as an ADR rather than as a spec section

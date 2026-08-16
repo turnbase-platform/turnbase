@@ -156,9 +156,16 @@ Non-concurrent `CREATE INDEX` remains correct in the baseline, where the tables 
    `user_privacy_settings`, `friendship`, `friend_request`, `game`, `game_version`, `game_tag`,
    `game_review`, `room`, `room_team`, `room_participant`, `room_invitation`, `session_teardown`,
    `game_input_outbox`, `game_session_completion`, `game_history_entry`, `notification`, `shedlock`.
-4. The two circular foreign keys, added after both endpoints exist:
-   `game.active_version_id → game_version(version_id)` and
-   `room_participant.team_id → room_team(team_id)`.
+4. **One** circular foreign key, added after both endpoints exist:
+   `game.active_version_id → game_version(version_id)`, whose other leg is
+   `game_version.game_id → game(game_id)`.
+
+   `room_participant.team_id → room_team(team_id)` is **not** circular and needs no deferral: it is
+   an ordinary inline `REFERENCES` (`../platform/data-model.md` §2), and `room_team` precedes
+   `room_participant` in the order above. Nothing in `room_team` references back. It is called out
+   here only because an earlier revision of this list named it, and a transcriber who deferred it
+   would produce a working schema by an unnecessary route — then reasonably start doubting the table
+   order itself.
 5. Every index from the six schema documents.
 
 `shedlock` is in the baseline rather than left to the library's auto-DDL (FR-JOB-005). A table that

@@ -1,7 +1,12 @@
-# Repo Strategy Design
+# ADR-0012: Repository strategy — polyrepo under an organisation, with submodules
 
-**Date:** 2026-06-12
-**Status:** Approved
+- **Status:** Accepted
+- **Date:** 2026-06-12
+- **Deciders:** Project owner
+- **Source:** Taken at project inception, before the ADR directory existed. Filed as an ADR on
+  2026-08-16 because it is a cross-cutting decision that `CLAUDE.md` compresses to a single line
+  (*"a submodule boundary is drawn where a component can be independently versioned, deployed, or
+  replaced"*), and that line is the conclusion without the argument.
 
 ## Context
 

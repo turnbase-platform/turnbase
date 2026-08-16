@@ -116,7 +116,7 @@ Three steps, and the middle one is the only one that takes time.
    signed with the new key; existing tokens keep verifying.
 2. **Wait out the session lifetime.** After `turnbase.auth.session-ttl` (24 h by default) no
    unexpired token can still be signed by the retired key, because token lifetime does not extend
-   with activity (FR-SESS-001).
+   with activity (`user-accounts.md` FR-SESS-001).
 3. **Retire.** The old key is removed from the set. Any session still naming it is revoked with
    `revoked_reason = 'KEY_ROTATED'`, which is why that value exists.
 
@@ -153,7 +153,7 @@ Three consequences:
   revoked but which is never written to again would otherwise stay open indefinitely, holding a
   reserved slot and receiving broadcasts. The revocation path pushes a
   `SESSION_INVALIDATED` frame and closes, which is `user-accounts.md` FR-SESS-010 and the same
-  mechanism FR-SESS-003's displacement uses.
+  mechanism `user-accounts.md` FR-SESS-003's displacement uses.
 
 ### 3.5 Claims
 
@@ -169,7 +169,7 @@ own revocation.
 `jti` is the session identifier and is what makes the token stateful. The signature check is a
 cheap gate; the authoritative test is that `user_session` has a live row
 ([`../platform/data-model-accounts.md`](../platform/data-model-accounts.md) §3), which is what
-FR-SESS-003's "immediately invalidated" requires and what no self-contained token can provide.
+`user-accounts.md` FR-SESS-003's "immediately invalidated" requires and what no self-contained token can provide.
 
 ---
 
@@ -327,7 +327,7 @@ trail is only as good as there being exactly one operator.
 | Requirement | Realized by |
 |---|---|
 | FR-CRED-001…005 (platform-operations) | §1–§6 |
-| FR-SESS-001/003/004 | §3.5 `jti`, database-authoritative revocation |
+| `user-accounts.md` FR-SESS-001/003/004 | §3.5 `jti`, database-authoritative revocation |
 | FR-SESS-010 | §3.4 |
 | FR-AUTH-007 | §5 |
 | FR-OBS-005 | §6 |

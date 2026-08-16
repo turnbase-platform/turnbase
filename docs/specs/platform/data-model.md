@@ -24,6 +24,18 @@ these concepts by name, and the point of this document is that they agree. Times
 `timestamptz` and are always written with the **database** clock (`now()`), never an application
 clock; see [ADR-0009](../../decisions/0009-grace-deadline-durability.md).
 
+**Auto-incrementing integer keys use `bigint GENERATED ALWAYS AS IDENTITY`, never `serial` or
+`bigserial`.** This holds across all six schema documents. PostgreSQL has recommended the identity
+form since version 10: `bigserial` is a macro that creates a sequence the column merely *defaults*
+to, so the sequence is separately grantable, separately droppable, and does not follow the column
+through a `CREATE TABLE … LIKE`. The two idioms produce an equally working schema, which is why an
+inconsistency here survives review — the reason to pick one is that a baseline containing both
+leaves a transcriber unable to tell whether the difference was meant.
+
+The one deliberate exception is `guest_serial_seq`
+([`data-model-accounts.md`](data-model-accounts.md) §1), which is a **standalone sequence** rather
+than a column default. It is declared explicitly because FR-GUEST-002 needs it to start at 0.
+
 **Authority over the migrations.** These six documents are normative for **names** and for
 **reasons**. They are not what the database is: the Flyway migrations in the `turnbase-platform`
 submodule are, and when the two disagree the migration wins
@@ -321,7 +333,7 @@ Rows are deleted only on confirmed termination. A row older than 15 minutes rais
 
 ```sql
 CREATE TABLE game_input_outbox (
-  id            bigserial PRIMARY KEY,
+  id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   session_id    uuid        NOT NULL,
   sequence      bigint      NULL,        -- allocated once, before first dispatch
   payload       jsonb       NOT NULL,

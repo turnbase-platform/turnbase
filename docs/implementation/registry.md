@@ -1589,9 +1589,8 @@ Populated from
 <!-- GATES:BEGIN -->
 The 2026-08-16 readiness audit returned **23 blockers. All 23 are now closed** — see
 [`../reviews/2026-08-16-implementation-readiness/INDEX.md`](../reviews/2026-08-16-implementation-readiness/INDEX.md)
-for the register and
-[`../reviews/2026-08-16-implementation-readiness/remediation-plan.md`](../reviews/2026-08-16-implementation-readiness/remediation-plan.md)
-for the plan that closed them.
+for the register, where each entry carries the evidence and a `**Closed:**` line naming the
+resolution.
 
 **Every work item in the register above is ungated.** Status reverts to whatever the item's own
 dependencies imply. The table below is a record of what changed, not an overlay to consult before

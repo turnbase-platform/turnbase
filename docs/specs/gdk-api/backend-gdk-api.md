@@ -162,6 +162,21 @@ public interface InitContext {
     List<Team> teams();
     /** Host-configured game parameters (FR-GDK-004). */
     GameParameters parameters();
+
+    /**
+     * A deterministic random seed for this session.
+     *
+     * <p>§9 forbids "randomness without a seed carried in state". This is that seed. Use it to
+     * construct {@code new Random(ctx.seed())} and carry the resulting values — or the seed
+     * itself — in game state; never call {@code new Random()}, {@code Math.random()}, or any
+     * clock.
+     *
+     * <p>Derived by the GDK Host from the session id, so it is stable for the life of a session
+     * and across any replay of {@code CreateSession}, and different for every rematch (a rematch
+     * is a new session with a new id). Two sessions never share a seed; one session never
+     * changes it.
+     */
+    long seed();
 }
 
 /** action input. */
@@ -529,7 +544,7 @@ enforce them, surfacing violations as the `GameFailureKind` values in
 
 | Rule | Detail | Wire mapping on violation |
 |------|--------|---------------------------|
-| Pure function of inputs | A hook's output must depend only on `(state, context)`. No mutable static state, no clocks, no randomness without a seed carried in state. | — (correctness) |
+| Pure function of inputs | A hook's output must depend only on `(state, context)`. No mutable static state, no clocks, no randomness without a seed carried in state. **The seed comes from `InitContext.seed()`** (§4) — a rule forbidding unseeded randomness is unsatisfiable for any game with hidden information unless the platform supplies one, so it does. | — (correctness) |
 | No external I/O | No network, filesystem, or external calls (CON-005). The only interaction is the in-process GDK Host invocation. | — (contract obligation; **enforced at the container layer**, not an in-JVM sandbox exception — GraalVM CE does not deny FS/network in-context, ADR-0005; see `../game-host/game-host-internals.md` §4) |
 | No self-initiated comms | A hook only produces output in response to an input (FR-PROC-003). Timers/delayed events must be derived from future actions, holding deadlines in state. | — |
 | Sequential processing | Inputs for a session are delivered one at a time, in arrival order (FR-PROC-001/002). Hooks need not be thread-safe across sessions but must not share state between sessions. | — |
@@ -595,7 +610,8 @@ public final class GuessingGame implements TurnBaseGame<GuessState> {
 
     @Override public InitResult<GuessState> onInit(InitContext ctx) {
         int max = ctx.parameters().getInt("maxValue");
-        var state = new GuessState(new java.util.Random().nextInt(max) + 1, 0);
+        // Seeded from ctx.seed(), never `new Random()` — see the determinism rules in §9.
+        var state = new GuessState(new java.util.Random(ctx.seed()).nextInt(max) + 1, 0);
         return InitResult.from(state)
                 .effect(Effects.log("Game started — guess a number from 1 to " + max))
                 .build();

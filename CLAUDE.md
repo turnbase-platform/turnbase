@@ -61,14 +61,14 @@ turnbase/                    # This repo (landing + docs)
 ├── CLAUDE.md
 ├── STATUS.md
 ├── docs/
-│   ├── requirements/        # What the system must do (INDEX.md + per-feature requirement documents)
-│   └── specs/               # How it is designed (implementation-level design specs)
-│       ├── INDEX.md         # Entry point — lists all spec subdirectories
-│       ├── api-design/      # REST, WebSocket, SSE, error handling, uploads, rate limiting
-│       └── internal-grpc/   # Orchestration ↔ Game Host gRPC contract
+│   ├── requirements/        # What the system must do — INDEX.md + 17 per-feature documents
+│   ├── specs/               # How it is designed — INDEX.md + one subdirectory per design domain,
+│   │                        #   each with its own INDEX.md (api-design, platform, flows,
+│   │                        #   deployment, internal-grpc, game-host, gdk-api, manifest,
+│   │                        #   platform-frontend, game-frontend)
 │   ├── decisions/           # ADRs — one numbered file per architectural decision
-│   ├── implementation/      # Implementation registry — work items, gates, done-when clauses
-│   └── reviews/             # Dated review rounds; each has its own INDEX.md
+│   ├── implementation/      # The build plan — INDEX.md (conventions) + registry.md (59 work items)
+│   └── reviews/             # Closed review rounds, reduced to their INDEX plus anything still cited
 ├── turnbase-common/         # git submodule
 ├── turnbase-sdk/            # git submodule
 ├── turnbase-platform/       # git submodule
@@ -93,8 +93,10 @@ turnbase-frontend — no Maven dependency (postMessage with game FEs only)
 - **Reading:** always start from the relevant `INDEX.md` when looking for information in `docs/`. Do not scan files directly — follow the index to the right file.
 - **Writing:** when adding a new file or subdirectory anywhere under `docs/`, register it in the nearest `INDEX.md` (one-line entry with description) before considering the work done. When updating an existing file, check whether its `INDEX.md` entry needs to be updated too.
 - Requirements documents link to related spec files via "Related API Specifications" sections; keep those links up to date when specs change.
+- **Cite a requirement with the document that defines it**, never one that merely mentions it — `` `game-catalog.md` FR-GAME-009 ``. Fifty IDs collide across the corpus and twelve prefixes are defined in more than one place; `docs/requirements/INDEX.md` is the lookup. A wrong qualifier is worse than a bare ID.
+- **Working files are deleted once spent, not archived.** A review's slice reports, a machine-extracted inventory, an executed plan — each stops being true the moment the corpus it describes changes, and a stale document that looks authoritative is worse than an absent one. Harvest anything still live into the corpus first, then delete. What survives a closed round is its INDEX and anything still cited.
 
-**Submodule philosophy:** A submodule boundary is drawn where a component can be independently versioned, deployed, or replaced — not just where code is logically separate. Submodule refs in this repo are updated only after the submodule's build and tests pass.
+**Submodule philosophy:** A submodule boundary is drawn where a component can be independently versioned, deployed, or replaced — not just where code is logically separate ([ADR-0012](docs/decisions/0012-repo-strategy-polyrepo-submodules.md)). Submodule refs in this repo are updated only after the submodule's build and tests pass.
 
 ## Architecture Principles
 

@@ -86,9 +86,6 @@ Every other prefix in the table above is unique corpus-wide and may be cited bar
   the requirement IDs it satisfies, document-qualified.
 - [`../decisions/INDEX.md`](../decisions/INDEX.md) — the ADRs. Where a requirement was narrowed, cut or
   deferred, an ADR usually says why.
-- [`../requirements-gaps.md`](../requirements-gaps.md) — the Phase 0 pre-implementation TODO. Historical:
-  every critical and significant item is checked off. Kept as a record of what was found missing and
-  when.
 - [`../reviews/2026-08-16-implementation-readiness/INDEX.md`](../reviews/2026-08-16-implementation-readiness/INDEX.md)
   — the audit that qualified this corpus for implementation. All 23 blockers closed, and the two
   findings raised during remediation (IR-24, IR-25) with them. **Nothing is open.**

@@ -54,6 +54,22 @@ This automatically wraps standard Spring MVC exceptions (`MethodNotAllowedExcept
 | `service-unavailable` | `.../errors/service-unavailable` | 503 | Transient upstream failure |
 | `room-unavailable-retry` | `.../errors/room-unavailable-retry` | 503 | The room's owning instance could not be reached; the caller must back off and re-run the join flow. Carries a `retryAfterMs` extension alongside `Retry-After`. Deliberately distinct from `service-unavailable` and named to match the STOMP error code of the same condition — see [room-rest-api.md](room-rest-api.md) §7 |
 
+### WebSocket errors are not Problem Details
+
+This document covers **REST only**. A WebSocket command failure is delivered as an `ERROR` frame on
+`/user/queue/errors` carrying a `code`, `correlationId` and optional `details` — a different envelope
+with a different vocabulary, and no `type` URI or HTTP status. The taxonomy above does not apply and
+must not be forced onto it: a STOMP frame has no status line, and inventing one would give clients two
+error shapes that look interchangeable and are not.
+
+**The registry of every WebSocket error code lives in
+[room-websocket.md](room-websocket.md) § *Error codes*** — including the two game-session codes,
+`ACTION_TOO_LARGE` and `ACTION_REJECTED`. Build the client-side enum from that one table.
+
+The two vocabularies meet in exactly one place: `room-unavailable-retry` (REST) and
+`ROOM_UNAVAILABLE_RETRY` (STOMP) are the same condition on the two transports, deliberately named to
+match, and both carry `retryAfterMs`.
+
 ## Implementation: @ControllerAdvice
 
 A single `GlobalExceptionHandler` extends `ResponseEntityExceptionHandler`:

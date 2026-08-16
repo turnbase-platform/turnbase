@@ -164,7 +164,7 @@ Guest purge is therefore two phases:
 
 | Phase | Trigger | Query | Effect |
 |---|---|---|---|
-| **Revoke** | Token lifetime elapsed since creation (FR-GUEST-003, which defers the value to FR-SESS-001 — default 24 h, configurable) | `WHERE kind = 'GUEST' AND deleted_at IS NULL AND created_at < now() - :ttl`, over `app_user_guest_expiry_idx` | All `user_session` rows revoked; `deleted_at`, `deletion_reason = 'GUEST_EXPIRED'` and `purgeable_after` set. The account is inaccessible from this moment, which is what FR-GUEST-005 exists to achieve. |
+| **Revoke** | Token lifetime elapsed since creation (FR-GUEST-003, which defers the value to `user-accounts.md` FR-SESS-001 — default 24 h, configurable) | `WHERE kind = 'GUEST' AND deleted_at IS NULL AND created_at < now() - :ttl`, over `app_user_guest_expiry_idx` | All `user_session` rows revoked; `deleted_at`, `deletion_reason = 'GUEST_EXPIRED'` and `purgeable_after` set. The account is inaccessible from this moment, which is what FR-GUEST-005 exists to achieve. |
 | **Purge** | `purgeable_after` elapsed **and** nothing references the row | `WHERE kind = 'GUEST' AND purgeable_after < now()` over `app_user_guest_purge_idx`, `AND NOT EXISTS (… room_participant …) AND NOT EXISTS (… room WHERE host_user_id = …)` | Row hard-deleted; cascading children (§2, §3, §4) go with it. |
 
 **Each phase needs its own index, because each has a different predicate.** `purgeable_after` is NULL
@@ -289,12 +289,12 @@ CREATE UNIQUE INDEX user_session_active_key ON user_session (user_id) WHERE revo
 CREATE INDEX user_session_expiry_idx ON user_session (expires_at) WHERE revoked_at IS NULL;
 ```
 
-**The partial unique index is FR-SESS-002.** "Only one active session per account" is stated as a
+**The partial unique index is `user-accounts.md` FR-SESS-002.** "Only one active session per account" is stated as a
 requirement and is here made unfalsifiable: at most one non-revoked row can exist per user. Login is
 therefore `UPDATE ... SET revoked_at = now(), revoked_reason = 'DISPLACED' WHERE user_id = :u AND revoked_at IS NULL`
 followed by an `INSERT`, in one transaction. If two logins race, one insert loses on the unique index
-and retries; neither can leave two live sessions behind. FR-SESS-003 falls out of the same statement,
-and FR-SESS-004's error message is `revoked_reason`.
+and retries; neither can leave two live sessions behind. `user-accounts.md` FR-SESS-003 falls out of the same statement,
+and `user-accounts.md` FR-SESS-004's error message is `revoked_reason`.
 
 Note what the predicate is **not**: it is not `revoked_at IS NULL AND expires_at > now()`, because
 `now()` is not immutable and cannot appear in an index predicate. Expiry is therefore evaluated at
@@ -305,7 +305,7 @@ only so a housekeeping job can tidy, not so authentication can function.
 **Postgres is authoritative for revocation; the cookie is not self-sufficient.** The session cookie
 carries a signed token whose `jti` is `session_id` (`user-accounts.md` CON-004,
 [`secrets-and-configuration.md`](../deployment/secrets-and-configuration.md) §3). A signature check
-alone cannot satisfy FR-SESS-003, which requires an *immediate* invalidation that a stateless token
+alone cannot satisfy `user-accounts.md` FR-SESS-003, which requires an *immediate* invalidation that a stateless token
 by construction cannot express. Every authenticated request therefore resolves `session_id` against
 this table. Caching that lookup in Redis is permitted only with a TTL short enough that the cache
 cannot outlive the meaning of "immediately", and is **not** enabled for the MVP: Redis is a single
@@ -497,7 +497,7 @@ never hard-deleted, and guests never have history (FR-HIST-003), so the constrai
 | FR-AUTH-014 (length half only) | `app_user_username_len_ck`; charset in `input-validation.md` |
 | FR-AUTH-007…012 | `user_auth_method`, `app_user.email_source` |
 | FR-AUTH-016 | `app_user_email_key` forces the collision to surface |
-| FR-SESS-001…004 | `user_session`, `user_session_active_key`, `revoked_reason` |
+| `user-accounts.md` FR-SESS-001…004 | `user_session`, `user_session_active_key`, `revoked_reason` |
 | FR-SESS-010 | `revoked_at` is the trigger; the connection close is behavioural (§3) |
 | FR-SOC-002 (guest/tombstone exclusion) | `app_user_username_trgm_idx` partial predicate |
 | FR-ACCT-001 | `app_user.user_id` |

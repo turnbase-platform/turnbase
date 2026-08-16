@@ -2,15 +2,60 @@
 
 **Date:** 2026-08-16 (session 11)
 
-Four pieces of work. **Closed all 23 implementation-readiness blockers**, **completed the
+Five pieces of work. **Closed all 23 implementation-readiness blockers**, **completed the
 implementation registry** (the weaker artifact once the blockers were gone), **wrote
-`docs/requirements/INDEX.md` and ran a corpus-wide sanity check**, then **named the last missing
-configuration key**. Documents only — no code exists yet.
+`docs/requirements/INDEX.md` and ran a corpus-wide sanity check**, **named the last missing
+configuration key**, then **harvested the ten surviving non-blocking findings and deleted 7 500
+lines of spent working files**. Documents only — no code exists yet.
 
-**No review finding is open anywhere in the corpus** — 23 blockers plus IR-24 and IR-25, all closed.
-What remains open are the tracked `OQ-*` design questions inside specs, which are decisions rather
-than defects; the only one an implementer meets early is `design-system.md` OQ-002, the literal hex
-palette, and IMP-M6-01 says to escalate it rather than pick one.
+**No review finding is open anywhere in the corpus.** What remains open are the tracked `OQ-*` design
+questions inside specs, which are decisions rather than defects; the only one an implementer meets
+early is `design-system.md` OQ-002, the literal hex palette, and IMP-M6-01 says to escalate it rather
+than pick one.
+
+### Part 5 — harvest, then prune
+
+**Ten non-blocking findings survived the blocker round inside per-slice review files**, where nobody
+would have found them. All ten are now fixed in the corpus, and several were about to cost real time:
+the `bigserial` / `GENERATED ALWAYS AS IDENTITY` split across three schema documents and the
+mislabelled circular FK both land on `IMP-M0-06`, the very first substantial item.
+
+Two are worth calling out because the fix went deeper than the finding:
+
+- **The GDK forbade unseeded randomness and supplied no seed.** The finding was "the flagship example
+  violates the determinism rule stated 60 lines above it". The cause is that the rule was
+  unsatisfiable: *any* game with hidden information needs randomness, and nothing in `InitContext`
+  offered a seed. Added **`InitContext.seed()`**, derived by the GDK Host from the session id
+  (`game-host-internals.md` §3.5) — no proto field, no column, and replay-stability inherited from
+  the session id already having it. Fixing only the example would have left every developer with the
+  same impossible rule.
+- **`test-harness.md` told developers the Game Host blocks filesystem and network calls** — the exact
+  claim the Espresso spike disproved. It now states what the container enforces versus the context,
+  and warns that Compose enforces neither, so "it ran locally" is not "it is allowed".
+
+Also fixed: `platform-ui-library.md` listed all five of its OQs as open when `design-system.md` had
+resolved four of them.
+
+**Then the pruning.** `docs/` went from 30 229 lines to 22 715 — **25% smaller**:
+
+| Removed | Lines | Why |
+|---|---|---|
+| 5 machine-extracted inventories | 1 794 | Snapshots taken *before* remediation, enumerating exactly what it changed. `config-ops.md` had no `spectator-capacity`, `minio-init`, Promtail, Alertmanager or the two Postgres roles; `api-surface.md` had no room REST API at all |
+| `remediation-plan.md` | 2 280 | Executed. Every fix is in the review INDEX's `Closed:` lines and the registry's gates table |
+| 8 slice reports, 2026-08-16 | 3 184 | Harvested first, then dropped |
+| 5 domain reports, 2026-07-02 | 380 | Round closed and superseded by a full re-audit of the same corpus |
+| `requirements-gaps.md` | 34 | Phase 0 TODO, all items checked. Its open-questions list was a stale duplicate of the specs' own |
+
+A stale inventory is worse than no inventory: it is exactly the kind of file an agent greps into and
+believes. That, rather than size, is why they went.
+
+**Kept, deliberately:** `espresso-spike-results.md` (nine inbound citations; in the read-lists of
+`IMP-M0-04` and `IMP-M3-02`) and both review INDEXes, which carry every blocker with its evidence and
+resolution. `docs/superpowers/specs/2026-06-12-repo-strategy-design.md` was an unreferenced orphan but
+a real decision, so it became **ADR-0012** rather than being deleted; `docs/superpowers/` is gone.
+
+**Every relative link in the corpus now resolves with no exclusions** — the 19 long-standing false
+positives went with the remediation plan.
 
 ### Part 4 — `turnbase.room.spectator-capacity` (IR-24)
 
@@ -58,7 +103,7 @@ silently swallows `VW-RLOBBY-008`, struck through as *(removed)* in `platform-vi
 This is exactly the hazard `specs/INDEX.md` names — *"a wrong qualifier is worse than a bare ID"* —
 and it had gone undetected because every check written before now used the loose definition.
 
-**Sanity check, whole corpus, all clean:** 619 relative links resolve; 0 mis-qualified or
+**Sanity check, whole corpus, all clean:** every relative link resolves; 0 mis-qualified or
 nonexistent requirement citations; 0 dangling `§` references; every document registered in an
 `INDEX.md`; all 59 live work items carry all five fields. Checks 2 and 3 are the ones worth
 reconstructing after any documentation change — they are the two that found real defects.
@@ -136,15 +181,12 @@ Both are in the review INDEX under *Found during remediation*, each with a `**Cl
 
 ### Corpus state
 
-**619 relative links, 0 broken** (the 19 flagged inside `remediation-plan.md` are snippets whose
-paths are relative to their target documents, not to the plan). A 23-assertion grep gauntlet over
-every fix passes; it is in the plan's Task 26 and is worth re-running after any edit to the affected
-documents. The five-part sanity check of Part 3 is the broader net and passes clean.
+**Every relative link in the corpus resolves — 0 broken.** The 19 long-standing false positives are
+gone with `remediation-plan.md`, so the check is now clean with no exclusions for the first time.
 
-Ten non-blocking findings from the review survive this round and are recorded in the plan's
-self-review. **The two most likely to cost time** are `test-harness.md`'s claim that the Game Host
-blocks filesystem and network calls, and the GDK example that violates the determinism rule stated
-sixty lines above it — both are read by game developers as instructions.
+`docs/` is 22 715 lines after Part 5's pruning, down from 30 229. Everything that remains is either
+normative (requirements, specs, ADRs), the build plan (implementation), or a closed round's record of
+why the corpus is shaped as it is (two review INDEXes plus the Espresso spike results).
 
 ## Previous Session Summary
 
@@ -336,9 +378,10 @@ Three things worth knowing before the milestone that needs them:
   title is now *Room lifecycle, capacity and deadlines*. §7 is again true when it claims to hold every
   tunable in the corpus — keep it that way: a property named at a call site and never registered there
   is invisible to the next configuration audit.
-- The 62 non-blocking findings are in the per-slice files under
-  `docs/reviews/2026-08-16-implementation-readiness/`, with the ten most likely to cost an implementer
-  time called out in that directory's INDEX.
+- The ten non-blocking findings worth acting on were harvested into the corpus in Part 5 and the
+  slice files deleted; the review INDEX records each with where its fix landed. The remaining ~52 were
+  NITs and low-value GAPs, and re-deriving one from a fresh audit is cheaper than carrying 3 184 lines
+  of stale report against the chance that one mattered.
 
 ### Review action plan
 
@@ -389,11 +432,11 @@ Flyway, forward-only, backward-compatible).
 across 7 milestones** (IMP-M6-07 cancelled), each carrying a read-list, dependencies, the requirement
 IDs it satisfies and a done-when clause. Nothing is gated.
 
-**Reviews:** `docs/reviews/` — `2026-07-02-mvp-readiness` (closed) and
-`2026-08-16-implementation-readiness` (**closed**: 23 of 23 blockers resolved; 62 lesser findings
-remain recorded, across eight per-slice files plus five machine-extracted inventories covering the
-API surface, the schema, the configuration surface, ten state machines, and requirement→spec
-coverage). The two findings raised during remediation — IR-24 and IR-25 — are also closed.
+**Reviews:** `docs/reviews/` — two closed rounds, reduced to their INDEXes plus
+`espresso-spike-results.md`. `2026-08-16-implementation-readiness/INDEX.md` carries all 23 blockers
+with evidence and a `Closed:` line each, the ten harvested non-blocking findings, and IR-24/IR-25.
+Working files (slice reports, inventories, the remediation plan) were deleted once spent — they had
+become pre-remediation snapshots of a corpus that no longer matched them.
 
 **Coverage caveat — now largely closed.** Of the four areas that had requirements but no implementing
 specification, three were written this session: the design system

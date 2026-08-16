@@ -16,8 +16,7 @@ corpus without re-deriving architecture.
 > implementation-ready and no work item in
 > [`../../implementation/registry.md`](../../implementation/registry.md) is gated. The four
 > structural gaps were resolved as **three design sessions** — the room REST API, observability
-> wiring, and the design system — and **one scope cut**, the onboarding wizard. The task-by-task plan
-> is [remediation-plan.md](remediation-plan.md).
+> wiring, and the design system — and **one scope cut**, the onboarding wizard.
 >
 > **Two resolutions departed from the suggestion recorded in the finding itself.** IR-11 uses the
 > existing deferred-tail mechanism rather than a new owed-closure table, and IR-12 declares the v1
@@ -50,15 +49,10 @@ rule.
 
 ## How this review was run
 
-Thirteen agents across three model tiers, dispatched from a shared brief
-(severity ladder, evidence standard, output format) with per-slice scenario lists.
-
-| Tier | Count | Work |
-|---|---|---|
-| **Haiku** | 4 | Mechanical inventories — API surface, relational schema, configuration/ops surface, state machines. Extraction and tabulation only, no judgement. |
-| **Sonnet** | 6 | Domain audits — accounts, catalog/upload, history/notifications, frontend, API conventions, deployment/ops. |
-| **Opus** | 2 | The two subtlest slices — rooms/realtime concurrency, and the game-execution trust boundary. |
-| *(orchestrator)* | 1 | Deterministic scripted checks, verification of agent claims, consolidation. |
+Thirteen agents across three model tiers — four Haiku on mechanical inventories, six Sonnet on domain
+audits, two Opus on the two subtlest slices (rooms/realtime concurrency and the game-execution trust
+boundary), and an orchestrator for verification and consolidation. Dispatched from a shared brief:
+severity ladder, evidence standard, output format, per-slice scenario lists.
 
 Four checks were run by script rather than by agent, because they are deterministic and an agent
 would only add hallucination risk: link integrity, requirement-ID collision mapping,
@@ -68,33 +62,23 @@ requirement→spec citation coverage, and misqualified cross-document citations.
 a factual claim was re-verified against the source text by the orchestrator. Three agent claims were
 rejected on verification and are recorded under *Claims rejected* at the end.
 
-## Files
+### The working files are gone, and that is deliberate
 
-| File | Slice | Findings |
-|------|-------|----------|
-| [rooms-realtime.md](rooms-realtime.md) | Room lifecycle, ownership, grace, teardown, STOMP protocol | 8 BLOCKER, 3 AMBIGUITY, 6 GAP, 3 DRIFT, 1 NIT |
-| [game-execution.md](game-execution.md) | Game Host, Espresso, gRPC, GDK | 4 BLOCKER, 3 AMBIGUITY, 3 GAP, 6 DRIFT, 2 NIT |
-| [frontend.md](frontend.md) | Shell, views, design system, iframe boundary | 4 BLOCKER, 1 AMBIGUITY, 1 GAP, 1 NIT |
-| [deployment-ops.md](deployment-ops.md) | Local stack, migrations, config, secrets, observability | 3 BLOCKER, 5 GAP, 4 DRIFT, 1 NIT |
-| [catalog-upload.md](catalog-upload.md) | Catalog, upload pipeline, bundle format, asset serving | 2 BLOCKER, 1 AMBIGUITY, 1 DRIFT |
-| [accounts-auth.md](accounts-auth.md) | Accounts, auth, sessions, guests, social graph | 1 BLOCKER, 1 AMBIGUITY, 4 GAP, 1 DRIFT |
-| [api-conventions.md](api-conventions.md) | REST shape, errors, validation, pagination, rate limits | 1 BLOCKER, 2 GAP, 1 DRIFT, 1 NIT |
-| [history-notifications.md](history-notifications.md) | History, statistics, notifications, invitations | 1 BLOCKER, 1 GAP, 1 DRIFT, 1 NIT |
-| [inventories/](inventories/) | Machine-extracted reference tables (see below) | — |
-| [remediation-plan.md](remediation-plan.md) | The task-by-task plan that closed all 23 blockers, with the four scope decisions taken before execution | — |
+This round produced eight per-slice reports, five machine-extracted inventories and a 2 280-line
+remediation plan. **All fourteen were deleted on 2026-08-16, once every finding they carried had been
+resolved into the corpus.** This INDEX is what remains, and it is enough: it carries every blocker
+with its evidence and the `**Closed:**` line naming where the fix landed.
 
-### Inventories
+They were removed rather than archived because they had stopped being true. The inventories were
+snapshots taken *before* the remediation and enumerated exactly what it changed — `config-ops.md`
+listed the configuration surface without `turnbase.room.spectator-capacity`, `minio-init`, Promtail,
+Alertmanager or the two Postgres roles; `api-surface.md` contained no room REST API at all;
+`coverage.md`'s headline count was wrong by thirty. A stale inventory that looks authoritative is
+worse than no inventory, because it is the kind of file an implementer greps into and believes.
 
-Working artifacts, kept because they are useful during implementation. **They are extraction, not
-authority** — where an inventory disagrees with a spec, the spec wins.
-
-| File | Contents |
-|------|----------|
-| [inventories/api-surface.md](inventories/api-surface.md) | REST endpoints, STOMP destinations, close codes, SSE events, gRPC RPCs, error codes |
-| [inventories/schema.md](inventories/schema.md) | Every table, column, constraint, index and Redis key, with source lines |
-| [inventories/config-ops.md](inventories/config-ops.md) | Config keys, secrets, containers, jobs, timing constants, rate-limit buckets, metrics |
-| [inventories/state-machines.md](inventories/state-machines.md) | Ten state machines with transition tables and reachability analysis |
-| [inventories/coverage.md](inventories/coverage.md) | The 161 requirements cited by no spec, grouped by owning document |
+The remediation plan described work that is done and is fully accounted for by the `**Closed:**`
+lines below and the *Readiness gates* table in
+[`../../implementation/registry.md`](../../implementation/registry.md).
 
 ---
 
@@ -589,39 +573,29 @@ requirements of first-run polish on a platform whose v1 audience is the author.
 
 ---
 
-## Non-blocking findings
+## Non-blocking findings — the ten that mattered, all now fixed
 
-62 findings below blocker severity are recorded in the per-slice files: 8 AMBIGUITY, 22 GAP, 20 DRIFT,
-7 NIT (plus the 23 blockers above; two agents reported the same manifest defect, counted once).
+62 findings below blocker severity were recorded in the per-slice files: 8 AMBIGUITY, 22 GAP,
+20 DRIFT, 7 NIT. The ten judged most likely to cost an implementer time were **harvested into the
+corpus on 2026-08-16**, which is what made deleting those files safe. Each is now a defect that no
+longer exists rather than a note somebody has to find:
 
-The ones most likely to cost an implementer time, with slice file for detail:
+| Finding | Fixed in |
+|---|---|
+| `FR-SESS-*` collides across `user-accounts.md` (account sessions) and `platform-architecture.md` (Game Host in-memory state); seven citations were unqualified | All seven qualified in `data-model-accounts.md` and `secrets-and-configuration.md`; the collision table is in [`../../requirements/INDEX.md`](../../requirements/INDEX.md) |
+| Argon2id pinned as the algorithm with no cost parameters anywhere | `input-validation.md` § *Argon2id cost parameters* — OWASP's first configuration, with the rehash-on-login rule that makes raising it possible |
+| Profile privacy has requirements, UI, columns and a worked `PATCH` example, but no route | `rest-conventions.md` — `PATCH /api/users/me/privacy` |
+| `FR-ACCT-010` (password change) has no route, unlike every other auth endpoint | `rest-conventions.md` — `POST /api/users/me/password`, and it revokes every other session |
+| No consolidated WebSocket error-code registry; `ACTION_TOO_LARGE` and `ACTION_REJECTED` existed only as prose | `room-websocket.md` § *Error codes* is now the corpus-wide registry; `error-handling.md` states that WS errors are not Problem Details and points at it |
+| Offset pagination mandated for the notification centre, a list under continuous real-time insert, with no discussion of drift | `pagination-filtering-sorting.md` — offset kept, with the reasoning, and a total ordering mandated so the drift is bounded rather than arbitrary |
+| Inconsistent `bigserial` vs `GENERATED ALWAYS AS IDENTITY` across three sibling schema documents | `data-model.md` § *Convention* states the identity form; `game_input_outbox.id` changed to match |
+| `schema-migrations.md` mislabels `room_participant.team_id → room_team` as circular | `schema-migrations.md` §5 — one circular FK, not two, with the reason the other is not |
+| The GDK's flagship example violates the determinism rule stated 60 lines above it | **Fixed at the cause:** `InitContext.seed()` added (`backend-gdk-api.md` §4), derived from the session id (`game-host-internals.md` §3.5). A rule forbidding unseeded randomness is unsatisfiable for any game with hidden information unless the platform supplies a seed |
+| `test-harness.md` tells developers the Game Host blocks filesystem and network — the claim the Espresso spike disproved | `test-harness.md` §2 now states what the container enforces versus the context, and that Compose enforces neither |
 
-- **`FR-SESS-*` collides across two requirement documents** with unrelated meanings — account sessions
-  in `user-accounts.md`, Game Host in-memory state in `platform-architecture.md`. IDs 001–004 collide.
-  Seven citations in `data-model-accounts.md` and `secrets-and-configuration.md` are unqualified; all
-  seven were checked individually and resolve correctly by context, so this is an ambiguity rather
-  than a defect — but it is the highest-traffic collision in the corpus. (`accounts-auth.md` F5)
-- **Argon2id is pinned as the algorithm with no cost parameters** anywhere. (`accounts-auth.md` F6)
-- **Profile privacy has no REST endpoint** despite dedicated UI, DB columns and a `PATCH` worked
-  example in `rest-conventions.md` that names the operation without naming the route.
-  (`api-conventions.md` F2)
-- **`FR-ACCT-010` (password change) has no route**, unlike every other auth endpoint.
-  (`accounts-auth.md` F7)
-- **No consolidated WebSocket error-code registry.** `room-websocket.md` has a good 21-row table;
-  game-session codes `ACTION_TOO_LARGE` and `ACTION_REJECTED` exist only as prose in `websocket.md`;
-  `error-handling.md` never mentions WebSocket errors. (`api-conventions.md` F4)
-- **Offset pagination is mandated for the notification centre**, a list under continuous real-time
-  insert, with no discussion of page drift. (`history-notifications.md` F2)
-- **Inconsistent `bigserial` versus `GENERATED ALWAYS AS IDENTITY`** across three sibling schema
-  documents with no stated convention — a transcription hazard for IMP-M0-06.
-  (`deployment-ops.md` F10)
-- **`schema-migrations.md` mislabels `room_participant.team_id → room_team` as circular** when by its
-  own stated table order it is not. Only `game`/`game_version` actually is.
-  (`deployment-ops.md` F9)
-- **The GDK's flagship example violates the determinism rule stated 60 lines above it.** This is the
-  code a game developer copies. (`game-execution.md` F15)
-- **`test-harness.md` tells developers the Game Host blocks filesystem and network calls** — the exact
-  claim the Espresso spike disproved. (`game-execution.md` F11)
+The remaining 52 were NITs and low-value GAPs whose files are gone. Nothing referenced them, and
+re-deriving one from a fresh audit is cheaper than carrying 3 184 lines of stale report against the
+chance that one of them mattered.
 
 ---
 
@@ -703,17 +677,16 @@ Recorded so they are not re-raised.
 |---|---|
 | `room-websocket.md:326` cites `FR-JOB-007d`, which is defined nowhere *(scripted check)* | **Rejected.** `FR-JOB-007` defines duties (a)–(e) and the corpus refers to them as `FR-JOB-007a…e` in 8 places consistently. Not a dangling citation — but the sub-duty convention is never declared, which is worth one sentence in `docs/specs/INDEX.md`. |
 | `sse-notifications.md` cites a nonexistent `FR-ALERT-006` *(`history-notifications.md` NIT)* | **Partially rejected.** The ID exists, in `platform-operations.md`. The defect is real but is a misqualification, not a dangling reference — a more dangerous failure than reported. Fixed. |
-| Four FK columns have no index *(`inventories/schema.md` §5a)* | **Partially rejected.** `room.game_id` is covered by `room_open_game_idx (game_id, game_version) WHERE state <> 'CLOSED'`. `room.host_user_id` genuinely has none and is touched by account deletion — that one stands. |
+| Four FK columns have no index *(schema inventory §5a)* | **Partially rejected.** `room.game_id` is covered by `room_open_game_idx (game_id, game_version) WHERE state <> 'CLOSED'`. `room.host_user_id` genuinely has none and is touched by account deletion — that one stands. |
 | `FR-GDK-*`, `FR-FEGDK-*`, `FR-HARNESS-*` are each defined in two documents *(scripted check)* | **Rejected.** The second "definition" is a traceability matrix in the implementing spec — a feature of the corpus, not a collision. The heuristic over-counted; the true multi-document count is far below the raw 252. |
 
 ---
 
 ## Recommended fix order
 
-> **Executed.** This order was followed, as 26 tasks in
-> [remediation-plan.md](remediation-plan.md), one commit each. Three ordering constraints turned out
-> to be load-bearing rather than advisory and are recorded there: steps 6–12 as one pass by one
-> worker, IR-09 before IR-11, and IR-21 before IR-22.
+> **Executed.** This order was followed, as 26 tasks, one commit each. Three ordering constraints
+> turned out to be load-bearing rather than advisory: steps 6–12 as one pass by one worker, IR-09
+> before IR-11, and IR-21 before IR-22.
 
 Sequenced so that nothing blocks the build for longer than it must.
 

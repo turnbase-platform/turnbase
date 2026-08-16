@@ -1,17 +1,19 @@
 # MVP Readiness Review — 2026-07-02
 
-Phase-0 exit review: are the current requirements + specs sufficient to implement and ship the first TurnBase MVP online (AWS primary / GCP fallback)? Produced by five parallel domain reviews, each captured in full in this directory.
+Phase-0 exit review: are the current requirements + specs sufficient to implement and ship the first
+TurnBase MVP online? Produced by five parallel domain reviews — platform-core requirements, API
+design, the game-execution chain, DevOps/deployment, and lessons mined from the GRMP prototype.
 
-| File | Domain |
-|------|--------|
-| [core-requirements.md](core-requirements.md) | Platform-core requirements (accounts, rooms, chat, notifications, social, history, views, UI library) |
-| [api-design.md](api-design.md) | API design specs — security, sanitation, consistency, implementability |
-| [game-execution-stack.md](game-execution-stack.md) | Game execution chain: GDK, gRPC protocol, manifest, sandbox, effect delivery |
-| [devops-deployment.md](devops-deployment.md) | Deployment, IaC, data-layer ops, CI/CD, secrets, observability, dev cadence |
-| [grmp-lessons.md](grmp-lessons.md) | Lessons mined from the GRMP prototype (`../grmp`) |
-| [espresso-spike-results.md](espresso-spike-results.md) | Results of the ADR-0005 Espresso feasibility spike on GraalVM CE for JDK 21 (gates the Game Host internals spec) |
+**Round closed.** Every blocker below carries its resolution inline. The five per-domain reports were
+deleted on 2026-08-16, once this round was closed and the same corpus had been re-audited end to end
+by the [2026-08-16 implementation-readiness review](../2026-08-16-implementation-readiness/INDEX.md).
+Nothing referenced them, and their findings are either resolved here or superseded there.
 
-Already-tracked gaps (bundle/upload-pipeline spec, test harness spec, frontend shell spec, open questions in `docs/requirements-gaps.md`) were excluded from all reviews.
+One file survives, and it is the one this round exists for:
+
+| File | Why it stays |
+|------|--------------|
+| [espresso-spike-results.md](espresso-spike-results.md) | Results of the ADR-0005 Espresso feasibility spike on GraalVM CE for JDK 21. **Still load-bearing** — it is the evidence that the context does *not* enforce filesystem, network or heap limits, which is why those are container controls. Cited nine times across the corpus and named in the read-lists of `IMP-M0-04` and `IMP-M3-02` |
 
 ## Verdict
 
@@ -19,7 +21,9 @@ Already-tracked gaps (bundle/upload-pipeline spec, test harness spec, frontend s
 
 ## Consolidated blockers
 
-Cross-references (e.g. CORE-1) point into the per-domain reports, which carry full evidence and suggested resolutions.
+Cross-references (e.g. CORE-1) named the per-domain report that carried the full evidence. Those
+reports are deleted; each blocker's resolution is recorded inline below, which is the part that
+outlived them.
 
 ### Room lifecycle (core-requirements.md)
 1. ~~**CORE-1**~~ — **Closed 2026-07-10** (`game-rooms.md` FR-TEAM-012). Initial team instantiation at room creation undefined; the room happy path forks here. Resolved: `count.min` teams per template are instantiated at `size.max` before the host auto-assigns (FR-TEAM-005).

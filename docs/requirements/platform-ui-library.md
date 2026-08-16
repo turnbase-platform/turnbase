@@ -96,8 +96,11 @@
 
 ## Open Questions
 
-- OQ-001: Exact border radius value (requires design mockup to validate feel)
-- OQ-002: Exact neon accent color values (hex) — needs a design pass to balance vibrancy against legibility on dark backgrounds
-- OQ-003: Accessibility targets — WCAG AA compliance for contrast is at risk given neon-on-dark palettes; needs explicit decision on minimum contrast ratio
-- OQ-004: Should the frosted-glass blur degrade gracefully for browsers/devices that do not support `backdrop-filter`? If yes, what is the fallback surface color?
-- OQ-005: Storybook or equivalent component explorer — assumed yes, but not yet required
+Four of the five are resolved by [`design-system.md`](../specs/platform-frontend/design-system.md),
+which is the implementing spec; it carries the reasoning and this table carries the answer.
+
+- ~~OQ-001~~: Exact border radius value — **resolved: `6px`**, the midpoint of the stated range, pending a mockup (`design-system.md` §2).
+- **OQ-002 — open**: Exact neon accent colour values (hex). Needs a design pass to balance vibrancy against legibility on dark backgrounds, and it is constrained by OQ-003's resolution: each accent must clear WCAG AA against `--tb-color-bg` before it can be used for anything but emphasis. This is a design decision, not an implementation one — `IMP-M6-01` says to escalate rather than choose.
+- ~~OQ-003~~: Accessibility target — **resolved: WCAG AA is a hard floor** for body text, with no exceptions; neon is for emphasis, never for body text (`design-system.md` §6).
+- ~~OQ-004~~: `backdrop-filter` fallback — **resolved: the semi-opaque surface colour is the fallback**, and no second token is introduced for it (`design-system.md` §2).
+- ~~OQ-005~~: Storybook or equivalent — **deferred, not declined** (`design-system.md` §7). NFR-DX-001's documentation obligation is met by the design system's `README.md`.

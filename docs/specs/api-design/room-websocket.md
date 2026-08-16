@@ -675,6 +675,13 @@ Command failures are returned on `/user/queue/errors` using the base error envel
 
 ### Error codes
 
+**This table is the registry for every WebSocket error code in the corpus, not only the room's.**
+It aggregates codes owned by `rate-limiting.md`, `input-validation.md` and `websocket.md`, and the
+last two rows are game-session codes delivered on the *game* destination rather than the room's. One
+table exists because the alternative — a client-side enum assembled from three documents — reliably
+loses whichever code was only ever written in prose. Nothing here is Problem Details; WebSocket
+errors use the envelope above, and REST errors use [error-handling.md](error-handling.md)'s.
+
 | Code | Trigger |
 |---|---|
 | `NOT_HOST` | Host-only command sent by non-host |
@@ -701,6 +708,12 @@ Command failures are returned on `/user/queue/errors` using the base error envel
 | `VALIDATION_FAILED` | Command payload failed field validation ([input-validation.md](input-validation.md)); `details` names the failed fields |
 | `MESSAGE_TOO_LARGE` | Frame exceeds the per-destination size cap (input-validation.md § Size limits) |
 | `RATE_LIMIT_EXCEEDED` | Frame dropped by the Tier 6 rate limiter ([rate-limiting.md](rate-limiting.md)); carries `retryAfterMs`. Emitted from the channel interceptor without a `correlationId`, since the payload was never deserialized |
+| `ACTION_TOO_LARGE` | **Game session.** A `/app/game.*.action` frame exceeds the 256 KB `setMessageSizeLimit` cap ([websocket.md](websocket.md) § *Client→server command catalogue*). Rejected at admission; the game never sees it |
+| `ACTION_REJECTED` | **Game session.** An admitted action failed *inside* the game handler — threw, timed out in-context, or produced malformed output (`PROCESS_STATUS_FAILED`). Carries `correlationId` and the failure **kind**, never the failure message, which is text from untrusted game code ([websocket.md](websocket.md)) |
+
+The last two are the only codes here that a room client never sees. They are listed anyway because
+the point of a registry is that the enum is complete — and they are the two that were previously
+stated in prose only, with no table entry anywhere.
 
 Three further codes are carried on the STOMP `ERROR` frame that **closes** the connection rather than on
 `/user/queue/errors`: `RATE_LIMIT_ABUSE` (sustained rate-limit violation) and `TOO_MANY_CONNECTIONS`

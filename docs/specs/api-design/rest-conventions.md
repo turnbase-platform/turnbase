@@ -75,6 +75,29 @@ credential in a URL. `POST` to an action endpoint is the honest shape, and it ke
 Revoking the row does nothing to a socket already open, and for a guest this is irreversible —
 `FR-SESS-011` requires a confirmation before the platform destroys the only key to the account.
 
+Two further self-scoped account routes, both under `/api/users/me` so the principal is the resource:
+
+| Endpoint | Effect |
+|---|---|
+| `POST /api/users/me/password` | Changes the password. Body carries the current password and the new one (`user-accounts.md` FR-ACCT-010). `204` on success, `422` on current-password mismatch |
+| `PATCH /api/users/me/privacy` | Profile visibility and the four per-section toggles (`user-accounts.md` FR-PROF-004, FR-PROF-006; `platform-views.md` VW-SET-006, VW-SET-006a). Body is a partial `user_privacy_settings` representation |
+
+**Password change is a `POST`, not a `PATCH`.** `PATCH` sends a subset of a resource's
+representation, and the password is not part of any representation — it cannot be read back, and the
+request carries a *proof* (the current password) alongside the new value rather than just the new
+value. Modelling it as a field patch invites a client to send it in the same body as a username
+change, which would make one field's failure roll back the other.
+
+**Privacy toggles are a `PATCH`, and are the worked example** the *HTTP Methods* section above uses.
+One endpoint rather than five: the toggles are edited together on one settings screen, and five
+endpoints turn one save into five requests with no transaction across them.
+
+Both are `404`-free — the principal is always the resource, so there is nothing to fail to find.
+
+**A password change revokes every other session for the account** and closes their live sockets, by
+the same mechanism as `FR-SESS-003` displacement. A password change that leaves a stolen session
+authenticated is not a password change.
+
 ## Authorization and Ownership
 
 Authentication answers *who is calling*; every endpoint below also has to answer *may this caller act

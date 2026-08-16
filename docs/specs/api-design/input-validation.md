@@ -114,7 +114,28 @@ the user thought they were adding is discarded without a word.
 The platform therefore uses **Argon2id** (`Argon2PasswordEncoder`), which has no such limit. If BCrypt
 is ever used instead, the password must be SHA-256 pre-hashed before it reaches the encoder.
 
----
+### Argon2id cost parameters
+
+`user-accounts.md` NFR-SEC-001 pins the algorithm and says nothing about its cost, which is the half
+that decides whether the hash is worth anything. The starting parameters are:
+
+| Parameter | Value | Note |
+|---|---|---|
+| Memory | **19 456 KiB** (19 MiB) | OWASP's first recommended Argon2id configuration |
+| Iterations | **2** | |
+| Parallelism | **1** | |
+| Salt length | **16 bytes** | |
+| Hash length | **32 bytes** | |
+
+Construct the encoder with these explicitly — `new Argon2PasswordEncoder(16, 32, 1, 19456, 2)` —
+**not** with the no-argument constructor, whose defaults are meaningfully weaker than any of the
+current recommendations and which exists for backward compatibility rather than as advice.
+
+These are a floor, not a ceiling, and they are expected to rise. `data-model-accounts.md` §2 stores
+the cost inline in the PHC string precisely so that raising them is a rehash-on-next-login rather than
+a migration: a login verifies against the parameters embedded in the stored hash, then re-encodes with
+the current ones if they differ. Raising the values without that check leaves every existing user
+authenticating at the old cost forever, with nothing to indicate it.
 
 ## Size limits
 

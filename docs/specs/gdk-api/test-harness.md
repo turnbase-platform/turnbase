@@ -54,9 +54,24 @@ not enforce, because it teaches the developer something false.
 own JVM.
 
 That is a deliberate divergence from production and it is the harness's largest limitation, so it is
-stated plainly rather than buried: **the harness does not sandbox.** A game that calls
-`System.exit`, opens a socket, reads a file or spawns a thread will succeed locally and be blocked by
-the Game Host's context configuration (`../game-host/game-host-internals.md` §7). The alternative —
+stated plainly rather than buried: **the harness does not sandbox.**
+
+**Nor does the Game Host's context configuration, for most of what you might expect.** The ADR-0005
+spike ([results](../../reviews/2026-07-02-mvp-readiness/espresso-spike-results.md)) proved that
+`IOAccess.NONE` and `sandbox.MaxHeapMemory` do **not** interpose Espresso's native `java.io` and
+`java.net` — a guest read `/etc/passwd` and got it. Filesystem (FR-CTX-004), network (FR-CTX-005) and
+heap cap (FR-CTX-007) are enforced by the **container**, not the context
+(`../game-host/game-host-internals.md` **§4** — the isolation mapping; §7 is the guest classpath).
+What the context does block is `System.exit` (FR-CTX-006) and forced termination (FR-CTX-008).
+
+The practical consequence for a game developer: **a game that reads a file may work locally, work in
+Docker Compose, and still be wrong.** Compose has no gVisor (ADR-0001) and the network denial is a
+Kubernetes `NetworkPolicy` that does not exist there. Do not treat "it ran" as "it is allowed" — the
+contract is `game-contracts.md` CON-005, not whatever your local stack happens to permit.
+
+This section says so at length because §1 makes truthfulness the harness's stated design constraint:
+a rule the harness enforces differently from the platform is worse than a rule it does not enforce,
+and the same applies to a rule it *describes* differently. The alternative —
 embedding a guest JDK and a Truffle context in a developer tool — would make the harness a
 multi-hundred-megabyte download that starts in seconds instead of milliseconds, to catch a class of
 mistake that the platform catches anyway, at upload or at first invocation.

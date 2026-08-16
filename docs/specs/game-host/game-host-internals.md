@@ -193,6 +193,24 @@ before `CreateSession` so `GameParameters` getters never see an absent key
 implementation whose typed getters (`getInt`/`getEnum`/…) read it, throwing
 `ParameterAccessException` on type mismatch / unknown key.
 
+### 3.5 Seed derivation
+
+`InitContext.seed()` (backend-gdk-api §4) is derived **by the GDK Host** from `session_id`, not
+generated: `seed = the low 64 bits of SHA-256(session_id)`. Nothing is added to
+`CreateSessionRequest` and nothing is persisted, because the session id is already assigned by
+Orchestration, already unique per game instance, and already stable across an RPC retry — so a
+derived seed inherits all three properties for free.
+
+A generated seed would need a home. Stored on the Game Host it is lost with the pod; stored in
+Redis it becomes a second writer to the `session:{id}` record §9.1 reserves for the Game Host
+alone; added to the proto it becomes a value Orchestration must persist and re-send identically on
+every retry, which is a durability problem invented to solve a naming one.
+
+The derivation must be stable across Game Host versions — a game's initial state is established
+once at `onInit` and never recomputed, so a changed derivation cannot corrupt a live session, but
+it would make the fixture games of §16 and the harness round trip
+(`../gdk-api/test-harness.md` §6) non-reproducible.
+
 ---
 
 ## 4. Isolation: FR-CTX requirement → concrete mechanism
