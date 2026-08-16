@@ -392,7 +392,7 @@ transaction:
 | `room_invitation` | all rows deleted, **both** as inviter and as invitee | FR-ACCT-005 (amended), FR-INV-002 |
 | `notification` | all rows deleted (own), plus the subject cascade from the two rows above | FR-ACCT-005 (amended) |
 | `room_participant` | every non-closed room the user occupies is left as a **confirmed voluntary departure** | FR-LIFE-004, FR-DC-005 |
-| `room` | rooms hosted with no other human remaining: `state = 'CLOSED'`, `closed_reason = 'ACCOUNT_DELETED'`; otherwise host transfer | FR-XFER-002, FR-LIFE-004 |
+| `room` | rooms hosted with no other human remaining are **owed** a closure with `closed_reason = 'ACCOUNT_DELETED'`; otherwise a host transfer is owed. Neither happens in this transaction — see below | FR-XFER-002, FR-LIFE-004 |
 | `game_review` | any open review withdrawn: `decided_at = now()`, `decision = 'WITHDRAWN'` | §4 of [catalog](data-model-catalog.md#4-game_review) |
 | `game_history_entry` | `user_id = NULL`, `subject_token` assigned | FR-HIST-030, ADR-0004 |
 | `game` (owned) | `archived_at = now()` | FR-ACCT-007 |
@@ -412,16 +412,23 @@ the cascades made them look automatic:
 - **`room_invitation`, both legs.** An invitation the departing user *sent* would otherwise stay
   pending with a live actionable notification in the recipient's bell, and accepting it would route
   them into a room hosted by a deleted account.
-- **`room_participant` and `room`.** FR-LIFE-004 names account deletion as a confirmed voluntary
-  departure and FR-XFER-002 names it as an immediate-closure trigger, so
-  `data-model.md`'s `closed_reason = 'ACCOUNT_DELETED'` has account deletion as its **only**
-  producer — a value with no writer until this row existed. The mechanics of leaving and of host
-  transfer are [`room-lifecycle.md`](room-lifecycle.md)'s, not this document's; what belongs here is
-  that the erasure transaction must invoke them rather than skip them.
+- **`room_participant` and `room`.** The erasure transaction writes the *durable* half only: each
+  non-closed room the user occupies gets `left_at = now()`, `leave_reason = 'LEFT'` and
+  `lost_announced_at = NULL`. It does **not** close rooms, transfer hosts or broadcast, because it
+  runs on whichever instance received the REST call and that instance almost certainly does not own
+  those rooms — under ADR-0002 a non-owner's `ROOM_CLOSED` reaches nobody. The owning instance's next
+  deadline-sweep tick ([`room-lifecycle.md`](room-lifecycle.md) §5.1 duty 2) performs the
+  announcement, the FR-XFER-001 transfer and the FR-XFER-002 closure, under the claim.
+  `data-model.md`'s `closed_reason = 'ACCOUNT_DELETED'` therefore still has account deletion as its
+  only producer; what changed is *which actor* writes it, and when. The bound is one sweep interval.
 
-The erasure is one transaction, and the room work is the part that can fail on contention (it takes
-the room lock). It is ordered **last** so that a retry re-runs only the idempotent operations above
-it: each is a conditional update or a delete whose second execution matches zero rows.
+The erasure is one transaction, and the room work inside it is now only the participant departures —
+a conditional update per room, which cannot fail on lock contention the way a closure could. It is
+still ordered **last** so that a retry re-runs only the idempotent operations above it: each is a
+conditional update or a delete whose second execution matches zero rows. The closure and host-transfer
+work that used to sit here is deliberately outside the transaction, deferred to the room's owner; a
+retry of the erasure re-commits the same participant rows and produces no second tail, because
+`left_at IS NULL` no longer holds.
 
 **The username is kept on the account row but stripped from history, and that is not a
 contradiction.** FR-ACCT-006 retains the username as a *namespace reservation* and FR-ACCT-009 renders

@@ -501,15 +501,32 @@ callers arrive on threads that own nothing: account deletion is a REST call land
 instance, and guest-account cleanup (FR-JOB-001) is a scheduled job. Under ADR-0002 there is no
 cross-instance fan-out, so a non-owner's `ROOM_CLOSED` reaches **nobody** — and the audience is real,
 because closure evicts spectators, who are connected at that moment and are not counted by the
-"no human player remains" test. A caller that cannot claim the room records the closure as owed and
-hands it to the reconciliation sweep, which claims first. This makes REST- and job-initiated closure
-asynchronous, which is the correct trade: a spectator silently stranded in a subscription to a dead
-room has nothing to repair it.
+"no human player remains" test.
+
+**A caller that cannot claim the room defers through the existing deferred-tail mechanism, not
+through a table of its own.** It commits the durable half — the participant departures, with
+`lost_announced_at` left null per §3.2 — and returns. The owning instance's next deadline-sweep tick
+picks the room up under §5.1 duty 2, which broadcasts and **evaluates closure** while holding the
+claim. There is no `room_closure_owed` table and no third durable work table: duty 2 already does
+exactly this job for grace expiries resolved by a foreign instance, and a closure owed by an account
+deletion is the same shape of debt. This makes REST- and job-initiated closure asynchronous, bounded
+by one sweep interval, which is the correct trade — a spectator silently stranded in a subscription to
+a dead room has nothing to repair it.
+
+**Duty 2's closure evaluation must therefore cover the Lobby host-departure case, not only
+FR-HDISC-003.** When the departed participant was `room.host_user_id`, the tail additionally applies
+FR-XFER-001's transfer if another human is connected, and closes with `NO_PLAYERS_REMAINING` if none
+is — in **Lobby as well as In Progress**, because `../../requirements/game-rooms.md` FR-XFER-002
+scopes immediate closure to explicit departures in any state and account deletion is named there as
+one. The `GRACE_EXPIRED_NO_HUMAN` path (§3.3 step 4) stays In-Progress-only and stays distinct; the
+two produce different `closed_reason` values because they mean different things to a player.
 
 ```
 detachSession(roomId, sessionId, reason, nextState):
-  0. Claim the room (§1.2). On redirect, record the closure as owed and return —
-     the sweep will perform it. Never commit or broadcast without the claim.
+  0. Claim the room (§1.2). On redirect (result 0), commit the participant departures with
+     lost_announced_at NULL and return — §5.1 duty 2 on the owning instance performs the
+     announcement and the closure evaluation. Never commit the room-row mutation or broadcast
+     without the claim.
 
   TX — Postgres only. No gRPC, no Redis, no remote call of any kind.
     1. SELECT ... FROM room WHERE room_id = :roomId FOR UPDATE
@@ -629,6 +646,14 @@ The tick runs four duties, **in this order**:
    the backstop, one path that forgets to stamp the column resurrects the defect as a phantom
    `PLAYER_LOST` for every ordinary leave, one sweep interval late — visible to players, and easy to
    read as a reconnection bug rather than a sweep bug.
+
+   The tail also carries the **host disposition**. If the departed participant was
+   `room.host_user_id`, apply FR-XFER-001's transfer to the next human by join order when one is
+   connected, and close the room with `NO_PLAYERS_REMAINING` when none is — in Lobby as well as In
+   Progress. This is the path that makes account deletion (`data-model-accounts.md` §5) and guest
+   cleanup work from a non-owning instance, and without it a deleted host's room keeps a
+   `host_user_id` naming a released participant, which is the dangling reference `data-model.md` §1
+   makes the column nullable to avoid.
 3. **Elapsed migration windows** — `migration_window_expires_at <= now()` on a room this instance
    owns. Clear the column, and if the host is disconnected or released while another human is
    connected, perform the FR-HDISC-001 transfer now. **Without this duty FR-HDISC-004 has no
