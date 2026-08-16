@@ -199,14 +199,31 @@ successful validation result and rendered by the upload UI and the test harness.
 
 ### Error model
 
-Fatal validation failures are reported using the bundle-validation error shape
-defined in [`api-design/error-handling.md`](../api-design/error-handling.md):
-a `422 business-rule-violation` whose `errors` array lists every failure as
-`{ "check": <id>, "message": <human-readable> }`. All Layer 1 and Layer 2
-failures are reported in a single response (FR-UPLOAD-008).
+Fatal validation failures use the `{ "check": <id>, "message": <human-readable> }` entry shape defined
+in [`api-design/error-handling.md`](../api-design/error-handling.md). **How they are delivered depends
+on when they are detected, and manifest validation is almost always the late case.**
+
+- **Phase A — the slot request.** `POST /api/games/{gameId}/versions` validates what it can from the
+  declared metadata alone. Those failures are a synchronous `422 business-rule-violation` whose
+  `instance` names that path.
+- **Phases B–G — everything that needs the bundle bytes, which is all manifest validation.** The
+  manifest lives *inside* the uploaded archive, so it cannot be read until after `confirm`, which has
+  already returned `202 Accepted`. These failures are **not an HTTP error at all**: they are the state
+  of a resource that was successfully created. `GET /api/games/{gameId}/versions/{uploadId}` returns
+  `200` with `status: "FAILED"` and the `errors` and `warnings` arrays below.
+
+The full phase model and the reasoning are in
+[`bundle-format.md`](bundle-format.md) §3.4, which is authoritative; this section states the
+consequence for manifest checks specifically. All Layer 1 and Layer 2 failures are still reported
+together in one array (FR-UPLOAD-008) — one report format, two carriers.
+
+**Do not return a `422` from the `GET`.** The request was fine and the resource was found; a client
+that treats 4xx as "retry the request differently" will loop.
 
 `check` identifiers use dotted/indexed paths into the manifest, consistent with
-the existing examples (`manifest.version`, `backend.gdkClasses`):
+the existing examples (`manifest.version`, `backend.gdkClasses`).
+
+A Phase A failure — synchronous, on the slot request:
 
 ```json
 {
@@ -218,6 +235,24 @@ the existing examples (`manifest.version`, `backend.gdkClasses`):
     { "check": "manifest.shortDescription", "message": "shortDescription exceeds 100 characters (was 142)." },
     { "check": "manifest.teamTemplates[1].name", "message": "name is required when more than one team template is declared." },
     { "check": "manifest.parameters[0].default", "message": "default 700 is greater than max 600." }
+  ]
+}
+```
+
+A manifest failure — the version resource, fetched after the `202`:
+
+```json
+{
+  "uploadId": "550e8400-e29b-41d4-a716-446655440000",
+  "version": "1.2.0",
+  "status": "FAILED",
+  "createdAt": "2026-06-11T13:00:00Z",
+  "errors": [
+    { "check": "manifest.shortDescription", "message": "shortDescription exceeds 100 characters (was 142)." },
+    { "check": "manifest.teamTemplates[1].name", "message": "name is required when more than one team template is declared." }
+  ],
+  "warnings": [
+    { "check": "manifest.capabilites", "message": "Unrecognized key 'capabilites' — did you mean 'capabilities'?" }
   ]
 }
 ```

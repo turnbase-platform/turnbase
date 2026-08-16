@@ -52,9 +52,12 @@ actual size is checked against `declared_size_bytes`; larger → `422`. A confir
 
 ## C. Validation, asynchronous
 
-`status='PROCESSING'`. Every check runs and **all failures are reported together**
-(`FR-UPLOAD-008`) as a `422` with a `{check, message}` array — a developer should not fix one error
-per round trip.
+`status='PROCESSING'`. Every check runs and **all failures are reported together** (`FR-UPLOAD-008`)
+as a `{check, message}` array — a developer should not fix one error per round trip. The array is
+**not** delivered as a `422`: `confirm` returned `202` minutes earlier and the HTTP exchange is over.
+It is read from `GET /api/games/{gameId}/versions/{uploadId}`, which returns `200` with
+`status: "FAILED"` (`../manifest/bundle-format.md` §3.4), or pushed as a
+`BUNDLE_VALIDATION_COMPLETE` SSE notification.
 
 | Stage | Realizes |
 |---|---|

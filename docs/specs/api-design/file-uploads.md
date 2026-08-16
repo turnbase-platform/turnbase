@@ -149,7 +149,11 @@ When the client has an active SSE connection (`sse-notifications.md`), the platf
 | Manifest invalid, entry class missing, GDK classes present | async | Version → `FAILED`; structured errors in GET response |
 | Storage unreachable during confirm | 3 | 503; client may retry Step 3 |
 
-Validation errors follow the bundle validation error format in [error-handling.md](error-handling.md).
+Phase A failures follow the bundle validation error format in
+[error-handling.md](error-handling.md) as a synchronous `422`. Everything detected after `confirm` has
+returned `202` — which is all manifest and bundle-content validation — is reported as the version
+resource's `FAILED` state and its `errors` array, never as a `422`. See
+[bundle-format.md](../manifest/bundle-format.md) §3.4.
 
 ## Size Validation
 
