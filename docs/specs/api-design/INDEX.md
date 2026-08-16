@@ -11,6 +11,7 @@ These specifications cover the HTTP REST API, WebSocket protocol, and SSE channe
 | File | Topic |
 |------|-------|
 | [rest-conventions.md](rest-conventions.md) | URL structure, HTTP methods, status codes, versioning and deprecation strategy, CORS/Origin policy and CSRF |
+| [room-rest-api.md](room-rest-api.md) | Room membership REST surface: create, list, get, join, leave, invite-code resolution. In-room mutations are STOMP — see `room-websocket.md` |
 | [pagination-filtering-sorting.md](pagination-filtering-sorting.md) | List endpoint conventions: pagination, filtering, sorting |
 | [error-handling.md](error-handling.md) | RFC 9457 Problem Details, `@ControllerAdvice`, error taxonomy |
 | [file-uploads.md](file-uploads.md) | Pre-signed URL upload flow for game bundles |

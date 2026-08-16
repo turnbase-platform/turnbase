@@ -3,6 +3,7 @@
 ## Related API Specifications
 
 - [rest-conventions.md](../specs/api-design/rest-conventions.md) — HTTP methods, status codes, authentication rules
+- [room-rest-api.md](../specs/api-design/room-rest-api.md) — the room membership REST surface: create, list, get, join, leave, invite-code resolution (implements FR-CREATE-*, FR-JOIN-001–007, FR-LIST-*)
 - [pagination-filtering-sorting.md](../specs/api-design/pagination-filtering-sorting.md) — Room list pagination, filtering, and sorting conventions (implements FR-LIST-003–004)
 - [websocket.md](../specs/api-design/websocket.md) — STOMP topics for lobby and game real-time events
 - [room-websocket.md](../specs/api-design/room-websocket.md) — Room WebSocket event and command catalogue: room affinity, lobby events, team management, reconnection presence

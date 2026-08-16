@@ -52,6 +52,7 @@ This automatically wraps standard Spring MVC exceptions (`MethodNotAllowedExcept
 | `rate-limit-exceeded` | `.../errors/rate-limit-exceeded` | 429 | Too many requests — see [rate-limiting.md](rate-limiting.md) |
 | `internal-error` | `.../errors/internal-error` | 500 | Unexpected server failures |
 | `service-unavailable` | `.../errors/service-unavailable` | 503 | Transient upstream failure |
+| `room-unavailable-retry` | `.../errors/room-unavailable-retry` | 503 | The room's owning instance could not be reached; the caller must back off and re-run the join flow. Carries a `retryAfterMs` extension alongside `Retry-After`. Deliberately distinct from `service-unavailable` and named to match the STOMP error code of the same condition — see [room-rest-api.md](room-rest-api.md) §7 |
 
 ## Implementation: @ControllerAdvice
 
