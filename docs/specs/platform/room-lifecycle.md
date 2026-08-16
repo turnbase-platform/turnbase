@@ -392,7 +392,13 @@ needs no such branch, since for it every `0` means "someone else won", which is 
 In the transaction:
 
 1. The `UPDATE` above.
-2. Insert the `player_left` row into `game_input_outbox`.
+2. Insert the `player_left` row into `game_input_outbox` —
+   **only if `room.active_session_id IS NOT NULL`.**
+   A Lobby room has no session (§3.4), and `game_input_outbox.session_id` is `NOT NULL`
+   (`data-model.md` §4.2), so an unconditional insert aborts the whole transaction on a room whose
+   reservation §1.4 step 4 opened precisely because FR-DC-007 required it. The reservation would then
+   never resolve and the 5-second sweep would retry it indefinitely — a stuck room and an error loop,
+   from the one path that is guaranteed to run on every rolling deploy.
 
 After commit, by the winner only:
 
@@ -416,6 +422,11 @@ immediately, and with a `closed_reason` (`GRACE_EXPIRED_NO_HUMAN`) whose require
 is explicitly scoped to In Progress. There is also no session to detach: `active_session_id` is null,
 so §4 has no meaningful `sessionId` argument. An emptied Lobby room is instead collected by the
 idle-Lobby duty (§5.2) under `IDLE_TIMEOUT`, which is the reason code that actually describes it.
+
+**Step 2 carries the same exemption, for a different reason.** Step 4's is a requirements argument —
+FR-HDISC-003 is scoped to In Progress. Step 2's is a schema constraint: there is no `session_id` to
+write. Both exemptions have the same trigger (`active_session_id IS NULL`) and must be kept together;
+the two were separated once and the result was a transaction that could never commit.
 
 **Ownership here is decided by running the claim (§1.2), not by consulting a local set** — the same
 test `detachSession` step 0 uses, and specifying it matters because the two plausible readings settle
