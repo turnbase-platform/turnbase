@@ -268,7 +268,7 @@ getting any of them wrong produces a game that looks frozen.
 |---|---|
 | Is the input re-dispatched? | **No.** A `GameFailure` is deterministic; replaying it reproduces it, and three retries of one bad action would exhaust the limit from a single click |
 | Is the `sequence` consumed? | **Yes.** It is burned. The game stream is deliberately sparse (`../api-design/websocket.md`) and a hole carries no information, so no client notices |
-| Does `lastAppliedSequence` advance? | **Yes**, to the failed input's sequence. A redelivery of the same sequence must be a replay returning the same failure, not a second invocation of a handler that has already run and thrown |
+| Does `lastAppliedSequence` advance? | **Yes**, to the failed input's sequence. A redelivery of the same sequence must be a replay returning the same failure, not a second invocation of a handler that has already run and thrown. The Game Host records the outcome alongside the sequence (`../game-host/game-host-internals.md` §8.1 `lastOutcome`/`lastFailure`) so the replay returns the same failure rather than the previous input's effects |
 | Is anybody told? | **Yes** — and this is the part that was missing. The acting player receives a unicast `ACTION_REJECTED` on `/user/queue/errors`, carrying the `GameFailure` kind but **not** its message |
 
 **The failure detail is not forwarded to the client.** A `GameFailure` message is a stack trace or an

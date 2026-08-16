@@ -357,8 +357,10 @@ idempotency (closes **GAME-B2**):
 {
   "contextKey":          { "gameId": "…", "gameVersion": "1.4.0" },
   "stateJson":           "…",     // opaque; the last successfully-applied state
-  "lastAppliedSequence": 42,      // highest sequence applied (CreateSession = 0)
-  "lastEffects":         [ … ]    // proto-mapped effects produced at lastAppliedSequence
+  "lastAppliedSequence": 42,      // highest sequence *consumed* (CreateSession = 0)
+  "lastOutcome":         "OK",    // "OK" | "FAILED" — the outcome at lastAppliedSequence
+  "lastEffects":         [ … ],   // effects produced at lastAppliedSequence; [] when FAILED
+  "lastFailure":         null     // the GameFailure at lastAppliedSequence; null when OK
 }
 ```
 
@@ -368,10 +370,20 @@ idempotency (closes **GAME-B2**):
 - **`lastEffects` retention** enables idempotent replay of the *most recent*
   sequence. It is not a full history; `game_over` results and the game log are
   retained separately by Orchestration for join/reconnect replay (FR-DELIVER-003).
-- **Atomicity requirement.** `{stateJson, lastAppliedSequence, lastEffects}` MUST be
-  written as **one atomic unit** (a Lua script or `MULTI/EXEC`). A torn write that
+- **`lastOutcome` / `lastFailure` exist because a burned sequence must be replayable.**
+  `../internal-grpc/orchestration-gamehost-protocol.md` advances `lastAppliedSequence` on a *failed*
+  input — the sequence is consumed, and a redelivery must return the same failure rather than invoke a
+  handler that has already run and thrown. Without a place to record the outcome, the replay branch
+  (§9.1 step 1) would return `lastEffects` with `OK`, and those effects belong to the *previous*
+  input. That is a silent wrong answer: the client is told an action succeeded and handed somebody
+  else's effects. `lastAppliedSequence` is therefore the highest sequence **consumed**, not the
+  highest successfully applied, and `lastOutcome` says which.
+- **Atomicity requirement.** `{stateJson, lastAppliedSequence, lastOutcome, lastEffects, lastFailure}`
+  MUST be written as **one atomic unit** (a Lua script or `MULTI/EXEC`). A torn write that
   advanced the sequence without the matching state is the exact bug GAME-B2 flags;
-  the atomic record forbids it.
+  the atomic record forbids it. The failure path writes the same unit — it is not a partial update. A
+  torn write that advanced the sequence without recording the outcome produces exactly the GAME-B2
+  class of bug on the failure path that the atomic record forbids on the success path.
 
 ### 8.2 Redis durability (OPS-4)
 
@@ -409,15 +421,21 @@ keys Orchestration does write.
 **`ProcessInput` (idempotent replay by `sequence`):**
 
 ```
-1. If input.sequence  ≤ record.lastAppliedSequence → REPLAY record.lastEffects
-   with OK; do NOT invoke the handler.               ← at-most-once application
+1. If input.sequence ≤ record.lastAppliedSequence → REPLAY:
+     lastOutcome == OK     → return ProcessResult(sequence, OK, record.lastEffects)
+     lastOutcome == FAILED → return ProcessResult(sequence, FAILED, record.lastFailure)
+   Do NOT invoke the handler.                        ← at-most-once application
 2. If session not in local memory → load record from Redis (recovery, §9.3);
    NOT_FOUND if no record exists at all (terminal).
 3. Acquire the per-session single-flight lock (§6.2).
 4. bridge.process*(sessionId, record.stateJson, …) under the 30 s watchdog (§12).
 5. On OK: atomically write { stateJson', lastAppliedSequence = input.sequence,
-   lastEffects = effects' }; then return ProcessResult(sequence, OK, effects').
-6. On failure: return ProcessResult(sequence, FAILED, failure) — state unchanged.
+   lastOutcome = OK, lastEffects = effects', lastFailure = null };
+   then return ProcessResult(sequence, OK, effects').
+6. On failure: atomically write { stateJson unchanged, lastAppliedSequence = input.sequence,
+   lastOutcome = FAILED, lastEffects = [], lastFailure = failure }; then return
+   ProcessResult(sequence, FAILED, failure). The sequence is burned — the game state is
+   unchanged, but the input has been consumed and must not be re-invoked on redelivery.
 ```
 
 The persist-then-return order (step 5) implements FR-FAIL-006: the host does not ACK
