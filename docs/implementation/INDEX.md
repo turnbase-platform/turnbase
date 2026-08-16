@@ -24,12 +24,12 @@ that surfaces three milestones later. Record it against the item's *Gate* field.
 
 | File | Purpose |
 |------|---------|
-| [INDEX.md](INDEX.md) | This file — conventions, milestone map, and the work-item register |
-| [registry.md](registry.md) | The per-item detail: read-lists, requirements satisfied, done-when clauses |
+| [INDEX.md](INDEX.md) | This file — conventions, the milestone map, and how to read a work item |
+| [registry.md](registry.md) | The register itself, and the per-item detail: read-lists, requirements satisfied, done-when clauses |
 
 ## Related
 
-- [`../reviews/2026-08-16-implementation-readiness/INDEX.md`](../reviews/2026-08-16-implementation-readiness/INDEX.md) — the audit that qualified this corpus for implementation, and the open findings that gate specific items below.
+- [`../reviews/2026-08-16-implementation-readiness/INDEX.md`](../reviews/2026-08-16-implementation-readiness/INDEX.md) — the audit that qualified this corpus for implementation. All 23 of its blockers are closed; two findings raised *during* remediation (IR-24, IR-25) remain open and are documentation defects, not gates.
 - [`../specs/INDEX.md`](../specs/INDEX.md) — design specifications.
 - [`../specs/flows/INDEX.md`](../specs/flows/INDEX.md) — read the relevant flow before starting any item that spans components.
 
@@ -51,6 +51,7 @@ through rather than renumbered, and its number is never reused.
 | `WIP` | In progress. The owning session or agent is named. |
 | `REVIEW` | Code complete, awaiting review or a passing pipeline. |
 | `DONE` | Merged, tests green, and — if the item touches a submodule — the submodule ref in this repo is updated. |
+| `CANCELLED` | The requirement it implemented was cut. The heading is struck through and kept; the number is never reused. |
 
 ### The `DONE` bar
 
@@ -65,6 +66,25 @@ correctly. Gates cite the audit finding ID from
 [`../reviews/2026-08-16-implementation-readiness/INDEX.md`](../reviews/2026-08-16-implementation-readiness/INDEX.md)
 or an `OQ-*` in a spec. An item with an open gate is `BLOCKED`, and the fix belongs in the
 **specification**, not in the code.
+
+**No item is currently gated.** A `Gate:` line appears on an item only when one is open, so its
+absence means what it says. If you open one while implementing, add the line and change the status —
+do not carry the gate in your head.
+
+### What every item carries
+
+Four fields, and they mean different things:
+
+| Field | Contract |
+|---|---|
+| **Read first** | The minimum document set that fully determines the item. An implementation agent should not need to read anything outside it. If you do, that is a defect in the registry — record it. |
+| **Satisfies** | The requirement IDs the item implements, document-qualified. Several IDs are reused across documents with unrelated meanings, so the bare ID is ambiguous and the qualifier is not decoration. |
+| **Done when** | Checkable without judgement. If two people could disagree about whether it holds, it is written wrong. |
+| **Gate** | Present only when something is open. |
+
+Items also carry short **notes** where a spec contains a trap that a correct-looking implementation
+walks straight into. Those notes are not summaries — they are the parts most likely to be got wrong,
+pulled forward so a low-effort reader meets them before writing code rather than after.
 
 ---
 

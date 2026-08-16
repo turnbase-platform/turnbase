@@ -2,14 +2,35 @@
 
 **Date:** 2026-08-16 (session 11)
 
-**Closed all 23 implementation-readiness blockers.** The 2026-08-16 audit round is **closed** and no
-work item in `docs/implementation/registry.md` is gated. Phase 1 coding can begin.
+Two pieces of work. **Closed all 23 implementation-readiness blockers**, then **completed the
+implementation registry**, which turned out to be the weaker of the two artifacts once the blockers
+were gone. Documents only — no code exists yet.
 
-Executed as 26 tasks from
-[`docs/reviews/2026-08-16-implementation-readiness/remediation-plan.md`](docs/reviews/2026-08-16-implementation-readiness/remediation-plan.md),
-one commit per task, on branch `docs/blocker-remediation`. Documents only — no code exists yet.
+### Part 2 — the registry is now complete and current
 
-### Three new specifications, one scope cut
+`docs/implementation/INDEX.md` promised that *every* work item carries a **Read first** list and a
+**Done when** clause. It did not. An audit of the 60 item sections found **19 with no body at all**,
+37 with no read-list, 53 with no *Satisfies* and 24 with no *Done when* — including `IMP-M2-01`,
+`IMP-M3-01` and `IMP-M6-01`, each the first item of its milestone. The three specs written in Part 1
+were cited by **no work item**, only by the gates block, so an agent picking up "Room CRUD and
+listing" would have built the room REST API without reading `room-rest-api.md`.
+
+**All 59 live items now carry Repo, Depends on, Read first, Satisfies and Done when.** Verified
+mechanically: 73 document paths resolve, every `§N` reference resolves against a real heading, and
+every one of the ~600 requirement-ID citations exists in the document it is qualified with. That
+last check caught a real error — `FR-HOST-001…009` in IMP-M2-06, when `game-rooms.md` has no
+FR-HOST-004 or 005.
+
+Also fixed: `IMP-M6-07` retired as `CANCELLED` (IR-23 cut the wizard, but the item still read
+`READY`); `IMP-M0-07`'s read-list said "nine containers" and its done-when omitted `minio-init` and
+`01-roles.sql`, so **the item existing to implement IR-01 and IR-02 could have passed without
+either**; `IMP-M0-10` still carried a `Gate:` line saying the metric requirements had no implementing
+spec; two dead `Gate:` lines removed; `deployment/INDEX.md`'s "nine containers"; and INDEX.md's two
+claims about where the register lives and which findings gate items.
+
+`Gate:` is now present **only** when something is open, so its absence means what it says.
+
+### Part 1 — three new specifications, one scope cut
 
 | Document | Closes | Note |
 |---|---|---|
@@ -61,8 +82,10 @@ Both are in the review INDEX under *Found during remediation*.
 
 ### Corpus state
 
-**553 relative links, 0 broken.** A 23-assertion grep gauntlet over every fix passes; it is in the
-plan's Task 26 and is worth re-running after any edit to the affected documents.
+**586 relative links, 0 broken** (the 19 flagged inside `remediation-plan.md` are snippets whose
+paths are relative to their target documents, not to the plan). A 23-assertion grep gauntlet over
+every fix passes; it is in the plan's Task 26 and is worth re-running after any edit to the affected
+documents.
 
 Ten non-blocking findings from the review survive this round and are recorded in the plan's
 self-review. **The two most likely to cost time** are `test-harness.md`'s claim that the Game Host
@@ -195,12 +218,13 @@ registered in its nearest INDEX. Four ID collisions I introduced during the sess
 ## Next Priorities
 
 **Phase 1 has started. Work from [`docs/implementation/INDEX.md`](docs/implementation/INDEX.md), not
-from this file.** The registry holds 60 work items with read-lists, dependencies and done-when
-clauses; this section only says which of them to pick up.
+from this file.** The registry holds **59 live work items** (IMP-M6-07 is cancelled), each with a
+read-list, dependencies, the requirement IDs it satisfies and a done-when clause; this section only
+says which of them to pick up.
 
 **No work item is gated.** All 23 readiness blockers are closed, so an item's status is whatever its
 own dependencies imply. The registry's gates block records how each one closed rather than what it
-blocks.
+blocks, and a `Gate:` line now appears on an item only when one is actually open.
 
 ### The next session
 
@@ -239,7 +263,8 @@ Three things worth knowing before the milestone that needs them:
   was written: every effect address is validated against the producing session's membership at
   fan-out.
 - **M6 inherits three fresh documents** — the design system, the CSP section, and the info-document
-  renderer. None existed when the M6 items were drafted.
+  renderer. None existed when the M6 items were first drafted; all three are now in the M6 items'
+  read-lists.
 
 ### Spec hygiene
 
@@ -301,19 +326,21 @@ registrable domain), ADR-0008 (room ownership as a lease-gated claim), ADR-0009 
 persisted and swept), ADR-0010 (session teardown as a durable to-do), ADR-0011 (schema migrations —
 Flyway, forward-only, backward-compatible).
 
-**Implementation:** `docs/implementation/` — the registry Phase 1 executes from. 60 work items across
-7 milestones, each with a read-list, dependencies, requirements satisfied, a done-when clause, and the
-readiness gates that block it.
+**Implementation:** `docs/implementation/` — the registry Phase 1 executes from. **59 live work items
+across 7 milestones** (IMP-M6-07 cancelled), each carrying a read-list, dependencies, the requirement
+IDs it satisfies and a done-when clause. Nothing is gated.
 
 **Reviews:** `docs/reviews/` — `2026-07-02-mvp-readiness` (closed) and
-`2026-08-16-implementation-readiness` (**open**: 23 blockers, 62 lesser findings, eight per-slice
-files plus five machine-extracted inventories covering the API surface, the schema, the configuration
-surface, ten state machines, and requirement→spec coverage).
+`2026-08-16-implementation-readiness` (**closed**: 23 of 23 blockers resolved; 62 lesser findings
+remain recorded, across eight per-slice files plus five machine-extracted inventories covering the
+API surface, the schema, the configuration surface, ten state machines, and requirement→spec
+coverage). Two findings raised during remediation — IR-24 and IR-25 — are open and non-blocking.
 
-**Coverage caveat.** Four areas have requirements but **no implementing specification**: the design
-system (`platform-ui-library.md`), the onboarding wizard (`onboarding-wizard.md`), the room REST API,
-and observability (`FR-MET-*`, `FR-TRACE-*`). The table above lists requirement coverage, not design
-coverage, and for these four the difference is the whole design.
+**Coverage caveat — now largely closed.** Of the four areas that had requirements but no implementing
+specification, three were written this session: the design system
+(`platform-frontend/design-system.md`), the room REST API (`api-design/room-rest-api.md`) and
+observability (`deployment/observability.md`). The fourth, the onboarding wizard, was **cut from v1**
+rather than specified. The table above lists requirement coverage, not design coverage.
 
 ---
 
