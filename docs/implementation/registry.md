@@ -594,57 +594,53 @@ Populated from
 [`../reviews/2026-08-16-implementation-readiness/INDEX.md`](../reviews/2026-08-16-implementation-readiness/INDEX.md).
 
 <!-- GATES:BEGIN -->
-The 2026-08-16 readiness audit returned **23 blockers**. Until a gate is closed, its items are
-`BLOCKED` and override the `READY` seeded in the register above.
+The 2026-08-16 readiness audit returned **23 blockers. All 23 are now closed** — see
+[`../reviews/2026-08-16-implementation-readiness/INDEX.md`](../reviews/2026-08-16-implementation-readiness/INDEX.md)
+for the register and
+[`../reviews/2026-08-16-implementation-readiness/remediation-plan.md`](../reviews/2026-08-16-implementation-readiness/remediation-plan.md)
+for the plan that closed them.
 
-**An implementation agent must check this table before starting.** If your item is listed, stop —
-the fix belongs in the specification and is not yours to make in code.
+**Every work item in the register above is ungated.** Status reverts to whatever the item's own
+dependencies imply.
 
-| Gate | Blocks | One-line | Fix owner |
-|---|---|---|---|
-| **IR-01** | IMP-M0-07, IMP-M0-12 | No MinIO bucket name or creation mechanism exists anywhere | `local-environment.md` §5, §7.9 |
-| **IR-02** | IMP-M0-07, IMP-M0-09 | Two-role Postgres model has no provisioning mechanism; one undifferentiated password | `secrets-and-configuration.md`, `local-environment.md` §5 |
-| **IR-03** | IMP-M0-11 | FR-CICD-003 requires a PR coverage gate over data OQ-002 defers to post-merge | `platform-operations.md` |
-| **IR-04** | IMP-M0-10 | Observability unwired: no OTLP property, scrape config, log shipping, provisioning or alert routing | design session |
-| **IR-05** | IMP-M1-07, IMP-M6-03 | Profile owner has no exemption from their own privacy settings | `platform-views.md` |
-| **IR-06** | IMP-M2-07 | Lobby grace expiry inserts an outbox row with null `session_id` — `NOT NULL` aborts it forever | `room-lifecycle.md` §3.3 |
-| **IR-07** | IMP-M2-07, IMP-M0-08 | Graceful drain closes sockets, re-triggering the FR-DC-007 Lobby-deletion cascade | `room-lifecycle.md` §2 |
-| **IR-08** | IMP-M2-11 | Chat consumes the room version but reaches a subset of subscribers — permanent gap-detect storm | `room-chat-websocket.md` |
-| **IR-09** | IMP-M2-10 | Deadline-sweep duty 2 matches every released participant, not only grace expiries | `room-lifecycle.md` §5.1 |
-| **IR-10** | IMP-M2-09 | `detachSession` mutates the room row with no version bump and no epoch fence | `room-lifecycle.md` §4 |
-| **IR-11** | IMP-M2-09, IMP-M1-08 | "Record the closure as owed" names no table; another document says it is synchronous | `room-lifecycle.md` §4 + `data-model-accounts.md` §5 |
-| **IR-12** | IMP-M2-05, IMP-M2-09 | AI players are load-bearing on the wire and in the closure predicate, absent from the schema | `data-model.md` §3 |
-| **IR-13** | IMP-M2-01 *(and all of M2 by dependency)* | **No REST specification exists for the room API** | design session |
-| **IR-14** | IMP-M3-05 | `session:{id}` has two writers; the pre-write disarms `CreateSession`, so `onInit` never runs | `game-host-internals.md` §9 + flow 02 |
-| **IR-15** | IMP-M3-06 | Owning docs disagree whether `lastAppliedSequence` advances on a failed input | `orchestration-gamehost-protocol.md` + `game-host-internals.md` |
-| **IR-16** | IMP-M3-04 | Proto says reject out-of-order sequences; prose makes gaps normal | `gamehost.proto` + protocol doc |
-| **IR-17** | IMP-M3-07 | No check that a game-addressed `player_id` is a participant — NFR-SEC-002 fails open on ADR-0006 | `websocket.md` §5 |
-| **IR-18** | IMP-M4-02, IMP-M4-03 | Async error contract not propagated: three docs still describe a synchronous `422` | `manifest-schema.md`, `file-uploads.md`, flow 08 |
-| **IR-19** | IMP-M4-01, IMP-M6-06 | Info-doc Markdown sanitization unspecified — XSS sink on the trusted origin | **unowned — assign** |
-| **IR-20** | IMP-M5-04, IMP-M2-12, IMP-M1-09 | No job purges expired friend requests or room invitations | `platform-operations.md` |
-| **IR-21** | IMP-M6-05 | Game iframe `sandbox` attribute directly contradicted between its two owning documents | ADR-0007 governs |
-| **IR-22** | IMP-M6-02 | The platform shell's CSP is specified nowhere, though delegated to explicitly | `shell-architecture.md` |
-| **IR-23** | IMP-M6-01, IMP-M6-07 | Design system (~30 reqs) and onboarding wizard (16 reqs) have no implementing spec at all | design session, or scope cut |
+| Gate | Closed by | What changed |
+|---|---|---|
+| IR-01 | `local-environment.md` §1, §5, §7.9 | Bucket named `turnbase-bundles`, created by a one-shot `minio/mc` init step. The application asserts its existence and never creates it |
+| IR-02 | `secrets-and-configuration.md` §1, §4; `local-environment.md` §4, §7.9 | Two roles created by `deploy/compose/initdb/01-roles.sql`. `POSTGRES_USER` is `turnbase_owner`, not `turnbase_app` — naming the app role there would silently hand it superuser |
+| IR-03 | `platform-operations.md` FR-CICD-003, OQ-002 | Coverage gate narrowed to unit + integration, the two categories that run at PR time |
+| IR-04 | **new** `deployment/observability.md` | Full wiring: Actuator scrape, Logback JSON → Promtail → Loki, OTLP → Tempo, Grafana provisioning, Alertmanager rules. Promtail chosen over the Loki Docker driver because a plugin install is a step a clean-machine bootstrap cannot assume |
+| IR-05 | `platform-views.md` VW-PROF-002…003, VW-FREN | The owner is exempt from their own privacy settings, stated as a rule and applied to five conditions |
+| IR-06 | `room-lifecycle.md` §3.3 | The outbox insert is conditional on `active_session_id IS NOT NULL`, the same trigger step 4's Lobby exemption already used |
+| IR-07 | `room-lifecycle.md` §1.5 layer 3, §1.6 | Drain- and self-eviction-initiated socket closes are tagged; the disconnect handler skips them |
+| IR-08 | `room-chat-websocket.md`, `room-websocket.md` | Chat carries `version: null` and never advances the counter. No second sequence: FR-MSG-006 defines a missed message as lost, not as a gap |
+| IR-09 | `room-lifecycle.md` §3.2, §5.1 duty 2; `data-model.md` §2, §5 | Two halves — `lost_announced_at` is stamped by every inline path, and duty 2 is additionally narrowed on `leave_reason` as a backstop. New partial index `room_participant_unannounced_idx` |
+| IR-10 | `room-lifecycle.md` §4 | `detachSession` step 3 is a fenced, version-bumping `UPDATE`. Without the fence a stale owner closes a live room; without the bump every client discards the `ROOM_CLOSED` |
+| IR-11 | `room-lifecycle.md` §4, §5.1 duty 2; `data-model-accounts.md` §5 | **No new table.** Owed closure rides the existing deferred tail; duty 2 gains the host disposition. The erasure transaction writes participant departures only |
+| IR-12 | `room-websocket.md`, `room-lifecycle.md` §3.3, `data-model.md` §6, `manifest-schema.md`, `game-rooms.md`, `game-contracts.md` OQ-002 | Wire kept, schema deferred, **v1 behaviour declared**: `aiPlayers` always empty, `ADD_AI_PLAYER` always `AI_NOT_SUPPORTED`, `capabilities.ai: true` rejected at validation, the "not an AI" clause removed |
+| IR-13 | **new** `api-design/room-rest-api.md` | Five endpoints: create, list, get, join, leave. REST is membership only; every in-room mutation stays STOMP |
+| IR-14 | `flows/02-room-to-game-start.md` step 6; `game-host-internals.md` §9.1 | `session:{id}` has exactly one writer, the Game Host. Flow 02 names the keys Orchestration does write |
+| IR-15 | `game-host-internals.md` §8.1, §9.1; `orchestration-gamehost-protocol.md` | The session record gains `lastOutcome` and `lastFailure`, so a replayed burned sequence returns its own failure rather than the previous input's effects |
+| IR-16 | `gamehost.proto` service and field comments; protocol doc | Forward gaps are normal and must be accepted. All three sequence cases are stated at the field, because a codegen reader never sees the prose table |
+| IR-17 | `api-design/websocket.md` § `GAME_EVENT`; `game-contracts.md` NFR-SEC-002 | Every effect address is validated against the producing session's membership at fan-out. The per-user queue secures the subscription, not the address |
+| IR-18 | `manifest-schema.md`, `file-uploads.md`, `flows/08-upload-to-play.md` | Phase A is a synchronous `422`; everything after `confirm` is the version resource's `FAILED` state |
+| IR-19 | `api-design/input-validation.md`; `game-catalog.md` | Assigned an owner. Markdown → React elements client-side, no HTML string anywhere, so the `dangerouslySetInnerHTML` ban stands unweakened |
+| IR-20 | `platform-operations.md` FR-JOB-013; `local-environment.md` §7.2; both schema docs | The expiry purge job exists and is named. It is the only mechanism that ever removes an actionable notification |
+| IR-21 | `shell-architecture.md` §5; `game-asset-serving.md` §6.1 | `allow-scripts allow-same-origin`, owned by `game-asset-serving.md`. `allow-scripts` alone makes `event.origin` `"null"` and silently breaks the whole relay |
+| IR-22 | `shell-architecture.md` §6 *(new section)* | The platform origin's CSP, with `frame-src` still owned by `game-asset-serving.md` §6.3. The delegation now resolves |
+| IR-23 | **new** `platform-frontend/design-system.md`; `onboarding-wizard.md` | Design system specified and folded into `turnbase-frontend` (CON-002 amended); onboarding wizard **cut from v1** |
 
-### Items that are `READY` today
+### Two resolutions that departed from the review's own suggestion
 
-Everything not named above. The largest unblocked runs, in dependency order:
+Recorded here because a future reader will otherwise reopen them.
 
-- **IMP-M0-01 → M0-06** — all five repository skeletons and the Flyway baseline. The entire
-  bootstrap except the compose file, the Helm chart, observability and CI. Enough work to fill a
-  session, and IMP-M0-06 is the highest-value item in the registry: transcribing the baseline is the
-  first real test of whether the six schema documents are mutually consistent.
-- **IMP-M1-01 → M1-06, M1-08, M1-09** — the whole accounts vertical except profiles (IR-05).
-- **IMP-M2-02, M2-03, M2-04** — the STOMP endpoint and the ownership/versioning core. These are the
-  subtlest items in the corpus and their specifications are clean; the M2 blockers cluster in the
-  *edges* (expiry, closure, chat, sweeps), not the core.
-- **IMP-M3-01, M3-02, M3-03, M3-10, M3-11** — the GDK, the Espresso lifecycle, the first game and the
-  harness.
-- **IMP-M4-04, M4-05** — publication and the admin API.
-- **IMP-M5-01, M5-02, M5-03** — history, statistics and the SSE stream.
-- **IMP-M6-03, M6-04** — account and room views, once IR-05 clears.
+- **IR-11 uses the existing deferred-tail mechanism rather than a new owed-closure table.** §5.1 duty
+  2 already performs exactly this job for grace expiries resolved by a foreign instance, and a
+  closure owed by an account deletion is the same shape of debt. ADR-0010's lesson is about keying
+  such tables correctly, not about minting more of them.
+- **IR-12 declares the v1 behaviour of the AI wire surface** rather than adding a schema
+  representation or cutting `FR-HOST-003`. The protocol shape survives for when the AI interface
+  lands; the implementer gets an unambiguous instruction today.
 
-**Sequencing note.** IR-01 and IR-02 are one short specification session and unblock `docker compose
-up`, which everything else is eventually tested against. Close them first even though IMP-M0-01
-through M0-06 can proceed without them.
+**IR-09's fix has two halves and Task 11 depended on the first** — that dependency is not visible
+from either document, which is why it is written down here.
 <!-- GATES:END -->

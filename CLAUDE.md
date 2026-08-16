@@ -22,10 +22,10 @@ Check [STATUS.md](STATUS.md) at the start of each session for current state, las
 and next priorities.
 
 **Before writing any code**, read [docs/implementation/INDEX.md](docs/implementation/INDEX.md) — the
-work-item registry — and check your item against its *Readiness gates*. 23 blocking specification
-defects are open, recorded in
-[docs/reviews/2026-08-16-implementation-readiness/INDEX.md](docs/reviews/2026-08-16-implementation-readiness/INDEX.md).
-A gated item's fix belongs in the specification, not in code.
+work-item registry. The 2026-08-16 readiness audit's **23 blockers are all closed**
+([register](docs/reviews/2026-08-16-implementation-readiness/INDEX.md)), so no work item is gated;
+an item's status is whatever its own dependencies imply. If a new specification defect is found while
+implementing, the fix belongs in the specification, not in code.
 
 ## Tech Stack
 

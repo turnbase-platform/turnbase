@@ -11,6 +11,24 @@ corpus without re-deriving architecture.
 
 ## Verdict
 
+> **Round closed, 2026-08-16. All 23 blockers are resolved** — every entry below carries a
+> `**Closed:**` line naming the resolution and the document that now carries it. The corpus is
+> implementation-ready and no work item in
+> [`../../implementation/registry.md`](../../implementation/registry.md) is gated. The four
+> structural gaps were resolved as **three design sessions** — the room REST API, observability
+> wiring, and the design system — and **one scope cut**, the onboarding wizard. The task-by-task plan
+> is [remediation-plan.md](remediation-plan.md).
+>
+> **Two resolutions departed from the suggestion recorded in the finding itself.** IR-11 uses the
+> existing deferred-tail mechanism rather than a new owed-closure table, and IR-12 declares the v1
+> behaviour of the AI wire surface rather than adding a schema representation or cutting the feature.
+> Both are argued in their `**Closed:**` lines.
+>
+> **IR-09's fix has two halves and IR-11's resolution depends on the first.** That dependency is not
+> visible from either affected document.
+>
+> The original verdict follows, unedited.
+
 **The corpus is substantially implementation-ready, but not yet at the bar its own next phase
 requires.** 23 blocking findings must be closed first. They are not distributed evenly, and the
 distinction matters for planning:
@@ -63,7 +81,7 @@ rejected on verification and are recorded under *Claims rejected* at the end.
 | [api-conventions.md](api-conventions.md) | REST shape, errors, validation, pagination, rate limits | 1 BLOCKER, 2 GAP, 1 DRIFT, 1 NIT |
 | [history-notifications.md](history-notifications.md) | History, statistics, notifications, invitations | 1 BLOCKER, 1 GAP, 1 DRIFT, 1 NIT |
 | [inventories/](inventories/) | Machine-extracted reference tables (see below) | — |
-| [remediation-plan.md](remediation-plan.md) | The task-by-task plan that closes all 23 blockers, with the four scope decisions taken before execution | — |
+| [remediation-plan.md](remediation-plan.md) | The task-by-task plan that closed all 23 blockers, with the four scope decisions taken before execution | — |
 
 ### Inventories
 
@@ -89,7 +107,7 @@ Each entry names **the milestone it gates**, so the fix effort can be sequenced 
 
 ### Gating M0 — bootstrap
 
-#### IR-01 — No MinIO bucket name or creation mechanism exists anywhere
+#### IR-01 — No MinIO bucket name or creation mechanism exists anywhere — **CLOSED**
 
 **Where:** `docs/specs/deployment/local-environment.md:444`;
 `docs/specs/deployment/secrets-and-configuration.md:204-213`
@@ -107,7 +125,9 @@ container or an `mc mb` step).
 
 ---
 
-#### IR-02 — The two-role Postgres model has no provisioning mechanism
+**Closed:** Named `turnbase-bundles` in `local-environment.md` §7.9 and created by a one-shot `minio/mc` init container specified in §5; the application asserts the bucket exists and fails startup naming `TURNBASE_ARTIFACT_STORE_BUCKET` if it does not.
+
+#### IR-02 — The two-role Postgres model has no provisioning mechanism — **CLOSED**
 
 **Where:** `docs/decisions/0011-schema-migrations.md:99-109`;
 `docs/specs/deployment/secrets-and-configuration.md:21,173-191`
@@ -125,7 +145,9 @@ FR-CRED-005 while appearing to work perfectly.
 
 ---
 
-#### IR-03 — `platform-operations.md` contradicts itself on CI coverage gating
+**Closed:** `secrets-and-configuration.md` §4 names `/docker-entrypoint-initdb.d/01-roles.sql` as the provisioning hook and splits the credential into owner and application rows in §1; `POSTGRES_USER` is explicitly `turnbase_owner`, because naming the app role there is the silent FR-CRED-005 violation.
+
+#### IR-03 — `platform-operations.md` contradicts itself on CI coverage gating — **CLOSED**
 
 **Where:** `docs/requirements/platform-operations.md:107` (FR-CICD-003) versus `:232` (OQ-002)
 
@@ -141,7 +163,9 @@ gate post-merge.
 
 ---
 
-#### IR-04 — Observability is unwired beyond the requirement statements
+**Closed:** FR-CICD-003 narrowed to unit + integration — the two categories that run at PR time — with OQ-002 pointing back at the consequence. The gate survives; the phrase that created the contradiction is gone.
+
+#### IR-04 — Observability is unwired beyond the requirement statements — **CLOSED**
 
 **Where:** `docs/requirements/platform-operations.md:66-97` (FR-MET-001…006, FR-TRACE-001…004,
 FR-ALERT-005); `docs/specs/deployment/local-environment.md:437-449`
@@ -156,9 +180,11 @@ requirements are cited by no spec anywhere in the corpus.**
 
 ---
 
+**Closed:** New `docs/specs/deployment/observability.md` wires all four signals end to end and cites every `FR-OBS-*`, `FR-MET-*`, `FR-TRACE-*` and `FR-ALERT-*`. Two decisions stated rather than left open: Promtail over the Loki Docker driver, and alert rules that evaluate with no receiver configured. FR-TRACE-004's always-on-error half is recorded as a **stated gap** rather than silently satisfied.
+
 ### Gating M1 — accounts
 
-#### IR-05 — The profile owner has no exemption from their own privacy settings
+#### IR-05 — The profile owner has no exemption from their own privacy settings — **CLOSED**
 
 **Where:** `docs/requirements/platform-views.md:294-306,319-325`; contradicts
 `user-accounts.md` FR-PROF-007 and `social-friends.md` FR-SOC-018
@@ -175,13 +201,15 @@ straightforward literal reading.
 
 ---
 
+**Closed:** `platform-views.md` states the owner exemption as a rule above the `VW-PROF-*` table and qualifies five conditions; the same rule is restated below the `VW-FREN-*` table so a future "view a friend's friends" feature does not inherit the wrong default.
+
 ### Gating M2 — rooms and realtime
 
 The largest concentration of blockers in the corpus, in its most subtle machinery. All eight were
 found by the Opus auditor walking failure scenarios end to end; the two marked **verified** were
 additionally re-confirmed against source by the orchestrator.
 
-#### IR-06 — Grace expiry in a Lobby room aborts permanently on a `NOT NULL` violation *(verified)*
+#### IR-06 — Grace expiry in a Lobby room aborts permanently on a `NOT NULL` violation *(verified)* — **CLOSED**
 
 **Where:** `docs/specs/platform/room-lifecycle.md:392-395` (§3.3) and `:396-418`;
 `docs/specs/platform/data-model.md:315`
@@ -203,7 +231,9 @@ loop.
 
 ---
 
-#### IR-07 — Graceful drain re-triggers the exact cascade FR-DC-007 exists to prevent
+**Closed:** §3.3 step 2 is now conditional on `room.active_session_id IS NOT NULL`, and the paragraph carrying step 4's Lobby exemption states that step 2 shares the trigger for a different reason — a schema constraint rather than a requirements scope.
+
+#### IR-07 — Graceful drain re-triggers the exact cascade FR-DC-007 exists to prevent — **CLOSED**
 
 **Where:** `docs/specs/platform/room-lifecycle.md:236-240`, `:170-174`;
 `docs/specs/flows/04-disconnect-and-return.md:16-18`
@@ -219,7 +249,9 @@ the disconnect as instance-initiated.
 
 ---
 
-#### IR-08 — Chat consumes the room version but reaches only a subset of subscribers
+**Closed:** §1.6 marks every socket the drain closes as instance-initiated and requires the disconnect handler to return early on one; §1.5 layer 3 applies the same rule to self-eviction. `connection_count` is zeroed by the next owner during adoption instead.
+
+#### IR-08 — Chat consumes the room version but reaches only a subset of subscribers — **CLOSED**
 
 **Where:** `docs/specs/api-design/room-chat-websocket.md:29-31`;
 `docs/specs/api-design/room-websocket.md:726`
@@ -237,7 +269,9 @@ separate sequence.
 
 ---
 
-#### IR-09 — Deadline-sweep duty 2 matches every released participant
+**Closed:** Chat carries `version: null` and never advances the counter, stated from both sides. **No second sequence was added**: FR-MSG-006 defines a missed chat message as lost rather than as a gap to repair, and `messageId` already dedups.
+
+#### IR-09 — Deadline-sweep duty 2 matches every released participant — **CLOSED**
 
 **Where:** `docs/specs/platform/room-lifecycle.md:557-560`; `docs/specs/platform/data-model.md:218-224`
 
@@ -253,7 +287,9 @@ predicate).
 
 ---
 
-#### IR-10 — `detachSession` mutates the room row with no version bump and no epoch fence
+**Closed:** Fixed in two halves — §3.2's single resolve statement now stamps `lost_announced_at` on every inline path, and duty 2 is additionally narrowed on `leave_reason` as a backstop against a writer that forgets. `data-model.md` gains `room_participant_unannounced_idx`, partial on the opposite predicate to the grace index.
+
+#### IR-10 — `detachSession` mutates the room row with no version bump and no epoch fence — **CLOSED**
 
 **Where:** `docs/specs/platform/room-lifecycle.md:477-492` versus `:176-194` (§1.5)
 
@@ -268,7 +304,9 @@ they must observe.
 
 ---
 
-#### IR-11 — "Record the closure as owed" names no table, and another document says it is synchronous
+**Closed:** §4 step 3 is a fenced, version-bumping `UPDATE ... WHERE version = :expected AND owner_epoch = :myEpoch`. Both halves are argued separately: without the fence a stale owner closes a live room irreversibly; without the bump every attached client discards the `ROOM_CLOSED` and renders a dead room as live.
+
+#### IR-11 — "Record the closure as owed" names no table, and another document says it is synchronous — **CLOSED**
 
 **Where:** `docs/specs/platform/room-lifecycle.md:468`, `:475-476`;
 `docs/specs/platform/data-model-accounts.md:395,422`
@@ -283,7 +321,9 @@ test state that its own success deletes.
 
 ---
 
-#### IR-12 — AI players are load-bearing in the protocol and absent from the schema
+**Closed:** **No new table.** The owed closure rides §5.1 duty 2 — the deferred-tail mechanism IR-09 just made honest — which broadcasts *and* evaluates closure under the claim. Duty 2 gains the host disposition (FR-XFER-001 transfer, FR-XFER-002 closure) in Lobby as well as In Progress. `data-model-accounts.md` §5 now writes only the participant departures inside the erasure transaction. This departs from the review's own suggestion above.
+
+#### IR-12 — AI players are load-bearing in the protocol and absent from the schema — **CLOSED**
 
 **Where:** `docs/specs/api-design/room-websocket.md:151-158,566`;
 `docs/specs/platform/room-lifecycle.md:403-405`; `docs/specs/platform/data-model.md:158-178`
@@ -304,7 +344,9 @@ and the closure predicate for the MVP.
 
 ---
 
-#### IR-13 — No REST specification exists for the room API *(verified)*
+**Closed:** Wire kept, schema deferred, **v1 behaviour declared** so the surface is implementable today: `aiPlayers` always empty, `ADD_AI_PLAYER` unconditionally `AI_NOT_SUPPORTED`, `capabilities.ai: true` rejected by bundle validation while OQ-002 is open, and the "that is not an AI" closure clause removed. OQ-002 now records that it owes a schema representation and a closure rule, not only an interface.
+
+#### IR-13 — No REST specification exists for the room API *(verified)* — **CLOSED**
 
 **Where:** absent from `docs/specs/api-design/` entirely. `POST /api/rooms` appears only in
 `docs/specs/flows/02-room-to-game-start.md:15` (a narrative step) and as a query-string example in
@@ -322,9 +364,11 @@ create and rejoin scenario in the corpus. See *Structural gaps*.
 
 ---
 
+**Closed:** New `docs/specs/api-design/room-rest-api.md`: five endpoints, an endpoint table, the FR-LIST-001 inclusion predicate written as a predicate, an error catalogue and a traceability table. REST is membership only — every in-room mutation stays STOMP, and §8 says why each absent route is absent.
+
 ### Gating M3 — game execution
 
-#### IR-14 — `session:{id}` has two claimed writers, disarming `CreateSession`'s idempotency guard
+#### IR-14 — `session:{id}` has two claimed writers, disarming `CreateSession`'s idempotency guard — **CLOSED**
 
 **Where:** `docs/specs/flows/02-room-to-game-start.md:115`;
 `docs/specs/game-host/game-host-internals.md:647`; `docs/requirements/platform-architecture.md:130`
@@ -339,7 +383,9 @@ initial state and no initial effects.
 
 ---
 
-#### IR-15 — The two owning documents disagree on whether `lastAppliedSequence` advances on a failed input
+**Closed:** Flow 02 step 6 was the wrong document and is corrected: it names the five Orchestration-owned keys and states explicitly that `session:{sessionId}` is **not** one of them. §9.1 states the guard's precondition from the Game Host side.
+
+#### IR-15 — The two owning documents disagree on whether `lastAppliedSequence` advances on a failed input — **CLOSED**
 
 **Where:** `docs/specs/internal-grpc/orchestration-gamehost-protocol.md:271`;
 `docs/specs/game-host/game-host-internals.md:404-412`, `:358-362`
@@ -352,7 +398,9 @@ answer rather than a visible error.
 
 ---
 
-#### IR-16 — Proto and prose disagree on out-of-order sequence handling
+**Closed:** The session record gains `lastOutcome` and `lastFailure`; `lastAppliedSequence` is redefined as the highest sequence **consumed**. The failure path writes the same atomic unit as the success path, so a replayed burned sequence returns its own failure rather than the previous input's effects.
+
+#### IR-16 — Proto and prose disagree on out-of-order sequence handling — **CLOSED**
 
 **Where:** `docs/specs/internal-grpc/gamehost.proto:39-40` versus
 `docs/specs/internal-grpc/orchestration-gamehost-protocol.md:270`
@@ -366,7 +414,9 @@ the proto freezes every session after its first failed action.
 
 ---
 
-#### IR-17 — No server-side check that a game-addressed `player_id` belongs to the session *(verified)*
+**Closed:** The service comment now says the Game Host accepts forward gaps, and the `ProcessInputRequest.sequence` comment states all three cases at the field — because a codegen reader never sees the prose table. The word `defensively` is gone.
+
+#### IR-17 — No server-side check that a game-addressed `player_id` belongs to the session *(verified)* — **CLOSED**
 
 **Where:** `docs/specs/api-design/websocket.md:255`, `:263`;
 `docs/requirements/game-contracts.md:169` (NFR-SEC-002, Must)
@@ -387,9 +437,11 @@ fan-out, and soften the NFR-SEC-002 claim to name the check that makes it true.
 
 ---
 
+**Closed:** `websocket.md` replaces the "mechanically true" claim with the check that would make it true: every effect address is validated against the producing session's membership at fan-out, with a drop, a WARN and `turnbase.effect.address_rejected.total{kind}`. NFR-SEC-002 names the mechanism.
+
 ### Gating M4 — catalog and upload
 
-#### IR-18 — The async-validation error contract never propagated to three documents
+#### IR-18 — The async-validation error contract never propagated to three documents — **CLOSED**
 
 **Where:** `docs/specs/manifest/manifest-schema.md:192-215`;
 `docs/specs/api-design/file-uploads.md:154-156`;
@@ -412,7 +464,9 @@ index points at is wrong in its body.
 
 ---
 
-#### IR-19 — Info-document Markdown sanitization has no implementation spec
+**Closed:** All three documents corrected. `manifest-schema.md`'s error model now leads with the phase split and carries both example shapes; `file-uploads.md`'s self-contradiction is resolved; flow 08 no longer asserts `202` and a synchronous `422` for the same request.
+
+#### IR-19 — Info-document Markdown sanitization has no implementation spec — **CLOSED**
 
 **Where:** `docs/requirements/game-catalog.md:48` (FR-GDET-004);
 `docs/specs/api-design/input-validation.md:182-195`; `docs/specs/manifest/bundle-format.md:494`
@@ -433,9 +487,11 @@ flow and `input-validation.md`'s security rules, and no document's scope section
 
 ---
 
+**Closed:** **Assigned to `input-validation.md`**, which already owns output encoding and the `dangerouslySetInnerHTML` ban that blocked the naive path. Markdown renders to React elements client-side with `skipHtml` — no HTML string is ever constructed, so the ban stands unweakened. Server-side sanitize-at-ingest was considered and rejected: it stores a second representation that a later allow-list fix must be back-applied to.
+
 ### Gating M5 — history and notifications
 
-#### IR-20 — No job purges expired friend requests or room invitations
+#### IR-20 — No job purges expired friend requests or room invitations — **CLOSED**
 
 **Where:** `docs/specs/platform/data-model-social.md:152`;
 `docs/specs/platform/data-model-notifications.md:199`; `docs/requirements/platform-operations.md:140-156`
@@ -457,9 +513,11 @@ no actor" pattern the last two sessions kept hitting.
 
 ---
 
+**Closed:** `platform-operations.md` FR-JOB-013 exists, with an interval key in `local-environment.md` §7.2, and both schema documents now name it instead of asserting "the purge job". The requirement states why it is load-bearing: it is the only mechanism that ever removes an actionable notification.
+
 ### Gating M6 — frontend
 
-#### IR-21 — The game iframe `sandbox` attribute is directly contradicted
+#### IR-21 — The game iframe `sandbox` attribute is directly contradicted — **CLOSED**
 
 **Where:** `docs/specs/platform-frontend/shell-architecture.md:142` versus
 `docs/specs/game-frontend/game-asset-serving.md:232`
@@ -479,7 +537,9 @@ Make one document authoritative and have the other cite it.
 
 ---
 
-#### IR-22 — The platform shell's Content-Security-Policy is specified nowhere
+**Closed:** `game-asset-serving.md` §6.1 claims ownership explicitly; `shell-architecture.md` §5 carries the same value and cites it. The rationale now leads with the failure that makes it a blocker rather than a preference — `allow-scripts` alone makes `event.origin` the string `"null"` and the shell's own origin check drops every message the game sends.
+
+#### IR-22 — The platform shell's Content-Security-Policy is specified nowhere — **CLOSED**
 
 **Where:** `docs/specs/game-frontend/game-asset-serving.md:265-274`;
 `docs/specs/platform-frontend/shell-architecture.md` (no CSP content anywhere)
@@ -492,7 +552,9 @@ the session cookie — ships with no specified policy.
 
 ---
 
-#### IR-23 — Two entire requirement documents have no implementing specification
+**Closed:** New `## 6. Content-Security-Policy` in `shell-architecture.md` (subsequent sections renumbered), with a directive-by-directive rationale. `game-asset-serving.md` §6.3's delegation now resolves to a real section.
+
+#### IR-23 — Two entire requirement documents have no implementing specification — **CLOSED**
 
 **Where:** `docs/requirements/platform-ui-library.md` (~30 requirements);
 `docs/requirements/onboarding-wizard.md` (16 requirements)
@@ -501,6 +563,8 @@ See *Structural gaps* below. Recorded as one blocker because the remedy is one d
 design work, or cut the scope from v1.
 
 ---
+
+**Closed:** Split. The **design system** is specified in new `docs/specs/platform-frontend/design-system.md` and folded into `turnbase-frontend` as an internal module with a lint-enforced import boundary — CON-002 amended, and `CLAUDE.md`'s five-repo table stays at five. The **onboarding wizard** is **cut from v1**: the document carries a Post-MVP banner, all 16 priorities read `Post-MVP`, and `platform-views.md` records that the FR-ONB-004 CTA is deliberately absent rather than missing.
 
 ## Structural gaps
 
@@ -646,6 +710,11 @@ Recorded so they are not re-raised.
 
 ## Recommended fix order
 
+> **Executed.** This order was followed, as 26 tasks in
+> [remediation-plan.md](remediation-plan.md), one commit each. Three ordering constraints turned out
+> to be load-bearing rather than advisory and are recorded there: steps 6–12 as one pass by one
+> worker, IR-09 before IR-11, and IR-21 before IR-22.
+
 Sequenced so that nothing blocks the build for longer than it must.
 
 1. **IR-01, IR-02** — one short session. Unblocks `docker compose up`, the literal first task.
@@ -663,4 +732,38 @@ Sequenced so that nothing blocks the build for longer than it must.
 
 **Do not start implementation of a milestone whose gates are open.** The registry
 ([`../../implementation/registry.md`](../../implementation/registry.md)) encodes these gates per work
-item so an implementation agent hits the block before writing code rather than after.
+item so an implementation agent hits the block before writing code rather than after. **No gate is
+open**; the registry's gates block now records how each one closed.
+
+---
+
+## Found during remediation, not by the review
+
+Two items surfaced while executing the plan and are **open**. Neither blocks Phase 1.
+
+#### IR-24 — NFR-SPEC-001's spectator capacity has no configuration key
+
+**Where:** `game-rooms.md` NFR-SPEC-001 ("configurable at the platform level; default is 8") versus
+`local-environment.md` §7, which opens by claiming it holds "every tunable named anywhere in the
+corpus".
+
+`grep -rn spectator docs/specs/deployment/` returns nothing. The value is required by the join
+capacity check ([room-rest-api.md](../../specs/api-design/room-rest-api.md) §3, §5) and is carried on
+the wire as `ROOM_STATE.spectatorCapacity`, so an implementer will need a key and will invent one.
+`room-rest-api.md` deliberately refers to `spectatorCapacity` rather than naming a property, to avoid
+minting a key that then disagrees with the one §7 eventually gets.
+
+**Fix owner:** `local-environment.md` §7.4, one row. Severity: GAP.
+
+#### IR-25 — `docs/requirements/` has no `INDEX.md`
+
+`CLAUDE.md` states that "`docs/requirements/` and `docs/specs/` are index-oriented" and that reading
+must "always start from the relevant `INDEX.md`". Seventeen requirement documents exist and there is
+no index over them, so the mandatory navigation rule is unsatisfiable on half of the corpus it names.
+
+This surfaced during the onboarding-wizard cut (IR-23): the plan called for annotating the entry in
+`docs/requirements/INDEX.md`, and there is no such file. The Post-MVP marker went on the document's
+own banner instead, which is where a reader arriving from a link will see it — but a reader browsing
+the directory has nothing to warn them.
+
+**Fix owner:** a new `docs/requirements/INDEX.md`. Severity: GAP.
