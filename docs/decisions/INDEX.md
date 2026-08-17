@@ -20,6 +20,7 @@ Format: one file per decision, numbered sequentially (`NNNN-slug.md`). Status is
 | [0010](0010-session-teardown-ordering.md) | Session teardown is a durable to-do, not an ordering | Accepted |
 | [0011](0011-schema-migrations.md) | Schema migrations — Flyway, forward-only, backward-compatible | Accepted |
 | [0012](0012-repo-strategy-polyrepo-submodules.md) | Repository strategy — polyrepo under an organisation, with submodules | Accepted |
+| [0013](0013-astryx-design-system.md) | Astryx supersedes the in-house design system | Accepted |
 
 ## Provenance
 
@@ -43,6 +44,14 @@ depends on the other two: the sweep of 0009 needs 0008's claim before it may bro
 re-drive is a duty of the same sweep. Two of the three also fix defects that were already latent in
 the specs: a rolling deploy would have deleted every Lobby room, and an adopting instance would have
 re-issued event versions that clients discard silently.
+
+ADR-0013 reverses a decision recorded one day earlier. `design-system.md` was written on 2026-08-16
+to close review blocker IR-23 — our own tokens, our own CSS Modules convention, our own seventeen
+components — and on 2026-08-17 the component half of it was replaced by Astryx, Meta's open-source
+design system. It is an ADR for two reasons: a future reader finding `design-system.md` would
+otherwise take the superseded design as current, and it amends `platform-ui-library.md` CON-002 for
+the second time in two days. It also changes the platform's visual direction, from neon-on-near-black
+with frosted glass to Astryx's muted `theme-neutral`.
 
 ADR-0012 is the oldest decision here and the last to be filed. It was taken at inception and lived
 as a loose design note outside the ADR directory, unreferenced by anything, while `CLAUDE.md` carried

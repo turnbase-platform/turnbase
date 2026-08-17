@@ -83,7 +83,7 @@ Paths in *Read first* are relative to the repository root.
 | IMP-M5-03 | Notifications and the SSE stream | platform | M1-07 | READY |
 | IMP-M5-04 | Retention purge jobs | platform | M5-01, M5-03 | READY |
 | **M6 — Platform frontend** ||||
-| IMP-M6-01 | Design tokens and component library | frontend | M0-05 | READY |
+| IMP-M6-01 | Astryx integration and the `ui/` boundary | frontend | M0-05 | READY |
 | IMP-M6-02 | Shell, routing and auth tiers | frontend | M6-01 | READY |
 | IMP-M6-03 | Account and profile views | frontend | M6-02, M1-07 | READY |
 | IMP-M6-04 | Room views and the STOMP client | frontend | M6-02, M2-08 | READY |
@@ -187,16 +187,30 @@ trivial guest context can be created and disposed.
 
 **Read first:**
 - `docs/specs/platform-frontend/shell-architecture.md` §1, §2
+- `docs/specs/platform-frontend/design-system.md` §1–§2 — the Astryx packages and the setup that
+  must land in the skeleton, not later
 - `docs/specs/deployment/local-environment.md` §1, §2 (*Both origins are one listener*), §7.7
 
 **Satisfies:** `platform-operations.md` FR-DEPLOY-001…003
 
 **Done when:** Vite + React 19 + TypeScript builds; Prettier and ESLint run in CI; a Dockerfile
-produces the static bundle; the dev server proxies to `turnbase.localhost:8080`.
+produces the static bundle; the dev server proxies to `turnbase.localhost:8080`; `.nvmrc` pins the
+Node version and `package.json` carries `engines.node` and the `astryx` script.
 
-**Note:** the design system is a directory *inside this repo* (`src/design-system/`, IMP-M6-01), not
-a package — see `design-system.md` §1 and the CON-002 amendment. Do not scaffold a second repository
-or a workspace for it.
+**Astryx is installed here, not in M6.** The three CSS imports and the `<Theme>` provider are what
+make *any* view render correctly, so a skeleton without them produces screens that look almost right
+and get corrected screen by screen later. Specifically:
+
+- Exact-pinned deps: `@astryxdesign/core`, `@astryxdesign/theme-neutral`, `@stylexjs/stylex`; and
+  `@astryxdesign/cli` as a dev dependency. **No `^` on any of them** — Astryx is Beta at 0.4.3.
+- `src/index.css` imports `reset.css` → `astryx.css` → `theme.css`, **in that order**. The order is
+  the cascade-layer order; getting it wrong renders built-in defaults with no error.
+- `data-astryx-theme` on `<html>`, and Figtree self-hosted as `woff2` (the CSP sets `font-src 'self'`,
+  and the theme names the font without loading it).
+
+**No Vite plugin, no PostCSS, no Babel config.** Astryx ships pre-built CSS. If you find yourself
+adding a StyleX build plugin, stop — that is `@astryxdesign/build`, and it is for compiling Astryx
+from source, which this project never does.
 
 ---
 
@@ -1400,49 +1414,66 @@ cannot run — the partial index of IMP-M5-03 is the guard, not a code check.
 ## M6 — Platform frontend
 
 **Read first:**
-- `docs/specs/platform-frontend/design-system.md` — the component library and its boundary
+- `docs/decisions/0013-astryx-design-system.md` — **read this before anything else in M6.** The
+  component library is Astryx, not ours
+- `docs/specs/platform-frontend/design-system.md` — the Astryx integration and the composition ladder
 - `docs/specs/platform-frontend/shell-architecture.md` — the application shell
 - `docs/requirements/platform-views.md` — every view's contract
-- `docs/requirements/platform-ui-library.md` — the library's requirements
+- `docs/requirements/platform-ui-library.md` — what the platform needs from the library
 - `docs/specs/game-frontend/game-asset-serving.md`, `docs/decisions/0007-game-frontend-separate-domain.md`
+
+**Component lookup is a tool call, not a document.** `npm run astryx -- component <Name>` or the
+`astryx` MCP server. Nothing in this corpus lists Astryx's components, deliberately — a copy would be
+stale within a release.
 
 `docs/requirements/onboarding-wizard.md` is **not** in this list. IR-23 cut the wizard from v1; the
 document is retained as a record of a deferred feature and implements nothing.
 
-### IMP-M6-01 — Design tokens and component library
+### IMP-M6-01 — Astryx integration and the `ui/` boundary
 
 **Repo:** `turnbase-frontend` · **Depends on:** IMP-M0-05
 
 **Read first:**
-- `docs/specs/platform-frontend/design-system.md` **in full** — §1 location and the import boundary,
-  §2 tokens, §3 CSS Modules, §4 the component inventory, §5 composition rules, §6 accessibility,
-  §7 what is deliberately absent
-- `docs/requirements/platform-ui-library.md` **in full**
+- `docs/decisions/0013-astryx-design-system.md` — why the library is Astryx
+- `docs/specs/platform-frontend/design-system.md` **in full** — §2 setup, §3 the composition ladder,
+  §4 where our code lives, §5 styling our own code, §6 what remains ours, §7 the CLI
+- `docs/requirements/platform-ui-library.md` **in full** — what the platform needs from the library
 
-**Satisfies:** `platform-ui-library.md` FR-TOK-001…008, FR-COMP-001…014, FR-LYT-001…003,
-FR-THM-001…002, NFR-DX-001…004, NFR-PERF-001…002, NFR-VER-001
+**Satisfies:** `platform-ui-library.md` FR-TOK-001…006, FR-TOK-008, FR-COMP-001…014,
+FR-LYT-001…003, FR-THM-001…002, NFR-DX-001…004, NFR-PERF-001…002, NFR-VER-001
+
+**This item is an integration, not a construction.** IMP-M0-05 already installed and wired Astryx;
+what remains is the boundary around our own code and the rules that keep it from drifting.
 
 **Done when:**
 
-1. The library lives at `src/design-system/` with `index.ts` as the **only** legal import path, and
-   **both** `no-restricted-imports` rules are in force: deep imports out, and imports from
-   `features/` *into* `design-system/` out. The second direction matters more — a component that
-   reaches into application code is a screen with a generic name and it breaks on its second use.
-2. Every token in §2 exists as a CSS custom property on `:root`, with the TypeScript mirror carrying
-   scale names rather than values.
-3. Components reference **semantic** tokens only, never primitives. That is what makes the three-layer
-   scheme worth having; a component that reaches for a primitive has hard-coded a colour with extra
-   steps.
-4. The 4px spacing scale has the gaps §2 specifies. **`--tb-space-5` does not exist**, and adding it
-   because a layout wanted it is a defect, not a convenience.
-5. There is no `ThemeProvider` (§7).
-6. `backdrop-filter` appears in `Card` and nowhere else (§7), so NFR-PERF-002 is measurable against
-   one component instead of the whole surface.
-7. Contrast meets WCAG AA on body text with no exceptions; the neon accents are for emphasis, never
-   for text (§6).
+1. `src/ui/` exists with `index.ts` as its only legal import path, and **both**
+   `no-restricted-imports` rules are in force: deep imports out, and imports from `features/` *into*
+   `ui/` out. The second direction matters more — a shared component that reaches into application
+   code is a screen with a generic name and it breaks on its second use.
+2. `src/ui/` is **empty or near-empty**, and that is the correct end state. Application code imports
+   `Button` from `@astryxdesign/core/Button` directly. A pass-through wrapper for every Astryx
+   component re-creates the maintenance burden ADR-0013 exists to remove, and puts a stale prop
+   signature between the developer and the real documentation.
+3. **No parallel token scale exists.** No `--tb-*` custom property is defined anywhere. Every value
+   comes from Astryx's `--spacing-*`, `--color-*`, `--radius-*`, `--shadow-*`.
+4. `no-raw-color` and `no-raw-spacing` lint rules are enabled with **no path allow-list** — there is
+   no token definition file to exempt any more (FR-TOK-008).
+5. Any component in `src/ui/` uses CSS Modules and consumes Astryx tokens; `className` overrides on
+   Astryx components **append, never substitute**.
+6. Every swizzled component (`astryx swizzle`) carries a comment naming what could not be done
+   through props. A swizzle is a fork: it stops receiving upstream fixes, including accessibility
+   ones, and `astryx upgrade` cannot codemod it.
+7. Contrast meets WCAG AA on body text with no exceptions (§6). `theme-neutral` clears this, so the
+   check is on anything we compose or swizzle.
 
-**OQ-002 is open** in `design-system.md`: the literal hex values are unchosen. Escalate — the palette
-is a design decision and picking one here buries it in a lint-clean commit nobody will revisit.
+**Climb the ladder in order: compose → swizzle → write** (§3). The failure mode this item exists to
+prevent is an agent writing a `Button` because it did not think to run
+`npm run astryx -- component --list` first.
+
+**`npm run astryx -- init` writes an Astryx component index into `CLAUDE.md`.** Useful — it is how a
+low-effort agent discovers components instead of guessing. Run it deliberately and review the diff;
+do not let it land unread in a hand-written file.
 
 ---
 
@@ -1457,6 +1488,7 @@ is a design decision and picking one here buries it in a lint-clean commit nobod
   VW-LOGIN-001…004, VW-REG-001…003, VW-OAUTHCOMP-001…002
 - `docs/requirements/user-accounts.md` FR-SESS-001…004, FR-SESS-010…011
 - `docs/specs/api-design/sse-notifications.md`
+- `docs/specs/platform-frontend/design-system.md` §2 — the two providers the shell owns
 
 **Satisfies:** `platform-views.md` VW-NAV-001…012, VW-REDIR-001…007, VW-LAND-001…004,
 VW-LOGIN-001…004, VW-REG-001…003, VW-OAUTHCOMP-001…002, NFR-USAB-001…002
@@ -1466,6 +1498,12 @@ rather than checked inside the view; §6's CSP is emitted by the platform origin
 `frame-src`**, which `game-asset-serving.md` §6.3 owns — two documents specifying one directive is how
 they drift; a mid-session 401 follows the VW-REDIR rules rather than blanking the view; the SSE
 stream reconnects with backoff and does not duplicate alerts on reconnect.
+
+**The shell mounts `<LinkProvider component={Link}>` inside `<Theme>`, once** (`design-system.md`
+§2). Skipping it is the expensive mistake in M6: every Astryx `Link`, and every component that
+renders one internally, falls back to a plain `<a href>` and triggers a **full page reload** —
+dropping the STOMP connection, the room subscription and all in-memory session state. It fails as a
+navigation bug three milestones from where it was introduced.
 
 ---
 
@@ -1645,9 +1683,9 @@ from either document, which is why it is written down here.
 | ~~IR-24~~ | ~~`game-rooms.md` NFR-SPEC-001 requires spectator capacity to be configurable, and no property name is assigned~~ | **Closed.** `turnbase.room.spectator-capacity`, default `8`, in `local-environment.md` §7.1 and named at all four call sites |
 | ~~IR-25~~ | ~~`docs/requirements/` has no `INDEX.md`~~ | **Closed.** [`../requirements/INDEX.md`](../requirements/INDEX.md) lists all seventeen documents and the requirement prefixes each one *defines* — use it to resolve a qualifier before citing one |
 
-**No review finding is open anywhere in the corpus.** The `OQ-*` questions tracked inside individual
-specs remain — those are open *decisions*, not defects, and the only one an item meets early is
-`design-system.md` OQ-002 (the literal hex palette) at IMP-M6-01.
+**No review finding is open anywhere in the corpus**, and since ADR-0013 no `OQ-*` in
+`platform-ui-library.md` is open either — three were dropped rather than answered, because Astryx had
+already made the visual decisions they were asking the platform to make.
 
 **On the *Satisfies* qualifiers above.** Each names the document that **defines** the requirement, not
 one that merely cites it. The two are easy to confuse: `game-history.md` discusses `FR-RET-003` at

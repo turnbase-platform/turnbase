@@ -42,7 +42,7 @@ Reading these front to back is the wrong order; they were written per feature, n
   Eight end-to-end journeys, each naming the requirements it exercises at every step.
 - **To implement something:** go to [`../implementation/INDEX.md`](../implementation/INDEX.md) and
   find your work item. It names exactly which documents here you need, and no more.
-- **To settle a "why is it like that":** check [`../decisions/INDEX.md`](../decisions/INDEX.md). Eleven
+- **To settle a "why is it like that":** check [`../decisions/INDEX.md`](../decisions/INDEX.md). Thirteen
   ADRs, and the reasoning is there rather than in the requirement.
 
 ## Citing a requirement

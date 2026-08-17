@@ -1,17 +1,81 @@
 ## Last Session Summary
 
+**Date:** 2026-08-17 (session 12)
+
+**Adopted [Astryx](https://github.com/facebook/astryx) as the platform's design system**
+([ADR-0013](docs/decisions/0013-astryx-design-system.md)), and scanned the local toolchain before
+Phase 1 coding. Documents only — still no code.
+
+### Environment: ready, no installs needed
+
+| | |
+|---|---|
+| Node / npm | **v22.20.0** / 11.9.0 ✓ — matches Astryx's own CI target. `.nvmrc` added |
+| JDK | `.sdkmanrc` pins **`21.0.2-graalce`** — GraalVM CE for JDK 21, exactly what `CLAUDE.md` requires, and installed. It is not *active* only because `sdkman_auto_env=false`; `sdk env`, or flip the flag |
+| Maven / Docker / kubectl / helm | 3.9.11 ✓ · 29.1.2 ✓ · v1.34.1 (`docker-desktop`) ✓ · **v4.2.4** ✓ |
+
+Three "gaps" in my first scan were wrong and are corrected: docker and helm failed only inside the
+tool sandbox (read-only `$HOME`, blocked namespaces), and Espresso is not a JDK-level install at all
+— `gu` was removed in GraalVM for JDK 21+, so it arrives as Maven artifacts in the Game Host's pom.
+
+**Helm is v4**, not 3 — `IMP-M0-08` should be written against v4 chart conventions.
+
+### Astryx supersedes the in-house design system
+
+`design-system.md` was written on 2026-08-16 to close IR-23: our own tokens, CSS Modules, seventeen
+components. One day later the component half of it is replaced. That is a large reversal, so it is an
+ADR rather than a spec edit.
+
+**Why it is worth it:** seventeen components, their ARIA behaviour, their keyboard handling and their
+documentation stop being our work. Astryx is Meta's, MIT, 150+ components, React 19+, and its CLI and
+docs are built as one surface *for agents* — `astryx init` writes a component index into `CLAUDE.md`.
+That matters disproportionately here, where Phase 1 is executed by agents at low reasoning effort.
+
+**Why it costs less than it looks:** Astryx authors its styles with StyleX but ships **pre-built
+CSS** — no Vite plugin, no PostCSS, no Babel config — and documents `className` override against CSS
+Modules. The styling decision from yesterday survives intact for everything we write.
+
+**What actually changed beyond the library:**
+
+- **The aesthetic.** `platform-ui-library.md` described neon accents on near-black with frosted glass
+  and gradients. `theme-neutral` is muted and minimal. FR-TOK-007 (gradients) is **withdrawn**;
+  FR-TOK-001 loses the neon palette; FR-TOK-005 loses the frosted glass, and NFR-PERF-002's
+  `backdrop-filter` clause goes with it. This was the substantive decision, not a side effect.
+- **All five `OQ-*` in `platform-ui-library.md` are closed** — three *dropped* rather than answered,
+  because each asked the platform to make a visual decision Astryx has already made. The WCAG AA hard
+  floor survives, and is easier to hold on a muted palette than it would have been on neon.
+- **CON-002 amended for the second time in two days**, CON-003 narrowed to our own code.
+- **`IMP-M6-01` is now an integration item**, not a construction one — the largest scope reduction
+  available in M6.
+
+**Rules that keep it from drifting**, all in `design-system.md`:
+
+1. **Exact version pins, no `^`.** Astryx is Beta at 0.4.3. Upgrades run `astryx upgrade --apply`.
+2. **The ladder: compose → swizzle → write.** Stop at the first rung that works. A swizzle is a fork
+   with a nice name — it stops receiving upstream accessibility fixes and cannot be codemodded.
+3. **No wrapper layer.** Application code imports `@astryxdesign/core/Button` directly. `src/ui/`
+   holds only what Astryx does not ship and is expected to stay near-empty.
+4. **Nothing in this corpus lists Astryx's components.** Lookup is `npm run astryx -- component
+   <Name>` or the MCP server. A copy would be stale within a release — the lesson from deleting 1,794
+   lines of inventories the day before.
+
+**The one trap worth repeating:** `<LinkProvider component={Link}>` must be mounted in the shell.
+Without it every Astryx `Link` emits a plain `<a href>` and triggers a full page reload — dropping
+the STOMP connection, the room subscription and all in-memory session state. It surfaces as a
+navigation bug three milestones from where it was introduced.
+
+`.mcp.json` (the `astryx` documentation server) is committed with this change.
+
+---
+
+## Previous Session Summary
+
 **Date:** 2026-08-16 (session 11)
 
-Five pieces of work. **Closed all 23 implementation-readiness blockers**, **completed the
-implementation registry** (the weaker artifact once the blockers were gone), **wrote
-`docs/requirements/INDEX.md` and ran a corpus-wide sanity check**, **named the last missing
-configuration key**, then **harvested the ten surviving non-blocking findings and deleted 7 500
-lines of spent working files**. Documents only — no code exists yet.
-
-**No review finding is open anywhere in the corpus.** What remains open are the tracked `OQ-*` design
-questions inside specs, which are decisions rather than defects; the only one an implementer meets
-early is `design-system.md` OQ-002, the literal hex palette, and IMP-M6-01 says to escalate it rather
-than pick one.
+Five pieces of work: closed all 23 implementation-readiness blockers, completed the implementation
+registry, wrote `docs/requirements/INDEX.md` and ran a corpus-wide sanity check, named the last
+missing configuration key, then harvested the ten surviving non-blocking findings and pruned 7 500
+lines of spent working files.
 
 ### Part 5 — harvest, then prune
 
@@ -188,7 +252,7 @@ gone with `remediation-plan.md`, so the check is now clean with no exclusions fo
 normative (requirements, specs, ADRs), the build plan (implementation), or a closed round's record of
 why the corpus is shaped as it is (two review INDEXes plus the Espresso spike results).
 
-## Previous Session Summary
+## Earlier Sessions
 
 **Date:** 2026-08-15 (session 9)
 
@@ -327,13 +391,15 @@ blocks, and a `Gate:` line now appears on an item only when one is actually open
 **Start writing code, at `IMP-M0-01`.**
 
 1. **IMP-M0-01 through IMP-M0-05** — the five repository skeletons. Mechanical, and they unblock
-   everything.
+   everything. **`IMP-M0-05` now also installs and wires Astryx** (exact pins, three CSS imports in
+   cascade-layer order, `<Theme>` + `<LinkProvider>`, `data-astryx-theme`, self-hosted Figtree) —
+   a skeleton without them renders almost-right screens that get corrected one at a time later.
 2. **IMP-M0-06 — the Flyway baseline.** The highest-value item in the registry. Transcribing
    `V1__baseline.sql` from the six schema documents is the first mechanical test of whether they are
-   mutually consistent, and the audit already named two hazards to expect: the `bigserial` versus
-   `GENERATED ALWAYS AS IDENTITY` split across three sibling documents, and `schema-migrations.md`'s
-   claim that `room_participant.team_id → room_team` is one of "the two circular foreign keys" when by
-   its own stated table order it is not. **Any further disagreement found while transcribing is a
+   mutually consistent. The two hazards the audit named are now **fixed in the documents**:
+   `data-model.md` states one auto-increment idiom (`bigint GENERATED ALWAYS AS IDENTITY`), and
+   `schema-migrations.md` §5 names one circular foreign key rather than two. **Any further
+   disagreement found while transcribing is a
    specification defect — fix the document, then the SQL.** Do not reconcile silently in the
    migration.
 
@@ -358,9 +424,11 @@ Three things worth knowing before the milestone that needs them:
 - **M3's trust boundary now requires an address check** (IR-17) that did not exist when the registry
   was written: every effect address is validated against the producing session's membership at
   fan-out.
-- **M6 inherits three fresh documents** — the design system, the CSP section, and the info-document
-  renderer. None existed when the M6 items were first drafted; all three are now in the M6 items'
-  read-lists.
+- **M6's component library is Astryx, not ours** ([ADR-0013](docs/decisions/0013-astryx-design-system.md)).
+  Read that ADR before anything else in M6. `IMP-M6-01` is an integration item — install is already
+  done by `IMP-M0-05`, so what remains is the `ui/` boundary and the compose→swizzle→write ladder.
+  **Component lookup is a tool call** (`npm run astryx -- component <Name>` or the `astryx` MCP
+  server); nothing in this corpus lists them.
 
 ### Spec hygiene
 

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "astryx": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://gitmcp.io/facebook/astryx"]
+    }
+  }
+}

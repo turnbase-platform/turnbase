@@ -35,10 +35,11 @@ implementing, the fix belongs in the specification, not in code.
 | Game Host service | Java 21, GraalVM CE for JDK 21 + Truffle | Host JVM is Java 21; game code runs in Espresso (Java 21 guest). No CE build exists for JDK 23; the earlier "CE 23" label was the deprecated GraalVM product-version scheme. |
 | Game backends (SDK) | Java 21 (max) | Executed in Espresso; must not use Java 22+ APIs |
 | Frontend (platform) | React 19, TypeScript | Clean, responsive, modern |
+| Design system | [Astryx](https://github.com/facebook/astryx) (`@astryxdesign/core`) | Meta's open-source design system — 150+ components, MIT, React 19+. **Pin exact versions; it is Beta.** Look components up with `npm run astryx -- component <Name>` or the `astryx` MCP server, never from a list in this repo ([ADR-0013](docs/decisions/0013-astryx-design-system.md)) |
 | Game UIs | Any JS-compilable language | Sandboxed iframes |
 | Infrastructure | Kubernetes | Auto-scaling by traffic and active games |
 | Build (backend) | Maven | |
-| Build (frontend) | Vite | |
+| Build (frontend) | Vite | Astryx ships pre-built CSS — no StyleX plugin, no PostCSS, no Babel config |
 | Metrics | Micrometer → Prometheus → Grafana | Spring Boot native |
 | Logs | SLF4J/Logback (JSON) → Loki → Grafana | Structured, stdout in K8s |
 | Traces | OpenTelemetry → Tempo → Grafana | W3C trace context propagation |

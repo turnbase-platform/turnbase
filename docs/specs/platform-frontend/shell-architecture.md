@@ -25,20 +25,27 @@ Every other decision below follows from that.
 
 ```
 src/
-├── app/          routes, layouts, the auth-tier gate
+├── app/          routes, layouts, the auth-tier gate, the providers
 ├── features/     one directory per domain: auth, rooms, catalog, profile,
 │                 friends, notifications, game
 ├── shared/       api client, WebSocket client, hooks, types
-└── ui/           re-exports @turnbase/ui only — no component definitions
+├── ui/           our own composed and swizzled components — usually near-empty
+└── index.css     the three Astryx stylesheet imports, in cascade-layer order
 ```
 
 Feature-first, not layer-first. A layer-first tree (`components/`, `hooks/`, `services/`) puts the
 three files that change together for one feature in three directories, and every change becomes a
 three-directory diff.
 
-`ui/` contains no components. `platform-ui-library.md` CON-002 publishes the library as a separate
-npm package, and a local component that "just wraps" a library one is how a design system dies —
-FR-COMP-010's `className` escape hatch is the only supported override.
+**Components come from Astryx** ([ADR-0013](../../decisions/0013-astryx-design-system.md)).
+Application code imports them directly — `import {Button} from '@astryxdesign/core/Button'` — and
+does **not** go through a local wrapper. A pass-through that "just wraps" a library component is how
+a design system dies: it becomes a stale prop signature between the developer and the real
+documentation. `className` is the supported override, and it appends rather than substitutes.
+
+`ui/` holds only what Astryx does not ship, obtained by climbing
+[`design-system.md`](design-system.md) §3's ladder — compose, then swizzle, then write. It is
+expected to stay small, and `no-restricted-imports` keeps `features/` out of it in both directions.
 
 ### Stack
 
@@ -50,6 +57,24 @@ FR-COMP-010's `className` escape hatch is the only supported override.
 | Realtime | `@stomp/stompjs` | Not wrapped in Query — see §4 |
 | Client state | React context + `useReducer` | There is no global client state worth a store; room and game state are server-owned |
 | Forms | React Hook Form + Zod | Zod schemas mirror the server's validation, and are the client half of `input-validation.md` |
+| Components | Astryx (`@astryxdesign/core`) | ADR-0013. Pre-built CSS — no Vite plugin, no PostCSS, no Babel config |
+
+### The two providers
+
+The shell mounts both, once, at the root — nothing else in the application does:
+
+```tsx
+<Theme theme={neutralTheme}>            {/* Astryx tokens; data-astryx-theme on <html> */}
+  <LinkProvider component={Link}>       {/* react-router's Link */}
+    …
+  </LinkProvider>
+</Theme>
+```
+
+`LinkProvider` is not optional decoration. Without it every Astryx `Link` — including the ones
+components render internally — emits a plain `<a href>` and triggers a **full page reload**, which
+drops the STOMP connection, the room subscription and every piece of in-memory session state. It
+belongs in the shell because the shell is the only place that knows about the router.
 
 **No Redux, no Zustand, no Jotai.** The state that matters is the room and the session, both of
 which are authoritative on the server and arrive as events. A client store holding a second copy is

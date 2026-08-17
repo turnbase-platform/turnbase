@@ -22,7 +22,7 @@ separately published component library.
 
 | File | Topic |
 |------|-------|
-| [design-system.md](design-system.md) | Tokens, CSS strategy, component inventory, composition rules, accessibility baseline and the import boundary for the platform component library |
+| [design-system.md](design-system.md) | **Astryx integration** (ADR-0013): packages and pinning, setup and provider order, the compose→swizzle→write ladder, the `ui/` import boundary, CSS Modules for our own code, and the CLI/MCP lookup path |
 | [shell-architecture.md](shell-architecture.md) | Structure and stack, routing and auth tiers, the WebSocket client, the game-iframe trust boundary, the platform origin's Content-Security-Policy, notifications and alerts, room and results views, testing |
 
 ## Key Decisions

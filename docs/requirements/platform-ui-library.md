@@ -1,8 +1,19 @@
 # Platform UI Library Requirements
 
+> **Satisfied by Astryx, not by platform code**
+> ([ADR-0013](../decisions/0013-astryx-design-system.md), 2026-08-17). The library is
+> [Astryx](https://github.com/facebook/astryx), Meta's open-source design system: 150+ accessible
+> components, seven themes, MIT, React 19+. The requirements below still state **what the platform
+> needs**; the obligation they create is to *use* Astryx correctly rather than to rebuild it.
+>
+> Requirements marked **Astryx** in the Description column are met by the library as shipped. The
+> neon-and-frosted-glass aesthetic those requirements originally described is **superseded** — v1
+> takes Astryx's muted `theme-neutral` direction, which is what "functional and minimalistic" asked
+> for. Amended requirements say so inline.
+
 ## Related API Specifications
 
-- [design-system.md](../specs/platform-frontend/design-system.md) — tokens, CSS strategy, component inventory, composition rules, accessibility baseline and the import boundary (implements FR-TOK-*, FR-COMP-*, FR-LYT-*, FR-THM-*, NFR-DX-*, CON-001…005)
+- [design-system.md](../specs/platform-frontend/design-system.md) — the Astryx integration: setup, the composition ladder, the import boundary, what remains ours (implements FR-TOK-*, FR-COMP-*, FR-LYT-*, FR-THM-*, NFR-DX-*, CON-001…005)
 - [shell-architecture.md](../specs/platform-frontend/shell-architecture.md) — the application that consumes the library: routing, auth tiers, page layout
 
 ## Stakeholders
@@ -20,23 +31,29 @@
 
 | ID | Title | Description | Priority |
 |----|-------|-------------|----------|
-| FR-TOK-001 | Color tokens | Library defines a complete dark-theme color palette: black base background, semi-opaque surface colors, neon accent colors (pink, yellow, green, blue), text colors, border colors, and semantic state colors (error, success, warning). All values are expressed as CSS custom properties. | Must |
-| FR-TOK-002 | Typography tokens | Library defines a typography scale using Figtree as the sole typeface: font sizes, font weights, line heights, and letter spacing. All text in consuming apps must use these tokens. | Must |
-| FR-TOK-003 | Spacing tokens | Library defines a discrete spacing scale (e.g. 4px steps). All padding, margin, and gap values in consuming apps must reference spacing tokens. | Must |
-| FR-TOK-004 | Border radius tokens | Library defines a single uniform border radius value applied consistently across all components. The value is small (targeting the 4–8px range; exact value decided in design phase). | Must |
-| FR-TOK-005 | Surface/blur tokens | Library defines opacity and backdrop-blur values used for frosted-glass surfaces. These tokens are the only permitted source for blur and translucency values. | Must |
-| FR-TOK-006 | Elevation/shadow tokens | Library defines shadow values that express elevation levels, used to lift card surfaces above the base background. | Must |
-| FR-TOK-007 | Gradient tokens | Library defines reusable gradient definitions built from neon accent colors, suitable for use on larger surfaces and hero areas. | Should |
-| FR-TOK-008 | Token-only color rule | No raw color value (hex, rgb, hsl, oklch, etc.) may appear in application code outside the token definition file. Enforced via ESLint. | Must |
+| FR-TOK-001 | Color tokens | **Astryx, amended.** A complete token palette expressed as CSS custom properties: backgrounds, surfaces, text, borders and semantic state colors. **The neon accent palette is dropped** — `theme-neutral` is muted by design, and ADR-0013 takes that direction. Astryx's `--color-*` families supply this. | Must |
+| FR-TOK-002 | Typography tokens | **Astryx.** A typography scale in CSS custom properties. `theme-neutral` names Figtree, satisfying CON-004 — but does not load it; the application self-hosts the webfont (`design-system.md` §2). | Must |
+| FR-TOK-003 | Spacing tokens | **Astryx.** `--spacing-*`, with `--spacing-1` as the 4px base unit. All padding, margin and gap values in application code reference these. | Must |
+| FR-TOK-004 | Border radius tokens | **Astryx, amended.** A radius scale — `--radius-inner` / `--radius-element` / `--radius-container` — rather than the single uniform value originally required. Astryx applies it consistently, which is the property that was actually wanted. Closes OQ-001. | Must |
+| FR-TOK-005 | Surface tokens | **Astryx, amended.** `--color-background-surface` / `-card` / `-body`. **The frosted-glass requirement is withdrawn**: `theme-neutral` uses opaque surfaces and elevation, and `backdrop-filter` was the platform's single most expensive style declaration. Closes OQ-004, which asked how the blur should degrade — there is no blur. | Must |
+| FR-TOK-006 | Elevation/shadow tokens | **Astryx.** `--shadow-low` / `-med` / `-high`, exposed on `Card` as an `elevation` prop. | Must |
+| ~~FR-TOK-007~~ | ~~Gradient tokens~~ | **Withdrawn.** Gradients were defined as compositions of the neon accents that FR-TOK-001 no longer has. Astryx ships no gradient tokens and a hero gradient is a screen-level decision, not a library one. | — |
+| FR-TOK-008 | Token-only color rule | No raw color value (hex, rgb, hsl, oklch, etc.) may appear in application code. **There is no longer a token definition file to exempt** — every value comes from Astryx — so the rule needs no path allow-list. Enforced via ESLint. | Must |
 
 ### Components
+
+**Every requirement in this section is satisfied by Astryx** (ADR-0013). It ships 150+ components;
+these fourteen are the ones the platform's views are known to need, and the descriptions below record
+*why* each is needed and what behaviour the platform depends on. Look up the actual API with
+`npm run astryx -- component <Name>` or the `astryx` MCP server — **not** here. Where Astryx has no
+equivalent, `design-system.md` §3's ladder applies: compose, then swizzle, then write.
 
 | ID | Title | Description | Priority |
 |----|-------|-------------|----------|
 | FR-COMP-001 | Button | Variants: primary, secondary, ghost, destructive. Supports disabled and loading states. Uses accent color tokens for emphasis. | Must |
 | FR-COMP-002 | Input | Text, number, password, and search variants. Includes label, helper text, and error state. | Must |
-| FR-COMP-003 | Card | Primary surface unit. Frosted-glass background (semi-opaque with backdrop blur), elevated above base background using shadow tokens, uniformly rounded. Serves as the default container for most platform views. | Must |
-| FR-COMP-004 | Modal / Dialog | Overlay dialog with a frosted-glass surface. Supports a title, body slot, and action footer. Traps focus when open. | Must |
+| FR-COMP-003 | Card | Primary surface unit. **Amended with FR-TOK-005** — an opaque surface token, elevated above the base background via the `elevation` prop, uniformly rounded. No frosted glass. Serves as the default container for most platform views. | Must |
+| FR-COMP-004 | Modal / Dialog | Overlay dialog. **Amended with FR-TOK-005** — an opaque surface, not frosted glass. Supports a title, body slot and action footer. Traps focus when open. | Must |
 | FR-COMP-005 | Navigation | Top navigation bar and/or sidebar navigation. Supports active state indication using accent color tokens. | Must |
 | FR-COMP-006 | Avatar | Displays a user's **initials** on a colour derived deterministically from their user ID. Supports size variants. **No image and no presence indicator.** As originally written this component required both, and the platform has neither: `user-accounts.md` puts user-provided personal information including avatars out of scope, so there is no image to display, and `social-friends.md` puts online/offline presence indicators out of scope, so there is no state to indicate. Both are additive if those decisions change. | Must |
 | FR-COMP-011 | Tabs | Horizontal tab list with a panel per tab, active state from accent tokens, keyboard-navigable. Required by four surfaces that all exist today: the profile's History / Friends / Uploaded Games sections (`game-history.md` FR-HIST-020, `social-friends.md` FR-SOC-013, `game-catalog.md` FR-UPROF-001), the game detail page's statistics tab (`platform-views.md` VW-GDET-002), the Friends section's Friends / Pending split (FR-SOC-013), and the room chat's room / team channel switch (`platform-views.md` VW-RLOBBY-016). | Must |
@@ -60,8 +77,8 @@
 
 | ID | Title | Description | Priority |
 |----|-------|-------------|----------|
-| FR-THM-001 | Dark theme only | The library ships with a single dark theme. No light theme, no theme toggle, no runtime theme switching. | Must |
-| FR-THM-002 | Token injection | The theme is applied by rendering a single provider component (or injecting a CSS class/attribute at the root) that sets all CSS custom properties. Consuming apps must not redefine these properties. | Must |
+| FR-THM-001 | Single theme | **Astryx, amended.** The platform ships `theme-neutral` in **dark mode**, with no in-app toggle and no runtime switching. Astryx supports light/dark; the platform selects one. The original wording forbade a light theme *existing*, which is not ours to forbid in a third-party library. | Must |
+| FR-THM-002 | Token injection | **Astryx.** `<Theme theme={neutralTheme}>` at the root plus `data-astryx-theme` on `<html>`. Application code must not redefine these properties. | Must |
 
 ## Non-Functional Requirements
 
@@ -72,7 +89,7 @@
 | NFR-DX-003 | Consistency | Visual output of a given component is identical regardless of which platform view it appears in. No context-dependent style leakage. | Zero known divergences at release | Must |
 | NFR-DX-004 | Enforcement | ESLint plugin (or config) is published alongside the component library and is required by consuming apps. Rules cover at minimum: raw color values, spacing values outside the scale, and font sizes outside the scale. | All rules enabled in platform repo CI | Must |
 | NFR-PERF-001 | Performance | Library adds no more than 50 kB (gzipped) to a consuming app's initial bundle when tree-shaken to only the imported components. | ≤ 50 kB gzipped (tree-shaken) | Should |
-| NFR-PERF-002 | Performance | Frosted-glass surfaces must not cause visible frame drops on mid-range hardware during scroll or animation. | 60 fps maintained on reference device | Should |
+| NFR-PERF-002 | Performance | Scrolling and animation hold 60 fps on mid-range hardware. **The frosted-glass clause is withdrawn with FR-TOK-005** — the expensive declaration it guarded no longer exists. | 60 fps maintained on reference device | Should |
 | NFR-VER-001 | Versioning | Library follows semantic versioning. Breaking changes (token renames, removed components, changed prop APIs) are released as major versions with a migration guide. | Semver; migration guide per major | Must |
 
 ## Constraints
@@ -80,27 +97,28 @@
 | ID | Description |
 |----|-------------|
 | CON-001 | React 19 and TypeScript are the only supported runtime environments. The library is not required to work as plain CSS or web components. |
-| CON-002 | The component library is a self-contained module with a single public entry point and no dependency on application code. **For v1 it lives inside the `turnbase-frontend` repository** at `src/design-system/` rather than in its own submodule: it has exactly one consumer, and a separate repository would add an npm publish step and a version bump to every UI change for a boundary that lint already enforces. The module boundary — not the repository boundary — is the constraint, and it is enforced by an ESLint rule forbidding deep imports. Extracting it to its own package later is a `git filter-repo` and a `package.json`, because nothing in the design depends on co-location. See [`../specs/platform-frontend/design-system.md`](../specs/platform-frontend/design-system.md) §1. |
-| CON-003 | Peer dependencies: React 19, TypeScript. No runtime CSS-in-JS library that requires a Babel transform (avoids build-time coupling to consuming apps). |
-| CON-004 | Figtree is the only permitted typeface. It must be loaded by the library or its setup instructions; consuming apps must not bundle a second typeface. |
-| CON-005 | Dark theme only. No light-mode styles, no `prefers-color-scheme` media query support. |
+| CON-002 | **Amended twice.** The component library is [Astryx](https://github.com/facebook/astryx), an external MIT-licensed npm dependency (ADR-0013) — so the original requirement for a self-contained module in its own repository is moot for components. What remains ours is a small `src/ui/` module inside `turnbase-frontend` holding only *composed* and *swizzled* components, with a single public entry point, no dependency on application code, and an ESLint rule enforcing the boundary in both directions. See [`../specs/platform-frontend/design-system.md`](../specs/platform-frontend/design-system.md) §4. |
+| CON-003 | **Narrowed.** Peer dependencies: React 19, TypeScript. No runtime CSS-in-JS **in platform code** — our own components use CSS Modules. Astryx authors its styles with StyleX but ships them **pre-built**: no Vite plugin, no PostCSS, no Babel transform is added to this project's build. |
+| CON-004 | Figtree is the only permitted typeface. `theme-neutral` names it in `--font-family-body` but does not load it, so the application self-hosts the `woff2` (`design-system.md` §2 — a CDN font would require widening `font-src` in the CSP). No second typeface is bundled. |
+| CON-005 | The platform renders in dark mode only and does not follow the OS preference. This is now `<Theme>` configuration rather than CSS we write; no `prefers-color-scheme` media query appears in platform code. |
 
 ## Out of Scope
 
 - GDK (game developer kit) UI library — deferred
 - Game UI components for sandboxed iframes
-- Light theme or any theme switching mechanism
+- A light theme or any in-app theme switching mechanism. Astryx supports light/dark; the platform selects dark and does not expose a toggle (CON-005)
 - Internationalization / RTL layout support
 - Animation/motion system (beyond basic state transitions on existing components)
 - Data fetching — table/list components receive data via props/callbacks; they do not own network calls
 
 ## Open Questions
 
-Four of the five are resolved by [`design-system.md`](../specs/platform-frontend/design-system.md),
-which is the implementing spec; it carries the reasoning and this table carries the answer.
+**None remain open.** Three were dropped by ADR-0013 rather than answered — all three asked the
+platform to make a visual decision that Astryx has already made, and answering them would have meant
+overriding the library on day one.
 
-- ~~OQ-001~~: Exact border radius value — **resolved: `6px`**, the midpoint of the stated range, pending a mockup (`design-system.md` §2).
-- **OQ-002 — open**: Exact neon accent colour values (hex). Needs a design pass to balance vibrancy against legibility on dark backgrounds, and it is constrained by OQ-003's resolution: each accent must clear WCAG AA against `--tb-color-bg` before it can be used for anything but emphasis. This is a design decision, not an implementation one — `IMP-M6-01` says to escalate rather than choose.
-- ~~OQ-003~~: Accessibility target — **resolved: WCAG AA is a hard floor** for body text, with no exceptions; neon is for emphasis, never for body text (`design-system.md` §6).
-- ~~OQ-004~~: `backdrop-filter` fallback — **resolved: the semi-opaque surface colour is the fallback**, and no second token is introduced for it (`design-system.md` §2).
-- ~~OQ-005~~: Storybook or equivalent — **deferred, not declined** (`design-system.md` §7). NFR-DX-001's documentation obligation is met by the design system's `README.md`.
+- ~~OQ-001~~ Exact border radius — **dropped.** Astryx ships a radius scale (`--radius-inner` / `-element` / `-container`); there is no single value to pick.
+- ~~OQ-002~~ Exact neon accent hex values — **dropped.** There is no neon palette. `theme-neutral` is muted, and FR-TOK-001 is amended to match.
+- ~~OQ-003~~ Accessibility target — **resolved: WCAG AA is a hard floor** for body text, with no exceptions (`design-system.md` §6). This one survives ADR-0013 unchanged, and the muted palette makes it materially easier to hold than neon-on-near-black would have.
+- ~~OQ-004~~ `backdrop-filter` fallback — **dropped.** No frosted glass, so nothing to degrade.
+- ~~OQ-005~~ Storybook — **deferred, not declined** (`design-system.md` §8). Astryx ships one at `facebook.github.io/astryx`, and `src/ui/` is too small to warrant a second.
