@@ -5,11 +5,12 @@ lint:
   use:
     - STANDARD
   except:
-    # The proto lives in the docs/specs tree during the requirements/spec phase
-    # for readability alongside its design doc. The canonical buf-module layout
-    # (turnbase/gamehost/v1/gamehost.proto) is adopted when the contract moves to
-    # its shared buf workspace at submodule creation. See
-    # orchestration-gamehost-protocol.md, "Open points".
+    # The authoritative proto stays flat in this directory, beside its design
+    # doc, and that is permanent: ADR-0012 rejected a shared buf workspace and
+    # made turnbase-common take a build-time copy instead. The copy lands at the
+    # canonical buf-module path (src/main/proto/turnbase/gamehost/v1/gamehost.proto),
+    # so turnbase-common's own buf.yaml needs no exception — this waiver is scoped
+    # to the spec tree alone. See conventions.md §5.
     - PACKAGE_DIRECTORY_MATCH
 breaking:
   use:

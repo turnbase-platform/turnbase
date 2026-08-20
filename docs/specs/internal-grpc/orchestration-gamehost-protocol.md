@@ -360,7 +360,13 @@ exceeded. Mitigation:
   stringifies arbitrary game-defined stat values. Revisit with `google.protobuf.Value`
   only if typed numeric aggregation in history/stats is later required (FR-OUTCOME-004
   currently treats stats as opaque).
-- **Proto home.** This contract currently lives in `docs/` during the
+- ~~**Proto home.** This contract currently lives in `docs/` during the
   requirements/spec phase. When the Game Host and Platform Monolith submodules are
   created, the canonical `gamehost.proto` should move to a shared, versioned location
-  (its own proto module or a `buf` workspace) consumed by both build pipelines.
+  (its own proto module or a `buf` workspace) consumed by both build pipelines.~~
+  **Resolved by [ADR-0012](../../decisions/0012-repo-strategy-polyrepo-submodules.md):** no shared
+  workspace. `gamehost.proto` stays authoritative here and `turnbase-common` copies it into
+  `src/main/proto/turnbase/gamehost/v1/` at build time, publishing the stubs as
+  `io.turnbase:turnbase-grpc` — which is what both pipelines consume, so neither needs the proto
+  itself. Editing the copy is a defect; the change belongs here
+  ([`conventions.md`](../../implementation/conventions.md) §5).

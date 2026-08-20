@@ -21,7 +21,12 @@ syntax = "proto3";
 package turnbase.gamehost.v1;
 
 option java_multiple_files = true;
-option java_package = "com.turnbase.gamehost.grpc.v1";
+// Generated code lands under turnbase-common's root package, io.turnbase.grpc
+// (conventions.md §1, ADR-0014 §1). The `.gamehost.v1` tail mirrors the proto
+// package so that a future turnbase.gamehost.v2 generates into a package that
+// can coexist with this one — a wire-version bump must not be a Java-package
+// collision. (IMP-GATE-01)
+option java_package = "io.turnbase.grpc.gamehost.v1";
 option java_outer_classname = "GameHostProto";
 
 // ---------------------------------------------------------------------------

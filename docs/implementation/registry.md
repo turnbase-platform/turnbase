@@ -28,7 +28,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | ID | Item | Repo | Depends on | Status |
 |---|---|---|---|---|
 | **M0 — Bootstrap** ||||
-| IMP-M0-01 | gRPC stubs and internal models | common | — | BLOCKED |
+| IMP-M0-01 | gRPC stubs and internal models | common | — | READY |
 | IMP-M0-02 | Public SDK artifacts (Maven + npm) | sdk | — | READY |
 | IMP-M0-03 | Platform Monolith skeleton | platform | — | READY |
 | IMP-M0-04 | Game Host skeleton | game-host | M0-01 | READY |
@@ -111,10 +111,12 @@ whatever its own *Depends on* implies.
 
 **Repo:** `turnbase-common` · **Depends on:** — · **Publishes:** `io.turnbase:turnbase-grpc`
 
-**Gate:** IMP-GATE-01 — `gamehost.proto` sets `java_package = "com.turnbase.gamehost.grpc.v1"`, but
-`conventions.md` §1, ADR-0014 §1 and this item's *Done when* all require generated code under
-`io.turnbase.grpc`; the item cannot be built to a package the corpus contradicts.
-Opened 2026-08-20. Fix belongs in `docs/specs/internal-grpc/gamehost.proto`.
+**Closed:** IMP-GATE-01 (opened and closed 2026-08-20) — `gamehost.proto` declared `java_package =
+"com.turnbase.gamehost.grpc.v1"` against an `io.turnbase.grpc` root everywhere else. The proto now
+declares `io.turnbase.grpc.gamehost.v1`, and `conventions.md` §5 states the rule so the next
+generated artifact does not re-decide it. The same pass retired the stale "Proto home" open point in
+`orchestration-gamehost-protocol.md` and the `buf.yaml` comment that still promised a shared buf
+workspace ADR-0012 had rejected.
 
 **Read first:**
 - `docs/specs/internal-grpc/gamehost.proto` — the authoritative contract
