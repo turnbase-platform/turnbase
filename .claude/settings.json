@@ -23,7 +23,6 @@
       "Agent",
       "WebFetch",
       "WebSearch",
-      "Bash(mvn *)",
       "Bash(java *)",
       "Bash(find *)",
       "Bash(ls *)",
@@ -38,7 +37,21 @@
       "Bash(docker *)",
       "Bash(mkdir *)",
       "Bash(cat *)",
-      "mcp__playwright__*"
+      "Bash(./mvnw *)",
+      "Bash(make *)",
+      "Bash(python3 scripts/*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git rev-parse*)",
+      "Bash(git branch*)",
+      "Bash(git checkout*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git submodule*)",
+      "mcp__astryx__*",
+      "mcp__plugin_playwright_playwright__*"
     ],
     "deny": [
       "Bash(git push *)"
