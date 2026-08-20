@@ -28,7 +28,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | ID | Item | Repo | Depends on | Status |
 |---|---|---|---|---|
 | **M0 — Bootstrap** ||||
-| IMP-M0-01 | gRPC stubs and internal models | common | — | BLOCKED |
+| IMP-M0-01 | gRPC stubs and internal models | common | — | WIP (session 14) |
 | IMP-M0-02 | Public SDK artifacts (Maven + npm) | sdk | — | READY |
 | IMP-M0-03 | Platform Monolith skeleton | platform | — | READY |
 | IMP-M0-04 | Game Host skeleton | game-host | M0-01 | READY |
@@ -111,11 +111,19 @@ whatever its own *Depends on* implies.
 
 **Repo:** `turnbase-common` · **Depends on:** — · **Publishes:** `io.turnbase:turnbase-grpc`
 
-**Gate:** IMP-GATE-03 — the *Done when* clause "resolves from both `turnbase-platform` and
-`turnbase-game-host`" cannot be satisfied when this item runs: both repositories are empty skeletons
-until `IMP-M0-03` / `IMP-M0-04`, and `IMP-M0-04` **depends on this item**, so the clause requires its
-own dependents to exist first.
-Opened 2026-08-20. Fix belongs in `docs/implementation/registry.md`.
+**Status note (session 14).** Everything in *Done when* is built and verified locally: `./mvnw verify`
+green with 15 tests, `buf lint` clean, the jar carrying both services' stubs under
+`io.turnbase.grpc.gamehost.v1`, and a consumer project compiling and running against both the client
+stub and the server base class off `./mvnw install`. It stays `WIP` rather than `DONE` for one
+reason — **the bar is the pipeline, and the pipeline has never run.** The workflow is committed but
+unpushed, so `buf breaking` in particular has never executed against a real base ref. `DONE` on the
+first green CI run.
+
+**Closed:** IMP-GATE-03 (opened and closed 2026-08-20) — the clause "resolves from both
+`turnbase-platform` and `turnbase-game-host`" required this item's own dependents to exist first. The
+half that is checkable here (install, then compile and run a consumer against both the client stub
+and the server base class) stayed; the cross-repo half moved to `IMP-M0-03` and `IMP-M0-04`, which
+are the items that have a consumer to check it with.
 
 **Closed:** IMP-GATE-02 (opened and closed 2026-08-20) — "copies it into `src/main/proto/` at build
 time" contradicted ADR-0012's own guarantee that each repo is independently usable without the root.
@@ -139,9 +147,16 @@ workspace ADR-0012 had rejected.
 **Satisfies:** `platform-architecture.md` FR-ORCH-001…007, FR-REG-001…004
 
 **Done when:** `./mvnw verify` produces a jar containing generated client and server stubs for every
-service in `gamehost.proto`; `buf lint` and `buf breaking` run in CI; the artifact installs to the
-local Maven repository and resolves from both `turnbase-platform` and `turnbase-game-host`; the
+service in `gamehost.proto`; `buf lint` and `buf breaking` run in CI; `./mvnw install` puts the
+artifact in the local Maven repository, where a **consumer project compiles and runs against both the
+client stub and the server base class** and does not receive a gRPC transport transitively; the
 generated code lands under `io.turnbase.grpc` and the build floor of `conventions.md` §6 is in place.
+
+**The consuming repositories check their own half.** This clause used to require the artifact to
+"resolve from both `turnbase-platform` and `turnbase-game-host`", which it cannot: neither has a build
+until `IMP-M0-03`/`IMP-M0-04`, and `IMP-M0-04` depends on *this* item (IMP-GATE-03). The real
+cross-repo resolution is now a *Done when* clause on each consumer, where there is something to
+resolve it from.
 
 **Note:** the `.proto` is the source of truth. Where the prose in
 `orchestration-gamehost-protocol.md` disagrees with it, the proto wins for wire shape — but raise
@@ -197,7 +212,9 @@ worth more in this repository than anywhere else in the project.
 **Done when:** Spring Boot 3.5+ on Java 21 starts; `8080` serves HTTP and `8081` is the management
 port bound per §1 (loopback under compose, unbound under Kubernetes — **the two profiles differ and
 getting this wrong breaks the readiness probes**); a Dockerfile produces `turnbase/platform`;
-actuator health and readiness respond, and **readiness does not depend on the Game Host**.
+actuator health and readiness respond, and **readiness does not depend on the Game Host**. The
+`io.turnbase:turnbase-grpc` client stubs resolve at the exact pinned `<turnbase-common.version>` and
+compile (`conventions.md` §5; the half of `IMP-M0-01` that only a consumer can check, IMP-GATE-03).
 
 Plus the build floor of `conventions.md` §6, which exists nowhere until this item creates it:
 
@@ -240,7 +257,9 @@ across forty work items later.
 
 **Done when:** a GraalVM CE for JDK 21 image starts with Espresso available; `9090` serves gRPC and
 `8081` is management; the process registers with the Platform Monolith per §3's 60-second budget; a
-trivial guest context can be created and disposed.
+trivial guest context can be created and disposed. The `io.turnbase:turnbase-grpc` **server** base
+classes resolve at the exact pinned `<turnbase-common.version>` and compile (`conventions.md` §5; the
+half of `IMP-M0-01` that only a consumer can check, IMP-GATE-03).
 
 **Constraint:** host JVM is Java 21; guest is Espresso running Java 21. There is no CE build for JDK
 23 — see `CLAUDE.md`.

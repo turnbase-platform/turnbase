@@ -1,5 +1,74 @@
 ## Last Session Summary
 
+**Date:** 2026-08-20 (session 14)
+
+**The first code in the project, and three specification defects found by trying to write it.**
+`IMP-M0-01` — the gRPC stubs — is built, tested and locally green in `turnbase-common`, which now has
+the full build floor of `conventions.md` §6. It is `WIP`, not `DONE`, because the pipeline has never
+run.
+
+### The headline is not the code
+
+Phase 0 produced a corpus that had been audited twice. The first item to actually compile something
+against it hit **three contradictions in its own three-document read-list**, none of which any of the
+five corpus checks could have found:
+
+| Gate | The contradiction | Where the fix landed |
+|---|---|---|
+| **01** | `gamehost.proto` declared `java_package = "com.turnbase.gamehost.grpc.v1"`; `conventions.md` §1, ADR-0014 §1 and the item's own *Done when* all say `io.turnbase.grpc`. `com.turnbase` occurred **exactly once** in the entire corpus | the proto, now `io.turnbase.grpc.gamehost.v1`; rule stated in `conventions.md` §5 |
+| **02** | ADR-0012 said the proto is copied into `src/main/proto/` **at build time**, and — eight lines earlier — that each repo is **independently usable without the root**. Both cannot hold | ADR-0012 amended: the copy is **committed**; drift guarded by `scripts/sync-proto.sh --check` |
+| **03** | The *Done when* clause required resolution from `turnbase-platform` and `turnbase-game-host`, but `IMP-M0-04` **depends on** `IMP-M0-01` — the clause needed its own dependents | clause split: the local half stayed, the cross-repo half moved to `IMP-M0-03`/`IMP-M0-04` |
+
+**GATE-02 is the one worth remembering.** It was not a typo or a stale sentence: two individually
+correct statements combined into an impossible requirement, and resolving it silently would have
+picked a repository layout by accident. The first symptom would have been `turnbase-common`'s CI
+failing on the day it was first pushed, long after the choice was made and with nothing recording
+that a choice existed.
+
+That is exactly the failure `spec-defect` was written to prevent, and this is its first real
+outing — three for three on an item budgeted as "close to mechanical".
+
+### What `turnbase-common` now has
+
+`./mvnw verify` runs Spotless → Error Prone + NullAway → protoc codegen → 15 tests → merged JaCoCo.
+Enforcer fails a wrong JDK at `validate` rather than deep inside codegen. `buf lint` is clean with
+**no** exception, because the committed copy sits at the canonical `turnbase/gamehost/v1/` path — the
+lint waiver stays scoped to the spec tree, where the file is flat for readability beside its design
+doc. Dependabot, a `pre-push` hook, and a workflow running `verify` plus `buf lint`/`breaking`.
+
+**The surface test parses the `.proto` instead of hard-coding what it expects.** A hard-coded list
+asserts that codegen produced what the test author typed, and stays green when someone adds a service
+to the contract and forgets everything downstream. It also pins the thing GATE-01 could have broken
+silently: the **wire** name is still `turnbase.gamehost.v1.*` regardless of the Java package, and
+since both peers regenerate from the same file, nothing else would have noticed.
+
+### Three build traps, none of which said what they were
+
+- **Error Prone on JDK 21 additionally needs `-XDaddTypeAnnotationsToSymbol=true`**, beyond the
+  `compilePolicy` and `should-stop` flags `conventions.md` §2 already names. `conventions.md` should
+  gain it before `IMP-M0-03` hits the same wall.
+- **`protobuf-maven-plugin` 5.x rewrote its configuration surface.** Pinned to 4.1.3.
+- **XML comments cannot contain a double hyphen**, so no pom comment can quote a compiler flag.
+
+And one that would have bitten later: the parent checks out the proto as CRLF while the submodule
+pins it to LF, so `sync-proto.sh --check` would have reported drift on **every line of an identical
+file** after a fresh clone — a false alarm on the one check whose value is that a real difference is
+never dismissed as noise. Both ends pinned, and the comparison made line-ending agnostic anyway.
+
+### One thing left deliberately imperfect, and written down rather than hidden
+
+**The coverage gate in `turnbase-common` is inert.** It measures the hand-written remainder, which is
+empty, so JaCoCo logs "All coverage checks have been met" over a bundle of **zero classes** — the
+same fail-open shape `conventions.md` §3 warns about. That is a true statement about a codegen-only
+module, and the alternatives were worse: lowering the threshold, or including generated stubs and
+setting the gate to whatever codegen happens to emit. It becomes load-bearing with no build change on
+the first class under `io.turnbase.grpc.internal`, which is why that package exists now carrying
+`@NullMarked`. Recorded in the pom, the README and the registry — three places a reader would look.
+
+---
+
+## Session 13 Summary
+
 **Date:** 2026-08-20 (session 13)
 
 **A readiness review of the harness rather than the corpus, and everything it produced.** The
@@ -139,7 +208,7 @@ tool call by design.
 
 ---
 
-## Previous Session Summary
+## Session 12 Summary
 
 **Date:** 2026-08-17 (session 12)
 
@@ -222,9 +291,21 @@ read-list, dependencies, the requirement IDs it satisfies and a done-when clause
 says which of them to pick up.
 
 **No work item is gated.** All 23 readiness blockers are closed, so an item's status is whatever its
-own dependencies imply. **`IMP-M0-01` is `WIP (session 14)`.**
+own dependencies imply.
 
-Two gates were opened and closed in session 14, both on the first read of `IMP-M0-01`:
+**`IMP-M0-01` is `WIP (session 14)`, and everything in its *Done when* is built and verified
+locally** — `./mvnw verify` green with 15 tests, `buf lint` clean, both services' stubs in the jar, a
+consumer project compiling and running against them. It is not `DONE` because **the bar is the
+pipeline and the pipeline has never run**: the agent cannot push, so the committed workflow — and
+`buf breaking` in particular — has never executed. It flips to `DONE` on the first green CI run.
+
+Three gates were opened and closed in session 14, all three on `IMP-M0-01`:
+
+**IMP-GATE-03** — the clause "resolves from both `turnbase-platform` and `turnbase-game-host`"
+required the item's own dependents to exist first (`IMP-M0-04` depends on `IMP-M0-01`). The half that
+is checkable at the source — install, then compile and run a consumer against the client stub *and*
+the server base class — stayed; the cross-repo half moved onto `IMP-M0-03` and `IMP-M0-04`, which
+have a consumer to check it with.
 
 **IMP-GATE-02** — ADR-0012 said `turnbase-common` copies `gamehost.proto` into `src/main/proto/` *at
 build time*, and also said each component repo is *independently usable without the root*. Two
@@ -238,19 +319,11 @@ hook, because drift here is silent (both repos compile; the two services disagre
 proto now declares `io.turnbase.grpc.gamehost.v1`, and `conventions.md` §5 states the rule — package
 tail and canonical buf-module path — so the next generated artifact does not re-decide it.
 
-**Both are worth reading as the first live test of the escalation protocol**, and they failed
-differently. GATE-01 was a one-line outlier where the resolution was never in doubt and the
-temptation to just generate into the right package was exactly as strong as `spec-defect` predicts;
-the ten minutes bought two further stale statements found in the same pass — an "Open points" entry
-and a `buf.yaml` comment both still promising a shared buf workspace ADR-0012 had rejected — neither
-of which any mechanical check would have caught.
-
-**GATE-02 is the more instructive one.** It was not a typo or a stale sentence but a genuine
-architectural hole: the corpus asserted two properties that could not both be true, and *neither*
-statement was wrong on its own. Resolving it silently would have meant picking a repository layout
-by accident, and the first symptom would have been turnbase-common's CI failing on the day it was
-first pushed — long after the choice was made and with nothing recording that a choice existed.
-The specification now carries the resolution *and* a script that enforces it.
+**Three for three on an item budgeted as "close to mechanical"** — the details are in the session 14
+summary above. The pattern worth carrying into `IMP-M0-02`…`M0-05`: none of the three was findable by
+reading, and none would have been caught by `check-corpus.py`. They surfaced only because something
+had to compile against the documents. **Expect each remaining skeleton item to find its own**, and
+budget for it rather than treating a gate as a delay.
 
 **[`docs/implementation/conventions.md`](docs/implementation/conventions.md) applies to every item and
 is not repeated in read-lists** — package layout, static analysis, Spotless, test suffixes, JaCoCo,
@@ -260,10 +333,21 @@ branch and commit format, cross-repo version pinning. Assume it the way you assu
 escalation format, the two skills and the permissions all landed in session 13. What is left is
 repository setup, which is now ordinary work items rather than groundwork.
 
-### The next session — set up the repositories, starting at `IMP-M0-01`
+### The next session — finish the repositories; `IMP-M0-01` is built
 
-The five skeletons unblock everything. **`IMP-M0-03` and `IMP-M0-05` carry real content; the other
-three are close to mechanical.**
+**First, and it takes a minute:** push `master` and the two `feat/imp-m0-01-grpc-stubs` branches
+(parent and `turnbase-common`). The agent cannot push, so `IMP-M0-01`'s workflow has never run and
+`buf breaking` has never had a base ref to compare against. Its registry row goes to `DONE` on the
+first green run — the code is finished, the verification is not.
+
+**Then `IMP-M0-02`…`M0-05`.** `turnbase-common`'s pom is the worked example for the three remaining
+Java repos: Spotless at `validate`, Error Prone + NullAway, merged JaCoCo, enforcer, the `.mvn/jvm.config`
+flags. Copy its shape rather than re-deriving it — the flags in particular each cost a build cycle to
+discover and are now in `conventions.md` §2.
+
+**`IMP-M0-03` and `IMP-M0-05` carry real content; `IMP-M0-02` and `IMP-M0-04` are closer to
+mechanical** — with the caveat that `IMP-M0-01` was also called close to mechanical and produced
+three gates.
 
 `IMP-M0-03` establishes the build floor for the repository holding forty of the 59 items, and every
 piece of it is cheap now and prohibitive later:

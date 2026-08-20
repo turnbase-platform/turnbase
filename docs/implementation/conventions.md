@@ -108,9 +108,15 @@ already means.
 
 **Two configuration traps**, both of which fail in ways that read like a broken toolchain:
 
-- Error Prone needs `-XDcompilePolicy=simple` and `--should-stop=ifError=FLOW`, plus `--add-exports`
-  flags for `jdk.compiler` — the same family of setup as google-java-format's, and they go in the
-  same `.mvn/jvm.config`.
+- Error Prone needs three compiler arguments — `-XDcompilePolicy=simple`,
+  `--should-stop=ifError=FLOW` and, **on JDK 21, `-XDaddTypeAnnotationsToSymbol=true`** — plus
+  `--add-exports` flags for `jdk.compiler`, which are the same family of setup as
+  google-java-format's and go in the same `.mvn/jvm.config`. Error Prone refuses to start without the
+  third and says so in one line that reads like a corrupt install; it cost `IMP-M0-01` a build cycle
+  to find, which is the only reason it is named here.
+- A pom **comment** cannot quote any of those flags: XML forbids a double hyphen inside a comment,
+  and the parse error points at the comment rather than at what is wrong with it. Describe the flags
+  in prose; the `<compilerArgs>` elements themselves are fine.
 - **Generated code and Spring injection points must be excluded from NullAway's scope.** gRPC stubs
   are generated and will not be annotated. Noise on code nobody wrote is the fastest route to
   somebody muting the tool.
