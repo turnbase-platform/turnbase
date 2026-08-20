@@ -95,7 +95,8 @@ with a different `backend.path` target. The directory names above are the conven
 archetype emits; nothing validates them.
 
 **There is no HTML file, and a bundle containing one at the frontend root gets a warning.** The
-platform serves the document itself (`game-asset-serving.md` §5, CON-006), so an `index.html` in the
+platform serves the document itself (`game-asset-serving.md` §5; `game-development-experience.md`
+CON-006), so an `index.html` in the
 bundle is dead weight that will never be loaded and almost always means the developer built for a
 static host and expects their own shell.
 

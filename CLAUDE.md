@@ -130,11 +130,22 @@ turnbase-frontend — no Maven dependency (postMessage with game FEs only)
 - Use `superpowers:verification-before-completion` before claiming work is done
 - Use `feature-dev` agents for focused implementation tasks
 
+### After any change under `docs/`
+
+```bash
+python3 scripts/check-corpus.py      # links · cites · sections · index · registry
+```
+
+Five structural checks, exit 1 on failure. **`cites` and `sections` are the two that have found real
+defects** — mis-qualified requirement IDs and ranges naming IDs that do not exist. Run it before
+committing documentation; it takes under a second and it is cheaper than the defect.
+
 ### Ending a Session
 
 1. Update STATUS.md — **replace** the "Last Session Summary" section (never append), update phase progress and next priorities
-2. Verify all changes are committed
-3. Update submodule refs in this repo only after the submodule's build and tests pass
+2. `python3 scripts/check-corpus.py` is clean
+3. Verify all changes are committed
+4. Update submodule refs in this repo only after the submodule's build and tests pass
 
 ## End of Session Checklist
 

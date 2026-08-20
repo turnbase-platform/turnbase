@@ -422,7 +422,8 @@ text is one that never fires.
 
 **Integration tests are Testcontainers, not compose.** The PR job needs a Docker daemon and nothing
 else — no `services:` block, no compose file, no stack started in a prior step. Compose belongs to the
-post-merge e2e job alone (`local-environment.md` §8, FR-CICD-004 as corrected).
+post-merge e2e job alone — `local-environment.md` §8, and `platform-operations.md` FR-CICD-004 as
+corrected.
 
 ---
 

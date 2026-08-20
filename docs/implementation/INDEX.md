@@ -54,6 +54,32 @@ through rather than renumbered, and its number is never reused.
 | `DONE` | Merged, tests green, and — if the item touches a submodule — the submodule ref in this repo is updated. |
 | `CANCELLED` | The requirement it implemented was cut. The heading is struck through and kept; the number is never reused. |
 
+### Where status lives, and who writes it
+
+**The register table at the top of [`registry.md`](registry.md) is the only place status is
+recorded.** Item sections do not repeat it — two copies of a status is one copy that is wrong.
+
+**Whoever works the item writes the status, at the moment the transition happens, in the same commit
+as the work.** Not at the end of the session, and not from memory afterwards:
+
+| Transition | When | Also do |
+|---|---|---|
+| `READY` → `WIP` | Before the first edit, not after | Append ` (session N)` to the status cell |
+| `WIP` → `REVIEW` | Code complete, PR open | — |
+| `REVIEW` → `DONE` | Pipeline green **and** the submodule ref bumped here | Drop the session marker |
+| any → `BLOCKED` | The moment a gate opens | Add the `Gate:` line to the item's section |
+
+A status is a claim about the world, so the same rule applies to it as to a *Done when* clause: do
+not write `DONE` because the code exists. Write it when the pipeline is green and the ref is bumped.
+
+**Two invariants, checked mechanically by `scripts/check-corpus.py registry`:**
+
+1. Every ID in the register table has a section below, and every section has a table row.
+2. `BLOCKED` in the table ⟺ a `Gate:` line in the section. Neither can exist without the other.
+
+The second one is what stops a gate from being carried in someone's head, and it is why the `Gate:`
+line is a format rather than a note.
+
 ### The `DONE` bar
 
 Per `CLAUDE.md`, a submodule ref in this repo is updated **only after** that submodule's build and
@@ -71,6 +97,36 @@ or an `OQ-*` in a spec. An item with an open gate is `BLOCKED`, and the fix belo
 **No item is currently gated.** A `Gate:` line appears on an item only when one is open, so its
 absence means what it says. If you open one while implementing, add the line and change the status —
 do not carry the gate in your head.
+
+#### Opening a gate — the format
+
+```
+**Gate:** <ID> — <the contradiction, in one sentence>.
+Opened <YYYY-MM-DD>. Fix belongs in `<document>`.
+```
+
+`<ID>` is a spec's `OQ-*` when one already covers it, or a new `IMP-GATE-<nn>` when nothing does.
+
+**Three things happen together, or none of them count:**
+
+1. The `Gate:` line lands in the item's section and its register row becomes `BLOCKED`.
+2. **The fix goes into the specification**, in this repository — not into the code, and not into a
+   comment explaining what the code assumed.
+3. A line appears under *Next Priorities* in `STATUS.md`, because a gate that only exists in the
+   registry is invisible to whoever reads STATUS.md at the start of the next session.
+
+#### What is and is not a gate
+
+A gate is **the documents disagreeing, or leaving you a decision they should have made.** It is not a
+task being hard, and it is not you disagreeing with a decision the documents made clearly.
+
+The failure this exists to prevent is silent reconciliation: two documents conflict, you pick the one
+that makes the code work, and nothing records that a choice was made. That choice surfaces three
+milestones later as behaviour nobody can trace to a decision — and by then both documents still
+disagree, so the next person makes the opposite choice somewhere else.
+
+**Stopping is cheap. An unrecorded choice is not.** If you are weighing whether something clears the
+bar, it clears the bar.
 
 ### What every item does *not* carry
 
