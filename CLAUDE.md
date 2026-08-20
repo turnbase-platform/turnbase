@@ -124,6 +124,15 @@ turnbase-frontend — no Maven dependency (postMessage with game FEs only)
 
 ### During a Session
 
+**Project skills** (in `.claude/skills/`) — these two carry the Phase 1 cadence:
+
+- **`work-item`** — before writing any code for an `IMP-*` item. Claim it, read exactly its
+  read-list, build to the *Done when* clause, and leave the register honest.
+- **`spec-defect`** — the moment two documents disagree or leave you a decision. Stopping is the
+  cheap option; silent reconciliation is what costs a day three milestones later.
+
+**General:**
+
 - Use `superpowers:brainstorming` before any creative, architectural, or design decision
 - Use `superpowers:writing-plans` before multi-step implementation tasks
 - Use `superpowers:systematic-debugging` when encountering bugs or unexpected behavior
