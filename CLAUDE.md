@@ -15,8 +15,10 @@ TurnBase is a platform for hosting and playing multiplayer games online. It prov
 
 ## Current Phase
 
-**Phase 1 — Implementation** (starting). Phase 0 is complete and has been audited for
-implementation-readiness.
+**Phase 1 — Implementation** (under way, **1 of 59 work items done**). Phase 0 is complete and has
+been audited for implementation-readiness — but the first item to actually compile against the corpus
+found three contradictions in its own read-list, so treat "audited" as meaning *no known* defects
+rather than *no* defects.
 
 Check [STATUS.md](STATUS.md) at the start of each session for current state, last session summary,
 and next priorities.
@@ -28,7 +30,8 @@ layout, formatting, test layout, coverage and cross-repo versions once for every
 individual work items do not each decide them. The 2026-08-16 readiness audit's **23 blockers are all closed**
 ([register](docs/reviews/2026-08-16-implementation-readiness/INDEX.md)), so no work item is gated;
 an item's status is whatever its own dependencies imply. If a new specification defect is found while
-implementing, the fix belongs in the specification, not in code.
+implementing, the fix belongs in the specification, not in code — use the **`spec-defect`** skill; it
+fired three times on the first item alone, so this is the normal case, not an exception.
 
 ## Tech Stack
 

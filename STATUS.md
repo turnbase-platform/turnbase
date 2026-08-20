@@ -3,9 +3,12 @@
 **Date:** 2026-08-20 (session 14)
 
 **The first code in the project, and three specification defects found by trying to write it.**
-`IMP-M0-01` — the gRPC stubs — is built, tested and locally green in `turnbase-common`, which now has
-the full build floor of `conventions.md` §6. It is `WIP`, not `DONE`, because the pipeline has never
-run.
+`IMP-M0-01` is **`DONE`** — the gRPC stubs are built, tested, pushed, and green in CI, and
+`turnbase-common` now carries the full build floor of `conventions.md` §6. **1 of 59 items complete.**
+
+The session also settled how this project is actually worked: the agent can now push (without any
+force variant), so it sees its own hooks and its own pipeline fail. ADR-0012 lost a branch-protection
+rule that never existed.
 
 ### The headline is not the code
 
@@ -45,15 +48,52 @@ since both peers regenerate from the same file, nothing else would have noticed.
 ### Three build traps, none of which said what they were
 
 - **Error Prone on JDK 21 additionally needs `-XDaddTypeAnnotationsToSymbol=true`**, beyond the
-  `compilePolicy` and `should-stop` flags `conventions.md` §2 already names. `conventions.md` should
-  gain it before `IMP-M0-03` hits the same wall.
-- **`protobuf-maven-plugin` 5.x rewrote its configuration surface.** Pinned to 4.1.3.
+  `compilePolicy` and `should-stop` flags `conventions.md` §2 already named. Now in §2.
+- **`protobuf-maven-plugin` 5.x rewrote its configuration surface.** Pinned to 4.1.3, with a
+  Dependabot `ignore` entry so the pin is not mistaken for neglect.
 - **XML comments cannot contain a double hyphen**, so no pom comment can quote a compiler flag.
 
 And one that would have bitten later: the parent checks out the proto as CRLF while the submodule
 pins it to LF, so `sync-proto.sh --check` would have reported drift on **every line of an identical
 file** after a fresh clone — a false alarm on the one check whose value is that a real difference is
 never dismissed as noise. Both ends pinned, and the comparison made line-ending agnostic anyway.
+
+### CI failed both jobs on the first push, and neither failure reproduced locally
+
+This is the part worth carrying, because the other three Java repos will meet the first one:
+
+- **`actions/setup-java` has no `graalvm-community` distribution.** GraalVM CE is set up by
+  `graalvm/setup-graalvm`. The error names the distribution, so it reads as a typo rather than as the
+  wrong action entirely.
+- **`buf breaking` had no baseline.** On a push it compared against `HEAD~1` — which, on the commit
+  that *introduces* the proto, is a tree with no protos. `Module "path: "." had no .proto files`
+  names the module, not the absent baseline. It now runs on pull requests only, against the base
+  branch; `buf lint` still runs on everything because it always has an answer.
+
+Both are recorded in `conventions.md` §6.
+
+**Dependabot opened five PRs within a minute of the first push**, one of them reverting the
+deliberate `protobuf-maven-plugin` pin. The rest were right and were applied directly — `checkout`
+and `upload-artifact` to v7, the Maven wrapper to 3.9.16 — then all five were closed as superseded.
+The rule that came out of it, now in `conventions.md` §6: **an `ignore` entry ships in the same
+change as the pin it protects**, carrying the reason.
+
+### Two process decisions
+
+**The agent pushes now, without any force variant.** `--force`, `--force-with-lease`, `--mirror`,
+`--delete`, `--prune`, `--tags` and `+refspec` are denied; tag pushes stay a human action because
+ADR-0012 makes a `v*.*.*` tag the release trigger. This closed a real gap rather than a theoretical
+one — the `pre-push` hooks existed for a session without ever having been seen to run. They now fire
+on every push and are visible in the transcript. The alternative, moving them to `pre-commit`, was
+rejected: it would have taxed all nine commits of this session to run a check that mattered on four
+pushes, and a commit is *allowed* to be broken — the `work-item` skill mandates a claim commit before
+any code exists.
+
+**ADR-0012's "`master` — protected, no direct pushes" is removed.** GitHub does not offer branch
+protection on private repositories outside a paid plan, so the clause described a setting that never
+existed, read as a guarantee, and contradicted the same ADR's "self-merge is fine for solo work".
+Feature branches and PRs remain the normal path; the document now describes what the platform
+enforces.
 
 ### One thing left deliberately imperfect, and written down rather than hidden
 
@@ -285,18 +325,18 @@ an explicit *"an idle notification is not a usable answer"*.
 
 ## Next Priorities
 
-**Phase 1 has started. Work from [`docs/implementation/INDEX.md`](docs/implementation/INDEX.md), not
+**Phase 1 is under way. Work from [`docs/implementation/INDEX.md`](docs/implementation/INDEX.md), not
 from this file.** The registry holds **59 live work items** (IMP-M6-07 is cancelled), each with a
 read-list, dependencies, the requirement IDs it satisfies and a done-when clause; this section only
 says which of them to pick up.
 
-**No work item is gated.** All 23 readiness blockers are closed, so an item's status is whatever its
-own dependencies imply.
+**Progress: 1 of 59 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), pushed and green in CI.
+**No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
+whatever its own dependencies imply.
 
-**`IMP-M0-01` is `DONE`** — pushed, CI green on `master` in both jobs. The first item in the project
-is finished.
-
-Three gates were opened and closed in session 14, all three on `IMP-M0-01`:
+Three gates were opened *and closed* on that single item, which is the number worth planning around:
+**a skeleton item costs roughly one spec defect per document in its read-list.** Budget for that
+rather than treating a gate as a delay.
 
 **IMP-GATE-03** — the clause "resolves from both `turnbase-platform` and `turnbase-game-host`"
 required the item's own dependents to exist first (`IMP-M0-04` depends on `IMP-M0-01`). The half that
@@ -316,39 +356,44 @@ hook, because drift here is silent (both repos compile; the two services disagre
 proto now declares `io.turnbase.grpc.gamehost.v1`, and `conventions.md` §5 states the rule — package
 tail and canonical buf-module path — so the next generated artifact does not re-decide it.
 
-**Three for three on an item budgeted as "close to mechanical"** — the details are in the session 14
-summary above. The pattern worth carrying into `IMP-M0-02`…`M0-05`: none of the three was findable by
-reading, and none would have been caught by `check-corpus.py`. They surfaced only because something
-had to compile against the documents. **Expect each remaining skeleton item to find its own**, and
-budget for it rather than treating a gate as a delay.
+**None of the three was findable by reading**, and none would have been caught by
+`check-corpus.py`. They surfaced only because something finally had to compile against the documents.
+That is the argument for doing the skeletons before anything subtle depends on them.
 
 **[`docs/implementation/conventions.md`](docs/implementation/conventions.md) applies to every item and
 is not repeated in read-lists** — package layout, static analysis, Spotless, test suffixes, JaCoCo,
 branch and commit format, cross-repo version pinning. Assume it the way you assume `CLAUDE.md`.
 
 **The harness is done.** Submodule `CLAUDE.md` files, the corpus checker, the status protocol, the
-escalation format, the two skills and the permissions all landed in session 13. What is left is
-repository setup, which is now ordinary work items rather than groundwork.
+escalation format, the two skills and the permissions all landed in session 13, and session 14
+proved them on a real item: the `work-item` cadence held, `spec-defect` fired three times, and the
+`pre-push` hooks now run where the agent can see them.
 
 ### The next session — `IMP-M0-02`…`M0-05`
 
-**`turnbase-common` is the worked example**, and CI taught it two things the other repos will hit on
-their first push:
+**`turnbase-common` is the worked example. Copy its shape rather than re-deriving it.** Its pom is
+the template for the three remaining Java repos: Spotless at `validate`, Error Prone + NullAway,
+merged JaCoCo, the enforcer, and the `.mvn/jvm.config` flags — each of which cost a build cycle to
+discover and all of which are now in `conventions.md` §2.
 
-- **`actions/setup-java` has no `graalvm-community` distribution** — it fails with *"No supported
-  distribution was found"*. GraalVM CE needs `graalvm/setup-graalvm`. `IMP-M0-03` and `IMP-M0-04`
-  both want it.
-- **Dependabot opens PRs within a minute of the first push**, including ones that revert deliberate
-  pins. Land the `ignore` entries with the pin, not after the third weekly PR.
+Four things it learned that the other repos will meet on their own first push, all now in
+`conventions.md` §6:
 
-`turnbase-common`'s pom is the worked example for the three remaining
-Java repos: Spotless at `validate`, Error Prone + NullAway, merged JaCoCo, enforcer, the `.mvn/jvm.config`
-flags. Copy its shape rather than re-deriving it — the flags in particular each cost a build cycle to
-discover and are now in `conventions.md` §2.
+| | |
+|---|---|
+| GraalVM CE | `graalvm/setup-graalvm`, **not** `actions/setup-java`, which has no `graalvm-community` distribution |
+| `buf breaking` | pull requests only, against the base branch — a push has no reliable baseline |
+| Dependabot | opens PRs within a minute of the first push, including ones reverting deliberate pins. Land `ignore` entries **with** the pin |
+| Line endings | `.gitattributes` pins `*.sh`, hooks and `mvnw` to LF, or a CRLF checkout makes git silently refuse to run a hook |
 
 **`IMP-M0-03` and `IMP-M0-05` carry real content; `IMP-M0-02` and `IMP-M0-04` are closer to
 mechanical** — with the caveat that `IMP-M0-01` was also called close to mechanical and produced
 three gates.
+
+**`IMP-M0-02` (`turnbase-sdk`) is the one to be most careful with.** It is the only published public
+contract: `@NullMarked` is part of the surface, Checkstyle enforces Javadoc on every public type, and
+Java 21 is the *maximum* rather than the target, because game code runs in Espresso as a Java 21
+guest and a Java 22+ API compiles fine and fails inside a sandbox.
 
 `IMP-M0-03` establishes the build floor for the repository holding forty of the 59 items, and every
 piece of it is cheap now and prohibitive later:
@@ -462,13 +507,16 @@ Two things are deferred rather than done, both deliberately:
 
 - **The three proposed agents** (`impl-agent`, `done-when-verifier`, `spec-auditor`) wait until M0
   shows where the cadence actually hurts. Guessing their shape now costs more than waiting.
-- **`work-item` and `spec-defect` are untested.** They were written from the corpus's own failure
-  history rather than from observed agent behaviour. If an agent reads `work-item` and still marks
-  something `DONE` on a green local build, the skill is at fault — edit it then.
+**`work-item` and `spec-defect` have now had their first real outing** and both held on `IMP-M0-01`.
+`spec-defect` fired three times on one item; `work-item`'s "a green local build is not `DONE`" rule
+is what kept the item at `WIP` until CI actually ran — and CI then failed in both jobs, which is the
+best possible argument for the rule. Neither skill needed an edit. The one thing to watch on the next
+item is whether three gates in one item makes the escalation feel routine enough to start skipping.
 
-**Two permission gaps** worth fixing when they first bite: `mcp__playwright__*` does not match the
-real tool names, and `mcp__astryx__*` is not allowlisted at all — so every Astryx component lookup
-prompts, and ADR-0013 makes that lookup a tool call by design.
+**Permissions are settled.** The Astryx and Playwright prefixes were corrected in session 13, and
+session 14 added `git push` **without any force variant** — `--force`, `--force-with-lease`,
+`--mirror`, `--delete`, `--prune`, `--tags` and `+refspec` stay denied, and a `v*.*.*` tag push stays
+a human action because ADR-0012 makes it the release trigger.
 
 ---
 
