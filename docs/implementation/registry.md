@@ -28,7 +28,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | ID | Item | Repo | Depends on | Status |
 |---|---|---|---|---|
 | **M0 — Bootstrap** ||||
-| IMP-M0-01 | gRPC stubs and internal models | common | — | READY |
+| IMP-M0-01 | gRPC stubs and internal models | common | — | BLOCKED |
 | IMP-M0-02 | Public SDK artifacts (Maven + npm) | sdk | — | READY |
 | IMP-M0-03 | Platform Monolith skeleton | platform | — | READY |
 | IMP-M0-04 | Game Host skeleton | game-host | M0-01 | READY |
@@ -110,6 +110,11 @@ whatever its own *Depends on* implies.
 ### IMP-M0-01 — gRPC stubs and internal models
 
 **Repo:** `turnbase-common` · **Depends on:** — · **Publishes:** `io.turnbase:turnbase-grpc`
+
+**Gate:** IMP-GATE-01 — `gamehost.proto` sets `java_package = "com.turnbase.gamehost.grpc.v1"`, but
+`conventions.md` §1, ADR-0014 §1 and this item's *Done when* all require generated code under
+`io.turnbase.grpc`; the item cannot be built to a package the corpus contradicts.
+Opened 2026-08-20. Fix belongs in `docs/specs/internal-grpc/gamehost.proto`.
 
 **Read first:**
 - `docs/specs/internal-grpc/gamehost.proto` — the authoritative contract

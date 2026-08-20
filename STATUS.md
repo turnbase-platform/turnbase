@@ -221,9 +221,12 @@ from this file.** The registry holds **59 live work items** (IMP-M6-07 is cancel
 read-list, dependencies, the requirement IDs it satisfies and a done-when clause; this section only
 says which of them to pick up.
 
-**No work item is gated.** All 23 readiness blockers are closed, so an item's status is whatever its
-own dependencies imply. The registry's gates block records how each one closed rather than what it
-blocks, and a `Gate:` line now appears on an item only when one is actually open.
+**One work item is gated.** All 23 readiness blockers are closed; the open gate is
+**IMP-GATE-01 on `IMP-M0-01`** — `gamehost.proto` declares `java_package =
+"com.turnbase.gamehost.grpc.v1"` while `conventions.md` §1, ADR-0014 §1 and the item's own *Done
+when* all put generated code under `io.turnbase.grpc`. `com.turnbase` appears exactly once in the
+whole corpus, so the proto is the outlier — but the stubs cannot be generated until the document
+says so. Otherwise an item's status is whatever its own dependencies imply.
 
 **[`docs/implementation/conventions.md`](docs/implementation/conventions.md) applies to every item and
 is not repeated in read-lists** — package layout, static analysis, Spotless, test suffixes, JaCoCo,
