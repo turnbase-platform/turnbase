@@ -293,11 +293,8 @@ says which of them to pick up.
 **No work item is gated.** All 23 readiness blockers are closed, so an item's status is whatever its
 own dependencies imply.
 
-**`IMP-M0-01` is `WIP (session 14)`, and everything in its *Done when* is built and verified
-locally** — `./mvnw verify` green with 15 tests, `buf lint` clean, both services' stubs in the jar, a
-consumer project compiling and running against them. It is not `DONE` because **the bar is the
-pipeline and the pipeline has never run**: the agent cannot push, so the committed workflow — and
-`buf breaking` in particular — has never executed. It flips to `DONE` on the first green CI run.
+**`IMP-M0-01` is `DONE`** — pushed, CI green on `master` in both jobs. The first item in the project
+is finished.
 
 Three gates were opened and closed in session 14, all three on `IMP-M0-01`:
 
@@ -333,14 +330,18 @@ branch and commit format, cross-repo version pinning. Assume it the way you assu
 escalation format, the two skills and the permissions all landed in session 13. What is left is
 repository setup, which is now ordinary work items rather than groundwork.
 
-### The next session — finish the repositories; `IMP-M0-01` is built
+### The next session — `IMP-M0-02`…`M0-05`
 
-**First, and it takes a minute:** push `master` and the two `feat/imp-m0-01-grpc-stubs` branches
-(parent and `turnbase-common`). The agent cannot push, so `IMP-M0-01`'s workflow has never run and
-`buf breaking` has never had a base ref to compare against. Its registry row goes to `DONE` on the
-first green run — the code is finished, the verification is not.
+**`turnbase-common` is the worked example**, and CI taught it two things the other repos will hit on
+their first push:
 
-**Then `IMP-M0-02`…`M0-05`.** `turnbase-common`'s pom is the worked example for the three remaining
+- **`actions/setup-java` has no `graalvm-community` distribution** — it fails with *"No supported
+  distribution was found"*. GraalVM CE needs `graalvm/setup-graalvm`. `IMP-M0-03` and `IMP-M0-04`
+  both want it.
+- **Dependabot opens PRs within a minute of the first push**, including ones that revert deliberate
+  pins. Land the `ignore` entries with the pin, not after the third weekly PR.
+
+`turnbase-common`'s pom is the worked example for the three remaining
 Java repos: Spotless at `validate`, Error Prone + NullAway, merged JaCoCo, enforcer, the `.mvn/jvm.config`
 flags. Copy its shape rather than re-deriving it — the flags in particular each cost a build cycle to
 discover and are now in `conventions.md` §2.

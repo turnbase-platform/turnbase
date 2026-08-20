@@ -61,7 +61,13 @@ both sides still compile — so the guard is mechanical rather than a rule in a 
 
 Applied consistently across all repos:
 
-- `master` — always deployable / releasable; protected, no direct pushes
+- `master` — always deployable / releasable. **Not branch-protected**, and direct pushes are
+  allowed: GitHub does not offer branch protection on private repositories outside a paid plan, and
+  a rule the platform cannot enforce is one that reads as a guarantee while being an honour system.
+  Feature branches and PRs remain the normal path for anything worth reviewing; the discipline is the
+  branch model below, not a server-side block *(amended 2026-08-20 — the clause previously read
+  "protected, no direct pushes", which contradicted this ADR's own "self-merge is fine for solo
+  work")*
 - `feat/<description>` — new features
 - `fix/<description>` — bug fixes
 - `docs/<description>` — documentation changes

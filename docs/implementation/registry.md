@@ -28,7 +28,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | ID | Item | Repo | Depends on | Status |
 |---|---|---|---|---|
 | **M0 — Bootstrap** ||||
-| IMP-M0-01 | gRPC stubs and internal models | common | — | WIP (session 14) |
+| IMP-M0-01 | gRPC stubs and internal models | common | — | DONE |
 | IMP-M0-02 | Public SDK artifacts (Maven + npm) | sdk | — | READY |
 | IMP-M0-03 | Platform Monolith skeleton | platform | — | READY |
 | IMP-M0-04 | Game Host skeleton | game-host | M0-01 | READY |
@@ -111,13 +111,23 @@ whatever its own *Depends on* implies.
 
 **Repo:** `turnbase-common` · **Depends on:** — · **Publishes:** `io.turnbase:turnbase-grpc`
 
-**Status note (session 14).** Everything in *Done when* is built and verified locally: `./mvnw verify`
-green with 15 tests, `buf lint` clean, the jar carrying both services' stubs under
-`io.turnbase.grpc.gamehost.v1`, and a consumer project compiling and running against both the client
-stub and the server base class off `./mvnw install`. It stays `WIP` rather than `DONE` for one
-reason — **the bar is the pipeline, and the pipeline has never run.** The workflow is committed but
-unpushed, so `buf breaking` in particular has never executed against a real base ref. `DONE` on the
-first green CI run.
+**Done 2026-08-20 (session 14).** `./mvnw verify` green with 15 tests, `buf lint` clean, both
+services' stubs in the jar under `io.turnbase.grpc.gamehost.v1`, and a consumer project compiling and
+running against the client stub and the server base class. **CI green on `master`** (`build` and
+`contract`), which is the bar — the first run failed in both jobs and neither failure was reproducible
+locally:
+
+- `actions/setup-java` has **no `graalvm-community` distribution**. GraalVM CE needs
+  `graalvm/setup-graalvm`. Applies to `IMP-M0-03` and `IMP-M0-04` too.
+- `buf breaking` on a push compared against `HEAD~1`, which on the commit that *introduces* the proto
+  is a tree with no protos: `Module "path: "."" had no .proto files` — a message that names the
+  module rather than the missing baseline. It now runs on pull requests only, against the base
+  branch, where a baseline always exists.
+
+**Dependabot opened five PRs within a minute of the first push**, one of them reverting the
+deliberate `protobuf-maven-plugin` 4.1.3 pin to the 5.x that does not accept this configuration. The
+ignore entry carrying that reason is in `.github/dependabot.yml`; expect the same the day each
+remaining repo lands.
 
 **Closed:** IMP-GATE-03 (opened and closed 2026-08-20) — the clause "resolves from both
 `turnbase-platform` and `turnbase-game-host`" required this item's own dependents to exist first. The

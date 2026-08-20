@@ -333,3 +333,22 @@ The floor, checked by `IMP-M0-01`…`M0-05` and `IMP-M0-11`:
 
 `turnbase-common` and `turnbase-sdk` publish artifacts rather than images, so their pipelines end at
 publication (FR-CICD-001).
+
+### Two things CI gets wrong on a repository's first push
+
+Both cost `IMP-M0-01` a red pipeline, and neither reproduces locally.
+
+- **GraalVM CE is set up by `graalvm/setup-graalvm`, not `actions/setup-java`.** The latter has no
+  `graalvm-community` distribution and fails with *"No supported distribution was found for input
+  graalvm-community"*. Use the same `21.0.2-graalce` the `.sdkmanrc` pins, so CI and a developer's
+  shell run the same JDK rather than two that merely agree today.
+- **`buf breaking` needs a baseline, and a push does not reliably have one.** Run it on pull requests
+  against the base branch. On a push it compares against `HEAD~1` — which, on the commit that first
+  adds a `.proto`, is a tree with no protos, and the error (`Module "path: "." had no .proto files`)
+  names the module rather than the missing baseline. `buf lint` is cheap and always has an answer, so
+  it runs on everything.
+
+**Land `dependabot.yml`'s `ignore` entries in the same change as the pin they protect.** Dependabot
+opens PRs within a minute of the first push, and a deliberate downgrade it does not know about comes
+back every week looking like neglect. Each entry carries *why*, so the pin stays a decision someone
+can revisit rather than a mystery.

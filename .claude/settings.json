@@ -50,11 +50,26 @@
       "Bash(git add*)",
       "Bash(git commit*)",
       "Bash(git submodule*)",
+      "Bash(git push)",
+      "Bash(git push origin)",
+      "Bash(git push origin master)",
+      "Bash(git push -u origin feat/*)",
+      "Bash(git push -u origin fix/*)",
+      "Bash(git push -u origin docs/*)",
+      "Bash(git push -u origin chore/*)",
       "mcp__astryx__*",
       "mcp__plugin_playwright_playwright__*"
     ],
     "deny": [
-      "Bash(git push *)"
+      "Bash(git push*--force*)",
+      "Bash(git push* -f*)",
+      "Bash(git push*--mirror*)",
+      "Bash(git push*--delete*)",
+      "Bash(git push* -d*)",
+      "Bash(git push*--prune*)",
+      "Bash(git push*--tags*)",
+      "Bash(git push*--follow-tags*)",
+      "Bash(git push* +*)"
     ]
   },
   "enabledPlugins": {
