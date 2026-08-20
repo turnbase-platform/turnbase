@@ -21,6 +21,7 @@ Format: one file per decision, numbered sequentially (`NNNN-slug.md`). Status is
 | [0011](0011-schema-migrations.md) | Schema migrations — Flyway, forward-only, backward-compatible | Accepted |
 | [0012](0012-repo-strategy-polyrepo-submodules.md) | Repository strategy — polyrepo under an organisation, with submodules | Accepted |
 | [0013](0013-astryx-design-system.md) | Astryx supersedes the in-house design system | Accepted |
+| [0014](0014-modular-monolith-spring-modulith.md) | The Platform Monolith is modular by feature, and Spring Modulith enforces it | Accepted |
 
 ## Provenance
 
@@ -59,6 +60,13 @@ its conclusion — the five-repo table and the one-line submodule rule — witho
 argument is the part worth keeping: why not a monorepo (the SDK needs a public artifact with no
 internal dependencies leaking transitively), and why the proto lives in `turnbase-common` rather than
 a `turnbase-contracts` repo of its own.
+
+ADR-0014 was taken on 2026-08-20 during the pre-implementation readiness review, alongside six
+smaller conventions that became [`../implementation/conventions.md`](../implementation/conventions.md).
+It is the only one of the seven that is an ADR: the other six are build tooling, replaceable without
+consequence, while this one constrains the internal structure of the repository that holds forty of
+the 59 work items. The review found that the corpus's sole evidence of the monolith's package root
+was an incidental logger name in a JSON log sample.
 
 ADR-0011 closes OPS-3, open since the review and never addressed: the corpus defined roughly thirty
 tables while naming no migration tool at all. It is recorded as an ADR rather than as a spec section

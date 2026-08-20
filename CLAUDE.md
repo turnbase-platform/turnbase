@@ -22,7 +22,10 @@ Check [STATUS.md](STATUS.md) at the start of each session for current state, las
 and next priorities.
 
 **Before writing any code**, read [docs/implementation/INDEX.md](docs/implementation/INDEX.md) — the
-work-item registry. The 2026-08-16 readiness audit's **23 blockers are all closed**
+work-item registry — and
+[docs/implementation/conventions.md](docs/implementation/conventions.md), which settles package
+layout, formatting, test layout, coverage and cross-repo versions once for every repository so that
+individual work items do not each decide them. The 2026-08-16 readiness audit's **23 blockers are all closed**
 ([register](docs/reviews/2026-08-16-implementation-readiness/INDEX.md)), so no work item is gated;
 an item's status is whatever its own dependencies imply. If a new specification defect is found while
 implementing, the fix belongs in the specification, not in code.
@@ -102,6 +105,9 @@ turnbase-frontend — no Maven dependency (postMessage with game FEs only)
 ## Architecture Principles
 
 - **Game-agnostic platform core** — no game logic in platform services
+- **Modular monolith** — the Platform Monolith is packaged by feature under `io.turnbase.platform`,
+  and Spring Modulith fails the build when one feature reaches into another's internals
+  ([ADR-0014](docs/decisions/0014-modular-monolith-spring-modulith.md))
 - **Game modularity** — FE as standalone bundles (sandboxed iframes), BE as dynamically loaded JARs
 - **Microservices** — independently deployable services, each in its own submodule
 - **Security first** — sandboxed game code, origin validation, JWT auth, TLS everywhere
@@ -146,11 +152,12 @@ turnbase-frontend — no Maven dependency (postMessage with game FEs only)
 - Use WebSockets for real-time communication (no polling)
 
 **SHOULD:**
-- Google Java Style for Java
+- Google Java Style for Java — enforced by Spotless + `google-java-format` at the `validate` phase.
+  **`./mvnw spotless:apply` before opening a PR**, not after CI rejects it
 - Prettier + ESLint for TypeScript/React
-- Javadoc for all public SDK/API interfaces
+- Javadoc for all public SDK/API interfaces (Checkstyle enforces this in `turnbase-sdk`)
 - Structured logging with correlation IDs
-- >70% test coverage for critical paths
+- >70% test coverage for critical paths — JaCoCo, over **merged** unit + integration exec data
 
 **AVOID:**
 - Game-specific logic in platform code

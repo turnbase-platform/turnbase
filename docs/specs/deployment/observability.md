@@ -143,7 +143,7 @@ the container the log's owner rather than the process.
   "timestamp": "2026-08-16T10:04:11.482Z",
   "level": "INFO",
   "service": "platform",
-  "logger": "io.turnbase.room.RoomService",
+  "logger": "io.turnbase.platform.room.RoomService",
   "thread": "http-nio-8080-exec-3",
   "message": "Room claimed",
   "requestId": "0b4c…", "userId": "a1b2…", "roomId": "9c1e…",

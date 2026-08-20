@@ -24,7 +24,8 @@ that surfaces three milestones later. Record it against the item's *Gate* field.
 
 | File | Purpose |
 |------|---------|
-| [INDEX.md](INDEX.md) | This file — conventions, the milestone map, and how to read a work item |
+| [INDEX.md](INDEX.md) | This file — registry conventions, the milestone map, and how to read a work item |
+| [conventions.md](conventions.md) | **Code and build conventions** — package layout, formatting, tests, coverage, git, cross-repo versions. Normative, and shared by every item |
 | [registry.md](registry.md) | The register itself, and the per-item detail: read-lists, requirements satisfied, done-when clauses |
 
 ## Related
@@ -70,6 +71,18 @@ or an `OQ-*` in a spec. An item with an open gate is `BLOCKED`, and the fix belo
 **No item is currently gated.** A `Gate:` line appears on an item only when one is open, so its
 absence means what it says. If you open one while implementing, add the line and change the status —
 do not carry the gate in your head.
+
+### What every item does *not* carry
+
+[`conventions.md`](conventions.md) holds what is true for every item: package layout, formatting,
+test suffixes and their plugins, the coverage wiring, the branch and commit format, and how the
+repositories depend on each other. It is **not** repeated in read-lists — assume it, the way you
+assume `CLAUDE.md`. An item names it explicitly only where that item is the one *establishing* the
+convention rather than following it.
+
+If you find yourself deciding something that reads like it should be the same across all forty
+platform items, the answer belongs in `conventions.md` and its absence is a defect. Do not settle it
+locally.
 
 ### What every item carries
 

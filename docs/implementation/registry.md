@@ -17,6 +17,10 @@ Every item below carries:
 
 Paths in *Read first* are relative to the repository root.
 
+**[`conventions.md`](conventions.md) applies to every item and is not repeated in read-lists.**
+Package layout, Spotless, test suffixes, JaCoCo, branch and commit format, and cross-repo version
+pinning are settled there. Items name it only where they are the item that *establishes* it.
+
 ---
 
 ## Register
@@ -114,13 +118,22 @@ whatever its own *Depends on* implies.
 
 **Satisfies:** `platform-architecture.md` FR-ORCH-001…007, FR-REG-001…004
 
-**Done when:** `mvn verify` produces a jar containing generated client and server stubs for every
+**Done when:** `./mvnw verify` produces a jar containing generated client and server stubs for every
 service in `gamehost.proto`; `buf lint` and `buf breaking` run in CI; the artifact installs to the
-local Maven repository and resolves from both `turnbase-platform` and `turnbase-game-host`.
+local Maven repository and resolves from both `turnbase-platform` and `turnbase-game-host`; the
+generated code lands under `io.turnbase.grpc` and the build floor of `conventions.md` §6 is in place.
 
 **Note:** the `.proto` is the source of truth. Where the prose in
 `orchestration-gamehost-protocol.md` disagrees with it, the proto wins for wire shape — but raise
 the disagreement rather than silently following one.
+
+**The proto here is a build-time copy.** The authoritative file is
+`docs/specs/internal-grpc/gamehost.proto` in this repository; `turnbase-common` copies it into
+`src/main/proto/`. Editing the copy is a defect — the change belongs in the spec directory
+(`conventions.md` §5, ADR-0012).
+
+**Consumers pin this artifact by exact version**, never `-SNAPSHOT` in a committed pom. The release
+order that keeps the three repos coherent is in `conventions.md` §5.
 
 ---
 
@@ -137,7 +150,10 @@ the disagreement rather than silently following one.
 
 **Done when:** both artifacts build and publish locally; the Java artifact targets Java 21 bytecode
 and uses no Java 22+ API; the npm package ships `.d.ts` types; Javadoc is present on every public
-type (`CLAUDE.md` SHOULD).
+type (`CLAUDE.md` SHOULD) and **Checkstyle enforces that last clause rather than a reviewer** —
+`turnbase-sdk` is the one repository that runs Checkstyle, configured for public-type Javadoc only
+(`conventions.md` §2). This is a published artifact third parties compile against; its Javadoc is
+the documentation.
 
 ---
 
@@ -149,6 +165,8 @@ type (`CLAUDE.md` SHOULD).
 - `docs/specs/deployment/local-environment.md` §1, §3, §7.9
 - `docs/requirements/platform-operations.md` — service topology, CON-010/011
 - `docs/decisions/0001-local-first-mvp-platform.md`
+- `docs/decisions/0014-modular-monolith-spring-modulith.md` — **in full**
+- `docs/implementation/conventions.md` §§1–3, 6 — this item establishes them for the largest repo
 
 **Satisfies:** `platform-operations.md` FR-DEPLOY-001…003, CON-010, CON-011
 
@@ -156,6 +174,20 @@ type (`CLAUDE.md` SHOULD).
 port bound per §1 (loopback under compose, unbound under Kubernetes — **the two profiles differ and
 getting this wrong breaks the readiness probes**); a Dockerfile produces `turnbase/platform`;
 actuator health and readiness respond, and **readiness does not depend on the Game Host**.
+
+Plus the build floor of `conventions.md` §6, which exists nowhere until this item creates it:
+
+1. `./mvnw` committed, `.sdkmanrc` pinning `21.0.2-graalce`.
+2. **Spotless** with `googleJavaFormat`, bound to `validate`, and `.mvn/jvm.config` carrying the
+   `--add-exports` flags it needs on JDK 21 (§2 — the first run fails confusingly without them).
+3. **JaCoCo** with separate unit and integration exec files, `jacoco:merge`, and one `jacoco:check`
+   at 70% line over the merged data (§3 — the one-execution wiring silently measures unit only).
+4. **`spring-modulith-starter-core`**, the twelve feature packages of ADR-0014 §1 created empty, and
+   a test asserting `ApplicationModules.of(TurnBaseApplication.class).verify()`. It passes trivially
+   today; it exists so that the first violation fails a build rather than a review.
+
+**Root package is `io.turnbase.platform`, packaged by feature.** Getting this wrong is a rename
+across forty work items later.
 
 ---
 
@@ -178,6 +210,10 @@ trivial guest context can be created and disposed.
 
 **Constraint:** host JVM is Java 21; guest is Espresso running Java 21. There is no CE build for JDK
 23 — see `CLAUDE.md`.
+
+Root package `io.turnbase.gamehost`; the build floor of `conventions.md` §6 applies here as it does
+to the monolith. **Spring Modulith does not** — ADR-0014 is about the monolith's forty features, and
+the Game Host is one bounded thing.
 
 ---
 
@@ -368,6 +404,9 @@ and its derived field links a log line's `traceId` to the Tempo trace (`observab
 
 **Read first:**
 - `docs/requirements/platform-operations.md` FR-CICD-001…011
+- `docs/specs/deployment/local-environment.md` §8 — **the authority on what each test category
+  actually depends on.** Read it before the requirement, not after
+- `docs/implementation/conventions.md` §§2–4, 6
 - `CLAUDE.md` — *Submodule philosophy* and the End of Session Checklist
 
 **Satisfies:** `platform-operations.md` FR-CICD-001…011
@@ -376,6 +415,14 @@ and its derived field links a log line's `traceId` to the Tempo trace (`observab
 artifact; coverage is reported and gated on **unit and integration tests only** — the two categories
 that run at PR time (FR-CICD-003, as narrowed by IR-03; `CLAUDE.md`: >70% on critical paths); the
 workflow is the gate `CLAUDE.md` requires before a submodule ref is bumped here.
+
+**Every trigger names `master`.** Not `main` — no repository has one. FR-CICD-002/006/007 said `main`
+until 2026-08-20 and were corrected against ADR-0012's branch model; a workflow written from the old
+text is one that never fires.
+
+**Integration tests are Testcontainers, not compose.** The PR job needs a Docker daemon and nothing
+else — no `services:` block, no compose file, no stack started in a prior step. Compose belongs to the
+post-merge e2e job alone (`local-environment.md` §8, FR-CICD-004 as corrected).
 
 ---
 
@@ -1159,7 +1206,15 @@ client like the move succeeded.
 
 ### IMP-M3-10 — The first official game
 
-**Repo:** external consumer of `turnbase-sdk` · **Depends on:** IMP-M3-03
+**Repo:** a sixth repository, `turnbase-game-<name>`, **created when this item starts** ·
+**Depends on:** IMP-M3-03
+
+**The repository does not exist yet, and that is deliberate** (decided 2026-08-20). Nothing before
+M3 needs a real game, and creating an empty sixth repo at M0 would put a submodule in this tree that
+stays empty through four milestones. When this item starts: create it under the
+`turnbase-platform` organisation, register it as a submodule, and add it to ADR-0012's repository
+table and `CLAUDE.md`'s. It is a **consumer** of the platform, not part of it — which is the whole
+point of the item, so it does not become a sixth first-class component.
 
 **Read first:**
 - `docs/specs/gdk-api/backend-gdk-api.md` §11 (the worked example) and §§3–8
