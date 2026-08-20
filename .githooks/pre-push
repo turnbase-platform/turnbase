@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+#
+# Parent-repo pre-push fast-fail. Enable once with:
+#
+#   git config core.hooksPath .githooks
+#
+# CI is the gate; this is a fast-fail (conventions.md §4). Bypass with --no-verify
+# when you know the push is a WIP branch.
+#
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+fail=0
+
+echo "pre-push: corpus checks"
+python3 scripts/check-corpus.py || fail=1
+
+# The proto drift guard lives here rather than in turnbase-common because this is
+# the only checkout holding both the authoritative file and the copy.
+if [[ -e turnbase-common/.git ]]; then
+  echo "pre-push: proto copy"
+  scripts/sync-proto.sh --check || fail=1
+else
+  echo "pre-push: proto copy — skipped, turnbase-common not checked out"
+fi
+
+exit $fail

@@ -221,25 +221,36 @@ from this file.** The registry holds **59 live work items** (IMP-M6-07 is cancel
 read-list, dependencies, the requirement IDs it satisfies and a done-when clause; this section only
 says which of them to pick up.
 
-**One work item is gated: IMP-GATE-02 on `IMP-M0-01`.** ADR-0012 says `turnbase-common` copies
-`gamehost.proto` into `src/main/proto/` *at build time*, and also says each component repo is
-*independently usable without the root* — two sections apart, and they cannot both hold. A Maven step
-reading `../docs/` fails in a standalone clone, which is precisely what this repo's own CI checks
-out. The resolution is below, under the repository-setup section.
+**No work item is gated.** All 23 readiness blockers are closed, so an item's status is whatever its
+own dependencies imply. **`IMP-M0-01` is `WIP (session 14)`.**
 
-All 23 readiness blockers are closed, so otherwise an item's status is whatever its own dependencies
-imply. One further gate has been opened and closed: **IMP-GATE-01 on `IMP-M0-01`**,
-where `gamehost.proto` declared `java_package = "com.turnbase.gamehost.grpc.v1"` against the
+Two gates were opened and closed in session 14, both on the first read of `IMP-M0-01`:
+
+**IMP-GATE-02** — ADR-0012 said `turnbase-common` copies `gamehost.proto` into `src/main/proto/` *at
+build time*, and also said each component repo is *independently usable without the root*. Two
+sections apart, and they cannot both hold: a Maven step reading `../docs/` fails in a standalone
+clone, which is exactly what that repo's CI checks out. ADR-0012 is amended — the copy is a
+**committed file**, and the drift guard is `scripts/sync-proto.sh --check` in the parent's `pre-push`
+hook, because drift here is silent (both repos compile; the two services disagree on the wire).
+
+**IMP-GATE-01** — `gamehost.proto` declared `java_package = "com.turnbase.gamehost.grpc.v1"` against the
 `io.turnbase.grpc` root that `conventions.md` §1 and ADR-0014 §1 both give `turnbase-common`. The
 proto now declares `io.turnbase.grpc.gamehost.v1`, and `conventions.md` §5 states the rule — package
 tail and canonical buf-module path — so the next generated artifact does not re-decide it.
 
-**That gate is worth reading as the first live test of the escalation protocol.** The contradiction
-was one line, the resolution was never in doubt, and the temptation to just generate into the right
-package and move on was exactly as strong as `spec-defect` predicts. What the ten minutes bought was
-two further stale statements found in the same pass — an "Open points" entry and a `buf.yaml` comment
-both still promising a shared buf workspace that ADR-0012 had rejected — neither of which any
-mechanical check would have caught.
+**Both are worth reading as the first live test of the escalation protocol**, and they failed
+differently. GATE-01 was a one-line outlier where the resolution was never in doubt and the
+temptation to just generate into the right package was exactly as strong as `spec-defect` predicts;
+the ten minutes bought two further stale statements found in the same pass — an "Open points" entry
+and a `buf.yaml` comment both still promising a shared buf workspace ADR-0012 had rejected — neither
+of which any mechanical check would have caught.
+
+**GATE-02 is the more instructive one.** It was not a typo or a stale sentence but a genuine
+architectural hole: the corpus asserted two properties that could not both be true, and *neither*
+statement was wrong on its own. Resolving it silently would have meant picking a repository layout
+by accident, and the first symptom would have been turnbase-common's CI failing on the day it was
+first pushed — long after the choice was made and with nothing recording that a choice existed.
+The specification now carries the resolution *and* a script that enforces it.
 
 **[`docs/implementation/conventions.md`](docs/implementation/conventions.md) applies to every item and
 is not repeated in read-lists** — package layout, static analysis, Spotless, test suffixes, JaCoCo,

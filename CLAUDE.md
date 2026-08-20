@@ -149,6 +149,24 @@ Five structural checks, exit 1 on failure. **`cites` and `sections` are the two 
 defects** — mis-qualified requirement IDs and ranges naming IDs that do not exist. Run it before
 committing documentation; it takes under a second and it is cheaper than the defect.
 
+### After any change to `docs/specs/internal-grpc/gamehost.proto`
+
+```bash
+scripts/sync-proto.sh                 # refresh turnbase-common's committed copy
+```
+
+The proto is authoritative here and **committed** — not generated at build time — in
+`turnbase-common/src/main/proto/turnbase/gamehost/v1/` (ADR-0012 as amended, `conventions.md` §5).
+Editing the copy is a defect. `scripts/sync-proto.sh --check` fails on drift and runs in the
+`pre-push` hook, because drift is otherwise silent: both repositories compile and the two services
+disagree on the wire.
+
+### Local fast-fail
+
+```bash
+git config core.hooksPath .githooks    # once per clone, this repo and each submodule
+```
+
 ### Ending a Session
 
 1. Update STATUS.md — **replace** the "Last Session Summary" section (never append), update phase progress and next priorities

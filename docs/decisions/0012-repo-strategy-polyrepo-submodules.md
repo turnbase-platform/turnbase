@@ -39,7 +39,23 @@ All five component repos are registered as git submodules in `turnbase`. Cloning
 
 ### No shared state between repos at the git level
 
-Repos are not wired together beyond submodule registration. Cross-repo changes require separate PRs per repo. The `gamehost.proto` file is the canonical source of truth in `turnbase/docs/specs/internal-grpc/`; `turnbase-common` copies it into its own `src/main/proto/` at build time.
+Repos are not wired together beyond submodule registration. Cross-repo changes require separate PRs per repo. The `gamehost.proto` file is the canonical source of truth in `turnbase/docs/specs/internal-grpc/`; `turnbase-common` holds a **committed copy** at `src/main/proto/turnbase/gamehost/v1/gamehost.proto`.
+
+**Amended 2026-08-20 (IMP-GATE-02).** This clause originally read *"copies it into its own
+`src/main/proto/` at build time"*, which contradicts the submodule policy above: a build step reading
+`../docs/` cannot run in a standalone clone, and `turnbase-common`'s own CI clones `turnbase-common`
+rather than the superproject. The copy is therefore a **tracked file**, not a build artifact —
+`turnbase-common` builds from its own tree with no path outside the repository, and the
+independence clause holds.
+
+Synchronisation is a **parent-repo** concern, because that is the only checkout where both files
+exist:
+
+- `scripts/sync-proto.sh` refreshes the copy from the authoritative file.
+- `scripts/sync-proto.sh --check` fails if they differ, and runs in the parent's `pre-push` hook.
+
+Drift is the whole risk this arrangement carries — two identical-looking protos that diverge while
+both sides still compile — so the guard is mechanical rather than a rule in a document.
 
 ## Branch Model
 

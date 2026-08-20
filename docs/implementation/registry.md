@@ -28,7 +28,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | ID | Item | Repo | Depends on | Status |
 |---|---|---|---|---|
 | **M0 — Bootstrap** ||||
-| IMP-M0-01 | gRPC stubs and internal models | common | — | BLOCKED |
+| IMP-M0-01 | gRPC stubs and internal models | common | — | WIP (session 14) |
 | IMP-M0-02 | Public SDK artifacts (Maven + npm) | sdk | — | READY |
 | IMP-M0-03 | Platform Monolith skeleton | platform | — | READY |
 | IMP-M0-04 | Game Host skeleton | game-host | M0-01 | READY |
@@ -111,11 +111,12 @@ whatever its own *Depends on* implies.
 
 **Repo:** `turnbase-common` · **Depends on:** — · **Publishes:** `io.turnbase:turnbase-grpc`
 
-**Gate:** IMP-GATE-02 — "`turnbase-common` copies `gamehost.proto` into `src/main/proto/` **at build
-time**" (ADR-0012, `conventions.md` §5, this item) contradicts ADR-0012's own submodule policy that
-"each component repo is **independently usable without the root**": a Maven step copying from
-`../docs/` cannot run in a standalone clone, which is exactly what this repo's CI checks out.
-Opened 2026-08-20. Fix belongs in `docs/decisions/0012-repo-strategy-polyrepo-submodules.md`.
+**Closed:** IMP-GATE-02 (opened and closed 2026-08-20) — "copies it into `src/main/proto/` at build
+time" contradicted ADR-0012's own guarantee that each repo is independently usable without the root.
+ADR-0012 is amended: the copy is a **committed file** at
+`src/main/proto/turnbase/gamehost/v1/gamehost.proto`, nothing in `turnbase-common`'s build reads
+outside the repository, and the drift guard is `scripts/sync-proto.sh --check` in the parent's
+`pre-push` hook. `conventions.md` §5 carries the rule.
 
 **Closed:** IMP-GATE-01 (opened and closed 2026-08-20) — `gamehost.proto` declared `java_package =
 "com.turnbase.gamehost.grpc.v1"` against an `io.turnbase.grpc` root everywhere else. The proto now
@@ -140,10 +141,10 @@ generated code lands under `io.turnbase.grpc` and the build floor of `convention
 `orchestration-gamehost-protocol.md` disagrees with it, the proto wins for wire shape — but raise
 the disagreement rather than silently following one.
 
-**The proto here is a build-time copy.** The authoritative file is
-`docs/specs/internal-grpc/gamehost.proto` in this repository; `turnbase-common` copies it into
-`src/main/proto/`. Editing the copy is a defect — the change belongs in the spec directory
-(`conventions.md` §5, ADR-0012).
+**The proto here is a committed copy.** The authoritative file is
+`docs/specs/internal-grpc/gamehost.proto` in this repository; `turnbase-common` tracks a copy at
+`src/main/proto/turnbase/gamehost/v1/gamehost.proto`, refreshed by `scripts/sync-proto.sh`. Editing
+the copy is a defect — the change belongs in the spec directory (`conventions.md` §5, ADR-0012).
 
 **Consumers pin this artifact by exact version**, never `-SNAPSHOT` in a committed pom. The release
 order that keeps the three repos coherent is in `conventions.md` §5.

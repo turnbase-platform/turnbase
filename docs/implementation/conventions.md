@@ -273,21 +273,32 @@ A command-line override, not a profile and not an edit. Nothing to forget to rev
 The consumer bump is where the compile break surfaces, which is the right place for it.
 
 **The proto is copied, not shared.** `gamehost.proto` is authoritative in
-[`../specs/internal-grpc/`](../specs/internal-grpc/); `turnbase-common` copies it into
-`src/main/proto/` at build time (ADR-0012). Editing the copy is a defect — the change belongs in this
-repository's spec directory, and the copy is refreshed from it.
-
-**The copy takes the canonical buf-module path**, derived from the proto package
-(`turnbase.gamehost.v1`):
+[`../specs/internal-grpc/`](../specs/internal-grpc/); `turnbase-common` holds a **committed copy** at
+the canonical buf-module path derived from the proto package (`turnbase.gamehost.v1`):
 
 ```
 turnbase-common/src/main/proto/turnbase/gamehost/v1/gamehost.proto
 ```
 
-so `PACKAGE_DIRECTORY_MATCH` holds and `turnbase-common`'s `buf.yaml` needs no lint exception. The
-authoritative file stays flat in the spec tree beside its design doc, and *that* is the one waiver.
-Copying the flat layout across would mean disabling a standard lint rule in the repository that
-actually publishes the artifact, which is where it is worth having.
+`PACKAGE_DIRECTORY_MATCH` therefore holds and `turnbase-common`'s `buf.yaml` needs no lint exception.
+The authoritative file stays flat in the spec tree beside its design doc, and *that* is the one
+waiver. Copying the flat layout across would mean disabling a standard lint rule in the repository
+that actually publishes the artifact, which is where it is worth having.
+
+**Committed, not generated at build time** (ADR-0012, amended by IMP-GATE-02). `turnbase-common` must
+build from a standalone clone — its CI checks out the submodule alone, not the superproject — so
+nothing in its build may read a path outside the repository.
+
+**Editing the copy is a defect.** The change belongs in the spec directory, and the copy is refreshed
+from it in the parent, which is the only checkout holding both files:
+
+```bash
+scripts/sync-proto.sh            # refresh the copy from the authoritative file
+scripts/sync-proto.sh --check    # fail if they differ; runs in the parent's pre-push hook
+```
+
+The guard is mechanical because the failure is not: two identical-looking protos diverge, both
+repositories still compile, and the two services disagree on the wire.
 
 **Generated Java lands under the repository root package**, `io.turnbase.grpc`, with the proto's own
 package as the tail — `io.turnbase.grpc.gamehost.v1` (IMP-GATE-01). Keeping the version segment is
