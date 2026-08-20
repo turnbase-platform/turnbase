@@ -1,0 +1,21 @@
+# core.autocrlf=true is set in this environment, which rewrites LF to CRLF on
+# checkout. For a shell script that is fatal and the error is unhelpful — bash
+# reports `\r': command not found` or, for a git hook, silently refuses to run it.
+# The scripts here are executed by bash on Linux and inside containers, so they
+# are pinned to LF regardless of the platform's preference.
+*.sh text eol=lf
+.githooks/* text eol=lf
+
+# Maven and Gradle wrappers ship as-is; mvnw is a shell script and mvnw.cmd must
+# stay CRLF for cmd.exe.
+mvnw text eol=lf
+mvnw.cmd text eol=crlf
+gradlew text eol=lf
+
+# Binary — never touched.
+*.jar binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
