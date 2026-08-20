@@ -40,10 +40,13 @@ if [[ "${1:-}" == "--check" ]]; then
     echo "sync-proto: run scripts/sync-proto.sh" >&2
     exit 1
   fi
-  if ! diff -u "$SOURCE" "$TARGET" > /dev/null; then
+  # --strip-trailing-cr belt-and-braces: both files are pinned to LF by .gitattributes
+  # on each side, but a clone made before those landed, or a contributor who bypassed
+  # them, would otherwise fail this check on every line of an identical file.
+  if ! diff -u --strip-trailing-cr "$SOURCE" "$TARGET" > /dev/null; then
     echo "sync-proto: the copy has drifted from the authoritative proto." >&2
     echo >&2
-    diff -u \
+    diff -u --strip-trailing-cr \
       --label "docs/specs/internal-grpc/gamehost.proto (authoritative)" \
       --label "turnbase-common/src/main/proto/turnbase/gamehost/v1/gamehost.proto (copy)" \
       "$SOURCE" "$TARGET" >&2 || true

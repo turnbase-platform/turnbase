@@ -6,6 +6,13 @@
 *.sh text eol=lf
 .githooks/* text eol=lf
 
+# The proto is byte-compared against turnbase-common's committed copy by
+# scripts/sync-proto.sh --check. That copy is pinned to LF by the submodule's own
+# .gitattributes, so if this side were left to the platform default the guard would
+# report drift on every line of an identical file — a false alarm on the check whose
+# whole value is that a real difference is never dismissed as noise.
+*.proto text eol=lf
+
 # Maven and Gradle wrappers ship as-is; mvnw is a shell script and mvnw.cmd must
 # stay CRLF for cmd.exe.
 mvnw text eol=lf

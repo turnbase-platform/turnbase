@@ -28,7 +28,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | ID | Item | Repo | Depends on | Status |
 |---|---|---|---|---|
 | **M0 — Bootstrap** ||||
-| IMP-M0-01 | gRPC stubs and internal models | common | — | WIP (session 14) |
+| IMP-M0-01 | gRPC stubs and internal models | common | — | BLOCKED |
 | IMP-M0-02 | Public SDK artifacts (Maven + npm) | sdk | — | READY |
 | IMP-M0-03 | Platform Monolith skeleton | platform | — | READY |
 | IMP-M0-04 | Game Host skeleton | game-host | M0-01 | READY |
@@ -110,6 +110,12 @@ whatever its own *Depends on* implies.
 ### IMP-M0-01 — gRPC stubs and internal models
 
 **Repo:** `turnbase-common` · **Depends on:** — · **Publishes:** `io.turnbase:turnbase-grpc`
+
+**Gate:** IMP-GATE-03 — the *Done when* clause "resolves from both `turnbase-platform` and
+`turnbase-game-host`" cannot be satisfied when this item runs: both repositories are empty skeletons
+until `IMP-M0-03` / `IMP-M0-04`, and `IMP-M0-04` **depends on this item**, so the clause requires its
+own dependents to exist first.
+Opened 2026-08-20. Fix belongs in `docs/implementation/registry.md`.
 
 **Closed:** IMP-GATE-02 (opened and closed 2026-08-20) — "copies it into `src/main/proto/` at build
 time" contradicted ADR-0012's own guarantee that each repo is independently usable without the root.
