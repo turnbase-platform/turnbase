@@ -2,17 +2,16 @@
 
 **Date:** 2026-08-20 (session 13)
 
-**A pre-implementation readiness review of the harness rather than the corpus**, and the first seven
-fixes it produced. The specifications were already implementation-ready; what was missing was the
-layer beneath them — the conventions every work item assumes and none of them states. Still no code.
+**A readiness review of the harness rather than the corpus, and everything it produced.** The
+specifications were already implementation-ready; what was missing was the layer beneath them — the
+conventions every work item assumes, and the Claude Code setup that executes them. Two ADRs, two new
+documents, a checker, two skills, five submodule instruction files. Still no code.
 
 ### What the review found
 
 The corpus says *what* to build (requirements), *how it is designed* (specs) and *what to build next*
-(the registry). It said nothing about **how the code is written**: no package layout, no formatter, no
-coverage tool, no test-suffix convention, no cross-repo version rule. Forty of the 59 work items land
-in `turnbase-platform`, executed across many sessions by agents that each read only their own item's
-read-list. Forty items with no stated layout do not produce one layout.
+(the registry). It said nothing about **how the code is written**: no package layout, no formatter,
+no static analysis, no coverage tool, no test-suffix convention, no cross-repo version rule.
 
 **The corpus's only evidence of the monolith's package root was a logger name in a JSON sample** in
 `observability.md`, written to illustrate log structure rather than to decide anything. That is the
@@ -23,93 +22,120 @@ it silently and the next thirty would have disagreed.
 
 | # | Defect | Fix |
 |---|---|---|
-| 1 | FR-CICD-002/006/007 + CON-009 + OQ-002 gated on `main`; every repo is on `master` | Corrected against ADR-0012's branch model. A workflow written from the old text never fires |
-| 2 | FR-CICD-004 said integration tests use Docker Compose; `local-environment.md` §8 says Testcontainers and rejects a hand-started stack | §8 was right. The requirement now states the reason inline so it does not get re-broken |
-| 3 | IMP-M3-10's repo was "external consumer of `turnbase-sdk`" — no such repo, and ADR-0012 lists five | Deferred **by decision**: `turnbase-game-<name>` is created when the item starts, with the steps recorded on the item |
+| 1 | FR-CICD-002/006/007 + CON-009 + OQ-002 gated on `main`; every repo is on `master` | Corrected against ADR-0012. A workflow written from the old text never fires |
+| 2 | FR-CICD-004 said integration tests use Docker Compose; `local-environment.md` §8 says Testcontainers and rejects a hand-started stack | §8 was right; the requirement now carries the reason inline |
+| 3 | IMP-M3-10's repo did not exist and ADR-0012 lists five | Deferred **by decision**: `turnbase-game-<name>` is created when the item starts |
 | 4 | FR-CICD-003 gates on coverage; no tool named anywhere | JaCoCo, over **merged** unit + integration exec data |
 | 5 | Google Java Style was a `CLAUDE.md` SHOULD with no mechanism | Spotless + `google-java-format` at `validate` |
-| 6 | No package layout, and none for tests either | ADR-0014 + `conventions.md` §§1, 3 |
-| 7 | No cross-repo version rule; IMP-M0-01 ended at "installs to the local Maven repository" | Exact-version pinning, a `-D` override for the local loop, and a stated release order |
+| 6 | No package layout, and none for tests | ADR-0014 + `conventions.md` §§1, 3 |
+| 7 | No cross-repo version rule | Exact pins, a `-D` override for the local loop, a stated release order |
 
-### Two new documents
-
-**[`docs/implementation/conventions.md`](docs/implementation/conventions.md)** — package layout,
-formatting, tests and coverage, git, cross-repo dependencies, and the per-repo build floor. Declared
-normative, and deliberately **not** repeated in read-lists: it is assumed the way `CLAUDE.md` is.
-`implementation/INDEX.md` now carries the rule that makes that safe — *if you are deciding something
-that should be the same across all forty platform items, the answer belongs in `conventions.md` and
-its absence is a defect.* Settling it locally is what produces four conventions.
+### Two ADRs, and they share one argument
 
 **[ADR-0014](docs/decisions/0014-modular-monolith-spring-modulith.md)** — the monolith is packaged by
 feature under `io.turnbase.platform`, and **Spring Modulith fails the build** when one feature reaches
-into another's internals. Adopted at skeleton time, in `IMP-M0-03`.
+into another's internals. The twelve feature packages are the registry's own milestone decomposition,
+lifted rather than invented, so every work item already knows its package.
 
-Three things about it worth carrying:
+**[ADR-0015](docs/decisions/0015-static-analysis-error-prone-nullaway.md)** — **Error Prone +
+NullAway**, JSpecify `@NullMarked` at package level, in every Java repository. Formatting checks the
+*shape* of code; nothing in the build was looking for **defects**. Nullness is load-bearing in this
+data model specifically: `left_at` / `lost_announced_at` drive the deferred-tail partial index, and
+`owner_user_id`'s nullness is tied to `badge='OFFICIAL'` by a check constraint. Rejected SpotBugs and
+PMD (noise), and ArchUnit (Modulith already owns that invariant).
 
-- **The twelve feature packages are the milestone decomposition**, lifted from the registry rather
-  than invented. That is why it costs nothing: every work item already knows its package without
-  anyone deciding.
-- **Enforced rather than documented, because the code is written by agents reading one item at a
-  time.** An agent cannot see the boundary it is about to cross. A boundary that is a build error is
-  a boundary; a boundary that is a sentence in a conventions document is a preference.
-- **Retrofitting was the rejected option.** After thirty items it means fixing every accumulated
-  violation at once, at the point where the boundaries have already stopped being real.
+**Both were taken before any code existed, for the same reason: a build-time check is cheap at
+skeleton time and prohibitive at work item forty**, where the retrofit arrives as one unreviewable
+change and gets downgraded to a warning — which is the same as not having it. There is no later point
+at which either decision is available on the same terms. That argument is why they are ADRs and
+Spotless, JaCoCo and the test suffixes are not.
 
-### The decisions taken, and why they went the way they did
+### `docs/implementation/conventions.md` — new, and normative
 
-- **Spotless over Checkstyle for format.** A formatter that *rewrites* gives an agent a diff; a linter
-  gives it forty complaints to hand-edit. `./mvnw spotless:apply` **before** opening a PR — a bounced
-  pipeline costs one session turn to discover and another to fix. Checkstyle survives in
-  `turnbase-sdk` only, for the one rule a formatter cannot check: Javadoc on every public type.
-- **No husky, and no git hooks at all.** CI is the gate because it is the only thing that runs on
-  every machine and cannot be skipped with `--no-verify`. A pre-commit hook would also start a JVM on
-  every agent commit, which here is constantly. If a local fast-fail is ever wanted, the form is a
-  single `pre-push` under `core.hooksPath` — not an npm dependency added to a Maven repository.
-- **No `-SNAPSHOT` in a committed pom.** It makes the build unreproducible and hides breaking proto
-  changes. The local loop is a `-Dturnbase-common.version=…` override: nothing to forget to revert.
+Package layout, formatting, static analysis, tests and coverage, git, cross-repo dependencies, and
+the per-repo build floor. Deliberately **not** repeated in read-lists: it is assumed the way
+`CLAUDE.md` is. `implementation/INDEX.md` carries the rule that makes that safe — *if you are
+deciding something that should be the same across all forty platform items, the answer belongs in
+`conventions.md` and its absence is a defect.* Settling it locally is what produces four conventions.
 
-### Two traps that are now written down because they fail confusingly
+### The harness layer
 
-- **JaCoCo wired the obvious way measures unit tests only.** FR-CICD-003 counts unit *and*
-  integration, so the two executions need separate exec files merged before a single `check`. It
-  fails **open** — the gate passes, reports a number, and nothing ever says it is the wrong number.
+**Five submodule `CLAUDE.md` files**, additive to the root one, each carrying only what is repo-local.
+The bias was toward traps that surface far from their cause: the management port differing between
+compose and Kubernetes, `<LinkProvider>` presenting as a navigation bug three milestones downstream,
+the proto copy that diverges invisibly because both sides still compile, the CE-23 image that does
+not exist. `turnbase-game-host/README.md` still advertised GraalVM CE 23; corrected.
+
+**`scripts/check-corpus.py`** — five checks, exit 1 on failure: `links`, `cites`, `sections`,
+`index`, `registry`. It is a script rather than a skill because it is mechanical, and what is
+enforceable by validation should be automated. **Verified against deliberate defects rather than
+assumed**, and the registry check confirmed non-vacuous (60 rows, 60 sections, 59 `READY` + 1
+`CANCELLED`).
+
+It found two real citation defects on its first run — one of them written three commits earlier in
+the same session (`registry.md` qualifying FR-CICD-004 with `local-environment.md`), the other
+`bundle-format.md` qualifying CON-006 with a document that does not define it, where CON-006 exists
+in six documents with unrelated meanings.
+
+**Registry status protocol** — status lives in the register table and nowhere else; whoever works the
+item writes the transition in the same commit as the work, not from memory at session end. Two
+invariants are now machine-checked: every ID has both a row and a section, and `BLOCKED` holds if and
+only if a `Gate:` line exists. **Escalation format** — the `Gate:` line, the specification fix and the
+`STATUS.md` entry happen together or none of them count.
+
+**Two project skills** in `.claude/skills/`: **`work-item`** (the cadence — claim, read exactly the
+read-list, build to the *Done when*, verify green, bump the ref) and **`spec-defect`** (the
+escalation, whose argument is that stopping is the *cheap* option). Written with skill-creator's
+guidance; **not stress-tested against subagents** — the owner's call, reasonable for a solo project,
+and their real test is the first M0 items.
+
+### Decisions worth carrying
+
+- **Spotless over Checkstyle for format.** A formatter that rewrites gives an agent a diff; a linter
+  gives it forty complaints to hand-edit. `spotless:apply` **before** the PR — a bounced pipeline
+  costs one turn to discover and another to fix. Checkstyle survives in `turnbase-sdk` only, for the
+  one rule a formatter cannot check.
+- **Git hooks: `pre-push`, native, via `core.hooksPath`. Not husky, not pre-commit.** Commits here
+  are constant and a pre-commit hook pays a JVM start on each; pushes are roughly one per work item.
+  And **the agent cannot push** — `git push` is denied — so a `pre-push` hook catches what an agent
+  left broken at the moment a human is about to publish it. husky would mean adding `package.json` to
+  three Maven repos, and one repo differing is worse than five matching.
+- **No `-SNAPSHOT` in a committed pom.** It makes builds unreproducible and hides breaking proto
+  changes. The local loop is a `-D` override with nothing to forget to revert.
+- **A check that fires is fixed or suppressed at the site with a reason.** Lowering severity
+  build-wide is one invisible decision that turns off a class of finding forever.
+
+### Three traps now written down because they fail confusingly
+
+- **JaCoCo wired the obvious way measures unit tests only** — and it fails *open*, reporting a number
+  nobody can tell is wrong. FR-CICD-003 counts unit *and* integration, so two exec files must be
+  merged before a single `check`.
 - **Naively annotated, forty integration tests start forty PostgreSQL containers** and the PR
-  pipeline stops being run. Containers start once per JVM; isolation comes from truncating, not from
-  a fresh container.
-
-And one setup trap: `google-java-format` uses internal `javac` APIs, so Spotless needs `--add-exports`
-in `.mvn/jvm.config` on JDK 21. The first run without them fails with an `IllegalAccessError` that
-reads like a broken toolchain.
+  pipeline stops being run. Containers start once per JVM; isolation comes from truncating.
+- **`google-java-format` and Error Prone both need `.mvn/jvm.config` flags** (`--add-exports`,
+  `-XDcompilePolicy=simple`, `--should-stop=ifError=FLOW`). The first failure reads like a broken
+  toolchain rather than a missing flag.
 
 ### `IMP-M0-03` is no longer a mechanical item
 
-It now establishes the build floor for the largest repository: wrapper, Spotless, JaCoCo, the twelve
-empty feature packages and the Modulith verification test. That is deliberate — each of those is
-cheapest at skeleton time and close to impossible to retrofit at item forty — but the previous
-framing of *"M0-01…05 are mechanical and unblock everything"* is no longer true of M0-03.
+It now establishes the build floor for the repository holding forty of the 59 work items: wrapper,
+Spotless, Error Prone + NullAway, JaCoCo, the twelve empty feature packages, the Modulith
+verification test, and the `pre-push` hook. Deliberate — every one of those is cheapest at skeleton
+time — but the old framing of *"M0-01…05 are mechanical and unblock everything"* is no longer true
+of it.
 
 ### Verification
 
-0 broken relative links across 93 files; every requirement ID cited in the new text exists in the
-document it is qualified with; every `§` reference resolves to a real heading; both new files
-registered in their nearest `INDEX.md`.
+`python3 scripts/check-corpus.py` clean across all five checks. Both new ADRs registered in
+`decisions/INDEX.md`; `conventions.md` registered in `implementation/INDEX.md`.
 
-### What is still open — the harness, not the corpus
+### Permissions
 
-The review's second half found four gaps in the **Claude Code setup**, and none of them is fixed yet:
-
-1. **No `CLAUDE.md` in any submodule.** All five contain only `README.md`.
-2. **No registry status protocol.** All 59 items are seeded `READY`; nothing says who writes
-   `WIP`/`DONE` or when. This drifts within three sessions, and then the registry stops being
-   trustworthy — which is the one thing it cannot afford.
-3. **No escalation format.** `implementation/INDEX.md` says to record a finding "against the item's
-   *Gate* field" and nowhere defines what that line looks like.
-4. **Permission friction.** `Bash(mvn *)` does not match `./mvnw`, which is the invocation the specs
-   actually use; `Bash(git *)` is absent, so every commit prompts; `make e2e` is unallowed.
-
-Plus the proposed skills (`work-item`, `spec-defect`, `corpus-check`, session start/end,
-`astryx-component`) and agents (`impl-agent`, `done-when-verifier`, `spec-auditor`). **None created —
-proposed only.** That is the next session's work.
+Applied by the owner, and bare `Bash(mvn *)` deliberately dropped so only `./mvnw` is frictionless —
+which is what `conventions.md` §6 requires. **Two gaps remain:** `mcp__playwright__*` does not match
+the actual tool names (`mcp__plugin_playwright_playwright__*`), and **`mcp__astryx__*` is not
+allowlisted at all**, so every Astryx component lookup will prompt — and ADR-0013 makes that lookup a
+tool call by design.
 
 ---
 
@@ -200,41 +226,50 @@ own dependencies imply. The registry's gates block records how each one closed r
 blocks, and a `Gate:` line now appears on an item only when one is actually open.
 
 **[`docs/implementation/conventions.md`](docs/implementation/conventions.md) applies to every item and
-is not repeated in read-lists** — package layout, Spotless, test suffixes, JaCoCo, branch and commit
-format, cross-repo version pinning. Assume it the way you assume `CLAUDE.md`.
+is not repeated in read-lists** — package layout, static analysis, Spotless, test suffixes, JaCoCo,
+branch and commit format, cross-repo version pinning. Assume it the way you assume `CLAUDE.md`.
 
-### The next session
+**The harness is done.** Submodule `CLAUDE.md` files, the corpus checker, the status protocol, the
+escalation format, the two skills and the permissions all landed in session 13. What is left is
+repository setup, which is now ordinary work items rather than groundwork.
 
-**Finish the Claude Code setup before writing code.** The corpus is ready; the harness is not, and
-every one of the four gaps below gets more expensive once forty items are in flight:
+### The next session — set up the repositories, starting at `IMP-M0-01`
 
-1. **A `CLAUDE.md` per submodule** — all five currently hold only a `README.md`.
-2. **A registry status protocol.** 59 items are seeded `READY` and nothing says who writes
-   `WIP`/`DONE` or when. Left alone this drifts within three sessions, and a registry nobody trusts
-   is worse than no registry.
-3. **An escalation format** — `implementation/INDEX.md` says to record a finding "against the item's
-   *Gate* field" without defining the line.
-4. **Permissions** — `Bash(mvn *)` does not match `./mvnw`; `Bash(git *)` is absent so every commit
-   prompts; `make e2e` is unallowed.
+The five skeletons unblock everything. **`IMP-M0-03` and `IMP-M0-05` carry real content; the other
+three are close to mechanical.**
 
-Then the skills and agents proposed in session 13: `work-item`, `spec-defect` and `corpus-check`
-first; the agents deferred until M0 shows where the cadence actually hurts.
+`IMP-M0-03` establishes the build floor for the repository holding forty of the 59 items, and every
+piece of it is cheap now and prohibitive later:
 
-### Then start writing code, at `IMP-M0-01`
+| | |
+|---|---|
+| Toolchain | `./mvnw` committed, `.sdkmanrc` → `21.0.2-graalce` |
+| Format | Spotless + `google-java-format` at `validate` |
+| Defects | **Error Prone + NullAway**, `@NullMarked` per package ([ADR-0015](docs/decisions/0015-static-analysis-error-prone-nullaway.md)) |
+| Coverage | JaCoCo, **merged** unit + integration exec data, one `check` at 70% |
+| Boundaries | `spring-modulith-starter-core`, twelve empty feature packages, `ApplicationModules.verify()` ([ADR-0014](docs/decisions/0014-modular-monolith-spring-modulith.md)) |
+| Fast-fail | `.githooks/pre-push` + a README line telling a human to enable `core.hooksPath` |
 
-1. **IMP-M0-01 through IMP-M0-05** — the five repository skeletons. Four are mechanical and they
-   unblock everything. Two carry real content:
+**Root package `io.turnbase.platform`, packaged by feature** — getting it wrong is a rename across
+forty items later.
 
-   - **`IMP-M0-03` is no longer mechanical.** It establishes the build floor for the repository that
-     holds forty of the 59 items: `./mvnw`, Spotless (with the `--add-exports` flags in
-     `.mvn/jvm.config`), JaCoCo over merged exec data, the twelve feature packages of
-     [ADR-0014](docs/decisions/0014-modular-monolith-spring-modulith.md) §1, and the
-     `ApplicationModules.verify()` test. **Root package `io.turnbase.platform`, packaged by feature**
-     — getting it wrong is a rename across forty items later.
-   - **`IMP-M0-05` installs and wires Astryx** (exact pins, three CSS imports in cascade-layer order,
-     `<Theme>` + `<LinkProvider>`, `data-astryx-theme`, self-hosted Figtree) — a skeleton without them
-     renders almost-right screens that get corrected one at a time later.
-2. **IMP-M0-06 — the Flyway baseline.** The highest-value item in the registry. Transcribing
+**One trap will cost the first hour if it is not expected:** `google-java-format` and Error Prone
+both need flags in `.mvn/jvm.config` (`--add-exports` for `jdk.compiler`, plus
+`-XDcompilePolicy=simple` and `--should-stop=ifError=FLOW`). The first failure reads like a broken
+toolchain rather than a missing flag.
+
+**`IMP-M0-05` installs and wires Astryx** (exact pins, three CSS imports in cascade-layer order,
+`<Theme>` + `<LinkProvider>`, `data-astryx-theme`, self-hosted Figtree) — a skeleton without them
+renders almost-right screens that get corrected one at a time later. Its lint stack is pinned in
+`conventions.md` §2, not left to `npm create vite`.
+
+**Then, still in setup:** `IMP-M0-11` wires the CI workflows — every trigger on `master`,
+Testcontainers with no compose in the PR job, and FR-CICD-010's Dependabot and Trivy as committed
+configuration rather than a mention.
+
+### Then the substantive M0 items
+
+1. **IMP-M0-06 — the Flyway baseline.** The highest-value item in the registry. Transcribing
    `V1__baseline.sql` from the six schema documents is the first mechanical test of whether they are
    mutually consistent. The two hazards the audit named are now **fixed in the documents**:
    `data-model.md` states one auto-increment idiom (`bigint GENERATED ALWAYS AS IDENTITY`), and
@@ -246,7 +281,7 @@ first; the agents deferred until M0 shows where the cadence actually hurts.
    Two schema changes from this session must land in the baseline:
    `room_participant_unannounced_idx` (IR-09) and nothing else — IR-11 deliberately added no table.
 
-3. **IMP-M0-07 — the compose stack.** IR-01 and IR-02 are closed, so this is now buildable end to
+2. **IMP-M0-07 — the compose stack.** IR-01 and IR-02 are closed, so this is now buildable end to
    end: the `minio-init` container, `deploy/compose/initdb/01-roles.sql`, and `POSTGRES_USER` set to
    `turnbase_owner`. Getting the last one wrong is the silent FR-CRED-005 violation.
 
@@ -305,12 +340,23 @@ each entry carries a `**Closed:**` line. The two follow-on findings raised durin
 IR-25) are closed too.
 
 **2026-08-20 readiness review (session 13)** — no review directory: seven defects, all closed in the
-same session, and the record is this file plus ADR-0014 and `conventions.md`. A round that opens and
-closes together does not need an INDEX to track it, and a working file describing it would be spent
-on arrival.
+same session, and the record is this file plus ADR-0014, ADR-0015 and `conventions.md`. A round that
+opens and closes together does not need an INDEX to track it, and a working file describing it would
+be spent on arrival.
 
-**Nothing in the corpus is open.** What is open is the harness — the four gaps under *The next
-session*.
+**Nothing is open in the corpus, and nothing is open in the harness.** The next work is `IMP-M0-01`.
+
+Two things are deferred rather than done, both deliberately:
+
+- **The three proposed agents** (`impl-agent`, `done-when-verifier`, `spec-auditor`) wait until M0
+  shows where the cadence actually hurts. Guessing their shape now costs more than waiting.
+- **`work-item` and `spec-defect` are untested.** They were written from the corpus's own failure
+  history rather than from observed agent behaviour. If an agent reads `work-item` and still marks
+  something `DONE` on a green local build, the skill is at fault — edit it then.
+
+**Two permission gaps** worth fixing when they first bite: `mcp__playwright__*` does not match the
+real tool names, and `mcp__astryx__*` is not allowlisted at all — so every Astryx component lookup
+prompts, and ADR-0013 makes that lookup a tool call by design.
 
 ---
 
@@ -349,7 +395,8 @@ registrable domain), ADR-0008 (room ownership as a lease-gated claim), ADR-0009 
 persisted and swept), ADR-0010 (session teardown as a durable to-do), ADR-0011 (schema migrations —
 Flyway, forward-only, backward-compatible), ADR-0012 (polyrepo under an organisation, with
 submodules), ADR-0013 (Astryx supersedes the in-house design system), **ADR-0014 (modular monolith,
-enforced by Spring Modulith)**.
+enforced by Spring Modulith)**, **ADR-0015 (static analysis — Error Prone and NullAway, at skeleton
+time)**.
 
 **Implementation:** `docs/implementation/` — the registry Phase 1 executes from. **59 live work items
 across 7 milestones** (IMP-M6-07 cancelled), each carrying a read-list, dependencies, the requirement

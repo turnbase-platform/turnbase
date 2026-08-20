@@ -91,8 +91,48 @@ type. That is a `CLAUDE.md` SHOULD and an `IMP-M0-02` *Done when* clause, and it
 formatter cannot check. Adding Checkstyle to the other repositories buys duplicated format rules and
 an argument.
 
-**TypeScript** is Prettier + ESLint per `platform-operations.md` FR-CICD-011, with `tsc --noEmit` in
-the same pipeline step. Same principle: Prettier writes, ESLint complains.
+### Static analysis
+
+Per [ADR-0015](../decisions/0015-static-analysis-error-prone-nullaway.md), every Java repository runs:
+
+| Tool | Configuration | Fails the build on |
+|---|---|---|
+| **Error Prone** | compiler plugin; default `ERROR` patterns stay at `ERROR` | its own bug patterns |
+| **NullAway** | Error Prone plugin; JSpecify `@NullMarked` at package level | a dereference it cannot prove safe |
+
+Formatting checks the shape of the code; these are the only things in the build that look for
+**defects**. Nullness in particular is load-bearing in this data model — `left_at` /
+`lost_announced_at` drive the deferred-tail partial index, and `owner_user_id`'s nullness is tied to
+`badge='OFFICIAL'` by a check constraint — so it is worth having the compiler enforce what the schema
+already means.
+
+**Two configuration traps**, both of which fail in ways that read like a broken toolchain:
+
+- Error Prone needs `-XDcompilePolicy=simple` and `--should-stop=ifError=FLOW`, plus `--add-exports`
+  flags for `jdk.compiler` — the same family of setup as google-java-format's, and they go in the
+  same `.mvn/jvm.config`.
+- **Generated code and Spring injection points must be excluded from NullAway's scope.** gRPC stubs
+  are generated and will not be annotated. Noise on code nobody wrote is the fastest route to
+  somebody muting the tool.
+
+**A check that fires is fixed, or suppressed at the site with a reason.** `@SuppressWarnings("Name")`
+plus a comment is fine. Lowering a check's severity build-wide is not: it is one decision, invisible
+afterwards, that turns off a class of finding for the whole project.
+
+### TypeScript
+
+Prettier + ESLint + `tsc --noEmit`, per `platform-operations.md` FR-CICD-011. Same principle as Java:
+**Prettier writes, ESLint complains.**
+
+The ruleset, pinned here so it is not decided by whoever runs `npm create vite` first:
+
+- ESLint **flat config** (`eslint.config.js`).
+- `typescript-eslint` **strict** + `stylistic` configs, type-aware.
+- `eslint-plugin-react-hooks` — the rules-of-hooks check is the one that catches real bugs.
+- `eslint-config-prettier` last, so ESLint stops having opinions about formatting.
+
+`tsconfig.json` runs `strict: true`. It is the TypeScript half of the same argument NullAway makes
+for Java, and it is equally impossible to adopt later.
 
 ---
 
@@ -164,11 +204,40 @@ Branch model, commit format and release triggers are
 - **Cross-repo changes are separate PRs per repo.** There is no atomic multi-repo commit; §5 is how
   the versions stay coherent.
 
-**No git hooks, and specifically no husky.** CI is the gate, because it is the only thing that runs
-on every machine and cannot be skipped with `--no-verify`. A pre-commit hook would also start a JVM
-on every agent commit, which in this project is constantly. If a local fast-fail is ever wanted, the
-right form is a single `pre-push` script under `core.hooksPath` — native shell, committed, no npm
-dependency added to a Maven repository.
+### Git hooks — `pre-push`, native, no husky
+
+**CI is the gate.** It is the only thing that runs on every machine and the only thing that cannot be
+skipped with `--no-verify`. Nothing below changes that; a hook is a fast-fail, never a substitute.
+
+The local fast-fail is **one `pre-push` script per repository**, enabled with:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Committed, native shell, no dependency added. Each repo's runs what its CI runs first and cheapest —
+`./mvnw spotless:check` and the compile (Error Prone and NullAway fail there), or
+`npm run lint && npm run typecheck` in the frontend.
+
+**Why `pre-push` and not `pre-commit`.** Commits in this project are constant — an agent makes many
+per work item — and a pre-commit hook pays a JVM start on every one of them, which is how hooks come
+to be bypassed. Pushes are rare: roughly one per work item, at the moment the work becomes visible to
+CI and to anyone else. That is where the check belongs.
+
+There is a second reason specific to how this project is worked. **The agent cannot push** — `git
+push` is denied in `.claude/settings.json`, so pushing is always a human action. A `pre-push` hook
+therefore catches what an agent left broken at the exact moment a person is about to publish it,
+which is the most useful possible placement and costs nothing in the inner loop.
+
+**Not husky.** In the three Java repositories it means adding a `package.json` to a Maven project to
+get git hooks, which is a dependency and a toolchain for something `core.hooksPath` does natively. In
+the frontend husky would be idiomatic and cheap — but one repository doing it differently is worse
+than five doing it the same way, and `lint-staged`'s advantage (only touching staged files) is an
+optimisation for a pre-commit hook we are not writing.
+
+**The hook is a convenience, so it is allowed to be bypassed.** `--no-verify` when you know the
+push is a WIP branch is fine. What is not fine is a green push whose CI then fails on formatting,
+because that round trip costs a full turn to discover and another to fix.
 
 ---
 
@@ -218,9 +287,13 @@ The floor, checked by `IMP-M0-01`…`M0-05` and `IMP-M0-11`:
 |---|---|---|
 | Toolchain pinned | `.sdkmanrc` (`21.0.2-graalce`) | `.nvmrc` + `engines.node` |
 | Wrapper committed | `./mvnw` | — |
-| Format enforced | Spotless at `validate` | Prettier + ESLint in CI |
+| Format enforced | Spotless at `validate` | Prettier |
+| Static analysis | Error Prone + NullAway (ADR-0015) | ESLint flat config, `typescript-eslint` strict |
+| Strictness | `@NullMarked` at package level | `tsconfig` `strict: true` |
 | Coverage | JaCoCo, merged, ≥70% | unit only, ≥70% |
 | Build reproducible | exact dependency versions | exact pins, **no `^`** for Astryx (ADR-0013) |
+| Supply chain | `dependabot.yml` + Trivy; **critical fails, lower reports** (FR-CICD-010) | same |
+| Local fast-fail | `.githooks/pre-push` + `core.hooksPath` | same |
 | CI workflow | build → test → coverage → scan → publish | + `tsc --noEmit`, production build |
 | Container | Dockerfile | Dockerfile (static bundle) |
 

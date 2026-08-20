@@ -155,6 +155,10 @@ type (`CLAUDE.md` SHOULD) and **Checkstyle enforces that last clause rather than
 (`conventions.md` §2). This is a published artifact third parties compile against; its Javadoc is
 the documentation.
 
+Plus the §6 build floor, including **`@NullMarked` on every package** (ADR-0015). Nullability here is
+part of the published contract — a third-party developer's IDE reads it — so the annotations are
+worth more in this repository than anywhere else in the project.
+
 ---
 
 ### IMP-M0-03 — Platform Monolith skeleton
@@ -180,11 +184,21 @@ Plus the build floor of `conventions.md` §6, which exists nowhere until this it
 1. `./mvnw` committed, `.sdkmanrc` pinning `21.0.2-graalce`.
 2. **Spotless** with `googleJavaFormat`, bound to `validate`, and `.mvn/jvm.config` carrying the
    `--add-exports` flags it needs on JDK 21 (§2 — the first run fails confusingly without them).
-3. **JaCoCo** with separate unit and integration exec files, `jacoco:merge`, and one `jacoco:check`
+3. **Error Prone + NullAway** ([ADR-0015](../decisions/0015-static-analysis-error-prone-nullaway.md)):
+   default `ERROR` patterns at `ERROR`, JSpecify `@NullMarked` on every package, generated code and
+   Spring injection points excluded from NullAway's scope. The same `.mvn/jvm.config` gains
+   `-XDcompilePolicy=simple` and `--should-stop=ifError=FLOW`.
+4. **JaCoCo** with separate unit and integration exec files, `jacoco:merge`, and one `jacoco:check`
    at 70% line over the merged data (§3 — the one-execution wiring silently measures unit only).
-4. **`spring-modulith-starter-core`**, the twelve feature packages of ADR-0014 §1 created empty, and
+5. **`spring-modulith-starter-core`**, the twelve feature packages of ADR-0014 §1 created empty, and
    a test asserting `ApplicationModules.of(TurnBaseApplication.class).verify()`. It passes trivially
    today; it exists so that the first violation fails a build rather than a review.
+6. **`.githooks/pre-push`** running `spotless:check` and the compile, plus a README line telling a
+   human to `git config core.hooksPath .githooks` once (§4 — a hook nobody enables is not a hook).
+
+**Every item in that list is cheap now and prohibitive later.** Error Prone and NullAway in
+particular: retrofitted at work item forty they arrive as one unreviewable change and get downgraded
+to warnings, which is the same as not having them.
 
 **Root package is `io.turnbase.platform`, packaged by feature.** Getting this wrong is a rename
 across forty work items later.
@@ -212,8 +226,9 @@ trivial guest context can be created and disposed.
 23 — see `CLAUDE.md`.
 
 Root package `io.turnbase.gamehost`; the build floor of `conventions.md` §6 applies here as it does
-to the monolith. **Spring Modulith does not** — ADR-0014 is about the monolith's forty features, and
-the Game Host is one bounded thing.
+to the monolith — Spotless, Error Prone, NullAway (ADR-0015), JaCoCo, the `pre-push` hook. **Spring
+Modulith does not** — ADR-0014 is about the monolith's twelve features, and the Game Host is one
+bounded thing.
 
 ---
 
@@ -232,6 +247,12 @@ the Game Host is one bounded thing.
 **Done when:** Vite + React 19 + TypeScript builds; Prettier and ESLint run in CI; a Dockerfile
 produces the static bundle; the dev server proxies to `turnbase.localhost:8080`; `.nvmrc` pins the
 Node version and `package.json` carries `engines.node` and the `astryx` script.
+
+The lint stack is pinned in `conventions.md` §2 rather than left to `npm create vite`: **ESLint flat
+config, `typescript-eslint` strict + stylistic (type-aware), `eslint-plugin-react-hooks`, and
+`eslint-config-prettier` last.** `tsconfig.json` runs `strict: true` — the TypeScript half of
+ADR-0015's argument, and equally impossible to adopt later. Also `.githooks/pre-push` running
+`npm run lint && npm run typecheck`.
 
 **Astryx is installed here, not in M6.** The three CSS imports and the `<Theme>` provider are what
 make *any* view render correctly, so a skeleton without them produces screens that look almost right
@@ -424,6 +445,12 @@ text is one that never fires.
 else — no `services:` block, no compose file, no stack started in a prior step. Compose belongs to the
 post-merge e2e job alone — `local-environment.md` §8, and `platform-operations.md` FR-CICD-004 as
 corrected.
+
+**FR-CICD-010's scanning is configuration, not a mention.** Each repo gets a committed
+`dependabot.yml` and a Trivy step covering dependencies *and* the built image, with **critical
+failing the build and lower severities reporting only** — the split the requirement argues for,
+because a pipeline that blocks on every advisory stops being run
+([ADR-0015](../decisions/0015-static-analysis-error-prone-nullaway.md) §4).
 
 ---
 
