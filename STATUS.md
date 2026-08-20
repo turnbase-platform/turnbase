@@ -221,8 +221,14 @@ from this file.** The registry holds **59 live work items** (IMP-M6-07 is cancel
 read-list, dependencies, the requirement IDs it satisfies and a done-when clause; this section only
 says which of them to pick up.
 
-**No work item is gated.** All 23 readiness blockers are closed, so an item's status is whatever its
-own dependencies imply. One gate has been opened and closed since: **IMP-GATE-01 on `IMP-M0-01`**,
+**One work item is gated: IMP-GATE-02 on `IMP-M0-01`.** ADR-0012 says `turnbase-common` copies
+`gamehost.proto` into `src/main/proto/` *at build time*, and also says each component repo is
+*independently usable without the root* — two sections apart, and they cannot both hold. A Maven step
+reading `../docs/` fails in a standalone clone, which is precisely what this repo's own CI checks
+out. The resolution is below, under the repository-setup section.
+
+All 23 readiness blockers are closed, so otherwise an item's status is whatever its own dependencies
+imply. One further gate has been opened and closed: **IMP-GATE-01 on `IMP-M0-01`**,
 where `gamehost.proto` declared `java_package = "com.turnbase.gamehost.grpc.v1"` against the
 `io.turnbase.grpc` root that `conventions.md` §1 and ADR-0014 §1 both give `turnbase-common`. The
 proto now declares `io.turnbase.grpc.gamehost.v1`, and `conventions.md` §5 states the rule — package

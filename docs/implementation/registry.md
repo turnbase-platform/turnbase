@@ -28,7 +28,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | ID | Item | Repo | Depends on | Status |
 |---|---|---|---|---|
 | **M0 — Bootstrap** ||||
-| IMP-M0-01 | gRPC stubs and internal models | common | — | READY |
+| IMP-M0-01 | gRPC stubs and internal models | common | — | BLOCKED |
 | IMP-M0-02 | Public SDK artifacts (Maven + npm) | sdk | — | READY |
 | IMP-M0-03 | Platform Monolith skeleton | platform | — | READY |
 | IMP-M0-04 | Game Host skeleton | game-host | M0-01 | READY |
@@ -110,6 +110,12 @@ whatever its own *Depends on* implies.
 ### IMP-M0-01 — gRPC stubs and internal models
 
 **Repo:** `turnbase-common` · **Depends on:** — · **Publishes:** `io.turnbase:turnbase-grpc`
+
+**Gate:** IMP-GATE-02 — "`turnbase-common` copies `gamehost.proto` into `src/main/proto/` **at build
+time**" (ADR-0012, `conventions.md` §5, this item) contradicts ADR-0012's own submodule policy that
+"each component repo is **independently usable without the root**": a Maven step copying from
+`../docs/` cannot run in a standalone clone, which is exactly what this repo's CI checks out.
+Opened 2026-08-20. Fix belongs in `docs/decisions/0012-repo-strategy-polyrepo-submodules.md`.
 
 **Closed:** IMP-GATE-01 (opened and closed 2026-08-20) — `gamehost.proto` declared `java_package =
 "com.turnbase.gamehost.grpc.v1"` against an `io.turnbase.grpc` root everywhere else. The proto now
