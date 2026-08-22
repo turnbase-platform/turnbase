@@ -29,7 +29,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 |---|---|---|---|---|
 | **M0 — Bootstrap** ||||
 | IMP-M0-01 | gRPC stubs and internal models | common | — | DONE |
-| IMP-M0-02 | Public SDK artifacts (Maven + npm) | sdk | — | READY |
+| IMP-M0-02 | Public SDK artifacts (Maven + npm) | sdk | — | WIP (session 15) |
 | IMP-M0-03 | Platform Monolith skeleton | platform | — | READY |
 | IMP-M0-04 | Game Host skeleton | game-host | M0-01 | READY |
 | IMP-M0-05 | Frontend skeleton | frontend | — | READY |
@@ -75,6 +75,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-09 | Game failure handling | platform, game-host | M3-07 | READY |
 | IMP-M3-10 | The first official game | sdk consumer | M3-03 | READY |
 | IMP-M3-11 | GDK test harness | sdk | M3-01 | READY |
+| IMP-M3-12 | FE GDK client (`@turnbase/gdk`) | sdk | M0-02 | READY |
 | **M4 — Catalog and upload** ||||
 | IMP-M4-01 | Catalog listing and game detail | platform | M1-01 | READY |
 | IMP-M4-02 | Manifest schema validation | platform | M0-06 | READY |
@@ -95,9 +96,10 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M6-06 | Catalog and history views | frontend | M6-02, M4-01 | READY |
 | ~~IMP-M6-07~~ | ~~Onboarding wizard~~ | frontend | — | CANCELLED |
 
-**59 live items.** IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
+**60 live items.** IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
 `onboarding-wizard.md`'s FR-ONB-* and NFR-ONB-* have no implementing item by design. The heading is
-kept below so the number is never reused.
+kept below so the number is never reused. `IMP-M3-12` was added 2026-08-22, closing IMP-GATE-05 — see
+its section under M3.
 
 Statuses are seeded as `READY`. **No item is gated** — the 2026-08-16 audit's 23 blockers are all
 closed (see *Readiness gates* at the end for what each fix changed). An item's real status is
@@ -186,23 +188,47 @@ order that keeps the three repos coherent is in `conventions.md` §5.
 
 **Repo:** `turnbase-sdk` · **Depends on:** — · **Publishes:** `io.turnbase:turnbase-sdk` (Maven) + npm package
 
+**Closed:** IMP-GATE-04 (opened and closed 2026-08-22) — the read-list named `backend-gdk-api.md`
+§1–3 and the item claimed FR-GDK-001, but §3's `TurnBaseGame` references ten types defined in §4 and
+§7 and its default method calls `PlayerJoinedResult.of(state)`, so the §1–3 surface cannot compile
+without all of §§3–8 — which is `IMP-M3-01`'s own *Done when*. Fixed by narrowing this item to the
+build-and-publish floor: `FR-GDK-001` and the whole Java type surface stay with `IMP-M3-01`, which
+already claimed them.
+
+**Closed:** IMP-GATE-05 (opened and closed 2026-08-22) — `game-development-experience.md`
+FR-FEGDK-001…009 (the `TurnBaseClient` class, ready handshake, origin validation, `sendAction`) was
+claimed only by `IMP-M6-05`, which is in `turnbase-frontend` and implements the shell's half of the
+boundary; no item in `turnbase-sdk` — the repo that publishes `@turnbase/gdk` — owned the client.
+Fixed by adding `IMP-M3-12` below and correcting `IMP-M6-05`'s *Satisfies*.
+
 **Read first:**
-- `docs/specs/gdk-api/backend-gdk-api.md` §1–3 (interface and type surface only; behaviour is IMP-M3-01)
-- `docs/specs/gdk-api/frontend-gdk-api.md` (TypeScript types)
+- `docs/specs/gdk-api/backend-gdk-api.md` §2 (artifact and packaging, package-layout table), §5
+  (`GameState` only — the rest of §§3–8 is `IMP-M3-01`)
+- `docs/specs/gdk-api/frontend-gdk-api.md` §2 (distribution and packaging), §5, §6, §9, §10 (the
+  declared types only — `TurnBaseClient` itself is `IMP-M3-12`)
 - `docs/specs/gdk-api/INDEX.md`
+- `docs/requirements/game-development-experience.md` FR-GDK-014, FR-GDK-015, NFR-COMPAT-001
+- `docs/decisions/0012-repo-strategy-polyrepo-submodules.md` — Release Strategy (Maven Central + npm)
 
-**Satisfies:** `game-development-experience.md` FR-GDK-001 (interface shape), NFR-COMPAT-001
+**Satisfies:** `game-development-experience.md` FR-GDK-014, FR-GDK-015, NFR-COMPAT-001
 
-**Done when:** both artifacts build and publish locally; the Java artifact targets Java 21 bytecode
-and uses no Java 22+ API; the npm package ships `.d.ts` types; Javadoc is present on every public
-type (`CLAUDE.md` SHOULD) and **Checkstyle enforces that last clause rather than a reviewer** —
-`turnbase-sdk` is the one repository that runs Checkstyle, configured for public-type Javadoc only
-(`conventions.md` §2). This is a published artifact third parties compile against; its Javadoc is
-the documentation.
+**Done when:** both artifacts build and publish locally — `./mvnw install` puts
+`io.turnbase:turnbase-sdk` in the local repository and `npm pack` produces a tarball carrying ESM,
+CJS and `.d.ts`. The jar's class files are **major version 65** (Java 21) and the build enforces it
+(`maven.compiler.release=21` plus the enforcer's `[21,22)`). The jar declares **no dependency on
+`io.turnbase:turnbase-grpc` or `turnbase-game-host`**, and the enforcer's `bannedDependencies` fails
+the build if one appears (`turnbase-sdk/CLAUDE.md`). A throwaway consumer compiles against the jar at
+`provided` scope (FR-GDK-014). Checkstyle fails the build on a public type with no Javadoc,
+demonstrated against a deliberate violation — `turnbase-sdk` is the one repository that runs
+Checkstyle, configured for public-type Javadoc only (`conventions.md` §2), because that is the
+documentation a third-party developer gets. The npm package declares **zero runtime dependencies**
+(FR-FEGDK-008) and `strict: true`. The five packages of `backend-gdk-api.md` §2 exist, each carrying
+`@NullMarked` (ADR-0015) — nullability here is part of the published contract, read by a third-party
+developer's IDE.
 
-Plus the §6 build floor, including **`@NullMarked` on every package** (ADR-0015). Nullability here is
-part of the published contract — a third-party developer's IDE reads it — so the annotations are
-worth more in this repository than anywhere else in the project.
+**No `TurnBaseGame`, no context/result/effect types, and no `TurnBaseClient` ship here** — those are
+`IMP-M3-01` and `IMP-M3-12`. NFR-COMPAT-001's compatibility regime begins at v1.0.0, so the committed
+pom version is `0.1.0-SNAPSHOT` deliberately: 0.x may still break.
 
 ---
 
@@ -1327,6 +1353,36 @@ and the executing round trip belongs here (FR-HARNESS-010).
 
 ---
 
+### IMP-M3-12 — FE GDK client (`@turnbase/gdk`)
+
+**Repo:** `turnbase-sdk` · **Depends on:** IMP-M0-02
+
+Opened by IMP-GATE-05 (`IMP-M0-02`, closed 2026-08-22): `FR-FEGDK-001…009` had no owning item in
+`turnbase-sdk`, the repository that publishes the package. `IMP-M6-05` implements the platform
+shell's half of the postMessage boundary, not the client library itself.
+
+**Read first:**
+- `docs/specs/gdk-api/frontend-gdk-api.md` **in full** — §4 handshake, §7 actions, §8 origin
+  validation, §9 bootstrap contract, §10 the inbound/outbound envelope
+- `docs/requirements/game-development-experience.md` FR-FEGDK-001…009
+- `docs/requirements/game-contracts.md` FR-FE-001…006, FR-FA-001…003, NFR-SEC-004
+
+**Satisfies:** `game-development-experience.md` FR-FEGDK-001…009; `game-contracts.md`
+FR-FE-001…006, FR-FA-001…003, NFR-SEC-004
+
+**Done when:** `TurnBaseClient<TAction, TEvent>` exists with the five replaceable callbacks
+(`onInit`, `onGameEvent`, `onPlayerJoined`, `onPlayerLeft`, `onGameOver`), `start()`, `sendAction()`
+and `dispose()`; the inbound message listener accepts a message only when **both**
+`event.origin === parentOrigin` **and** `event.source === window.parent` hold (§8); no outbound post
+ever uses `targetOrigin: '*'`; `start()` throws synchronously when `window.__TURNBASE__` is missing
+and no `parentOrigin` override was supplied; calling `sendAction` before `init` throws.
+
+**The trusted origin is never derived from a received message** — only from the shell bootstrap
+(§9) or the explicit test-harness override — because inferring it from message traffic is circular
+and is exactly the mistake the origin check exists to prevent.
+
+---
+
 ## M4 — Catalog and upload
 
 **Read first:** `docs/specs/manifest/bundle-format.md`, `manifest-schema.md`, `manifest.schema.json`,
@@ -1703,8 +1759,12 @@ here yet", not "no".
   §10 (the inbound envelope)
 - `docs/decisions/0007-game-frontend-separate-domain.md`
 
-**Satisfies:** `game-contracts.md` FR-FE-001…006, NFR-SEC-001…004; `game-development-experience.md`
-FR-FEGDK-001…009; `platform-views.md` VW-RGAME-001…008
+**Satisfies:** `game-contracts.md` FR-FE-001…006, NFR-SEC-001…004; `platform-views.md`
+VW-RGAME-001…008
+
+**Note:** `FR-FEGDK-001…009` (the `TurnBaseClient` library itself) moved to `IMP-M3-12` in
+`turnbase-sdk` when IMP-GATE-05 closed 2026-08-22 — this item implements the platform shell's half
+of the postMessage boundary, not the client.
 
 **Done when:** the shell validates `event.origin` against the game origin on every inbound message;
 the iframe carries the sandbox attributes and CSP of `game-asset-serving.md`; no state is shared with
