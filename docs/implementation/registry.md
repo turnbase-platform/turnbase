@@ -29,7 +29,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 |---|---|---|---|---|
 | **M0 — Bootstrap** ||||
 | IMP-M0-01 | gRPC stubs and internal models | common | — | DONE |
-| IMP-M0-02 | Public SDK artifacts (Maven + npm) | sdk | — | WIP (session 15) |
+| IMP-M0-02 | Public SDK artifacts (Maven + npm) | sdk | — | DONE |
 | IMP-M0-03 | Platform Monolith skeleton | platform | — | READY |
 | IMP-M0-04 | Game Host skeleton | game-host | M0-01 | READY |
 | IMP-M0-05 | Frontend skeleton | frontend | — | READY |
@@ -187,6 +187,23 @@ order that keeps the three repos coherent is in `conventions.md` §5.
 ### IMP-M0-02 — Public SDK artifacts
 
 **Repo:** `turnbase-sdk` · **Depends on:** — · **Publishes:** `io.turnbase:turnbase-sdk` (Maven) + npm package
+
+**Done 2026-08-22 (session 15).** `./mvnw verify` green (enforcer, Spotless, Checkstyle, Error
+Prone + NullAway, tests, merged JaCoCo), `./mvnw install` publishes locally, and a throwaway
+`provided`-scope consumer compiles a `GameState` implementor against the jar. `npm run
+lint`/`typecheck`/`build`/`test`/`npm pack --dry-run` all green; the tarball carries
+`dist/index.{js,cjs,d.ts,d.cts}`. **CI green on `master`**, both jobs, first push — the two traps
+`IMP-M0-01` hit (`actions/setup-java` has no `graalvm-community` distribution; no `buf breaking`
+baseline on a push) don't apply here (no proto, no gRPC), and `conventions.md` §6 already carried
+the GraalVM fix into this workflow.
+
+Two of the two Dependabot PRs opened on first push were legitimate and merged directly
+(`actions/setup-node` 6→7, `@eslint/js` 9.39.1→10.0.1); neither touched a protected pin.
+
+**The `typescript` pin needed for `typescript-eslint@8.67.0`'s peer range (`<6.1.0`) was found
+by `npm install` itself**, not by reading a spec: the latest `typescript` (7.0.2) fails
+`ERESOLVE`. Pinned to `6.0.3`, with the `ignore` entry landing in `dependabot.yml` in the same
+commit as the pin (`conventions.md` §6).
 
 **Closed:** IMP-GATE-04 (opened and closed 2026-08-22) — the read-list named `backend-gdk-api.md`
 §1–3 and the item claimed FR-GDK-001, but §3's `TurnBaseGame` references ten types defined in §4 and

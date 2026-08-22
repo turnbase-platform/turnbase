@@ -1,5 +1,75 @@
 ## Last Session Summary
 
+**Date:** 2026-08-22 (session 15)
+
+**`IMP-M0-02` is `DONE` — the SDK's build-and-publish floor, and two more registry defects found
+before any code existed.** `turnbase-sdk` now has `io.turnbase:turnbase-sdk` (Maven) and
+`@turnbase/gdk` (npm) building, testing and publishing locally, both green in CI on the first
+push. **2 of 60 items complete.**
+
+### Two gates, opened and closed before writing code
+
+Reading `IMP-M0-02`'s own three-document read-list found the item could not be built as written —
+same shape as `IMP-M0-01`'s three gates, this time caught before any code rather than during it:
+
+| Gate | The contradiction | Fix |
+|---|---|---|
+| **IMP-GATE-04** | Read-list was `backend-gdk-api.md` §1–3, claiming `FR-GDK-001`; but §3's `TurnBaseGame` references ten types defined in §4/§7 and its default method calls `PlayerJoinedResult.of(state)` — the §1–3 surface cannot compile without all of §§3–8, which is `IMP-M3-01`'s own *Done when* | `IMP-M0-02` narrowed to build-and-publish floor only; the Java type surface stays `IMP-M3-01`'s |
+| **IMP-GATE-05** | `FR-FEGDK-001…009` (`TurnBaseClient`) was claimed only by `IMP-M6-05`, which implements the platform shell's half of the boundary, not the client — no item in `turnbase-sdk`, the repo that publishes `@turnbase/gdk`, owned it | New `IMP-M3-12 — FE GDK client`, in `turnbase-sdk`, depends on `IMP-M0-02`. `IMP-M6-05`'s *Satisfies* corrected |
+
+Registry is now **60 live items**. Both gates closed in the same session they opened, per
+`spec-defect`'s "still write both" guidance — the record of *why* is the durable part even when
+open and close land together.
+
+### What `turnbase-sdk` now has
+
+Modelled on `turnbase-common`'s pom rather than re-derived: enforcer (JDK 21, plus a
+**`bannedDependencies`** rule new to this repo — `turnbase-grpc` and `turnbase-game-host` banned
+at every scope, verified to actually fire, mechanizing the rule `turnbase-sdk/CLAUDE.md` already
+stated), Spotless, **Checkstyle** (the one repository that runs it, public-type Javadoc only,
+verified to actually fire), Error Prone + NullAway (`AnnotatedPackages=io.turnbase.gdk` — no
+generated code here to exclude), merged JaCoCo at 70% (vacuous today, same documented shape as
+`turnbase-common`'s). `io.turnbase.gdk.GameState` plus all five `@NullMarked` packages
+`backend-gdk-api.md` §2 fixes — four empty, because the layout is part of the published surface
+and a later rename would be a breaking change.
+
+npm side: `tsup` building ESM + CJS + bundled `.d.ts` from `src/main/ts/` (kept under Maven's
+`src/main/<lang>` shape rather than a conventional npm `src/`, so the two toolchains share one
+tree), the **declared** FE GDK types from `frontend-gdk-api.md` §5/§6/§9/§10 — `Role`, `Player`,
+`Team`, `InitContext`, the `Window.__TURNBASE__` bootstrap global, the inbound/outbound message
+envelope. Zero runtime dependencies, asserted by a test rather than assumed. No `TurnBaseGame`, no
+`TurnBaseClient` — both deliberately absent, and `CLAUDE.md` now says so, so `IMP-M3-01` and
+`IMP-M3-12` don't read as something broken.
+
+### The one build trap this item hit
+
+**`npm install` failed `ERESOLVE`** on the latest `typescript` (7.0.2): `typescript-eslint@8.67.0`
+peers on `<6.1.0`. Not a spec defect — a toolchain-compatibility fact no document could have
+stated — pinned to `6.0.3`, with the `dependabot.yml` `ignore` entry landing in the same commit as
+the pin (`conventions.md` §6's rule, now exercised by a second repository). Separately, `tsup`'s
+`.d.ts` bundling step tripped TS's new `baseUrl`-deprecation error even though this `tsconfig.json`
+sets no `baseUrl`; `"ignoreDeprecations": "6.0"` silenced it. Neither reproduced by reading a spec —
+both were found by running the build.
+
+### CI green on both jobs, first push — unlike `IMP-M0-01`
+
+Neither of `IMP-M0-01`'s two first-push failures applied here: no proto means no `buf` job, and
+`conventions.md` §6 already carried the `graalvm/setup-graalvm` fix into this workflow from the
+start. Both Dependabot PRs opened on the first push (`actions/setup-node` 6→7, `@eslint/js`
+9.39.1→10.0.1) were legitimate and merged directly — neither touched a protected pin, unlike
+`turnbase-common`'s five.
+
+### Process note
+
+**The provided-scope consumer probe and the two enforcement rules (Checkstyle, banned
+dependencies) were each demonstrated against a deliberate violation**, not just asserted to exist
+— the same discipline session 13 applied to `check-corpus.py`. All three fired correctly, then were
+reverted.
+
+---
+
+## Session 14 Summary
+
 **Date:** 2026-08-20 (session 14)
 
 **The first code in the project, and three specification defects found by trying to write it.**
@@ -326,17 +396,30 @@ an explicit *"an idle notification is not a usable answer"*.
 ## Next Priorities
 
 **Phase 1 is under way. Work from [`docs/implementation/INDEX.md`](docs/implementation/INDEX.md), not
-from this file.** The registry holds **59 live work items** (IMP-M6-07 is cancelled), each with a
+from this file.** The registry holds **60 live work items** (IMP-M6-07 is cancelled), each with a
 read-list, dependencies, the requirement IDs it satisfies and a done-when clause; this section only
 says which of them to pick up.
 
-**Progress: 1 of 59 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), pushed and green in CI.
-**No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
-whatever its own dependencies imply.
+**Progress: 2 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`) and `IMP-M0-02` (SDK
+build-and-publish floor, `turnbase-sdk`), both pushed and green in CI. **No work item is gated**,
+and all 23 readiness blockers remain closed, so an item's status is whatever its own dependencies
+imply.
 
-Three gates were opened *and closed* on that single item, which is the number worth planning around:
-**a skeleton item costs roughly one spec defect per document in its read-list.** Budget for that
-rather than treating a gate as a delay.
+Five gates have now been opened *and closed* across the first two items — three on `IMP-M0-01`,
+two on `IMP-M0-02` — which is the number worth planning around: **a skeleton item costs roughly one
+spec defect per document in its read-list.** Budget for that rather than treating a gate as a
+delay.
+
+**IMP-GATE-05** (`IMP-M0-02`, closed 2026-08-22) — `game-development-experience.md`
+FR-FEGDK-001…009 (the `TurnBaseClient` class itself) was claimed only by `IMP-M6-05`, which
+implements the platform shell's half of the postMessage boundary, not the client — no item in
+`turnbase-sdk`, the repo that publishes `@turnbase/gdk`, owned it. Fixed by adding
+**`IMP-M3-12` — FE GDK client**, depends on `IMP-M0-02`, and correcting `IMP-M6-05`'s *Satisfies*.
+
+**IMP-GATE-04** (`IMP-M0-02`, closed 2026-08-22) — the read-list named `backend-gdk-api.md` §1–3
+and claimed `FR-GDK-001`, but §3's `TurnBaseGame` cannot compile without all of §§3–8 — verbatim
+`IMP-M3-01`'s own *Done when*. Fixed by narrowing `IMP-M0-02` to the build-and-publish floor; the
+Java type surface stays `IMP-M3-01`'s.
 
 **IMP-GATE-03** — the clause "resolves from both `turnbase-platform` and `turnbase-game-host`"
 required the item's own dependents to exist first (`IMP-M0-04` depends on `IMP-M0-01`). The half that
@@ -365,19 +448,33 @@ is not repeated in read-lists** — package layout, static analysis, Spotless, t
 branch and commit format, cross-repo version pinning. Assume it the way you assume `CLAUDE.md`.
 
 **The harness is done.** Submodule `CLAUDE.md` files, the corpus checker, the status protocol, the
-escalation format, the two skills and the permissions all landed in session 13, and session 14
-proved them on a real item: the `work-item` cadence held, `spec-defect` fired three times, and the
-`pre-push` hooks now run where the agent can see them.
+escalation format, the two skills and the permissions all landed in session 13, and sessions 14 and
+15 proved them on real items: the `work-item` cadence held both times, `spec-defect` fired three
+times on `IMP-M0-01` and twice on `IMP-M0-02`, and the `pre-push` hooks now run in two repositories.
 
-### The next session — `IMP-M0-02`…`M0-05`
+### `turnbase-sdk` is a second worked example, narrower than `turnbase-common`
 
-**`turnbase-common` is the worked example. Copy its shape rather than re-deriving it.** Its pom is
-the template for the three remaining Java repos: Spotless at `validate`, Error Prone + NullAway,
-merged JaCoCo, the enforcer, and the `.mvn/jvm.config` flags — each of which cost a build cycle to
-discover and all of which are now in `conventions.md` §2.
+It adds two things `turnbase-common`'s pom didn't need: **Checkstyle** (bound at `validate`
+alongside Spotless, public-type Javadoc only — the one repository that runs it) and an enforcer
+**`bannedDependencies`** rule (`turnbase-grpc`/`turnbase-game-host` banned at every scope). Both are
+mechanical answers to `turnbase-sdk/CLAUDE.md`'s two repo-specific rules, and both were verified to
+actually fire against a deliberate violation before being trusted.
 
-Four things it learned that the other repos will meet on their own first push, all now in
-`conventions.md` §6:
+**`typescript` is pinned to `6.0.3`, not the latest `7.0.2`** — `typescript-eslint@8.67.0`'s peer
+range is `<6.1.0`; `npm install` fails `ERESOLVE` otherwise. Not in `conventions.md` because it is a
+toolchain fact rather than a project decision, but worth knowing before `IMP-M0-05`
+(`turnbase-frontend`) or `IMP-M3-12` pin `typescript` again.
+
+### The next session — `IMP-M0-03`, `M0-04`, `M0-05`, and `IMP-M3-12` is now on the board
+
+**`turnbase-common` is still the worked example for the Java repos; copy its shape rather than
+re-deriving it.** Its pom is the template for `turnbase-platform` and `turnbase-game-host`:
+Spotless at `validate`, Error Prone + NullAway, merged JaCoCo, the enforcer, and the
+`.mvn/jvm.config` flags — each of which cost a build cycle to discover and all of which are now in
+`conventions.md` §2.
+
+Four things `IMP-M0-01` learned that the other repos will meet on their own first push, all now in
+`conventions.md` §6 (none of them applied to `IMP-M0-02`, which has no proto and no gRPC):
 
 | | |
 |---|---|
@@ -386,16 +483,16 @@ Four things it learned that the other repos will meet on their own first push, a
 | Dependabot | opens PRs within a minute of the first push, including ones reverting deliberate pins. Land `ignore` entries **with** the pin |
 | Line endings | `.gitattributes` pins `*.sh`, hooks and `mvnw` to LF, or a CRLF checkout makes git silently refuse to run a hook |
 
-**`IMP-M0-03` and `IMP-M0-05` carry real content; `IMP-M0-02` and `IMP-M0-04` are closer to
-mechanical** — with the caveat that `IMP-M0-01` was also called close to mechanical and produced
-three gates.
+**`IMP-M0-03` and `IMP-M0-05` carry real content; `IMP-M0-04` is closer to mechanical** — with the
+caveat that both `IMP-M0-01` and `IMP-M0-02` were also called close to mechanical and each produced
+gates before a line of code was written.
 
-**`IMP-M0-02` (`turnbase-sdk`) is the one to be most careful with.** It is the only published public
-contract: `@NullMarked` is part of the surface, Checkstyle enforces Javadoc on every public type, and
-Java 21 is the *maximum* rather than the target, because game code runs in Espresso as a Java 21
-guest and a Java 22+ API compiles fine and fails inside a sandbox.
+**`IMP-M3-12` (FE GDK client, `turnbase-sdk`) is now `READY`**, unblocked by `IMP-M0-02`. It's a
+candidate for the same session as `M0-03`…`M0-05` if there's room: `frontend-gdk-api.md` is already
+read in full for `IMP-M0-02`, and the declared types it needs (`Role`, `Player`, `Team`,
+`InitContext`, the envelope) already exist in `src/main/ts/types.ts`.
 
-`IMP-M0-03` establishes the build floor for the repository holding forty of the 59 items, and every
+`IMP-M0-03` establishes the build floor for the repository holding forty of the 60 items, and every
 piece of it is cheap now and prohibitive later:
 
 | | |
@@ -558,11 +655,12 @@ submodules), ADR-0013 (Astryx supersedes the in-house design system), **ADR-0014
 enforced by Spring Modulith)**, **ADR-0015 (static analysis — Error Prone and NullAway, at skeleton
 time)**.
 
-**Implementation:** `docs/implementation/` — the registry Phase 1 executes from. **59 live work items
-across 7 milestones** (IMP-M6-07 cancelled), each carrying a read-list, dependencies, the requirement
-IDs it satisfies and a done-when clause. Nothing is gated. Plus **`conventions.md`** (new, session
-13): the code and build conventions every item assumes — package layout, Spotless, tests and
-coverage, git, cross-repo dependencies, and the per-repo build floor.
+**Implementation:** `docs/implementation/` — the registry Phase 1 executes from. **60 live work items
+across 7 milestones** (IMP-M6-07 cancelled; `IMP-M3-12` added session 15), each carrying a
+read-list, dependencies, the requirement IDs it satisfies and a done-when clause. Nothing is gated.
+Plus **`conventions.md`** (new, session 13): the code and build conventions every item assumes —
+package layout, Spotless, tests and coverage, git, cross-repo dependencies, and the per-repo build
+floor.
 
 **Reviews:** `docs/reviews/` — two closed rounds, reduced to their INDEXes plus
 `espresso-spike-results.md`. `2026-08-16-implementation-readiness/INDEX.md` carries all 23 blockers
