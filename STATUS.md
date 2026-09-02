@@ -403,7 +403,12 @@ says which of them to pick up.
 **Progress: 2 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`) and `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), both pushed and green in CI. **No work item is gated**,
 and all 23 readiness blockers remain closed, so an item's status is whatever its own dependencies
-imply.
+imply. `IMP-M0-03` is `WIP (session 16)`.
+
+**IMP-GATE-06** (`IMP-M0-03`, opened and closed 2026-09-02) — `platform-operations.md` CON-010 still
+said integration tests use Docker Compose, contradicting FR-CICD-004 in the same document (corrected
+2026-08-20 to Testcontainers-only) and `conventions.md` §3. Missed in that pass because nobody was
+reading CON-010 itself. Fixed: CON-010 now states the Testcontainers/compose split correctly.
 
 Five gates have now been opened *and closed* across the first two items — three on `IMP-M0-01`,
 two on `IMP-M0-02` — which is the number worth planning around: **a skeleton item costs roughly one

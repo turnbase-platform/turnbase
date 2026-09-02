@@ -253,6 +253,14 @@ pom version is `0.1.0-SNAPSHOT` deliberately: 0.x may still break.
 
 **Repo:** `turnbase-platform` · **Depends on:** —
 
+**Closed:** IMP-GATE-06 (opened and closed 2026-09-02) — this item's read-list cites
+`platform-operations.md` CON-010, which said "Integration and E2E tests use Docker Compose... within
+the CI runner." That contradicts FR-CICD-004 in the same document — corrected 2026-08-20 to say the
+integration tier **never** uses Docker Compose, only Testcontainers — and `conventions.md` §3, which
+states the same rule. CON-010 was missed in the 2026-08-20 pass that fixed FR-CICD-004. Fixed: CON-010
+now reads "E2E tests use Docker Compose... Integration tests use Testcontainers... never a stack
+started separately (FR-CICD-004)."
+
 **Read first:**
 - `docs/specs/deployment/local-environment.md` §1, §3, §7.9
 - `docs/requirements/platform-operations.md` — service topology, CON-010/011

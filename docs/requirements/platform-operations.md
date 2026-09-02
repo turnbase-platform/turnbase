@@ -209,7 +209,7 @@ For the MVP the platform runs as a single local instance (ADR-0001), so affinity
 | CON-007 | CI/CD pipelines use GitHub Actions, one workflow per submodule. |
 | CON-008 | Docker images are built and pushed to a container registry as part of the CI pipeline. |
 | CON-009 | Deployments are tag-based (semver tags on `master`). No automatic deployment on untagged merges. |
-| CON-010 | Integration and E2E tests use Docker Compose to spin up real service dependencies (PostgreSQL, Redis) locally within the CI runner. |
+| CON-010 | E2E tests use Docker Compose to spin up the full stack locally within the CI runner. Integration tests use Testcontainers to start real service dependencies (PostgreSQL, Redis, MinIO) per test run, never a stack started separately (FR-CICD-004). |
 | CON-011 | For the MVP, infrastructure runs on **local Docker Desktop Kubernetes** (WSL2), with docker-compose as a supported quick-start profile (ADR-0001). Cloud Kubernetes is a post-MVP aspiration; provider not selected. |
 | CON-012 | Schema migrations use **Flyway** with plain SQL migrations, run at application startup ([ADR-0011](../decisions/0011-schema-migrations.md)). Migration files live in the `turnbase-platform` submodule and are authoritative over the schema documents in `docs/specs/platform/`. The Game Host has no relational database and therefore no migrations. |
 
