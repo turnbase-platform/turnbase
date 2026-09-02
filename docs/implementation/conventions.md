@@ -265,6 +265,29 @@ because that round trip costs a full turn to discover and another to fix.
 same commit compiles differently on Tuesday — and it hides breaking proto changes until they land
 somewhere inconvenient.
 
+**Bootstrap exception, before the first tag exists.** This rule assumes a release to pin against.
+`turnbase-common` and `turnbase-sdk` publish only on a manual `v*.*.*` tag (§5 below,
+[ADR-0012](../decisions/0012-repo-strategy-polyrepo-submodules.md) Release Strategy), and cutting that
+tag is a human action — nothing in this project pushes one. The publish workflow itself is
+`IMP-M0-11`, which **depends on** `IMP-M0-03`/`M0-04`. So the very first consumer skeletons cannot
+pin a release: none exists, and the pipeline that would produce one has not been built yet.
+
+Until `turnbase-common`'s first `v*.*.*` tag is cut, `IMP-M0-03` and `IMP-M0-04` pin
+`<turnbase-common.version>` to its **current development version** (`0.1.0-SNAPSHOT` today), resolved
+from the artifact `./mvnw install` puts in the local Maven repository — the same install step
+`IMP-M0-01` already runs, not a new mechanism. This checks exactly what a consumer skeleton can check
+at this point in the build order: the generated Java compiles and links against a real build of the
+stubs. It does not check resolution from GitHub Packages, because nothing publishes there yet — that
+half moves to `IMP-M0-11`, which stands up the publish workflow and is the item with something to
+resolve it from.
+
+**The follow-up is ordinary, not special-cased.** The first time `turnbase-common` is tagged and
+`IMP-M0-11`'s workflow publishes it, `turnbase-platform` and `turnbase-game-host` each get a small PR
+bumping `<turnbase-common.version>` from the SNAPSHOT to the released version — the same "consumer
+bump is where the compile break surfaces" step the *Promoting a change* paragraph below already
+describes for every later release. The first release is not exempt from that step; it is only exempt,
+until it exists, from needing one.
+
 **The local loop**, when a proto change must be tried against a consumer before it is released:
 
 ```bash

@@ -253,6 +253,17 @@ pom version is `0.1.0-SNAPSHOT` deliberately: 0.x may still break.
 
 **Repo:** `turnbase-platform` · **Depends on:** —
 
+**Closed:** IMP-GATE-07 (opened and closed 2026-09-02) — the *Done when* clause required the
+`io.turnbase:turnbase-grpc` client stubs to "resolve at the exact pinned `<turnbase-common.version>`"
+with `conventions.md` §5's absolute "no `-SNAPSHOT` in a committed pom" — but `turnbase-common` has
+never been tagged (tagging is a human action, ADR-0012) and the publish workflow that would put a
+release in GitHub Packages is `IMP-M0-11`, which **depends on** this item. The clause was
+unsatisfiable as written: no release exists, and the pipeline that would produce one has not been
+built. Fixed: `conventions.md` §5 gained a bootstrap exception — until `turnbase-common`'s first tag,
+consumers pin its current development version and resolve it from the local install `IMP-M0-01`
+already produces; the real-registry resolution check moves to `IMP-M0-11`. This item's clause below
+is corrected to match.
+
 **Closed:** IMP-GATE-06 (opened and closed 2026-09-02) — this item's read-list cites
 `platform-operations.md` CON-010, which said "Integration and E2E tests use Docker Compose... within
 the CI runner." That contradicts FR-CICD-004 in the same document — corrected 2026-08-20 to say the
@@ -274,8 +285,10 @@ started separately (FR-CICD-004)."
 port bound per §1 (loopback under compose, unbound under Kubernetes — **the two profiles differ and
 getting this wrong breaks the readiness probes**); a Dockerfile produces `turnbase/platform`;
 actuator health and readiness respond, and **readiness does not depend on the Game Host**. The
-`io.turnbase:turnbase-grpc` client stubs resolve at the exact pinned `<turnbase-common.version>` and
-compile (`conventions.md` §5; the half of `IMP-M0-01` that only a consumer can check, IMP-GATE-03).
+`io.turnbase:turnbase-grpc` client stubs resolve and compile (`conventions.md` §5; the half of
+`IMP-M0-01` that only a consumer can check, IMP-GATE-03) — against the local install, pinned to
+`turnbase-common`'s current development version per §5's bootstrap exception (IMP-GATE-07), since no
+tagged release exists yet.
 
 Plus the build floor of `conventions.md` §6, which exists nowhere until this item creates it:
 
@@ -319,8 +332,9 @@ across forty work items later.
 **Done when:** a GraalVM CE for JDK 21 image starts with Espresso available; `9090` serves gRPC and
 `8081` is management; the process registers with the Platform Monolith per §3's 60-second budget; a
 trivial guest context can be created and disposed. The `io.turnbase:turnbase-grpc` **server** base
-classes resolve at the exact pinned `<turnbase-common.version>` and compile (`conventions.md` §5; the
-half of `IMP-M0-01` that only a consumer can check, IMP-GATE-03).
+classes resolve and compile (`conventions.md` §5; the half of `IMP-M0-01` that only a consumer can
+check, IMP-GATE-03) — against the local install, pinned to `turnbase-common`'s current development
+version per §5's bootstrap exception (IMP-GATE-07), since no tagged release exists yet.
 
 **Constraint:** host JVM is Java 21; guest is Espresso running Java 21. There is no CE build for JDK
 23 — see `CLAUDE.md`.
@@ -536,6 +550,13 @@ and its derived field links a log line's `traceId` to the Tempo trace (`observab
 artifact; coverage is reported and gated on **unit and integration tests only** — the two categories
 that run at PR time (FR-CICD-003, as narrowed by IR-03; `CLAUDE.md`: >70% on critical paths); the
 workflow is the gate `CLAUDE.md` requires before a submodule ref is bumped here.
+
+**This item ends `IMP-GATE-07`'s bootstrap window.** Once `turnbase-common`'s publish workflow exists
+and its first `v*.*.*` tag is cut (a human action), `turnbase-platform` and `turnbase-game-host` each
+need the small follow-up PR `conventions.md` §5 describes: bump `<turnbase-common.version>` from the
+bootstrap SNAPSHOT to the released version. That PR is not part of this item's own *Done when* — it
+is the same "consumer bump is where the compile break surfaces" step every later release goes
+through — but it does not happen by itself, so it belongs on whoever picks up the tag.
 
 **Every trigger names `master`.** Not `main` — no repository has one. FR-CICD-002/006/007 said `main`
 until 2026-08-20 and were corrected against ADR-0012's branch model; a workflow written from the old

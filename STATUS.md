@@ -405,6 +405,15 @@ build-and-publish floor, `turnbase-sdk`), both pushed and green in CI. **No work
 and all 23 readiness blockers remain closed, so an item's status is whatever its own dependencies
 imply. `IMP-M0-03` is `WIP (session 16)`.
 
+**IMP-GATE-07** (`IMP-M0-03`, opened and closed 2026-09-02) — `IMP-M0-03`/`M0-04`'s *Done when*
+required the `turnbase-grpc` client/server stubs to resolve "at the exact pinned
+`<turnbase-common.version>`" against `conventions.md` §5's absolute "no `-SNAPSHOT` in a committed
+pom" — but `turnbase-common` has never been tagged (a human action) and the publish workflow that
+would produce a release is `IMP-M0-11`, which depends on `M0-03`/`M0-04`. Unsatisfiable as written.
+Fixed: `conventions.md` §5 gained a bootstrap exception — pin the current development version,
+resolved from the local install, until the first tag exists; `IMP-M0-11` owns both standing up the
+publish workflow and the follow-up PRs that bump consumers to the real release once it's tagged.
+
 **IMP-GATE-06** (`IMP-M0-03`, opened and closed 2026-09-02) — `platform-operations.md` CON-010 still
 said integration tests use Docker Compose, contradicting FR-CICD-004 in the same document (corrected
 2026-08-20 to Testcontainers-only) and `conventions.md` §3. Missed in that pass because nobody was
