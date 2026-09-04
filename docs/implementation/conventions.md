@@ -394,3 +394,13 @@ Both cost `IMP-M0-01` a red pipeline, and neither reproduces locally.
 opens PRs within a minute of the first push, and a deliberate downgrade it does not know about comes
 back every week looking like neglect. Each entry carries *why*, so the pin stays a decision someone
 can revisit rather than a mystery.
+
+**A third thing, specific to the §5 bootstrap window: Dependabot's own PRs cannot pass CI while the
+bootstrap install step exists.** GitHub does not give a `pull_request`-triggered run opened by
+Dependabot access to repository secrets — including `TURNBASE_COMMON_PAT` — even though an ordinary
+push-triggered run on the same repository gets it. Every Dependabot PR opened against
+`turnbase-platform` or `turnbase-game-host` during the bootstrap window fails on that step
+regardless of what it changes, which reads like the dependency bump broke something when it did not.
+Review the diff, apply anything legitimate by editing the pinned version directly and pushing
+(push-triggered CI has the secret), and close the PR — do not wait for its check to go green, because
+it structurally cannot until the bootstrap install step is deleted.
