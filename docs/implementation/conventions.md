@@ -288,6 +288,25 @@ bump is where the compile break surfaces" step the *Promoting a change* paragrap
 describes for every later release. The first release is not exempt from that step; it is only exempt,
 until it exists, from needing one.
 
+**CI needs the same install, since a runner starts with an empty local repository.**
+`turnbase-platform`'s and `turnbase-game-host`'s workflows check out `turnbase-common` alongside
+themselves and run `./mvnw install -DskipTests` in it before building, for as long as
+`<turnbase-common.version>` is a bootstrap SNAPSHOT. This is the one point where a consumer's CI reads
+outside its own repository, and it is deliberately temporary: the step is deleted, not adapted, the
+same PR that bumps the version property to a real release, because from that point resolution is an
+ordinary dependency fetch from GitHub Packages.
+
+**`turnbase-common` is private (ADR-0012), so the checkout needs a credential — GitHub's default
+`GITHUB_TOKEN` cannot read a different private repository under any organization setting.** The
+credential is a **fine-grained personal access token, read-only on Contents, scoped to
+`turnbase-common` only**, stored as the `TURNBASE_COMMON_PAT` secret in each bootstrap-window consumer
+repo (`turnbase-platform` today; `turnbase-game-host` when `IMP-M0-04` reaches this same step). Not a
+classic PAT (unscopable to one repo) and not the pusher's own account token (far broader than this
+one clone needs). Provisioning the token is a human action — creating it means signing in to GitHub —
+the same category as cutting a release tag. Deleted alongside the bootstrap install step once the
+first real release lands, for the same reason: at that point resolution is an ordinary authenticated
+fetch from GitHub Packages using the workflow's own token, not a second repository's source.
+
 **The local loop**, when a proto change must be tried against a consumer before it is released:
 
 ```bash
