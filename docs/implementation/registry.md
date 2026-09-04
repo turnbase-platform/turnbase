@@ -31,7 +31,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M0-01 | gRPC stubs and internal models | common | — | DONE |
 | IMP-M0-02 | Public SDK artifacts (Maven + npm) | sdk | — | DONE |
 | IMP-M0-03 | Platform Monolith skeleton | platform | — | DONE |
-| IMP-M0-04 | Game Host skeleton | game-host | M0-01 | WIP (session 17) |
+| IMP-M0-04 | Game Host skeleton | game-host | M0-01 | DONE |
 | IMP-M0-05 | Frontend skeleton | frontend | — | READY |
 | IMP-M0-06 | Flyway baseline `V1__baseline.sql` | platform | M0-03 | READY |
 | IMP-M0-07 | Local stack — compose profile | this repo | M0-03, M0-04, M0-05 | READY |
@@ -335,6 +335,15 @@ across forty work items later.
 ### IMP-M0-04 — Game Host skeleton
 
 **Repo:** `turnbase-game-host` · **Depends on:** IMP-M0-01
+
+**Done 2026-09-04 (session 17).** GraalVM CE 21.0.2 (`ghcr.io/graalvm/jdk-community:21.0.2`) boots
+with Espresso available; `9090` serves `GameHostService` (UNIMPLEMENTED until `IMP-M3-04`), `8081` is
+management only — `server.port=-1` disables the main servlet container so there is no port `8080`
+here. A background `Register` attempt against `GameHostRegistryService` retries for the 60-second
+budget without blocking startup, proven against an in-process stub (`IMP-GATE-08`). A trivial
+Espresso guest context is created and disposed against the running GraalVM CE 21 JDK. `CI green on
+master`, including the container build; the guest JDK 21 symlink and both ports verified live in the
+built image, not just configured.
 
 **Closed:** IMP-GATE-09 (opened and closed 2026-09-04) — the item requires the process to register
 with the Platform Monolith, but no document names the address the Game Host dials to reach it.

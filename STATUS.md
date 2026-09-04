@@ -1,5 +1,77 @@
 ## Last Session Summary
 
+**Date:** 2026-09-04 (session 17)
+
+**`IMP-M0-04` is `DONE` — the Game Host skeleton, two more registry gates, and five Dependabot PRs
+that turned into two real `dependabot.yml` bugs.** `turnbase-game-host` now boots GraalVM CE 21.0.2
+(`ghcr.io/graalvm/jdk-community:21.0.2`) with Espresso available, CI green on `master` including the
+container build. **4 of 60 items complete.**
+
+### Two gates, opened and closed before and during the build
+
+**IMP-GATE-08** — the *Done when* clause required "the process registers with the Platform Monolith
+per §3's 60-second budget," but the Platform Monolith's server side of `GameHostRegistryService` is
+not implemented until `IMP-M3-05` (depends on `IMP-M3-04`, `IMP-M2-04`) — nearly all of M2 and M3's
+game-host chain, none of which this item (depends only on `IMP-M0-01`) can assume. Same shape as
+`IMP-GATE-03`: an item's *Done when* clause needed its own dependents to exist first. Fixed: narrowed
+to a client-side `Register` call proven against an in-process stub `GameHostRegistryService`; the real
+cross-repo, live-monolith check moved to `IMP-M3-05`'s own *Done when* clause.
+
+**IMP-GATE-09** — proving that `Register` call needed an address to dial, and no document named one.
+`local-environment.md` §7 claims to be the whole tunable surface and §2's diagram puts the registry
+service on the monolith's `8080` listener, but §7.8 (the Game Host's own properties) had no entry for
+it — the same class of gap IR-24 closed for `turnbase.room.spectator-capacity`. Fixed: §7.8 gained
+`turnbase.gamehost.orchestration-address` (default `platform:8080`, following the
+`<service-name>:<port>` convention every other compose dependency already uses).
+
+### What `turnbase-game-host` now has
+
+`9090` serves `GameHostService` (every RPC inherits the generated base class's `UNIMPLEMENTED` response
+until `IMP-M3-04`); `8081` is management only — `server.port=-1` disables the main servlet container,
+so unlike the monolith there is no port `8080` here at all, just Spring's separate management server.
+A `RegistrationLifecycle` component attempts `Register` on a background daemon thread at startup,
+retrying every 2s for the 60-second budget without blocking startup — proven with three tests against
+an in-process stub `GameHostRegistryService` (succeeds first try, retries then succeeds, gives up after
+the budget). A trivial Espresso (`java`) guest context is created and disposed against the running
+GraalVM CE 21 JDK (`allowNativeAccess(true)` is required for Espresso to boot at all on CE, per
+`espresso-spike-results.md` — not a relaxation). Espresso pinned to the exact Maven artifacts
+(`org.graalvm.polyglot:polyglot`/`java-community:23.1.2`) the spike verified.
+
+**Everything was run, not just written**: `./mvnw verify` and `-Pintegration` both green locally, the
+packaged jar boots in the built Docker image and answers `/actuator/health*` (all `UP`) on `8081` while
+`9090` accepts connections, the guest JDK 21 symlink (`/opt/graalvm-guest-jdk21` → the host GraalVM's
+own `$JAVA_HOME`) is present in the container, and CI is green on `master` including the container
+build — the bar `work-item` sets, not a local pass.
+
+### Five Dependabot PRs, two of which were real `dependabot.yml` bugs
+
+Opened within a minute of the first push to `master`, as expected. Three were routine bumps within
+pinned majors and were applied directly (not merged — Dependabot's own `pull_request` runs still lack
+the bootstrap secret): Spring Boot 3.5.7→3.5.16, `grpc-bom` 1.83.1→1.84.0, `maven-failsafe-plugin`
+3.5.6→3.6.0.
+
+**The other two exposed gaps in the `dependabot.yml` ignore rules this session's own first draft
+wrote.** A GraalVM/`jdk-community` docker bump to 25.0.2 opened despite an `ignore` entry naming
+`ghcr.io/graalvm/jdk-community` — Dependabot's docker `dependency-name` omits the registry host, so
+the entry never matched anything; fixed to `graalvm/jdk-community`. An Espresso bump to `23.1.12.1`
+opened despite an `ignore` entry — but that entry only blocked `>=24`, treating Espresso like an
+ordinary dependency, when the pom's own comment says it is pinned to **the exact build the spike
+verified**. Any bump, patch included, needs a deliberate re-run of `espresso-spike-results.md`'s
+probes, not a version-range judgment call. Both are the kind of thing that looks correct until the
+first real PR proves it isn't — worth remembering for `turnbase-frontend`'s own `dependabot.yml`
+(`IMP-M0-05`), which will pin Astryx exactly for a similar reason.
+
+### Docker image note for the next session touching this repo
+
+`ghcr.io/graalvm/jdk-community:21.0.2` is the base image (Oracle Linux 9, `$JAVA_HOME` at
+`/usr/lib64/graalvm/graalvm-community-java21`), not `eclipse-temurin` — the host process itself must
+run on GraalVM CE, unlike the plain-JRE `turnbase-platform` image. It has no `/usr/sbin/nologin`; the
+non-root user's shell is `/bin/false` instead, which exists on every base image checked so far.
+
+---
+
+## Session 16 Summary
+
 **Date:** 2026-09-04 (session 16)
 
 **`IMP-M0-03` is `DONE` — the Platform Monolith skeleton, two more registry gates, and a real
@@ -478,18 +550,15 @@ from this file.** The registry holds **60 live work items** (IMP-M6-07 is cancel
 read-list, dependencies, the requirement IDs it satisfies and a done-when clause; this section only
 says which of them to pick up.
 
-**Progress: 3 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
-build-and-publish floor, `turnbase-sdk`) and `IMP-M0-03` (Platform Monolith skeleton,
-`turnbase-platform`), all pushed and green in CI. **No work item is gated**, and all 23 readiness
-blockers remain closed, so an item's status is whatever its own dependencies imply.
+**Progress: 4 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
+`turnbase-platform`) and `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), all pushed and green
+in CI. **No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
+whatever its own dependencies imply.
 
-**`IMP-M0-04` will hit the same bootstrap-window mechanics `IMP-M0-03` just worked out — read
-`conventions.md` §5 and §6 before starting it, not just its own read-list.** It depends on
-`turnbase-common` exactly as `IMP-M0-03` does, so: pin `<turnbase-common.version>` to the current
-SNAPSHOT (IMP-GATE-07); the CI workflow needs `TURNBASE_COMMON_PAT` as a **new secret on
-`turnbase-game-host`** specifically — secrets do not carry across repos, so this is not reusable from
-`turnbase-platform`; expect its first Dependabot PRs to fail CI for the same secrets-on-`pull_request`
-reason, not because anything is wrong with them.
+**`IMP-M0-05` (frontend skeleton) has no bootstrap-window dependency on `turnbase-common`** — it is a
+clean start, unlike the last three M0 items. **`IMP-M0-06` (Flyway baseline)** is the other open
+candidate and the highest-value item in the registry: it depends only on `IMP-M0-03`, which is done.
 
 **IMP-GATE-09** (`IMP-M0-04`, opened and closed 2026-09-04) — no document names the address the Game
 Host dials to reach the Platform Monolith's `GameHostRegistryService`, which `local-environment.md`
@@ -581,15 +650,15 @@ range is `<6.1.0`; `npm install` fails `ERESOLVE` otherwise. Not in `conventions
 toolchain fact rather than a project decision, but worth knowing before `IMP-M0-05`
 (`turnbase-frontend`) or `IMP-M3-12` pin `typescript` again.
 
-### The next session — `M0-04`, `M0-05`, and `IMP-M3-12` is now on the board
+### The next session — `M0-04` is done; `M0-05`, `M0-06`, and `IMP-M3-12` are on the board
 
-**`turnbase-common` is the worked example for the Java repos; `turnbase-platform` is now a second
-one with the bootstrap-window mechanics already solved.** Copy `turnbase-platform`'s pom shape for
-`turnbase-game-host` — Spotless at `validate`, Error Prone + NullAway, merged JaCoCo, the enforcer,
-the `.mvn/jvm.config` flags, and the `TURNBASE_COMMON_PAT` bootstrap install (new secret required on
-`turnbase-game-host` itself; see the note above `IMP-GATE-07`).
+**`IMP-M0-04` is `DONE`.** `turnbase-common`, `turnbase-platform` and `turnbase-game-host` are now
+three worked examples of the bootstrap-window mechanics (Spotless at `validate`, Error Prone +
+NullAway, merged JaCoCo, the enforcer, the `.mvn/jvm.config` flags, and the `TURNBASE_COMMON_PAT`
+bootstrap install — one secret per bootstrap-window consumer repo, never shared). `IMP-M0-05`
+(frontend skeleton) has no such dependency and is a clean start by comparison.
 
-Things `IMP-M0-01`/`M0-03` learned that `IMP-M0-04` will meet on its own first push, all now in
+Things `IMP-M0-01`/`M0-03` learned that `IMP-M0-04` met on its own first push too, all in
 `conventions.md` §6:
 
 | | |
@@ -598,9 +667,15 @@ Things `IMP-M0-01`/`M0-03` learned that `IMP-M0-04` will meet on its own first p
 | `buf breaking` | pull requests only, against the base branch — a push has no reliable baseline |
 | Dependabot | opens PRs within a minute of the first push; land `ignore` entries **with** a deliberate pin, and expect every PR to fail CI on the bootstrap secret regardless of content until `IMP-M0-11` |
 | Line endings | `.gitattributes` pins `*.sh`, hooks and `mvnw` to LF, or a CRLF checkout makes git silently refuse to run a hook |
+| Dependabot `ignore` dependency-name | **verify the entry actually matches** — a docker `dependency-name` never includes the registry host (`ghcr.io/…` doesn't match; the bare image name does), found the hard way by `IMP-M0-04`'s own first `dependabot.yml` |
+
+**A dependency pinned as "the exact build a spike verified" (Espresso here; Astryx for `IMP-M0-05`)
+needs an `ignore` entry with no version floor at all**, not a `>=<major>` range — a patch bump is still
+a different build than the one that was verified, and only a version-range-shaped rule looks like it
+covers that until the first Dependabot PR proves otherwise.
 
 **`IMP-M3-12` (FE GDK client, `turnbase-sdk`) is now `READY`**, unblocked by `IMP-M0-02`. It's a
-candidate for the same session as `M0-04`/`M0-05` if there's room: `frontend-gdk-api.md` is already
+candidate for the same session as `M0-05`/`M0-06` if there's room: `frontend-gdk-api.md` is already
 read in full for `IMP-M0-02`, and the declared types it needs (`Role`, `Player`, `Team`,
 `InitContext`, the envelope) already exist in `src/main/ts/types.ts`.
 
