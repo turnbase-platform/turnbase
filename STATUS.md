@@ -491,6 +491,11 @@ SNAPSHOT (IMP-GATE-07); the CI workflow needs `TURNBASE_COMMON_PAT` as a **new s
 `turnbase-platform`; expect its first Dependabot PRs to fail CI for the same secrets-on-`pull_request`
 reason, not because anything is wrong with them.
 
+**IMP-GATE-09** (`IMP-M0-04`, opened and closed 2026-09-04) — no document names the address the Game
+Host dials to reach the Platform Monolith's `GameHostRegistryService`, which `local-environment.md`
+§2 places on the monolith's `8080` HTTP listener rather than a dedicated port. Fixed: §7.8 gained
+`turnbase.gamehost.orchestration-address` (default `platform:8080`).
+
 **IMP-GATE-08** (`IMP-M0-04`, opened and closed 2026-09-04) — the *Done when* clause required "the
 process registers with the Platform Monolith per §3's 60-second budget," but the platform's server
 side of `GameHostRegistryService` is not implemented until `IMP-M3-05` (depends on `IMP-M3-04`,

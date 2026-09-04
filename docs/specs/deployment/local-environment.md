@@ -483,10 +483,18 @@ asserts the difference at startup and refuses to boot if it does not hold.
 | `turnbase.gamehost.retry-limit` | `3` | `TURNBASE_GAMEHOST_RETRY_LIMIT` | FR-FAIL-003 |
 | `turnbase.gamehost.grpc.max-message-size` | `32MB` | `TURNBASE_GAMEHOST_GRPC_MAX_MESSAGE_SIZE` | protocol doc |
 | `turnbase.gamehost.guest-java-home` | `/opt/graalvm-guest-jdk21` | `TURNBASE_GAMEHOST_GUEST_JAVA_HOME` | game-host-internals §15 |
+| `turnbase.gamehost.orchestration-address` | `platform:8080` | `TURNBASE_GAMEHOST_ORCHESTRATION_ADDRESS` | IMP-GATE-09 |
 
 The heartbeat interval and lease TTL are **not** configured on the Game Host: they are handed to it
 in `RegisterResponse`, so the monolith owns both sides of the liveness contract and they cannot be
 set inconsistently.
+
+**`turnbase.gamehost.orchestration-address` is where the Game Host dials `GameHostRegistryService`**
+for `Register`/`Heartbeat`/`ReportContexts`/`Deregister` (§2's `gRPC :8080` edge — the registry service
+shares the monolith's HTTP listener rather than opening a second port). The default follows §2's
+`<service-name>:<port>` convention for every other compose dependency (`postgres:5432`, `redis:6379`,
+`minio:9000`); under Kubernetes it resolves to the Platform Monolith's Service DNS name instead. No
+TLS, per §2's "one network, flat."
 
 ### 7.9 Infrastructure
 

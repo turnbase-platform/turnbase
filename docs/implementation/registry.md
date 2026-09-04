@@ -336,6 +336,15 @@ across forty work items later.
 
 **Repo:** `turnbase-game-host` · **Depends on:** IMP-M0-01
 
+**Closed:** IMP-GATE-09 (opened and closed 2026-09-04) — the item requires the process to register
+with the Platform Monolith, but no document names the address the Game Host dials to reach it.
+`local-environment.md` §7 claims to be the whole tunable surface and §2's diagram shows the registry
+service sharing the monolith's `8080` listener, but §7.8 (the Game Host's own properties) had no entry
+for it — a missing configuration key, the same class of gap IR-24 closed for
+`turnbase.room.spectator-capacity`. Fixed: `local-environment.md` §7.8 gained
+`turnbase.gamehost.orchestration-address` (default `platform:8080`, following the `<service-name>:<port>`
+convention every other compose dependency in §7.9 already uses).
+
 **Closed:** IMP-GATE-08 (opened and closed 2026-09-04) — the *Done when* clause required "the process
 registers with the Platform Monolith per §3's 60-second budget," but the Platform Monolith's server
 side of `GameHostRegistryService` (`Register`/`Heartbeat`/`ReportContexts`/`Deregister`) is not
