@@ -30,7 +30,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M0 — Bootstrap** ||||
 | IMP-M0-01 | gRPC stubs and internal models | common | — | DONE |
 | IMP-M0-02 | Public SDK artifacts (Maven + npm) | sdk | — | DONE |
-| IMP-M0-03 | Platform Monolith skeleton | platform | — | WIP (session 16) |
+| IMP-M0-03 | Platform Monolith skeleton | platform | — | DONE |
 | IMP-M0-04 | Game Host skeleton | game-host | M0-01 | READY |
 | IMP-M0-05 | Frontend skeleton | frontend | — | READY |
 | IMP-M0-06 | Flyway baseline `V1__baseline.sql` | platform | M0-03 | READY |
@@ -252,6 +252,22 @@ pom version is `0.1.0-SNAPSHOT` deliberately: 0.x may still break.
 ### IMP-M0-03 — Platform Monolith skeleton
 
 **Repo:** `turnbase-platform` · **Depends on:** —
+
+**Done 2026-09-04 (session 16).** Spring Boot 3.5.7 on Java 21 starts; `8080` serves HTTP, `8081` is
+management with its bind address driven by `MANAGEMENT_SERVER_ADDRESS` — verified live loopback-only
+when set and all-interfaces when unset; health/readiness/liveness all return `200` and report nothing
+about the Game Host. The twelve empty feature packages exist under `io.turnbase.platform` and
+`ApplicationModules.verify()` is green. `io.turnbase:turnbase-grpc` resolves and compiles (a
+`GameHostServiceGrpc` blocking-stub test, plus the Modulith test). The Dockerfile packages a
+pre-built jar rather than rebuilding inside the image — verified end to end: image builds, container
+starts, actuator responds. **CI green on `master`**, all steps including the container build.
+
+Closing three Dependabot PRs opened on the first push surfaced two more traps, now in
+`conventions.md` §6: a **major**-version bump (Spring Boot 4.1.1, eclipse-temurin 25) is not a
+routine update against a pinned stack, and **Dependabot's own `pull_request` runs get no repository
+secrets**, so every Dependabot PR against this repo fails the bootstrap install step regardless of
+content until the bootstrap window closes — apply anything legitimate directly and push instead of
+waiting on that check.
 
 **Closed:** IMP-GATE-07 (opened and closed 2026-09-02) — the *Done when* clause required the
 `io.turnbase:turnbase-grpc` client stubs to "resolve at the exact pinned `<turnbase-common.version>`"
