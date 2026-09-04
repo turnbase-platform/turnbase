@@ -1,5 +1,83 @@
 ## Last Session Summary
 
+**Date:** 2026-09-04 (session 16)
+
+**`IMP-M0-03` is `DONE` — the Platform Monolith skeleton, two more registry gates, and a real
+infrastructure gap the corpus had no way to predict.** `turnbase-platform` now has Spring Boot 3.5.7
+on Java 21, packaged by feature under `io.turnbase.platform` (ADR-0014), CI green on `master`
+including the container build. **3 of 60 items complete.**
+
+### Two gates, closed before and during the build
+
+**IMP-GATE-06** — the item's own read-list cites `platform-operations.md` CON-010, which still said
+integration tests use Docker Compose "within the CI runner." That directly contradicts
+`platform-operations.md` FR-CICD-004, corrected 2026-08-20 to Testcontainers-only, and the same rule
+restated in `conventions.md` §3. Simply missed when FR-CICD-004 was fixed. Fixed `platform-operations.md`
+CON-010 to match.
+
+**IMP-GATE-07** — the *Done when* clause required `turnbase-grpc` to "resolve at the exact pinned
+version" under §5's absolute no-`SNAPSHOT` rule, but `turnbase-common` has never been tagged (tagging
+is a human action) and the publish workflow that would produce a release is `IMP-M0-11`, which
+**depends on** this item. Unsatisfiable as written — no release exists, and the pipeline that would
+produce one hadn't been built yet. `conventions.md` §5 gained a bootstrap exception: pin the current
+development version, resolve it from a local install, until the first tag exists; `IMP-M0-11` owns
+both the real publish workflow and the follow-up consumer bump once it lands.
+
+### What the gate's fix didn't anticipate: CI needs the same install, and `turnbase-common` is private
+
+The bootstrap exception said resolve "from the local install" — true for a developer's machine, but a
+GitHub-hosted runner starts with an empty one. The obvious fix — clone `turnbase-common` and install
+it before building — hit a wall the corpus had no way to name in advance: `turnbase-common` is
+**private**, and GitHub's default `GITHUB_TOKEN` cannot read a different private repository under
+**any** organization setting, only a real credential can. First CI push failed on `git clone` with
+*"could not read Username for 'https://github.com'."*
+
+Resolved with the user: a fine-grained PAT, **read-only on Contents, scoped to `turnbase-common`
+only**, stored as `TURNBASE_COMMON_PAT` in `turnbase-platform`'s secrets — narrowest credential that
+does the job, revocable, and deliberately temporary (deleted the same PR that bumps the version
+property once `IMP-M0-11` publishes a real release). `conventions.md` §5 now names this mechanism so
+`IMP-M0-04` doesn't rediscover it. Two mechanical snags on the way: `gh secret set`'s interactive
+prompt didn't survive being run through the session's `!` bridge (silently produced an empty secret,
+which is why the *second* attempt also failed with `TURNBASE_COMMON_PAT: ` blank in the log) — the
+`--body` flag worked where `read -s` didn't.
+
+**Separately, the Docker build doesn't need this at all.** Rather than resolving `turnbase-grpc` a
+second time inside a network-isolated build stage, the Dockerfile packages a jar `./mvnw verify`
+already built in the same CI step — no in-container Maven build, so the image never needs its own
+repository credential.
+
+### Three Dependabot PRs, and a limitation worth knowing before `IMP-M0-04`
+
+The first push opened three: a legitimate patch bump (spotless, nullaway), and two that jump a major
+version this project hasn't adopted (Spring Boot 4.1.1 against the CLAUDE.md-pinned 3.5+; Java 25
+against the pinned 21). All three initially showed CI failing — but not because of their content:
+**Dependabot's own `pull_request`-triggered runs get no repository secrets**, so every Dependabot PR
+against a bootstrap-window consumer fails the install step regardless of what it changes. Closed all
+three, applied the legitimate bump directly (push-triggered CI has the secret), and added
+`dependabot.yml` ignores for the two major bumps. Now in `conventions.md` §6 as the third
+first-push trap, alongside the GraalVM and `buf breaking` ones `IMP-M0-01` found.
+
+### What `turnbase-platform` now has
+
+Twelve empty feature packages under `io.turnbase.platform`, `spring-modulith-starter-core`, and
+`ApplicationModules.verify()` green (passes trivially — no code exists to violate a boundary yet, but
+the first violation now fails a build). `8080` HTTP, `8081` management with its bind address driven by
+`MANAGEMENT_SERVER_ADDRESS` — **verified live**, not just configured: loopback-only when the compose
+value is set, all-interfaces when unset, matching `local-environment.md` §1 exactly. Health,
+readiness and liveness all respond and report nothing about the Game Host. A `GameHostServiceGrpc`
+blocking-stub test proves `turnbase-grpc` resolves and compiles here, not just in a throwaway
+consumer. Merged JaCoCo at 70%, non-vacuous this time — a real `TurnBaseApplicationTest` boots the app
+through its own `main` on ephemeral ports for 100% coverage of the one hand-written class.
+
+**Everything was run, not just written**: `./mvnw verify` and `-Pintegration` both green locally,
+the packaged jar boots and answers `/actuator/health`, the Docker image builds and its container
+answers the same endpoints, and CI is green on `master` including the container-build step — the bar
+`work-item` sets, not a local pass.
+
+---
+
+## Session 15 Summary
+
 **Date:** 2026-08-22 (session 15)
 
 **`IMP-M0-02` is `DONE` — the SDK's build-and-publish floor, and two more registry defects found
@@ -400,29 +478,40 @@ from this file.** The registry holds **60 live work items** (IMP-M6-07 is cancel
 read-list, dependencies, the requirement IDs it satisfies and a done-when clause; this section only
 says which of them to pick up.
 
-**Progress: 2 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`) and `IMP-M0-02` (SDK
-build-and-publish floor, `turnbase-sdk`), both pushed and green in CI. **No work item is gated**,
-and all 23 readiness blockers remain closed, so an item's status is whatever its own dependencies
-imply. `IMP-M0-03` is `WIP (session 16)`.
+**Progress: 3 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+build-and-publish floor, `turnbase-sdk`) and `IMP-M0-03` (Platform Monolith skeleton,
+`turnbase-platform`), all pushed and green in CI. **No work item is gated**, and all 23 readiness
+blockers remain closed, so an item's status is whatever its own dependencies imply.
 
-**IMP-GATE-07** (`IMP-M0-03`, opened and closed 2026-09-02) — `IMP-M0-03`/`M0-04`'s *Done when*
-required the `turnbase-grpc` client/server stubs to resolve "at the exact pinned
+**`IMP-M0-04` will hit the same bootstrap-window mechanics `IMP-M0-03` just worked out — read
+`conventions.md` §5 and §6 before starting it, not just its own read-list.** It depends on
+`turnbase-common` exactly as `IMP-M0-03` does, so: pin `<turnbase-common.version>` to the current
+SNAPSHOT (IMP-GATE-07); the CI workflow needs `TURNBASE_COMMON_PAT` as a **new secret on
+`turnbase-game-host`** specifically — secrets do not carry across repos, so this is not reusable from
+`turnbase-platform`; expect its first Dependabot PRs to fail CI for the same secrets-on-`pull_request`
+reason, not because anything is wrong with them.
+
+**IMP-GATE-07** (`IMP-M0-03`, opened and closed 2026-09-02, `DONE` 2026-09-04) — `IMP-M0-03`/`M0-04`'s
+*Done when* required the `turnbase-grpc` client/server stubs to resolve "at the exact pinned
 `<turnbase-common.version>`" against `conventions.md` §5's absolute "no `-SNAPSHOT` in a committed
 pom" — but `turnbase-common` has never been tagged (a human action) and the publish workflow that
 would produce a release is `IMP-M0-11`, which depends on `M0-03`/`M0-04`. Unsatisfiable as written.
 Fixed: `conventions.md` §5 gained a bootstrap exception — pin the current development version,
 resolved from the local install, until the first tag exists; `IMP-M0-11` owns both standing up the
-publish workflow and the follow-up PRs that bump consumers to the real release once it's tagged.
+publish workflow and the follow-up PRs that bump consumers to the real release once it's tagged. The
+fix's first draft still missed how CI itself gets that install — see the session 16 summary above for
+the private-repo credential problem that turned up executing it.
 
 **IMP-GATE-06** (`IMP-M0-03`, opened and closed 2026-09-02) — `platform-operations.md` CON-010 still
 said integration tests use Docker Compose, contradicting FR-CICD-004 in the same document (corrected
-2026-08-20 to Testcontainers-only) and `conventions.md` §3. Missed in that pass because nobody was
-reading CON-010 itself. Fixed: CON-010 now states the Testcontainers/compose split correctly.
+2026-08-20 to Testcontainers-only) and the same rule restated in `conventions.md` §3. Simply missed
+when FR-CICD-004 was fixed. Fixed `platform-operations.md` CON-010 to state the Testcontainers/compose
+split correctly.
 
-Five gates have now been opened *and closed* across the first two items — three on `IMP-M0-01`,
-two on `IMP-M0-02` — which is the number worth planning around: **a skeleton item costs roughly one
-spec defect per document in its read-list.** Budget for that rather than treating a gate as a
-delay.
+Seven gates have now been opened *and closed* across the first three items — three on `IMP-M0-01`,
+two on `IMP-M0-02`, two on `IMP-M0-03` — which is the number worth planning around: **a skeleton item
+costs roughly one spec defect per document in its read-list.** Budget for that rather than treating a
+gate as a delay.
 
 **IMP-GATE-05** (`IMP-M0-02`, closed 2026-08-22) — `game-development-experience.md`
 FR-FEGDK-001…009 (the `TurnBaseClient` class itself) was claimed only by `IMP-M6-05`, which
@@ -479,52 +568,28 @@ range is `<6.1.0`; `npm install` fails `ERESOLVE` otherwise. Not in `conventions
 toolchain fact rather than a project decision, but worth knowing before `IMP-M0-05`
 (`turnbase-frontend`) or `IMP-M3-12` pin `typescript` again.
 
-### The next session — `IMP-M0-03`, `M0-04`, `M0-05`, and `IMP-M3-12` is now on the board
+### The next session — `M0-04`, `M0-05`, and `IMP-M3-12` is now on the board
 
-**`turnbase-common` is still the worked example for the Java repos; copy its shape rather than
-re-deriving it.** Its pom is the template for `turnbase-platform` and `turnbase-game-host`:
-Spotless at `validate`, Error Prone + NullAway, merged JaCoCo, the enforcer, and the
-`.mvn/jvm.config` flags — each of which cost a build cycle to discover and all of which are now in
-`conventions.md` §2.
+**`turnbase-common` is the worked example for the Java repos; `turnbase-platform` is now a second
+one with the bootstrap-window mechanics already solved.** Copy `turnbase-platform`'s pom shape for
+`turnbase-game-host` — Spotless at `validate`, Error Prone + NullAway, merged JaCoCo, the enforcer,
+the `.mvn/jvm.config` flags, and the `TURNBASE_COMMON_PAT` bootstrap install (new secret required on
+`turnbase-game-host` itself; see the note above `IMP-GATE-07`).
 
-Four things `IMP-M0-01` learned that the other repos will meet on their own first push, all now in
-`conventions.md` §6 (none of them applied to `IMP-M0-02`, which has no proto and no gRPC):
+Things `IMP-M0-01`/`M0-03` learned that `IMP-M0-04` will meet on its own first push, all now in
+`conventions.md` §6:
 
 | | |
 |---|---|
 | GraalVM CE | `graalvm/setup-graalvm`, **not** `actions/setup-java`, which has no `graalvm-community` distribution |
 | `buf breaking` | pull requests only, against the base branch — a push has no reliable baseline |
-| Dependabot | opens PRs within a minute of the first push, including ones reverting deliberate pins. Land `ignore` entries **with** the pin |
+| Dependabot | opens PRs within a minute of the first push; land `ignore` entries **with** a deliberate pin, and expect every PR to fail CI on the bootstrap secret regardless of content until `IMP-M0-11` |
 | Line endings | `.gitattributes` pins `*.sh`, hooks and `mvnw` to LF, or a CRLF checkout makes git silently refuse to run a hook |
 
-**`IMP-M0-03` and `IMP-M0-05` carry real content; `IMP-M0-04` is closer to mechanical** — with the
-caveat that both `IMP-M0-01` and `IMP-M0-02` were also called close to mechanical and each produced
-gates before a line of code was written.
-
 **`IMP-M3-12` (FE GDK client, `turnbase-sdk`) is now `READY`**, unblocked by `IMP-M0-02`. It's a
-candidate for the same session as `M0-03`…`M0-05` if there's room: `frontend-gdk-api.md` is already
+candidate for the same session as `M0-04`/`M0-05` if there's room: `frontend-gdk-api.md` is already
 read in full for `IMP-M0-02`, and the declared types it needs (`Role`, `Player`, `Team`,
 `InitContext`, the envelope) already exist in `src/main/ts/types.ts`.
-
-`IMP-M0-03` establishes the build floor for the repository holding forty of the 60 items, and every
-piece of it is cheap now and prohibitive later:
-
-| | |
-|---|---|
-| Toolchain | `./mvnw` committed, `.sdkmanrc` → `21.0.2-graalce` |
-| Format | Spotless + `google-java-format` at `validate` |
-| Defects | **Error Prone + NullAway**, `@NullMarked` per package ([ADR-0015](docs/decisions/0015-static-analysis-error-prone-nullaway.md)) |
-| Coverage | JaCoCo, **merged** unit + integration exec data, one `check` at 70% |
-| Boundaries | `spring-modulith-starter-core`, twelve empty feature packages, `ApplicationModules.verify()` ([ADR-0014](docs/decisions/0014-modular-monolith-spring-modulith.md)) |
-| Fast-fail | `.githooks/pre-push` + a README line telling a human to enable `core.hooksPath` |
-
-**Root package `io.turnbase.platform`, packaged by feature** — getting it wrong is a rename across
-forty items later.
-
-**One trap will cost the first hour if it is not expected:** `google-java-format` and Error Prone
-both need flags in `.mvn/jvm.config` (`--add-exports` for `jdk.compiler`, plus
-`-XDcompilePolicy=simple` and `--should-stop=ifError=FLOW`). The first failure reads like a broken
-toolchain rather than a missing flag.
 
 **`IMP-M0-05` installs and wires Astryx** (exact pins, three CSS imports in cascade-layer order,
 `<Theme>` + `<LinkProvider>`, `data-astryx-theme`, self-hosted Figtree) — a skeleton without them
