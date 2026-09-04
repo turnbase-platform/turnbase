@@ -1,5 +1,68 @@
 ## Last Session Summary
 
+**Date:** 2026-09-04 (session 18)
+
+**`IMP-M0-05` is `DONE` — the frontend skeleton, and a version-drift note rather than a spec
+defect.** `turnbase-frontend` now has Vite 8 + React 19.2 + TypeScript 6.0.3, ESLint/Prettier in
+CI and `pre-push`, a multi-stage Dockerfile (Node build → nginx-alpine), and Astryx wired per
+`design-system.md`. **CI green on `master`, first push, both jobs. 5 of 60 items complete.**
+
+### Astryx landed at 0.5.2, not the 0.4.3 the spec names — not a gate
+
+`design-system.md` §1 says "Astryx is Beta at 0.4.3", written 2026-08-17. npm's `latest` had moved
+to `0.5.2` (released 2026-08-30) by the time this item ran. Not escalated: the normative rule is
+"pin exact versions, no `^`/`~`", satisfied regardless of which exact version, and no *Done when*
+clause names a version number. Landed `0.5.2` exact-pinned across `@astryxdesign/core`,
+`@astryxdesign/theme-neutral`, `@astryxdesign/cli`, with `@stylexjs/stylex` at `0.19.0` per core's
+own peer range. Worth remembering for `IMP-M6-01`: a spec that names a Beta library's current
+version is describing a moment, not a requirement.
+
+### `<LinkProvider>` deferred to `IMP-M6-02`, deliberately
+
+`shell-architecture.md` §2 and `design-system.md` §2 both present `<Theme>` and `<LinkProvider>`
+as "the shell's two providers," mounted together. `LinkProvider` needs `react-router`'s `Link`,
+and routing is `IMP-M6-02`'s to add — there's no router yet for it to wrap. This item's own text
+names only the three CSS imports and `<Theme>` as required at skeleton time, so `App.tsx` mounts
+only those, with an inline comment pointing at `IMP-M6-02`. Worth checking when that item lands:
+the full provider nesting from the spec, not a re-derivation.
+
+### Self-hosting Figtree without a binary-file fetch
+
+`@fontsource/figtree` ships the `.woff2`/`.woff` files and `@font-face` rules pre-written;
+importing `400.css`/`600.css`/`700.css` (the weights `theme-neutral`'s heading/body scale
+actually references) bundles them as ordinary Vite static assets from our own origin — satisfying
+`shell-architecture.md` §6's `font-src 'self'` without hand-managing font binaries in the repo or
+fetching one from Google Fonts. Confirmed in a real browser via Playwright: `body`'s computed
+font resolves to Figtree, `data-astryx-theme="neutral"` lands on `<html>` (the `<Theme>`
+component syncs it there itself — no manual attribute needed), and the composed Astryx `Button`
+renders themed.
+
+### Three toolchain traps, none named in any spec — worth knowing before `IMP-M6-01`
+
+- **`typescript-eslint@8.69.0`'s peer range is still `>=4.8.4 <6.1.0`** — the same trap
+  `IMP-M0-02` found on `turnbase-sdk`. `typescript` pinned to `6.0.3` again.
+- **`jsdom@30.x` raises its own `engines` floor** to `^22.22.2 || ^24.15.0 || >=26.0.0`, past
+  `.nvmrc`'s `22.20.0` — and `npm install` only warns (`EBADENGINE`), it doesn't fail, so the
+  wrong version installs silently. Pinned to `29.1.1`.
+- **Vitest 5 removed `coverage.all`.** Specifying `coverage.include` now collects coverage for
+  every matched file whether a test imports it or not — the replacement for what `all: true` used
+  to name. Separately, `vitest.config.ts` must `import {defineConfig} from "vitest/config"`, not
+  `"vite"` — the latter's type doesn't know the `test` key, and a stale `tsc -b` incremental cache
+  hid the error on the first local `npm run build`, so it only surfaced in a clean Docker build.
+
+### Five Dependabot PRs, three closed — the Astryx/Espresso-shaped trap generalizes to jsdom and the base image
+
+`docker/build-push-action` 6→7 and `nginx` 1.29→1.31-alpine were routine, merged directly. Closed
+and ignored, each with its own follow-up PR per `conventions.md` §6: `jsdom` 29.1.1→30.0.1 (the
+engine-floor trap above), and the Docker build stage's `node:22.20.0-alpine`→`26.8.1-alpine` — CI
+passed on that one, because the build stage happens to still *compile* under Node 26, which is a
+different claim from "the project has adopted Node 26." The base image moves when `.nvmrc` does,
+not when Dependabot notices it can.
+
+---
+
+## Session 17 Summary
+
 **Date:** 2026-09-04 (session 17)
 
 **`IMP-M0-04` is `DONE` — the Game Host skeleton, two more registry gates, and five Dependabot PRs
@@ -550,15 +613,18 @@ from this file.** The registry holds **60 live work items** (IMP-M6-07 is cancel
 read-list, dependencies, the requirement IDs it satisfies and a done-when clause; this section only
 says which of them to pick up.
 
-**Progress: 4 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 5 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
-`turnbase-platform`) and `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), all pushed and green
-in CI. **No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
-whatever its own dependencies imply.
+`turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`) and `IMP-M0-05`
+(Frontend skeleton, `turnbase-frontend`), all pushed and green in CI. **No work item is gated**,
+and all 23 readiness blockers remain closed, so an item's status is whatever its own dependencies
+imply.
 
-**`IMP-M0-05` (frontend skeleton) has no bootstrap-window dependency on `turnbase-common`** — it is a
-clean start, unlike the last three M0 items. **`IMP-M0-06` (Flyway baseline)** is the other open
-candidate and the highest-value item in the registry: it depends only on `IMP-M0-03`, which is done.
+**`IMP-M0-01`…`M0-05` are now all `DONE`, which unblocks `IMP-M0-11` (CI/CD workflows, all five
+repos) for the first time.** `IMP-M0-06` (Flyway baseline) remains the highest-value open item —
+it depends only on `IMP-M0-03` — and `IMP-M3-12` (FE GDK client, `turnbase-sdk`) is still `READY`,
+unblocked since `IMP-M0-02`. `IMP-M0-09`/`M0-10` (config/secrets, observability) are also open,
+each depending only on `M0-03`+`M0-04`.
 
 **IMP-GATE-09** (`IMP-M0-04`, opened and closed 2026-09-04) — no document names the address the Game
 Host dials to reach the Platform Monolith's `GameHostRegistryService`, which `local-environment.md`

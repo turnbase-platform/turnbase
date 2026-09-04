@@ -32,7 +32,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M0-02 | Public SDK artifacts (Maven + npm) | sdk | — | DONE |
 | IMP-M0-03 | Platform Monolith skeleton | platform | — | DONE |
 | IMP-M0-04 | Game Host skeleton | game-host | M0-01 | DONE |
-| IMP-M0-05 | Frontend skeleton | frontend | — | WIP (session 18) |
+| IMP-M0-05 | Frontend skeleton | frontend | — | DONE |
 | IMP-M0-06 | Flyway baseline `V1__baseline.sql` | platform | M0-03 | READY |
 | IMP-M0-07 | Local stack — compose profile | this repo | M0-03, M0-04, M0-05 | READY |
 | IMP-M0-08 | Local stack — Helm chart (canonical) | this repo | M0-07 | READY |
@@ -399,6 +399,56 @@ bounded thing.
 ### IMP-M0-05 — Frontend skeleton
 
 **Repo:** `turnbase-frontend` · **Depends on:** —
+
+**Done 2026-09-04 (session 18).** Vite 8 + React 19.2 + TypeScript 6.0.3 builds; ESLint (flat
+config, `typescript-eslint` strict + stylistic type-checked, `eslint-plugin-react-hooks`,
+`eslint-config-prettier` last) and Prettier both run in CI and in `.githooks/pre-push`; a
+multi-stage Dockerfile (Node build stage → nginx-alpine) produces the static bundle — built,
+run, and checked in a real browser via Playwright: the page serves, the Astryx `Button` renders
+themed, `data-astryx-theme="neutral"` lands on `<html>`, and `body`'s computed font resolves to
+the self-hosted Figtree. The dev server proxies `/api` and `/ws` to
+`http://turnbase.localhost:8080`. `.nvmrc` pins `22.20.0`; `package.json` carries `engines.node`
+and the `astryx` script. **CI green on `master`**, first push, both jobs.
+
+Astryx landed at **`0.5.2`**, not the `0.4.3` `design-system.md` §1 names — that value was
+current when the ADR was written (2026-08-17); npm's `latest` had moved on by the time this item
+ran (`0.5.2`, released 2026-08-30). Not treated as a spec defect: the normative instruction is
+"pin exact versions, no `^`/`~`", which is satisfied regardless of which exact version, and no
+*Done when* clause names a version number. Peer-checked against `0.5.2`: `@stylexjs/stylex`
+pinned to `0.19.0` (core's own peer range).
+
+**`<LinkProvider>` is deferred to `IMP-M6-02`.** `shell-architecture.md` §2 and `design-system.md`
+§2 both describe mounting `<Theme>` and `<LinkProvider>` together as "the shell's two providers,"
+but `LinkProvider` needs `react-router`'s `Link`, and routing is `IMP-M6-02`'s own dependency to
+add — there is no router here for it to wrap. This item's own text names only the three CSS
+imports and `<Theme>` as required at skeleton time, so only those landed; `App.tsx` says so
+inline.
+
+**Figtree self-hosted via `@fontsource/figtree`** (400/600/700 — the weights `theme-neutral`'s
+heading/body scale actually references), not a raw font-file fetch: the npm package ships the
+`.woff2`/`.woff` files and `@font-face` rules pre-written, bundled by Vite as ordinary static
+assets from our own origin — satisfying `font-src 'self'` without hand-managing binary font
+files in the repo.
+
+**Three Vitest/TypeScript version traps, none named in any spec:**
+- `typescript-eslint@8.69.0`'s peer range is still `>=4.8.4 <6.1.0` — the exact trap `IMP-M0-02`
+  found. `typescript` pinned to `6.0.3` again.
+- `jsdom@30.x` raises its own `engines` floor to `^22.22.2 || ^24.15.0 || >=26.0.0`, past what
+  `.nvmrc` pins (`22.20.0`) — `npm install` only warns (`EBADENGINE`), it doesn't fail, so this
+  is easy to install by accident. Pinned to `29.1.1`.
+- Vitest 5 dropped `coverage.all`; specifying `coverage.include` now collects coverage for every
+  matched file whether or not a test imports it, which is the same "no silent gap" behaviour
+  `all: true` used to name. `vitest.config.ts` must import `defineConfig` from `vitest/config`,
+  not `vite` — the latter's `UserConfigExport` doesn't know about the `test` key, and `tsc -b`
+  only caught it because a stale incremental build cache had hidden it locally on the first
+  `npm run build`.
+
+**Five Dependabot PRs on first push, three closed:** `docker/build-push-action` 6→7 and `nginx`
+1.29→1.31-alpine were routine and merged directly. Closed and ignored: `jsdom` 29.1.1→30.0.1 (the
+engine-floor trap above) and the Docker build stage's `node:22.20.0-alpine`→`26.8.1-alpine` (CI
+passed — the build stage happens to still compile under Node 26 — which is not the same claim as
+"the project has adopted Node 26"; the base image moves when `.nvmrc` does). Both ignore entries
+landed in `dependabot.yml` in their own follow-up commits, per `conventions.md` §6.
 
 **Read first:**
 - `docs/specs/platform-frontend/shell-architecture.md` §1, §2
