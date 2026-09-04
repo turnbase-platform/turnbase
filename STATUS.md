@@ -491,6 +491,14 @@ SNAPSHOT (IMP-GATE-07); the CI workflow needs `TURNBASE_COMMON_PAT` as a **new s
 `turnbase-platform`; expect its first Dependabot PRs to fail CI for the same secrets-on-`pull_request`
 reason, not because anything is wrong with them.
 
+**IMP-GATE-08** (`IMP-M0-04`, opened and closed 2026-09-04) — the *Done when* clause required "the
+process registers with the Platform Monolith per §3's 60-second budget," but the platform's server
+side of `GameHostRegistryService` is not implemented until `IMP-M3-05` (depends on `IMP-M3-04`,
+`IMP-M2-04`), far downstream of `IMP-M0-04` (depends only on `IMP-M0-01`). Same shape as
+`IMP-GATE-03`. Fixed: `IMP-M0-04`'s clause narrowed to a `Register` client call proven against an
+in-process stub registry service; the real cross-repo, 60-second-budget check is now `IMP-M3-05`'s own
+*Done when* clause.
+
 **IMP-GATE-07** (`IMP-M0-03`, opened and closed 2026-09-02, `DONE` 2026-09-04) — `IMP-M0-03`/`M0-04`'s
 *Done when* required the `turnbase-grpc` client/server stubs to resolve "at the exact pinned
 `<turnbase-common.version>`" against `conventions.md` §5's absolute "no `-SNAPSHOT` in a committed

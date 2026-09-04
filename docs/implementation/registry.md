@@ -336,6 +336,19 @@ across forty work items later.
 
 **Repo:** `turnbase-game-host` · **Depends on:** IMP-M0-01
 
+**Closed:** IMP-GATE-08 (opened and closed 2026-09-04) — the *Done when* clause required "the process
+registers with the Platform Monolith per §3's 60-second budget," but the Platform Monolith's server
+side of `GameHostRegistryService` (`Register`/`Heartbeat`/`ReportContexts`/`Deregister`) is not
+implemented until `IMP-M3-05`, which depends on `IMP-M3-04` and `IMP-M2-04` — nearly all of M2 and
+M3's game-host chain, none of which `IMP-M0-04` (depends only on `IMP-M0-01`) can assume. Unsatisfiable
+as written: there is no live registry service to register against at this point in the build order.
+Same shape as `IMP-GATE-03`. Fixed: the clause below is narrowed to what a consumer skeleton can check
+— the client-side `Register` call runs at startup and is exercised against an in-process stub
+`GameHostRegistryService`, proving the retry/timeout logic and that the server base classes resolve
+and link. The real end-to-end check — registration against a live Platform Monolith inside the
+60-second budget — is now `IMP-M3-05`'s own *Done when* clause, added there, since M3-05 is the item
+that gives the platform side of `GameHostRegistryService` a real implementation.
+
 **Read first:**
 - `docs/specs/deployment/local-environment.md` §1, §3 (especially *The 120-second suppression window
   and Game Host registration*), §7.8
@@ -346,11 +359,14 @@ across forty work items later.
 **Satisfies:** `platform-architecture.md` FR-REG-001…004; `platform-operations.md` FR-DEPLOY-001…003
 
 **Done when:** a GraalVM CE for JDK 21 image starts with Espresso available; `9090` serves gRPC and
-`8081` is management; the process registers with the Platform Monolith per §3's 60-second budget; a
-trivial guest context can be created and disposed. The `io.turnbase:turnbase-grpc` **server** base
-classes resolve and compile (`conventions.md` §5; the half of `IMP-M0-01` that only a consumer can
-check, IMP-GATE-03) — against the local install, pinned to `turnbase-common`'s current development
-version per §5's bootstrap exception (IMP-GATE-07), since no tagged release exists yet.
+`8081` is management; a trivial guest context can be created and disposed. At startup the process
+attempts a `Register` call against `GameHostRegistryService` and retries per §3's budget until it
+succeeds or the deadline elapses; **this is proven against an in-process stub registry service**, not
+a live Platform Monolith (IMP-GATE-08) — the cross-repo, end-to-end check moves to `IMP-M3-05`. The
+`io.turnbase:turnbase-grpc` **server** base classes resolve and compile (`conventions.md` §5; the half
+of `IMP-M0-01` that only a consumer can check, IMP-GATE-03) — against the local install, pinned to
+`turnbase-common`'s current development version per §5's bootstrap exception (IMP-GATE-07), since no
+tagged release exists yet.
 
 **Constraint:** host JVM is Java 21; guest is Espresso running Java 21. There is no CE build for JDK
 23 — see `CLAUDE.md`.
@@ -1284,6 +1300,11 @@ a seen sequence, the ordinary next sequence, and a forward gap — are stated at
 only the keys flow 02 step 6 names and reads the rest. The platform's own record of a live session is
 `room.active_session_id` — a durable Postgres fact — not a Redis key, so a Redis flush loses cached
 state and not the knowledge that a session exists.
+
+**Closes IMP-GATE-08's cross-repo half:** this item gives `GameHostRegistryService` its real server
+implementation, so it also carries the end-to-end check `IMP-M0-04` could not — a `turnbase-game-host`
+instance pointed at a running Platform Monolith completes `Register` within `local-environment.md`
+§3's 60-second budget.
 
 ---
 
