@@ -1,5 +1,53 @@
 ## Last Session Summary
 
+**Date:** 2026-09-05 (session 21)
+
+**IMP-M3-12 — FE GDK client, `turnbase-sdk`. DONE. 7 of 60 items complete.** `TurnBaseClient<TAction,
+TEvent>` lands in `src/main/ts/client.ts`, exported alongside the declared types from `IMP-M0-02`:
+setter-style `onInit`/`onGameEvent`/`onPlayerJoined`/`onPlayerLeft`/`onGameOver` (each replaces the
+prior handler and returns `this`), `start()`/`dispose()` lifecycle, the `window.__TURNBASE__` bootstrap
+handshake, and `sendAction()` gated on `init` having been delivered. CI green on `master`, no gates —
+both the spec (`frontend-gdk-api.md`, read in full) and its two requirement documents
+(`game-development-experience.md`, `game-contracts.md`) agreed with each other on every clause this
+item touches.
+
+### No contradiction this time — worth noting precisely because six of the last seven items found one
+
+Cross-checked `frontend-gdk-api.md` §3–§10 against `game-development-experience.md` FR-FEGDK-001…009
+and `game-contracts.md` FR-FE-001…006/FR-FA-001…003/NFR-SEC-004 clause by clause before writing any
+code. All three documents matched — the *Done when* clause's five assertions (both origin+source
+required, no `targetOrigin: '*'` ever, synchronous throw on a missing bootstrap, `sendAction` before
+`init` throws) were each satisfiable exactly as written, each proven by a test named after the clause
+it checks.
+
+### The one thing the spec didn't say: how to test code that assumes a browser `window`
+
+`TurnBaseClient` reads `window`/`window.parent` and the `message` event directly, per §4/§8 — but
+`vitest.config.ts`'s default environment is `"node"`, where `window` doesn't exist. Added
+`environment: "jsdom"`, pinned to `29.1.1` **not** the current `30.x` — the exact Node-engine-floor
+trap `IMP-M0-05` hit on `turnbase-frontend` (`jsdom@30`'s `engines` field wants `^22.22.2`, past
+`.nvmrc`'s `22.20.0`, and `npm install` only warns rather than failing). Same `dependabot.yml` `ignore`
+entry landed in the same commit as the pin, mirroring `turnbase-frontend`'s.
+
+**A second, non-obvious trap: `vi.spyOn` without `restoreMocks: true` stacks across tests.** jsdom
+keeps one `window` for the whole file, so `window.parent` is the same object in every test; spying on
+its `postMessage` in test N without restoring leaves test N+1's spy wrapping test N's, and a call count
+assertion silently counts calls from tests that already finished. Added `restoreMocks: true` to
+`vitest.config.ts` — general-purpose, not `TurnBaseClient`-specific, and worth carrying into any future
+suite here that spies on a shared global.
+
+### Coverage went from vacuous to real
+
+The merged coverage gate (`vitest.config.ts`, 70% across lines/statements/branches/functions) had
+measured an empty module since `IMP-M0-02`, by design, per that item's own note not to fake the number
+until there was branching logic to miss. Fifteen tests now exercise it for real: 94.9%
+statements/lines, 88.9% branches, 100% functions — first non-trivial run of a threshold that was
+inert on paper until this session.
+
+---
+
+## Session 20 Summary
+
 **Date:** 2026-09-05 (session 20)
 
 **IMP-M0-06 — Flyway baseline, `turnbase-platform`. DONE. 6 of 60 items complete.**
@@ -721,16 +769,16 @@ says which of them to pick up.
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
-**Progress: 6 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 7 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
 `turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), `IMP-M0-05`
-(Frontend skeleton, `turnbase-frontend`) and `IMP-M0-06` (Flyway baseline, `turnbase-platform`), all
-pushed and green in CI. **No work item is gated**, and all 23 readiness blockers remain closed, so
-an item's status is whatever its own dependencies imply.
+(Frontend skeleton, `turnbase-frontend`), `IMP-M0-06` (Flyway baseline, `turnbase-platform`) and
+`IMP-M3-12` (FE GDK client, `turnbase-sdk`), all pushed and green in CI. **No work item is gated**,
+and all 23 readiness blockers remain closed, so an item's status is whatever its own dependencies
+imply.
 
 **`IMP-M0-06`'s completion unblocks `IMP-M4-02` (manifest schema validation, `turnbase-platform`),
 now `READY` outright.** `IMP-M0-12` (seed data) depends on `M0-06` too but stays gated on `IMP-M4-03`.
-`IMP-M3-12` (FE GDK client, `turnbase-sdk`) is still `READY`, unblocked since `IMP-M0-02`.
 `IMP-M0-09`/`M0-10` (config/secrets, observability) and `IMP-M0-11` (CI/CD workflows, all five
 repos) are open, each depending only on `M0-03`+`M0-04` (or a subset).
 

@@ -75,7 +75,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-09 | Game failure handling | platform, game-host | M3-07 | READY |
 | IMP-M3-10 | The first official game | sdk consumer | M3-03 | READY |
 | IMP-M3-11 | GDK test harness | sdk | M3-01 | READY |
-| IMP-M3-12 | FE GDK client (`@turnbase/gdk`) | sdk | M0-02 | WIP (session 21) |
+| IMP-M3-12 | FE GDK client (`@turnbase/gdk`) | sdk | M0-02 | DONE |
 | **M4 — Catalog and upload** ||||
 | IMP-M4-01 | Catalog listing and game detail | platform | M1-01 | READY |
 | IMP-M4-02 | Manifest schema validation | platform | M0-06 | READY |
