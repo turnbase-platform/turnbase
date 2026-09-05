@@ -422,3 +422,15 @@ push-triggered run on the same repository gets it, so every such PR against `tur
 `turnbase-game-host` fails on the bootstrap install step regardless of what it changes. It reads like
 the dependency bump broke something when it did not. Apply anything legitimate by editing the pinned
 version directly and pushing; do not wait for the check to go green.
+
+## 7. Observability — new Redis usage sites
+
+`docs/specs/deployment/observability.md` §2.2 requires every Redis operation the Platform Monolith
+performs to carry a `turnbase_redis_operation_seconds{concern}` timer and a
+`turnbase_redis_errors_total{concern}` counter, `concern` ∈ `game_state`, `action_queue`, `ownership`,
+`application` — no `pubsub` value, since ADR-0002 has no cross-instance fan-out to measure. This is
+settled once here because the sites are spread across many work items (`IMP-M1-02`'s rate limiter is
+`application`; `IMP-M2-03`'s lease is `ownership`; `IMP-M3-05`/`IMP-M3-06`'s session record and outbox
+are `game_state`/`action_queue`) and none of them should re-decide the dimension or its values.
+**Any item that adds a new Redis operation applies the tag at the repository layer, as part of its
+own Done-when** — `IMP-M0-10` could not do this for them, since none of these call sites exist yet.

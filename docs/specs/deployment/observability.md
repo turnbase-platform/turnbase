@@ -91,11 +91,15 @@ notice, whereas a polled gauge is self-correcting by construction.
 turnbase_rooms_active            SELECT count(*) FROM room WHERE state <> 'CLOSED'
 turnbase_game_sessions_active    SELECT count(*) FROM room WHERE active_session_id IS NOT NULL
 turnbase_users_registered        SELECT count(*) FROM app_user WHERE deleted_at IS NULL
-turnbase_friend_requests_pending SELECT count(*) FROM friend_request WHERE status = 'PENDING'
+turnbase_friend_requests_pending SELECT count(*) FROM friend_request
 ```
 
 All four are index-covered (`data-model.md` §5, `data-model-social.md`) and the refresh holds no
-connection between them.
+connection between them. `friend_request` has no `status` column (`data-model-social.md` §2, baseline
+`V202608091200__baseline.sql`) — a request is pending for as long as its row exists; accepting one
+produces a `friendship` row and deletes it, and declining or expiring one just deletes it. A row's
+mere existence **is** "pending", so the fourth query is an unfiltered count, not a predicate on a
+column the schema does not have.
 
 **Under more than one replica these gauges are per-instance and identical**, because each queries the
 same database. Grafana must therefore aggregate with `max()` rather than `sum()` — summing them
@@ -147,7 +151,7 @@ the container the log's owner rather than the process.
   "thread": "http-nio-8080-exec-3",
   "message": "Room claimed",
   "requestId": "0b4c…", "userId": "a1b2…", "roomId": "9c1e…",
-  "sessionId": null, "gameId": "3f2b…",
+  "gameId": "3f2b…",
   "traceId": "4bf92f3577b34da6a3ce929d0e0e4736", "spanId": "00f067aa0ba902b7"
 }
 ```

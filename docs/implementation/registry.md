@@ -797,13 +797,70 @@ is the actual mechanism and profile is not.
 - `docs/specs/deployment/local-environment.md` §1, §7.9
 - `docs/specs/game-host/game-host-internals.md` §14 — the Game Host's own signal set
 
-**Satisfies:** `platform-operations.md` FR-MET-001…007, FR-TRACE-001…004, FR-OBS-001…005,
-FR-ALERT-001…007, NFR-OBS-001; `platform-architecture.md` FR-OBS-001…009
+**Satisfies:** `platform-operations.md` FR-MET-001, FR-MET-003, FR-MET-004, FR-MET-006, FR-MET-007,
+FR-TRACE-001…003, FR-OBS-001…005, FR-ALERT-001, FR-ALERT-002, FR-ALERT-004, FR-ALERT-005, NFR-OBS-001.
+FR-MET-002, FR-MET-005, FR-ALERT-003, FR-ALERT-006, FR-ALERT-007 and `platform-architecture.md`
+FR-OBS-001…009 are **not** satisfied here — see *Deferred to later items* below.
 
-**Done when:** Micrometer exports to Prometheus at the management port; Logback emits JSON to stdout
-with a correlation ID on every record; OpenTelemetry propagates W3C trace context across the REST →
-gRPC boundary and traces land in Tempo; Grafana resolves Prometheus, Loki and Tempo as data sources
-and its derived field links a log line's `traceId` to the Tempo trace (`observability.md` §5).
+**Done when:** Micrometer exports to Prometheus at the management port on both services, including the
+FR-MET-003 business gauges; Logback emits JSON to stdout with a correlation ID on every record; the
+OpenTelemetry Java agent is attached to both services and a real HTTP request against the running
+stack produces a trace visible in Tempo; the `ClientInterceptor`/`ServerInterceptor` pair that copies
+`observability.md` §3's MDC correlation IDs onto gRPC metadata and restores them on the other side is
+proven against a controlled, in-process gRPC call (IMP-GATE-18 — no live REST-triggers-gRPC call path
+exists yet for the agent to instrument end to end); Grafana resolves Prometheus, Loki and Tempo as
+data sources and its derived field links a log line's `traceId` to the Tempo trace (`observability.md`
+§5); Prometheus alert rules FR-ALERT-001, FR-ALERT-002 and FR-ALERT-004 evaluate, and Alertmanager
+routes to a webhook when `TURNBASE_ALERT_WEBHOOK_URL` is set and to no receiver when it is not
+(FR-ALERT-005).
+
+**Closed:** IMP-GATE-18 (opened and closed 2026-09-05) — the original clause required proving trace
+propagation "across the REST → gRPC boundary," which is the agent's job automatically (§4 — "the
+agent handles HTTP and gRPC automatically") and needs no code of this item's own, but there is no
+REST-handler-calls-gRPC code path anywhere yet for the agent to instrument: `turnbase-platform` issues
+no outbound gRPC call and runs no gRPC server, and the Game Host's one outbound gRPC call (`Register`,
+`IMP-M0-04`) is not triggered by an inbound REST request. The real request chain client → WebSocket →
+Orchestration → gRPC → Game Host (FR-TRACE-002) does not exist before `IMP-M3-05`. Same shape as
+`IMP-GATE-08`. Fixed: the clause above keeps the agent-and-Tempo check (real, but HTTP-only for now)
+and narrows the cross-process claim to what this item *can* build without a live caller — the
+correlation-ID `ClientInterceptor`/`ServerInterceptor` pair of §3's gRPC-out row, proven against a
+controlled gRPC call. The live, request-shaped, agent-instrumented cross-repo trace moves to
+`IMP-M3-05`, which gained a Done-when clause for it below.
+
+**Closed:** IMP-GATE-19 (opened and closed 2026-09-05) — `observability.md` §3's own worked example
+showed `"sessionId": null` two sentences before the prose it illustrates says correlation IDs are
+"**omitted when absent** rather than written as empty strings" — a `null` is neither omitted nor an
+empty string, and the document contradicted its own stated rule in its only example of the rule.
+Fixed: the example now omits the `sessionId` key entirely, matching the prose it sits next to.
+
+**Closed:** IMP-GATE-20 (opened and closed 2026-09-05) — `observability.md` §2.1's literal SQL for
+`turnbase_friend_requests_pending` was `SELECT count(*) FROM friend_request WHERE status = 'PENDING'`,
+but the baseline migration's `friend_request` table (`IMP-M0-06`, already `DONE`) has no `status`
+column — the query would fail against the real schema. Fixed: the query is now an unfiltered
+`count(*)`, and §2.1 gained a sentence explaining why that is correct rather than a simplification —
+a pending request's row exists; accepting one deletes it and inserts a `friendship` row, declining or
+expiring one just deletes it, so existence already means pending.
+
+**Deferred to later items** — each of these needs a signal source this item's dependencies (`M0-03`,
+`M0-04`) do not yet provide, so building it here would mean inventing the signal rather than reading
+it from real code:
+
+- **FR-MET-002** (`turnbase_websocket_connections_active`, bound to the STOMP session registry) —
+  `IMP-M2-02`, which builds that registry. Added there.
+- **FR-MET-005** (Redis metrics dimensioned by `concern`) — no single item owns this; `conventions.md`
+  now states the rule that any item adding a new Redis usage site tags its metrics with the
+  `observability.md` §2.2 concern dimension as part of its own Done-when.
+- **FR-ALERT-003** (game session failure rate) — `IMP-M3-09` (game failure handling). Added there.
+- **FR-ALERT-006** (reconciliation repairs persist) — `IMP-M2-10` (adoption and reconciliation jobs).
+  Added there.
+- **FR-ALERT-007** (owed teardown) — `IMP-M3-08` (session teardown as a durable to-do). Added there.
+- **`platform-architecture.md` FR-OBS-001…009** (Game Host active-context/session counts, action
+  latency, artifact-cache events) — these signals come from the Espresso context and session model,
+  which is `IMP-M3-02`/`IMP-M3-04`. Not added as an explicit clause there because
+  `game-host-internals.md` §14 already lists them as that layer's own signal set.
+- **`redis-by-concern.json` and `room-lifecycle.json`** (`observability.md` §5) — cannot be
+  meaningfully authored before FR-MET-005 and the per-duty reconciliation counter exist. Only
+  `platform-overview.json` and `jvm-and-database.json` are built here.
 
 **Three things in `observability.md` are counter-intuitive and are the ones to get right:**
 
@@ -1178,7 +1235,9 @@ unauthorised destination is refused rather than silently delivering nothing; Tie
 enforced pod-locally, in-process — it is the one tier that does not go to Redis, because a Redis round
 trip per inbound frame is the cost the limiter exists to avoid; a client connected to a pod that does
 not own the room is redirected using the affinity hint rather than served across instances (ADR-0002:
-**there is no cross-instance fan-out**).
+**there is no cross-instance fan-out**). The STOMP session registry this item creates exposes
+`turnbase_websocket_connections_active` as a `Gauge` (`observability.md` §2 names the metric;
+`platform-operations.md` FR-MET-002 defines it, deferred here by `IMP-M0-10`).
 
 ---
 
@@ -1401,6 +1460,11 @@ evaluates closure, and it is the mechanism three other items rely on (M1-08, M2-
 `leave_reason` filter is a backstop, not the primary control — the primary control is that every
 inline path stamps `lost_announced_at` itself (IR-09).
 
+The per-duty reconciliation counters these jobs increment fire the `ReconciliationRepairsPersist`
+alert (`observability.md` §6 sketches the rule; `platform-operations.md` FR-ALERT-006 defines it,
+deferred here by `IMP-M0-10`) — repairs applied on more than 3 consecutive runs, or a room
+detected-but-unrepaired for more than 10 minutes.
+
 ---
 
 ### IMP-M2-11 — In-room chat
@@ -1562,6 +1626,11 @@ implementation, so it also carries the end-to-end check `IMP-M0-04` could not �
 instance pointed at a running Platform Monolith completes `Register` within `local-environment.md`
 §3's 60-second budget.
 
+**Closes IMP-GATE-18's cross-repo half:** this is the first item where a live REST-triggered request
+chain crosses into a gRPC call to a running Game Host, so it carries the real check
+`observability.md` FR-TRACE-002 wants and `IMP-M0-10` could only prove against a controlled call — one
+trace spanning client → WebSocket → Orchestration → gRPC → Game Host, visible as one trace in Tempo.
+
 ---
 
 ### IMP-M3-06 — Game input outbox and delivery
@@ -1618,7 +1687,9 @@ server-side; a client-side filter hands spectators the hidden state and asks the
 **Done when:** the to-do is keyed by `sessionId`, **not** by a flag on the room — a rematch would
 overwrite the previous session's owed teardown. Any rule testing whether a teardown was recorded must
 test `room.active_session_id = :sessionId`, a durable fact, rather than the presence of the
-`session_teardown` row, which `terminateAndCleanup` deletes on success.
+`session_teardown` row, which `terminateAndCleanup` deletes on success. The age of the oldest owed row
+is exposed so the `TeardownOwed` alert can fire past 15 minutes (`observability.md` §6 sketches the
+rule; `platform-operations.md` FR-ALERT-007 defines it, deferred here by `IMP-M0-10`).
 
 ---
 
@@ -1643,6 +1714,10 @@ stated disposition on every path.
 sequence that previously failed must return *its own* failure. Without those two slots the replay
 returns `lastEffects` from the last *successful* input, so a retry of a rejected move looks to the
 client like the move succeeded.
+
+Retry-limit terminations feed the `GameSessionFailureRate` alert (`observability.md` §6 sketches the
+rule; `platform-operations.md` FR-ALERT-003 defines it, deferred here by `IMP-M0-10`) — sessions
+terminated by retry limit over active sessions, > 1% in 10 minutes.
 
 ---
 

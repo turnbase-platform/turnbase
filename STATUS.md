@@ -994,6 +994,25 @@ in `IMP-M0-04` and already read live by `GrpcServerLifecycle`, was never added t
 of gap IR-24 closed for `turnbase.room.spectator-capacity`. Fixed: added to §7.8 with its existing
 default (`9090`).
 
+**IMP-GATE-18** (`IMP-M0-10`, opened and closed 2026-09-05) — the Done-when clause required proving
+trace propagation "across the REST → gRPC boundary," but no such boundary exists yet: `platform`
+issues no outbound gRPC call and runs no gRPC server, and the Game Host's one outbound call
+(`Register`) isn't triggered by an inbound REST request — that request chain doesn't exist before
+`IMP-M3-05`. Fixed: narrowed to proving the interceptor mechanism against a controlled gRPC call, with
+the live cross-repo check moved to `IMP-M3-05`. `IMP-M0-10`'s *Satisfies* was also narrowed to what it
+actually builds — `FR-MET-002`, `FR-MET-005`, `FR-ALERT-003/006/007` and the Game Host's own
+`platform-architecture.md` `FR-OBS-*` are deferred to `IMP-M2-02`, a new `conventions.md` §7 rule, and
+`IMP-M3-09`/`IMP-M2-10`/`IMP-M3-08` respectively, each of which now carries the corresponding clause.
+
+**IMP-GATE-19** (`IMP-M0-10`, opened and closed 2026-09-05) — `observability.md` §3's own worked
+example showed `"sessionId": null` beside prose stating correlation IDs are "omitted when absent
+rather than written as empty strings." Fixed: the example now omits the key.
+
+**IMP-GATE-20** (`IMP-M0-10`, opened and closed 2026-09-05) — `observability.md` §2.1's SQL for
+`turnbase_friend_requests_pending` filtered on a `status` column `friend_request` does not have
+(`IMP-M0-06`'s baseline). Fixed: an unfiltered `count(*)` — a pending request's row existing is what
+"pending" means in this schema; accepting or declining one deletes the row.
+
 **IMP-GATE-16** (`IMP-M0-09`, opened and closed 2026-09-05) — `secrets-and-configuration.md`'s
 `local`/`test,e2e`/`Kubernetes` split for the JWT key set cannot be implemented by Spring profile
 alone: `local-environment.md` §4 runs the canonical Kubernetes chart under the identical
