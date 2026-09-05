@@ -852,6 +852,15 @@ example, the promtail pipeline stage, and the Grafana derived-field `matcherRege
 `datasources.yaml` this repeats. The five correlation IDs (`requestId` etc.) are unaffected — those
 are this project's own MDC keys, not the agent's.
 
+**Closed:** IMP-GATE-22 (opened and closed 2026-09-05) — `deploy/compose/tempo/tempo.yaml`
+(`IMP-M0-08`) left the OTLP receivers' `endpoint` unset, and Tempo's own default for both is a
+loopback bind — unreachable from another container even though the port is published on the compose
+network, the same class of bind-address trap `local-environment.md` §1 already documents for the
+management port (`IMP-GATE-14`). Found only by actually exporting a span against the running stack:
+every export failed with `Connection refused` and zero traces ever reached Tempo. Fixed:
+`tempo.yaml`'s `distributor.receivers.otlp.protocols` now sets `endpoint: 0.0.0.0:4317`/`:4318`
+explicitly.
+
 **Deferred to later items** — each of these needs a signal source this item's dependencies (`M0-03`,
 `M0-04`) do not yet provide, so building it here would mean inventing the signal rather than reading
 it from real code:

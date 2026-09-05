@@ -1019,6 +1019,11 @@ rather than written as empty strings." Fixed: the example now omits the key.
 the doc itself credits — writes `trace_id`/`span_id` (OTel semantic conventions, not configurable).
 Fixed: doc, `promtail-config.yaml` and `datasources.yaml` all changed to `trace_id`/`span_id`.
 
+**IMP-GATE-22** (`IMP-M0-10`, opened and closed 2026-09-05) — also found by running the stack:
+`tempo.yaml` (`IMP-M0-08`) left the OTLP receivers on Tempo's default loopback bind, so every span
+export failed with `Connection refused` and zero traces ever reached Tempo — same bind-address trap
+class as `IMP-GATE-14`. Fixed: explicit `endpoint: 0.0.0.0:4317`/`:4318`.
+
 **IMP-GATE-16** (`IMP-M0-09`, opened and closed 2026-09-05) — `secrets-and-configuration.md`'s
 `local`/`test,e2e`/`Kubernetes` split for the JWT key set cannot be implemented by Spring profile
 alone: `local-environment.md` §4 runs the canonical Kubernetes chart under the identical
