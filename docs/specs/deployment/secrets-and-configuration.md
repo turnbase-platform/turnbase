@@ -83,10 +83,17 @@ nobody needs is a key management burden with no reader.
 |---|---|
 | `local` | Generated on first start into `.secrets/jwt-keys.json` (git-ignored) and reused thereafter, so a restart does not log the developer out |
 | `test`, `e2e` | Generated per run, in memory. Deterministic sessions across runs are not wanted |
-| Kubernetes / production | Supplied; startup fails if absent |
+| Kubernetes / production | Supplied via `TURNBASE_JWT_KEY_SET` (`turnbase.auth.jwt-key-set`); startup fails if absent |
 
 Generating rather than defaulting is what keeps the local profile convenient without shipping a key.
 A committed development key is a key that will one day be a production key.
+
+`TURNBASE_JWT_KEY_SET` carries the exact JSON shape §3.2 shows — an `active` key and a `retired`
+array, each `{kid, secret, notBefore}`/`{kid, secret, retiredAt}` — as one relaxed-binding string
+value, per §2's "an environment variable read by Spring's relaxed binding." A single JSON value keeps
+promotion and retirement (§3.3) atomic: the whole set changes together, in one `Secret` update,
+instead of an active/retired pair of variables that could disagree mid-rotation. `retired` is `[]`
+until the first rotation.
 
 ### 3.2 The key set, and why there is more than one
 

@@ -36,7 +36,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M0-06 | Flyway baseline `V202608091200__baseline.sql` | platform | M0-03 | DONE |
 | IMP-M0-07 | Local stack — compose profile | platform | M0-03, M0-04, M0-05 | DONE |
 | IMP-M0-08 | Local stack — Helm chart (canonical) | platform | M0-07 | DONE |
-| IMP-M0-09 | Configuration and secrets wiring | platform, game-host | M0-03, M0-04 | READY |
+| IMP-M0-09 | Configuration and secrets wiring | platform, game-host | M0-03, M0-04 | WIP (session 24) |
 | IMP-M0-10 | Observability baseline | platform, game-host | M0-03, M0-04 | READY |
 | IMP-M0-11 | CI/CD workflows | all | M0-01…05 | READY |
 | IMP-M0-12 | Seed data | platform | M0-06, M4-03 | READY |
@@ -759,6 +759,14 @@ superuser (FR-CRED-005); the JWT key set supports two concurrent keys for gracef
 invent one.** A property named at a call site and never registered in §7 is invisible to whoever next
 audits the configuration, which is how the table stops being true. The last gap was
 `turnbase.room.spectator-capacity` (IR-24, now closed and in §7.1).
+
+**Closed:** IMP-GATE-15 (opened and closed 2026-09-05) — the *Done when* clause requires a Kubernetes
+Secret path for every secret, including the JWT key set, but `secrets-and-configuration.md` §3.1 named
+none: it said only "Supplied; startup fails if absent," and §7 deliberately excludes secrets by design
+(§2's split), so there was nowhere else it could be named either. Fixed: §3.1 now names
+`TURNBASE_JWT_KEY_SET` (`turnbase.auth.jwt-key-set`), one JSON-valued environment variable carrying the
+whole key set in §3.2's own shape — chosen over separate active/retired variables so a rotation (§3.3)
+updates atomically in one `Secret` change rather than as a pair that could disagree mid-rotation.
 
 ---
 
