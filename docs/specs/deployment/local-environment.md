@@ -436,6 +436,7 @@ Game history has no entry here. FR-RET-003 retains it indefinitely; it is the on
 | Property | Default | Env | Source |
 |---|---|---|---|
 | `turnbase.auth.session-ttl` | `24h` | `TURNBASE_AUTH_SESSION_TTL` | FR-SESS-001, FR-GUEST-003 |
+| `turnbase.auth.jwt-key-set-required` | `false` | `TURNBASE_JWT_KEY_SET_REQUIRED` | IMP-GATE-16 |
 | `turnbase.accounts.rename-window` | `30d` | `TURNBASE_ACCOUNTS_RENAME_WINDOW` | FR-ACCT-002, FR-ACCT-003 |
 | `turnbase.social.friend-cap` | `50` | `TURNBASE_SOCIAL_FRIEND_CAP` | FR-SOC-009, NFR-SOC-SCALE-001 |
 | `turnbase.pagination.default-page-size` | `25` | `TURNBASE_PAGINATION_DEFAULT_PAGE_SIZE` | FR-CAT-004, FR-HIST-026 |
@@ -446,6 +447,11 @@ Game history has no entry here. FR-RET-003 retains it indefinitely; it is the on
 `retention.guest-account` in §7.3 must track it. They are separate keys because the retention job's
 window is the thing the *purge* reads, and a future decision to keep a revoked guest row longer than
 its token should not require changing the token lifetime.
+
+`jwt-key-set-required` is the only property in this document that is not itself a tunable value —
+it is a switch between the two Kubernetes/compose deployment shapes §4 puts under the identical
+`local` Spring profile, since profile alone cannot tell the JWT key loader which one it is running
+under. `secrets-and-configuration.md` §3.1 is the authority on what it changes.
 
 ### 7.5 Uploads and request limits
 
@@ -486,6 +492,7 @@ asserts the difference at startup and refuses to boot if it does not hold.
 
 | Property | Default | Env | Source |
 |---|---|---|---|
+| `turnbase.gamehost.grpc.port` | `9090` | `TURNBASE_GAMEHOST_GRPC_PORT` | IMP-GATE-17 |
 | `turnbase.gamehost.handler-timeout` | `30s` | `TURNBASE_GAMEHOST_HANDLER_TIMEOUT` | FR-CTX-008 |
 | `turnbase.gamehost.interrupt-escalation-grace` | `5s` | `TURNBASE_GAMEHOST_INTERRUPT_ESCALATION_GRACE` | game-host-internals §15 |
 | `turnbase.gamehost.context-idle-eviction` | `5m` | `TURNBASE_GAMEHOST_CONTEXT_IDLE_EVICTION` | FR-CTX-009 |

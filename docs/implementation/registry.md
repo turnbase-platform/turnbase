@@ -768,6 +768,21 @@ none: it said only "Supplied; startup fails if absent," and §7 deliberately exc
 whole key set in §3.2's own shape — chosen over separate active/retired variables so a rotation (§3.3)
 updates atomically in one `Secret` change rather than as a pair that could disagree mid-rotation.
 
+**Closed:** IMP-GATE-16 (opened and closed 2026-09-05) — `secrets-and-configuration.md` §3.1's
+`local`/`test,e2e`/`Kubernetes` split for the JWT key set cannot be implemented by Spring profile
+alone: `local-environment.md` §4 runs the canonical Kubernetes chart under the identical
+`spring.profiles.active=local` compose uses, but the two rows need opposite behaviour — generate and
+persist to a file under compose (one instance), fail if absent under Kubernetes (the chart's own HPA
+can run more than one replica, and a self-generated key is only correct for exactly one). Fixed: a new
+non-secret switch, `turnbase.auth.jwt-key-set-required` (`local-environment.md` §7.4, default `false`),
+set to `true` only by the Helm chart's ConfigMap; `secrets-and-configuration.md` §3.1 now states this
+is the actual mechanism and profile is not.
+
+**Closed:** IMP-GATE-17 (opened and closed 2026-09-05) — `turnbase.gamehost.grpc.port`, shipped by
+`IMP-M0-04` and already read live by `GrpcServerLifecycle`, was never added to `local-environment.md`
+§7.8, contradicting §7's own "whole tunable surface" claim — the same class of gap IR-24 closed for
+`turnbase.room.spectator-capacity`. Fixed: added to §7.8 with its existing default (`9090`).
+
 ---
 
 ### IMP-M0-10 — Observability baseline

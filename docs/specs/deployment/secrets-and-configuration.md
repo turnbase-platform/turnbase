@@ -81,9 +81,22 @@ nobody needs is a key management burden with no reader.
 
 | Environment | Where the key comes from |
 |---|---|
-| `local` | Generated on first start into `.secrets/jwt-keys.json` (git-ignored) and reused thereafter, so a restart does not log the developer out |
+| `local` (bare process or compose) | Generated on first start into `.secrets/jwt-keys.json` (git-ignored) and reused thereafter, so a restart does not log the developer out |
 | `test`, `e2e` | Generated per run, in memory. Deterministic sessions across runs are not wanted |
-| Kubernetes / production | Supplied via `TURNBASE_JWT_KEY_SET` (`turnbase.auth.jwt-key-set`); startup fails if absent |
+| Kubernetes (local or production) | Supplied via `TURNBASE_JWT_KEY_SET` (`turnbase.auth.jwt-key-set`); startup fails if absent |
+
+**The split above is not the Spring profile** — `local-environment.md` §1 runs the canonical
+Kubernetes chart under the same `spring.profiles.active=local` compose already uses, precisely so
+the two deployment shapes exercise identical application code. Generating a key into a Pod's ephemeral
+filesystem would only be correct for a single replica; the chart's own HPA
+([`local-environment.md`](local-environment.md) §7.9's neighbour) can run more than one, and each
+would silently mint its own key, leaving every other replica unable to verify a token the first one
+issued. `turnbase.auth.jwt-key-set-required` (`TURNBASE_JWT_KEY_SET_REQUIRED`, default `false`, listed
+in `local-environment.md` §7.4) is the actual switch: **unset** (bare process, compose) generates and
+persists per the `local` row above; **`true`** (set only by the Helm chart's ConfigMap) requires
+`TURNBASE_JWT_KEY_SET` and fails startup, naming the missing key, if it is absent — regardless of which
+Spring profile is active. `test`/`e2e` are unaffected: they are real, distinct Spring profiles (no
+document runs either of them through Kubernetes), so profile is still the right switch for that row.
 
 Generating rather than defaulting is what keeps the local profile convenient without shipping a key.
 A committed development key is a key that will one day be a production key.
