@@ -118,6 +118,13 @@ build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleto
 **No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
 whatever its own dependencies imply.
 
+**IMP-GATE-23** (`IMP-M0-11`, opened and closed 2026-09-05) — `platform-operations.md` FR-CICD-002/003
+and OQ-002's resolution gated the pipeline on a **pull request** ("the PR cannot be merged...", "PR
+feedback loops"), but ADR-0012 (amended 2026-09-05) suspends pull requests project-wide, so a
+`pull_request` trigger would never fire. Fixed: FR-CICD-002 retitled *Pre-merge checks* and reworded
+to gate on push to `master`; FR-CICD-003 and OQ-002 updated to match. No workflow code changed — the
+five repos' `build.yml` files already run on push.
+
 **Next up: `IMP-M0-11` (CI/CD workflows, all five repos) and `IMP-M0-12` (seed data, gated on
 `IMP-M4-03`, not yet `READY`)** — `M0-11` is `READY` now, depending only on `M0-01…05`.
 `IMP-M0-06`'s completion already unblocked `IMP-M4-02` (manifest schema validation,

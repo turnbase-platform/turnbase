@@ -38,7 +38,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M0-08 | Local stack — Helm chart (canonical) | platform | M0-07 | DONE |
 | IMP-M0-09 | Configuration and secrets wiring | platform, game-host | M0-03, M0-04 | DONE |
 | IMP-M0-10 | Observability baseline | platform, game-host | M0-03, M0-04 | DONE |
-| IMP-M0-11 | CI/CD workflows | all | M0-01…05 | READY |
+| IMP-M0-11 | CI/CD workflows | all | M0-01…05 | WIP (session 26) |
 | IMP-M0-12 | Seed data | platform | M0-06, M4-03 | READY |
 | **M1 — Accounts and sessions** ||||
 | IMP-M1-01 | Error model, REST conventions, validation harness | platform | M0-03 | READY |
@@ -901,6 +901,17 @@ it from real code:
 ### IMP-M0-11 — CI/CD workflows
 
 **Repo:** all five submodules · **Depends on:** IMP-M0-01…05
+
+**Closed:** IMP-GATE-23 (opened and closed 2026-09-05) — `platform-operations.md` FR-CICD-002/003 and
+OQ-002's resolution gated the pipeline on a **pull request** ("the PR cannot be merged if any check
+fails", "PR feedback loops"), but ADR-0012 (amended 2026-09-05) suspends pull requests project-wide —
+every merge to `master` is direct, so a workflow triggered on `pull_request` would never fire, the
+same never-fires shape already found once in this same requirement (the `main`→`master` correction
+noted in FR-CICD-002 itself) and again in `IMP-M0-01`'s `buf breaking` gate. Fixed: FR-CICD-002
+retitled *Pre-merge checks* and reworded to gate on push to `master`; FR-CICD-003 and OQ-002's
+resolution updated to match. The five repos' existing `build.yml` workflows (`IMP-M0-01…05`) already
+run on `push` to `master` alongside the now-inert `pull_request` trigger, so no workflow code needed
+to change — the defect was in the requirement's prose, not in the pipelines it describes.
 
 **Read first:**
 - `docs/requirements/platform-operations.md` FR-CICD-001…011
