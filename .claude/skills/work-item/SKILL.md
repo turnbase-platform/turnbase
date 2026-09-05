@@ -53,8 +53,13 @@ half-remembered spec you skimmed is more dangerous than one you never opened.
 Check the item's **Repo** field. Branch per ADR-0012: `feat/`, `fix/`, `docs/` or `chore/` +
 description, off `master`. Commits are Conventional Commits.
 
-Cross-repo changes are separate PRs per repo — there is no atomic multi-repo commit. If your item
-touches `turnbase-common` and a consumer, the order is in `conventions.md` §5.
+**Do not open a pull request** (ADR-0012, amended 2026-09-05). The branch is merged into `master`
+and deleted **in the session that created it** — prefer `--ff-only`, and delete it on the remote too.
+A branch that outlives its session is the thing this rule exists to prevent, so if the work is not
+green by the end of the session, leave it unmerged rather than parking it as a PR.
+
+Cross-repo changes are separate branches per repo — there is no atomic multi-repo commit. If your
+item touches `turnbase-common` and a consumer, the order is in `conventions.md` §5.
 
 ### 5. Build it, tests first
 
@@ -69,7 +74,7 @@ a response body, a specific index) assert that exact thing.
 
 If a clause turns out to be unsatisfiable as written, that is a specification defect — see below.
 
-### 7. Green before you ask for review
+### 7. Green before you merge
 
 ```bash
 ./mvnw spotless:apply        # or: npm run format
@@ -77,8 +82,8 @@ If a clause turns out to be unsatisfiable as written, that is a specification de
 ./mvnw verify -Pintegration  # Testcontainers
 ```
 
-Run `spotless:apply` **before** the PR, not after CI rejects it. A bounced pipeline costs one turn to
-discover and another to fix, and it will happen on every PR otherwise.
+Run `spotless:apply` **before** merging, not after CI rejects it. A bounced pipeline costs one turn
+to discover and another to fix, and with no PR in front of it the bounce lands on `master`.
 
 ### 8. `DONE` means green and bumped
 
@@ -107,6 +112,7 @@ the contradiction is still there for the next person to resolve the other way.
 | Fixing a spec inconsistency quietly in code | The next item hits the same inconsistency and fixes it the other way. Now two subsystems disagree and neither is wrong. |
 | Adding a REST route "just for this" in M2 | A second writer outside the per-room serialization destroys the ordering guarantee the whole milestone rests on. |
 | Skipping `spotless:apply` because the diff is small | Format failures are the cheapest possible CI failure and the most annoying to round-trip. |
+| Leaving the branch unmerged "to finish next session" | That is exactly how eight PRs and eleven dead branches accumulated by 2026-09-05. Merge it or leave it unpushed. |
 
 ## Quick reference
 
@@ -115,5 +121,5 @@ the contradiction is still there for the next person to resolve the other way.
 | Registry | `docs/implementation/registry.md` — items; `INDEX.md` — status vocabulary, gate format |
 | Conventions | `docs/implementation/conventions.md` — assumed, never in a read-list |
 | Corpus checks | `python3 scripts/check-corpus.py` after any `docs/` change |
-| Branch / commits | ADR-0012 — `feat/…` off `master`, Conventional Commits |
+| Branch / commits | ADR-0012 — `feat/…` off `master`, Conventional Commits, **no PRs**; merge and delete in-session |
 | Blocked | `spec-defect` skill |

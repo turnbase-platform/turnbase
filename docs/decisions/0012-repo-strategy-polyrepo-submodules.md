@@ -39,7 +39,7 @@ All five component repos are registered as git submodules in `turnbase`. Cloning
 
 ### No shared state between repos at the git level
 
-Repos are not wired together beyond submodule registration. Cross-repo changes require separate PRs per repo. The `gamehost.proto` file is the canonical source of truth in `turnbase/docs/specs/internal-grpc/`; `turnbase-common` holds a **committed copy** at `src/main/proto/turnbase/gamehost/v1/gamehost.proto`.
+Repos are not wired together beyond submodule registration. Cross-repo changes require a separate change per repo. The `gamehost.proto` file is the canonical source of truth in `turnbase/docs/specs/internal-grpc/`; `turnbase-common` holds a **committed copy** at `src/main/proto/turnbase/gamehost/v1/gamehost.proto`.
 
 **Amended 2026-08-20 (IMP-GATE-02).** This clause originally read *"copies it into its own
 `src/main/proto/` at build time"*, which contradicts the submodule policy above: a build step reading
@@ -64,16 +64,49 @@ Applied consistently across all repos:
 - `master` — always deployable / releasable. **Not branch-protected**, and direct pushes are
   allowed: GitHub does not offer branch protection on private repositories outside a paid plan, and
   a rule the platform cannot enforce is one that reads as a guarantee while being an honour system.
-  Feature branches and PRs remain the normal path for anything worth reviewing; the discipline is the
-  branch model below, not a server-side block *(amended 2026-08-20 — the clause previously read
-  "protected, no direct pushes", which contradicted this ADR's own "self-merge is fine for solo
-  work")*
+  The discipline is the branch model below, not a server-side block *(amended 2026-08-20 — the clause
+  previously read "protected, no direct pushes", which contradicted this ADR's own "self-merge is
+  fine for solo work")*
 - `feat/<description>` — new features
 - `fix/<description>` — bug fixes
 - `docs/<description>` — documentation changes
 - `chore/<description>` — dependency bumps, CI changes, tooling
 
-No `develop` branch. PRs go directly from feature branches into `master`. Self-merge is fine for solo work; the PR record is the value.
+No `develop` branch. Branches merge directly into `master`.
+
+### Pull requests are suspended *(amended 2026-09-05)*
+
+**Do not open pull requests.** A branch is still the normal way to do a piece of work, but it is
+**merged into `master` and deleted within the session that created it** — not left open across
+sessions, and not turned into a PR.
+
+This reverses the clause that stood here until 2026-09-05: *"PRs go directly from feature branches
+into `master`. Self-merge is fine for solo work; the PR record is the value."* The record turned out
+not to be worth its cost. On a solo project with no second reviewer, a self-merged PR adds no review
+that the branch did not already have, and in practice they were not being merged at all: by
+2026-09-05 there were eight open PRs and eleven abandoned branches across five repositories, none of
+them awaiting anybody's opinion. The residue — stale branches, open PRs, merge commits from
+long-diverged work — cost more attention than the record ever returned.
+
+What this does and does not change:
+
+- **A branch per change stays.** The naming above is unchanged, and so is the reason for it: the
+  work is isolated until it is green.
+- **The merge happens in the same session.** A branch that outlives its session is the failure mode
+  being removed; if the work is not finished, it stays unmerged and unpushed, not parked as a PR.
+- **Delete the branch on merge**, locally and on the remote. Prefer a fast-forward merge, so the
+  history of `master` stays linear and no merge commit records a branch that no longer exists.
+- **CI still runs.** Every repository's workflow triggers on `push` to `master` as well as
+  `pull_request`, so a direct merge is checked exactly as a PR was. The one check that was
+  PR-only — `buf breaking` in `turnbase-common` — now runs on push against the previous commit,
+  because a contract check that never fires is worse than none.
+- **The `pull_request` triggers stay in the workflows.** They cost nothing while unused and are what
+  makes resuming PRs a decision rather than a rebuild.
+
+This is a working-practice suspension for the remainder of Phase 1 implementation, reversible by
+amending this section. `platform-operations.md` FR-CICD-002 still specifies what a pull-request
+pipeline must do, and still holds — the pipeline retains that capability; what changed is that
+nothing is currently exercising it.
 
 ## Commit Conventions
 
@@ -96,7 +129,7 @@ Subject: ≤ 72 chars, imperative mood, no trailing period.
 | `turnbase-platform` | Semantic versioning | Manual tag; CI builds + pushes Docker image |
 | `turnbase-game-host` | Semantic versioning | Manual tag; CI builds + pushes Docker image |
 | `turnbase-frontend` | Semantic versioning | Manual tag; CI builds + pushes Docker image |
-| `turnbase` | No releases | Commits to `master` for docs; PRs for submodule ref bumps |
+| `turnbase` | No releases | Commits to `master` for docs and for submodule ref bumps |
 
 No releases in Phase 0. Tags and CI pipelines are added per repo when implementation begins.
 

@@ -123,8 +123,9 @@ locally:
   `graalvm/setup-graalvm`. Applies to `IMP-M0-03` and `IMP-M0-04` too.
 - `buf breaking` on a push compared against `HEAD~1`, which on the commit that *introduces* the proto
   is a tree with no protos: `Module "path: "."" had no .proto files` — a message that names the
-  module rather than the missing baseline. It now runs on pull requests only, against the base
-  branch, where a baseline always exists.
+  module rather than the missing baseline. It ran on pull requests only until 2026-09-05; with PRs
+  suspended (ADR-0012) that gate would never fire, so it now runs on every push against
+  `.git#ref=HEAD~1`, which has a baseline in every case except the one above.
 
 **Dependabot opened five PRs within a minute of the first push**, one of them reverting the
 deliberate `protobuf-maven-plugin` 4.1.3 pin to the 5.x that does not accept this configuration. The
@@ -648,13 +649,13 @@ and its derived field links a log line's `traceId` to the Tempo trace (`observab
 
 **Done when:** each repo has a GitHub Actions workflow that builds, tests, and publishes its
 artifact; coverage is reported and gated on **unit and integration tests only** — the two categories
-that run at PR time (FR-CICD-003, as narrowed by IR-03; `CLAUDE.md`: >70% on critical paths); the
+that run in the pre-merge pipeline (FR-CICD-003, as narrowed by IR-03; `CLAUDE.md`: >70% on critical paths); the
 workflow is the gate `CLAUDE.md` requires before a submodule ref is bumped here.
 
 **This item ends `IMP-GATE-07`'s bootstrap window.** Once `turnbase-common`'s publish workflow exists
 and its first `v*.*.*` tag is cut (a human action), `turnbase-platform` and `turnbase-game-host` each
-need the small follow-up PR `conventions.md` §5 describes: bump `<turnbase-common.version>` from the
-bootstrap SNAPSHOT to the released version. That PR is not part of this item's own *Done when* — it
+need the small follow-up `conventions.md` §5 describes: bump `<turnbase-common.version>` from the
+bootstrap SNAPSHOT to the released version. That bump is not part of this item's own *Done when* — it
 is the same "consumer bump is where the compile break surfaces" step every later release goes
 through — but it does not happen by itself, so it belongs on whoever picks up the tag.
 
@@ -662,7 +663,7 @@ through — but it does not happen by itself, so it belongs on whoever picks up 
 until 2026-08-20 and were corrected against ADR-0012's branch model; a workflow written from the old
 text is one that never fires.
 
-**Integration tests are Testcontainers, not compose.** The PR job needs a Docker daemon and nothing
+**Integration tests are Testcontainers, not compose.** The build job needs a Docker daemon and nothing
 else — no `services:` block, no compose file, no stack started in a prior step. Compose belongs to the
 post-merge e2e job alone — `local-environment.md` §8, and `platform-operations.md` FR-CICD-004 as
 corrected.

@@ -77,8 +77,8 @@ with no extra workflow step.
 
 **The fix is `./mvnw spotless:apply`.** This matters more than it looks: a formatter that *rewrites*
 gives an agent a diff, where a linter gives it forty complaints to hand-edit. Run `spotless:apply`
-**before opening a PR**, not after CI rejects it — a bounced pipeline costs a full session turn to
-discover and another to fix.
+**before merging to `master`**, not after CI rejects it — a bounced pipeline costs a full session turn
+to discover and another to fix, and with PRs suspended (§4) the bounce lands on `master` itself.
 
 **Setup trap.** `google-java-format` uses internal `javac` APIs, so on JDK 16+ Spotless needs
 `--add-exports` flags for `jdk.compiler` in `.mvn/jvm.config`. Without them the very first
@@ -164,7 +164,7 @@ only there — and where a scripted compose fixture is genuinely needed for e2e,
 `make e2e` target, not in a test's `@BeforeAll`.
 
 **The container-reuse trap.** Naively annotated, forty integration tests start forty PostgreSQL
-containers and the PR pipeline stops being run. Start containers **once per JVM** — a static
+containers and the pipeline stops being run. Start containers **once per JVM** — a static
 singleton initialised in an abstract base class, or Testcontainers' reuse flag — and let Spring Boot's
 `@ServiceConnection` bind them. Isolation between tests comes from truncating or rolling back, not
 from a fresh container.
@@ -207,8 +207,11 @@ Branch model, commit format and release triggers are
 - Branches are `feat/`, `fix/`, `docs/`, `chore/` + description.
 - Commits are [Conventional Commits](https://www.conventionalcommits.org/): `<type>(<scope>): <subject>`,
   subject ≤72 chars, imperative, no trailing period.
-- **Cross-repo changes are separate PRs per repo.** There is no atomic multi-repo commit; §5 is how
-  the versions stay coherent.
+- **Cross-repo changes are separate branches per repo.** There is no atomic multi-repo commit; §5 is
+  how the versions stay coherent.
+- **Do not open pull requests** (ADR-0012 *Pull requests are suspended*, 2026-09-05). Branch, build,
+  merge to `master` and delete the branch **within the same session**. Prefer `--ff-only`, so
+  `master` stays linear. CI runs on push, so a direct merge is checked exactly as a PR was.
 
 ### Git hooks — `pre-push`, native, no husky
 
@@ -282,8 +285,8 @@ half moves to `IMP-M0-11`, which stands up the publish workflow and is the item 
 resolve it from.
 
 **The follow-up is ordinary, not special-cased.** The first time `turnbase-common` is tagged and
-`IMP-M0-11`'s workflow publishes it, `turnbase-platform` and `turnbase-game-host` each get a small PR
-bumping `<turnbase-common.version>` from the SNAPSHOT to the released version — the same "consumer
+`IMP-M0-11`'s workflow publishes it, `turnbase-platform` and `turnbase-game-host` each get a small
+change bumping `<turnbase-common.version>` from the SNAPSHOT to the released version — the same "consumer
 bump is where the compile break surfaces" step the *Promoting a change* paragraph below already
 describes for every later release. The first release is not exempt from that step; it is only exempt,
 until it exists, from needing one.
@@ -292,9 +295,9 @@ until it exists, from needing one.
 `turnbase-platform`'s and `turnbase-game-host`'s workflows check out `turnbase-common` alongside
 themselves and run `./mvnw install -DskipTests` in it before building, for as long as
 `<turnbase-common.version>` is a bootstrap SNAPSHOT. This is the one point where a consumer's CI reads
-outside its own repository, and it is deliberately temporary: the step is deleted, not adapted, the
-same PR that bumps the version property to a real release, because from that point resolution is an
-ordinary dependency fetch from GitHub Packages.
+outside its own repository, and it is deliberately temporary: the step is deleted, not adapted, in the
+same change that bumps the version property to a real release, because from that point resolution is
+an ordinary dependency fetch from GitHub Packages.
 
 **`turnbase-common` is private (ADR-0012), so the checkout needs a credential — GitHub's default
 `GITHUB_TOKEN` cannot read a different private repository under any organization setting.** The
@@ -316,8 +319,8 @@ cd ../turnbase-platform && ./mvnw verify -Dturnbase-common.version=0.2.0-SNAPSHO
 
 A command-line override, not a profile and not an edit. Nothing to forget to revert.
 
-**Promoting a change** is the two-PR sequence ADR-0012 already implies, now with an order:
-`turnbase-common` merges and tags → CI publishes → each consumer bumps the property in its own PR.
+**Promoting a change** is the two-step sequence ADR-0012 already implies, now with an order:
+`turnbase-common` merges and tags → CI publishes → each consumer bumps the property in its own repo.
 The consumer bump is where the compile break surfaces, which is the right place for it.
 
 **The proto is copied, not shared.** `gamehost.proto` is authoritative in
@@ -368,7 +371,7 @@ The floor, checked by `IMP-M0-01`…`M0-05` and `IMP-M0-11`:
 | Strictness | `@NullMarked` at package level | `tsconfig` `strict: true` |
 | Coverage | JaCoCo, merged, ≥70% | unit only, ≥70% |
 | Build reproducible | exact dependency versions | exact pins, **no `^`** for Astryx (ADR-0013) |
-| Supply chain | `dependabot.yml` + Trivy; **critical fails, lower reports** (FR-CICD-010) | same |
+| Supply chain | `dependabot.yml` (**frozen**, see below) + Trivy; **critical fails, lower reports** (FR-CICD-010) | same |
 | Local fast-fail | `.githooks/pre-push` + `core.hooksPath` | same |
 | CI workflow | build → test → coverage → scan → publish | + `tsc --noEmit`, production build |
 | Container | Dockerfile | Dockerfile (static bundle) |
@@ -384,23 +387,38 @@ Both cost `IMP-M0-01` a red pipeline, and neither reproduces locally.
   `graalvm-community` distribution and fails with *"No supported distribution was found for input
   graalvm-community"*. Use the same `21.0.2-graalce` the `.sdkmanrc` pins, so CI and a developer's
   shell run the same JDK rather than two that merely agree today.
-- **`buf breaking` needs a baseline, and a push does not reliably have one.** Run it on pull requests
-  against the base branch. On a push it compares against `HEAD~1` — which, on the commit that first
-  adds a `.proto`, is a tree with no protos, and the error (`Module "path: "." had no .proto files`)
-  names the module rather than the missing baseline. `buf lint` is cheap and always has an answer, so
-  it runs on everything.
+- **`buf breaking` needs a baseline that exists.** It runs on every push in `turnbase-common`,
+  against `.git#ref=HEAD~1` — which requires `fetch-depth: 0`, since a shallow checkout has no
+  previous commit to compare with. This was gated to pull requests only until 2026-09-05, because on
+  the commit that first adds a `.proto` the baseline is a tree with no protos and the error
+  (`Module "path: "." had no .proto files`) names the module rather than the missing baseline. That
+  window closed once the proto was on `master`, and under §4's suspended-PR workflow a PR-only gate
+  would never fire at all. `buf lint` is cheap and always has an answer, so it runs on everything.
 
-**Land `dependabot.yml`'s `ignore` entries in the same change as the pin they protect.** Dependabot
-opens PRs within a minute of the first push, and a deliberate downgrade it does not know about comes
-back every week looking like neglect. Each entry carries *why*, so the pin stays a decision someone
-can revisit rather than a mystery.
+### Dependabot is frozen
 
-**A third thing, specific to the §5 bootstrap window: Dependabot's own PRs cannot pass CI while the
-bootstrap install step exists.** GitHub does not give a `pull_request`-triggered run opened by
+**Version updates are off in all five repositories** (2026-09-05), via `open-pull-requests-limit: 0`
+on every ecosystem — GitHub's documented switch for disabling them. Dependabot security updates were
+already off in repository settings, so nothing opens a PR now. The trigger was volume: bumps arrived
+weekly across five repositories and were merged at nothing like that rate, leaving a backlog of open
+PRs and orphaned branches that cost more attention than the updates returned. Under §4 there is no
+mechanism to merge them anyway — a bot's PR is a PR.
+
+**The `dependabot.yml` files are kept, not deleted, and this is the point.** Their `ignore` entries
+are the project's record of *why* five pins are deliberate — the protobuf-maven-plugin 5.x config
+rewrite, the `typescript-eslint` peer range that caps TypeScript below 6.1, Astryx's Beta
+codemod-only upgrades, jsdom's Node engine floor, the Espresso artifacts tied to a spike result.
+That reasoning outlives the freeze; deleting the files would discard it and leave five pins looking
+like neglect. **Keep landing new `ignore` entries in the same change as the pin they protect**, for
+the same reason.
+
+Re-enabling is restoring the limits, nothing else. Bumping a dependency while frozen is an ordinary
+change on an ordinary branch.
+
+**One trap survives the freeze, for whenever it lifts:** during the §5 bootstrap window, Dependabot's
+own PRs structurally cannot pass CI. GitHub does not give a `pull_request`-triggered run opened by
 Dependabot access to repository secrets — including `TURNBASE_COMMON_PAT` — even though an ordinary
-push-triggered run on the same repository gets it. Every Dependabot PR opened against
-`turnbase-platform` or `turnbase-game-host` during the bootstrap window fails on that step
-regardless of what it changes, which reads like the dependency bump broke something when it did not.
-Review the diff, apply anything legitimate by editing the pinned version directly and pushing
-(push-triggered CI has the secret), and close the PR — do not wait for its check to go green, because
-it structurally cannot until the bootstrap install step is deleted.
+push-triggered run on the same repository gets it, so every such PR against `turnbase-platform` or
+`turnbase-game-host` fails on the bootstrap install step regardless of what it changes. It reads like
+the dependency bump broke something when it did not. Apply anything legitimate by editing the pinned
+version directly and pushing; do not wait for the check to go green.

@@ -170,16 +170,33 @@ disagree on the wire.
 git config core.hooksPath .githooks    # once per clone, this repo and each submodule
 ```
 
+### Branches: no PRs, and nothing outlives the session
+
+**Do not open pull requests** ([ADR-0012](docs/decisions/0012-repo-strategy-polyrepo-submodules.md)
+*Pull requests are suspended*, 2026-09-05). Branch freely — the `feat/`, `fix/`, `docs/`, `chore/`
+names are unchanged — but **merge into `master` and delete the branch in the same session that
+created it**, on the remote as well as locally. Prefer `--ff-only` so `master` stays linear.
+
+The reason is what happened without the rule: by 2026-09-05, five repositories held eight open PRs
+and eleven abandoned branches, none of them awaiting anybody's review. CI runs on push to `master`,
+so a direct merge is checked exactly as a PR was. If the work is not green when the session ends,
+leave it unmerged and unpushed rather than parking it as a PR.
+
+**Dependabot is frozen** in all five repositories for the same reason (`conventions.md` §6). The
+`dependabot.yml` files stay — their `ignore` entries record why each pin is deliberate — but every
+ecosystem carries `open-pull-requests-limit: 0`. Bump a dependency the ordinary way, on a branch.
+
 ### Ending a Session
 
 1. Update STATUS.md — **replace** the "Last Session Summary" section (never append), update phase progress and next priorities
 2. `python3 scripts/check-corpus.py` is clean
-3. Verify all changes are committed
+3. Verify all changes are committed, every branch created this session is merged and deleted, and no PR was opened
 4. Update submodule refs in this repo only after the submodule's build and tests pass
 
 ## End of Session Checklist
 
 - [ ] All changes committed with meaningful messages
+- [ ] Every branch created this session merged into `master` and deleted, locally and on the remote
 - [ ] STATUS.md "Last Session Summary" replaced with current session content
 - [ ] Next priority tasks clearly defined in STATUS.md
 - [ ] Submodule refs updated only if build + tests pass
@@ -194,7 +211,7 @@ git config core.hooksPath .githooks    # once per clone, this repo and each subm
 
 **SHOULD:**
 - Google Java Style for Java — enforced by Spotless + `google-java-format` at the `validate` phase.
-  **`./mvnw spotless:apply` before opening a PR**, not after CI rejects it
+  **`./mvnw spotless:apply` before merging to `master`**, not after CI rejects it
 - Prettier + ESLint for TypeScript/React
 - Javadoc for all public SDK/API interfaces (Checkstyle enforces this in `turnbase-sdk`)
 - Structured logging with correlation IDs

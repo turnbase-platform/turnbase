@@ -1,5 +1,68 @@
 ## Last Session Summary
 
+**Date:** 2026-09-05 (session 19)
+
+**No work item. A workflow change: pull requests are suspended and Dependabot is frozen, across
+all five repositories.** No code was written; the eight open PRs were drained first, then the rule
+that produced them was changed in the documents that carry it. Still **5 of 60 items complete**.
+
+### What changed, and where it is written down
+
+- **[ADR-0012](docs/decisions/0012-repo-strategy-polyrepo-submodules.md) gained a *Pull requests are
+  suspended* section**, reversing the clause that read *"self-merge is fine for solo work; the PR
+  record is the value."* Branches stay — same `feat/`/`fix/`/`docs/`/`chore/` names, same isolation —
+  but each is **merged into `master` and deleted within the session that created it**, `--ff-only`
+  preferred. This is the authoritative statement; `conventions.md` §4, `CLAUDE.md`, the `work-item`
+  skill and `implementation/INDEX.md`'s `WIP → REVIEW` row all now point at it rather than
+  restating a PR step.
+- **Dependabot version updates are off in all five repos** via `open-pull-requests-limit: 0` on every
+  ecosystem — GitHub's documented switch. Security updates were already off in repository settings.
+  `conventions.md` §6 gained a *Dependabot is frozen* subsection; FR-CICD-010 in
+  `platform-operations.md` records the suspension without changing what the delivered system requires.
+- **The `dependabot.yml` files are kept, deliberately.** Their `ignore` entries are the only record
+  of why five pins are decisions rather than neglect — protobuf-maven-plugin 5.x's config rewrite,
+  the `typescript-eslint` peer range capping TypeScript below 6.1, Astryx's codemod-only Beta
+  upgrades, jsdom's Node engine floor, the Espresso artifacts tied to a spike result. Deleting the
+  files would have discarded that. Re-enabling is restoring the limits, nothing more.
+
+### The backlog was drained before the freeze, not discarded
+
+All eight open Dependabot PRs were reviewed and their bumps applied directly on `master`, then closed
+with their branches deleted. Every one was routine: spotless 3.10.1, NullAway 0.14.1,
+maven-compiler-plugin 3.16.0 (`turnbase-common`); NullAway 0.14.1, eslint 10.9.1, typescript-eslint
+8.68.0, @types/node 26.3.0 (`turnbase-sdk`); Spring Boot 3.5.16, grpc-bom 1.84.0, failsafe 3.6.0
+(`turnbase-platform`); node 22.23.2-alpine in the Docker build stage (`turnbase-frontend`). Each repo
+was verified before merging — `./mvnw verify` everywhere, `-Pintegration` on `turnbase-platform`,
+lint/typecheck/build/test plus a real `docker build` on `turnbase-frontend`.
+
+### Two defects the drain surfaced
+
+- **grpc was drifting three ways.** `turnbase-platform`'s pom documents its pin as *"Matches
+  turnbase-common's pin"*, but `turnbase-game-host` took 1.84.0 on 2026-09-04 while `turnbase-common`
+  sat at 1.83.1 — so the comment describing the invariant was already false. All three are now on
+  1.84.0 (protobuf unchanged at 4.36.0, codegen green). Dependabot would eventually have proposed
+  this in the grpc-protobuf group; with the freeze landing the same session, it no longer will, which
+  is exactly the class of drift worth levelling by hand before it compounds.
+- **`buf breaking` would have gone dark.** It was gated on `github.event_name == 'pull_request'` in
+  `turnbase-common` — under a no-PR workflow it never fires, and a contract check that never runs is
+  worse than none because it still looks like coverage. It now runs on every push against
+  `.git#ref=HEAD~1` (verified locally), keeping the base-branch comparison for whenever PRs return.
+  The original PR-only guard existed because the commit that first added the proto had no baseline;
+  that window closed the moment the proto landed on `master`.
+
+### Left undone
+
+**Three stale remote branches survive in `turnbase-frontend`** — `feat/frontend-skeleton`,
+`chore/dependabot-jsdom-ignore`, `chore/dependabot-node-major-ignore`. All three were squash-merged
+long ago and hold nothing `master` lacks (verified by diff: they are strictly behind it). The delete
+was declined at the permission prompt, so they need one command:
+`git push origin --delete feat/frontend-skeleton chore/dependabot-jsdom-ignore chore/dependabot-node-major-ignore`.
+Every other repository is down to `master` alone, and all local stale branches are gone.
+
+---
+
+## Session 18 Summary
+
 **Date:** 2026-09-04 (session 18)
 
 **`IMP-M0-05` is `DONE` — the frontend skeleton, and a version-drift note rather than a spec
@@ -612,6 +675,10 @@ an explicit *"an idle notification is not a usable answer"*.
 from this file.** The registry holds **60 live work items** (IMP-M6-07 is cancelled), each with a
 read-list, dependencies, the requirement IDs it satisfies and a done-when clause; this section only
 says which of them to pick up.
+
+**Before starting any of them: no pull requests** (ADR-0012, amended 2026-09-05). Branch, build,
+merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
+arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
 **Progress: 5 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,

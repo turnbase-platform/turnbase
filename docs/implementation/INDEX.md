@@ -50,7 +50,7 @@ through rather than renumbered, and its number is never reused.
 | `BLOCKED` | A gate is open. The item cannot start. The gate is named in the item's *Gate* field. |
 | `READY` | All gates closed, all dependencies `DONE`. An agent may pick this up now. |
 | `WIP` | In progress. The owning session or agent is named. |
-| `REVIEW` | Code complete, awaiting review or a passing pipeline. |
+| `REVIEW` | Code complete, awaiting a passing pipeline. |
 | `DONE` | Merged, tests green, and — if the item touches a submodule — the submodule ref in this repo is updated. |
 | `CANCELLED` | The requirement it implemented was cut. The heading is struck through and kept; the number is never reused. |
 
@@ -65,7 +65,7 @@ as the work.** Not at the end of the session, and not from memory afterwards:
 | Transition | When | Also do |
 |---|---|---|
 | `READY` → `WIP` | Before the first edit, not after | Append ` (session N)` to the status cell |
-| `WIP` → `REVIEW` | Code complete, PR open | — |
+| `WIP` → `REVIEW` | Code complete, merged to `master`, pipeline running | — |
 | `REVIEW` → `DONE` | Pipeline green **and** the submodule ref bumped here | Drop the session marker |
 | any → `BLOCKED` | The moment a gate opens | Add the `Gate:` line to the item's section |
 
