@@ -207,6 +207,8 @@ CREATE ROLE turnbase_app LOGIN PASSWORD :'app_password';
 GRANT CONNECT ON DATABASE turnbase TO turnbase_app;
 GRANT USAGE, CREATE ON SCHEMA public TO turnbase_app;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS btree_gin;
 ```
 
 `POSTGRES_USER` is therefore `turnbase_owner`, **not** `turnbase_app` — the container's own user is
@@ -215,8 +217,13 @@ violate FR-CRED-005 with nothing appearing to be wrong. The application connects
 with `TURNBASE_DB_APP_PASSWORD`; `turnbase_owner`'s password reaches the init step and nothing else.
 
 `GRANT ... CREATE ON SCHEMA public` is what lets Flyway run in-process under the application role
-(ADR-0011 §1). `CREATE EXTENSION` stays with the owner because it needs superuser, and the baseline
-migration only *asserts* the extension's presence ([`schema-migrations.md`](schema-migrations.md) §5).
+(ADR-0011 §1). `CREATE EXTENSION` stays with the owner because it needs superuser — true of all
+three extensions the baseline creates, not only `pgcrypto`: PostgreSQL 16 does not mark `pg_trgm` or
+`btree_gin` as trusted, so a role holding only schema-level `CREATE` (`turnbase_app`) is refused with
+"permission denied to create extension" the moment it tries either one itself. The baseline migration
+still issues `CREATE EXTENSION IF NOT EXISTS` for all three (ADR-0011 §6) — each one is a no-op once
+provisioning has already created it, which is what makes running the migration under the unprivileged
+application role possible at all ([`schema-migrations.md`](schema-migrations.md) §5).
 
 **This runs on an empty data directory only.** A volume that already holds a database skips
 `initdb` entirely, so a developer who adds a role after first start must apply it by hand or

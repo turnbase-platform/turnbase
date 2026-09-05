@@ -54,16 +54,27 @@ exclusively to localhost" and "never exposed on the internet-facing network inte
 `admin-tooling.md` CON-001 puts it on the Spring management port. Actuator and the admin API are
 therefore the **same listener**, and it is the one that must never be publicly routable.
 
-**How that is achieved differs between the two profiles, and getting it wrong breaks the health
-probes.** Under compose, `management.server.address = 127.0.0.1` binds it to loopback inside the
-container and the published mapping is loopback-only on the host. Under Kubernetes the address must
-be **unset** — a kubelet probes the *pod IP*, and a listener bound to `127.0.0.1` inside the
-container is unreachable from outside that network namespace, so every readiness probe would fail and
-the Deployment would never become available. There, the control is topological instead: no Ingress
-rule and no `LoadBalancer` Service ever names port 8081, so it is reachable only from inside the
-cluster and by `kubectl port-forward`.
+**`management.server.address` is unset in both profiles** — the control is never the app's own
+bind address, and getting that part wrong breaks the health probes under compose in a way that
+looks like a Docker networking bug rather than a configuration mistake: a published port always
+forwards to the container's bridge-network interface, never to its loopback, so a listener bound to
+`127.0.0.1` *inside* the container is unreachable through `-p 8081:8081` regardless of how that flag
+itself is written — the container-internal bind and the host-side publish are two independent
+things, and only one of them can be doing the restricting.
 
-The property FR-ADM-001 asks for holds in both cases; the mechanism is not the same one.
+**How the restriction is actually achieved differs between the two profiles.** Under compose, the
+app listens on all interfaces inside the container, and the host-side bind of the published port —
+`127.0.0.1:8081:8081` in `docker-compose.yml`, not any Spring property — is what Docker itself
+enforces: a connection arriving at the host on anything other than `127.0.0.1` is never forwarded
+into the container at all. Under Kubernetes the address must stay unset for a different reason — a
+kubelet probes the *pod IP*, and a listener bound to `127.0.0.1` inside the container is unreachable
+from outside that network namespace, so every readiness probe would fail and the Deployment would
+never become available — and the control is topological instead: no Ingress rule and no
+`LoadBalancer` Service ever names port 8081, so it is reachable only from inside the cluster and by
+`kubectl port-forward`.
+
+The property FR-ADM-001 asks for holds in both cases; the mechanism is not the same one, and neither
+mechanism is the container's own bind address.
 
 ### Both origins are one listener
 
@@ -507,7 +518,7 @@ TLS, per §2's "one network, flat."
 | `turnbase.artifact-store.endpoint` | `http://minio:9000` | `TURNBASE_ARTIFACT_STORE_ENDPOINT` |
 | `turnbase.artifact-store.bucket` | `turnbase-bundles` | `TURNBASE_ARTIFACT_STORE_BUCKET` |
 | `management.server.port` | `8081` | `MANAGEMENT_SERVER_PORT` |
-| `management.server.address` | `127.0.0.1` (compose) / **unset** (Kubernetes) | `MANAGEMENT_SERVER_ADDRESS` |
+| `management.server.address` | **unset**, both profiles (§1 — compose restricts by publishing the port to `127.0.0.1` on the host, not by the app's own bind address) | `MANAGEMENT_SERVER_ADDRESS` |
 | `logging.level.root` | `INFO` | `LOGGING_LEVEL_ROOT` |
 | `management.otlp.tracing.endpoint` | `http://tempo:4317` | `MANAGEMENT_OTLP_TRACING_ENDPOINT` |
 | `management.tracing.sampling.probability` | `0.1` | `MANAGEMENT_TRACING_SAMPLING_PROBABILITY` |

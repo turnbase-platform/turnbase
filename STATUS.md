@@ -1,5 +1,81 @@
 ## Last Session Summary
 
+**Date:** 2026-09-05 (session 22)
+
+**IMP-M0-07 — Local stack, compose profile, `turnbase-platform`. DONE. 8 of 60 items complete.**
+`deploy/compose/docker-compose.yml` (Postgres, Redis, MinIO, `minio-init`, Platform Monolith, Game
+Host) and `docker-compose.observability.yml` (Prometheus, Grafana, Loki, Tempo, Promtail,
+Alertmanager) — every claim checked against the real stack, not just written: a clean
+`docker compose up` migrates a real Postgres and reaches `healthy` on all five core containers, the
+Game Host registers with the Platform Monolith over the compose network, the host port map matches
+`local-environment.md` §1 exactly (`8081`/`8082`/`9090` loopback-only, `9091` the Prometheus remap,
+`8080`/`3000` on all interfaces), Promtail ships real container log lines into Loki (confirmed by a
+live Loki query returning actual log entries, not just "the container started"), and both
+`turnbase.localhost:8080` and `{gameId}.games.localhost:8080` reach the same listener. **CI green on
+`master`, both `turnbase-platform` and `turnbase-game-host`.**
+
+### Repo assignment was wrong before any code existed
+
+**IMP-GATE-12** — the registry's own `Repo` field said `IMP-M0-07`/`IMP-M0-08` belonged in "this
+repo" (the root landing repo), but their own read-list document, `local-environment.md` §4, roots
+the whole deploy tree at `turnbase-platform/deploy/…`, and ADR-0012 describes `turnbase` itself as
+holding only docs, specs and submodule refs — no deploy artifacts of any kind. Fixed: both items'
+`Repo` corrected to `turnbase-platform`.
+
+### Two real defects, neither one visible until the compose stack actually ran
+
+Six of the previous seven items found contradictions by *reading* the corpus before writing code.
+This one found two more by *running* it — the first thing in Phase 1 to bring up a real Postgres
+under the two-role split and reach a service through an actual Docker-published port, rather than
+through Testcontainers (which authenticates as its own superuser) or a bare `java -jar` on the host.
+
+**IMP-GATE-13** — ADR-0011 §6 requires `pg_trgm` and `btree_gin` to be created by the Postgres init
+script as superuser, with the baseline migration's own `CREATE EXTENSION IF NOT EXISTS` for both
+succeeding as a no-op once provisioning has done its job. But `secrets-and-configuration.md` §4's
+actual `01-roles.sql` content — the concrete init script ADR-0011 §6 describes — created only
+`pgcrypto`. Running the real stack failed baseline migration outright: `permission denied to create
+extension "pg_trgm"`, because PostgreSQL 16 does not trust that extension for a role holding only
+schema-level `CREATE`. Fixed: the init script (both the spec's copy and the compose file's) now
+creates all three; the baseline migration file (`IMP-M0-06`'s artifact) needed no change — verified
+that the app role's own `IF NOT EXISTS` becomes a harmless no-op once the owner has already created
+the extension.
+
+**IMP-GATE-14** — `local-environment.md` §1 said compose achieves the loopback-only management port
+by setting `management.server.address = 127.0.0.1` *inside* the container, with the published port
+mapping doing the rest. The two cannot combine: a Docker published port always forwards to the
+container's bridge-network interface, never to its own loopback, so a listener bound to `127.0.0.1`
+inside the container is unreachable through its own published port regardless of the host-side bind
+— proven live (the container refused every host connection with the address set, `Connection reset
+by peer`, and answered normally with it unset, through the identical publish syntax). `IMP-M0-03`
+and `IMP-M0-04`'s "verified live" claims about this exact property never exercised a real Docker
+port-publish round trip, because neither item had a working compose file to test it through. Fixed:
+the app now listens on all interfaces in **both** profiles; compose's restriction is the published
+port's own host-side bind (already correct in the compose file — only the spec and two stale code
+comments described the wrong mechanism). No application behavior changed.
+
+### A new feature, built because the item's own *Done when* clause required it
+
+**`ArtifactBucketReadinessCheck`** (`io.turnbase.platform.upload`) asserts the bundle bucket exists
+at startup and fails loudly, naming `TURNBASE_ARTIFACT_STORE_BUCKET`, if it does not
+(`local-environment.md` §5) — proven by a unit test against a mocked `S3Client` and a real-MinIO
+`*IT` via Testcontainers. Backed by the AWS SDK v2 S3 client rather than a MinIO-specific one: no
+document names a client library, but `file-uploads.md` §1 already commits to "the same pre-signed
+URL code path... against MinIO in tests as in production against S3," which only the v2 S3 client
+(pointed at MinIO via an endpoint override) actually satisfies — recorded as an ordinary engineering
+choice, not a gate, since no *Done when* clause depends on which library it is.
+
+### Repo boundary for the compose file itself
+
+`platform` builds from `turnbase-platform`'s own Dockerfile (`context: ../..` — same repo, no path
+outside it); `gamehost` has no `build:` block at all, because `turnbase-game-host` is a sibling
+submodule and ADR-0012 requires every component repo to stay independently usable without the root.
+The developer builds `turnbase/game-host:dev` separately, first; the compose file only ever
+references it by image name.
+
+---
+
+## Session 21 Summary
+
 **Date:** 2026-09-05 (session 21)
 
 **IMP-M3-12 — FE GDK client, `turnbase-sdk`. DONE. 7 of 60 items complete.** `TurnBaseClient<TAction,
@@ -769,18 +845,40 @@ says which of them to pick up.
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
-**Progress: 7 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 8 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
 `turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), `IMP-M0-05`
-(Frontend skeleton, `turnbase-frontend`), `IMP-M0-06` (Flyway baseline, `turnbase-platform`) and
-`IMP-M3-12` (FE GDK client, `turnbase-sdk`), all pushed and green in CI. **No work item is gated**,
-and all 23 readiness blockers remain closed, so an item's status is whatever its own dependencies
-imply.
+(Frontend skeleton, `turnbase-frontend`), `IMP-M0-06` (Flyway baseline, `turnbase-platform`),
+`IMP-M0-07` (local stack compose profile, `turnbase-platform`) and `IMP-M3-12` (FE GDK client,
+`turnbase-sdk`), all pushed and green in CI. **No work item is gated**, and all 23 readiness
+blockers remain closed, so an item's status is whatever its own dependencies imply.
 
-**`IMP-M0-06`'s completion unblocks `IMP-M4-02` (manifest schema validation, `turnbase-platform`),
-now `READY` outright.** `IMP-M0-12` (seed data) depends on `M0-06` too but stays gated on `IMP-M4-03`.
+**`IMP-M0-07`'s completion unblocks `IMP-M0-08` (Helm chart, `turnbase-platform`), now `READY`
+outright.** `IMP-M0-06`'s completion already unblocked `IMP-M4-02` (manifest schema validation,
+`turnbase-platform`). `IMP-M0-12` (seed data) depends on `M0-06` too but stays gated on `IMP-M4-03`.
 `IMP-M0-09`/`M0-10` (config/secrets, observability) and `IMP-M0-11` (CI/CD workflows, all five
 repos) are open, each depending only on `M0-03`+`M0-04` (or a subset).
+
+**IMP-GATE-14** (`IMP-M0-07`, opened and closed 2026-09-05) — `local-environment.md` §1 said
+compose achieves the loopback-only management port by setting `management.server.address =
+127.0.0.1` *inside* the container, with the published port doing the rest — but a Docker published
+port always forwards to the container's bridge interface, never its loopback, so a listener bound
+that way is unreachable through its own published port regardless of the host-side bind. Proven
+live: the container refused every host connection with the address set, and answered normally with
+it unset. `IMP-M0-03`/`IMP-M0-04`'s "verified live" claims never exercised a real Docker
+port-publish round trip. Fixed: §1 and §7.9 now say the app listens on all interfaces in both
+profiles; compose's restriction is the published port's own host-side bind. No application code
+changed (`MANAGEMENT_SERVER_ADDRESS` already defaults to unset); only stale comments and
+`docker-compose.yml` were corrected.
+
+**IMP-GATE-13** (`IMP-M0-07`, opened and closed 2026-09-05) — ADR-0011 §6 requires the Postgres
+init script to create `pg_trgm` and `btree_gin` as superuser (the baseline migration's own
+`CREATE EXTENSION IF NOT EXISTS` for both then succeeds as a no-op), but
+`secrets-and-configuration.md` §4's actual `01-roles.sql` content created only `pgcrypto`. Running
+the real compose stack — the first thing to migrate as the actual unprivileged `turnbase_app` role
+rather than a Testcontainers superuser — failed outright with `permission denied to create
+extension "pg_trgm"`. Fixed: §4's script (and `deploy/compose/initdb/01-roles.sql`) now creates all
+three extensions; the baseline migration file needed no change, verified.
 
 **IMP-GATE-12** (`IMP-M0-07`/`IMP-M0-08`, opened and closed 2026-09-05) — both items' `Repo` field
 said "this repo" (the root `turnbase` landing repo), but `local-environment.md` §4 roots the whole
