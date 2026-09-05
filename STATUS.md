@@ -1,5 +1,67 @@
 ## Last Session Summary
 
+**Date:** 2026-09-05 (session 24)
+
+**IMP-M0-09 — Configuration and secrets wiring, `turnbase-platform` + `turnbase-game-host`. DONE.
+10 of 60 items complete.** Every key in `local-environment.md` §7 is now a typed
+`@ConfigurationProperties` record — `RoomProperties`, `JobsProperties`, `RetentionProperties`,
+`AuthProperties`, `AccountProperties`, `SocialProperties`, `PaginationProperties`,
+`UploadProperties`, `HttpProperties`, `RateLimitProperties`, `SecurityProperties`,
+`PlatformOriginProperties`, `GameFrontendProperties`, `OAuthProperties`, `AdminProperties` in
+`turnbase-platform`, `GameHostProperties` in `turnbase-game-host` — registered via
+`@ConfigurationPropertiesScan`, every default proven against the real `application.yml` rather than
+re-declared in a test. All nine secrets in `secrets-and-configuration.md` now have both a local-dev
+provisioning path and a Kubernetes Secret path; `turnbase_app` still holds no superuser; the JWT key
+set supports two concurrent keys. CI green on both repos.
+
+### Three gates, all opened and closed the same session
+
+**IMP-GATE-15** — no document named the Kubernetes environment variable for the JWT key set.
+`secrets-and-configuration.md` §3.1 now names `TURNBASE_JWT_KEY_SET`, one JSON-valued env var
+carrying the whole `active`+`retired` set from §3.2's own shape, so a rotation updates atomically.
+
+**IMP-GATE-16** — the local/test-e2e/Kubernetes split for the JWT key set cannot be driven by Spring
+profile: the canonical Kubernetes chart and compose both run `spring.profiles.active=local`
+(established since `IMP-M0-07`/`M0-08`), but a Pod must never self-generate a key — the chart's own
+HPA can run more than one replica, and each would mint its own. Fixed with a new switch,
+`turnbase.auth.jwt-key-set-required` (default `false`), set `true` only by the Helm chart's
+ConfigMap; `JwtKeySetConfig` branches on that, not on profile, for the required-vs-generated
+decision. `test`/`e2e` still branch on profile — no document runs either of them through Kubernetes.
+
+**IMP-GATE-17** — `turnbase.gamehost.grpc.port`, shipped in `IMP-M0-04` and already read live by
+`GrpcServerLifecycle`, was never listed in `local-environment.md` §7.8, contradicting §7's own
+"whole tunable surface" claim (the same class of gap IR-24 closed for `spectator-capacity`). Added
+with its existing default; `RegistrationLifecycle` and `GrpcServerLifecycle` now both take
+`GameHostProperties` instead of scattered `@Value` injections.
+
+### Scope calls that were not gates — recorded so the next item doesn't re-derive them
+
+- **The rate-limit tier budget table (`rate-limiting.md`) stays `IMP-M1-02`'s.** This item bound
+  only the two non-tier keys `local-environment.md` §7.6 itself names —
+  `turnbase.rate-limit.enabled` and `turnbase.security.trusted-proxies` — plus a startup check that
+  `enabled=false` is only honoured under `test`/`e2e` (an `ApplicationRunner`, same pattern as
+  `ArtifactBucketReadinessCheck`).
+- **`turnbase.jobs.*` and `turnbase.retention.*` live in `common`, not split across the features that
+  will eventually run each job** (room, session, notification, upload) — those features don't exist
+  yet, and §7.2/§7.3 are themselves one table each grouped by concern, not by owner.
+- **ADR-0007's "registrable domain" is implemented as "last two dot-separated labels", not a real
+  Public Suffix List lookup** — exact for `*.localhost` locally and for ADR-0007's own
+  `googleusercontent.com`/`github.io`-style production plan, wrong only for a real multi-label
+  suffix like `co.uk`, which the project doesn't use. `DistinctRegistrableDomainsCheck` fails startup
+  if the platform and game-frontend origins ever resolve to the same one.
+- **The Alert webhook URL's Kubernetes Secret path stays `IMP-M0-10`'s** — `alertmanager.yaml`
+  already said as much ("the actual webhook-receiver wiring are IMP-M0-10's job") before this
+  session touched it; the receiver config and the credential that fills it aren't separable.
+- **Admin Basic-auth and Google OAuth credentials are bound (`AdminProperties`, `OAuthProperties`)
+  and wired into compose/Helm, but nothing consumes them yet** — no Spring Security config exists
+  before `IMP-M4-05`/`IMP-M1-04`. Admin has no default (`TurnBaseApplicationIT` and
+  `SingleListenerOriginRoutingIT` now pass `--turnbase.admin.username/password` explicitly, same
+  pattern as the artifact-store credential); OAuth keeps its documented empty-by-default.
+
+---
+
+## Session 23 Summary
+
 **Date:** 2026-09-05 (session 23)
 
 **IMP-M0-08 — Local stack, Helm chart, `turnbase-platform`. DONE. 9 of 60 items complete.**
@@ -911,19 +973,42 @@ says which of them to pick up.
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
-**Progress: 8 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 10 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
 `turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), `IMP-M0-05`
 (Frontend skeleton, `turnbase-frontend`), `IMP-M0-06` (Flyway baseline, `turnbase-platform`),
-`IMP-M0-07` (local stack compose profile, `turnbase-platform`) and `IMP-M3-12` (FE GDK client,
-`turnbase-sdk`), all pushed and green in CI. **No work item is gated**, and all 23 readiness
-blockers remain closed, so an item's status is whatever its own dependencies imply.
+`IMP-M0-07` (local stack compose profile, `turnbase-platform`), `IMP-M0-08` (Helm chart,
+`turnbase-platform`), `IMP-M0-09` (configuration and secrets wiring, `turnbase-platform` +
+`turnbase-game-host`) and `IMP-M3-12` (FE GDK client, `turnbase-sdk`), all pushed and green in CI.
+**No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
+whatever its own dependencies imply.
 
-**`IMP-M0-07`'s completion unblocks `IMP-M0-08` (Helm chart, `turnbase-platform`), now `READY`
-outright.** `IMP-M0-06`'s completion already unblocked `IMP-M4-02` (manifest schema validation,
-`turnbase-platform`). `IMP-M0-12` (seed data) depends on `M0-06` too but stays gated on `IMP-M4-03`.
-`IMP-M0-09`/`M0-10` (config/secrets, observability) and `IMP-M0-11` (CI/CD workflows, all five
-repos) are open, each depending only on `M0-03`+`M0-04` (or a subset).
+**Next up: `IMP-M0-10` (observability baseline), `IMP-M0-11` (CI/CD workflows, all five repos) and
+`IMP-M0-12` (seed data, gated on `IMP-M4-03`, not yet `READY`)** — `M0-10` and `M0-11` are `READY`
+now, each depending only on `M0-03`+`M0-04` (or a subset). `IMP-M0-06`'s completion already
+unblocked `IMP-M4-02` (manifest schema validation, `turnbase-platform`).
+
+**IMP-GATE-17** (`IMP-M0-09`, opened and closed 2026-09-05) — `turnbase.gamehost.grpc.port`, shipped
+in `IMP-M0-04` and already read live by `GrpcServerLifecycle`, was never added to
+`local-environment.md` §7.8, contradicting §7's own "whole tunable surface" claim — the same class
+of gap IR-24 closed for `turnbase.room.spectator-capacity`. Fixed: added to §7.8 with its existing
+default (`9090`).
+
+**IMP-GATE-16** (`IMP-M0-09`, opened and closed 2026-09-05) — `secrets-and-configuration.md`'s
+`local`/`test,e2e`/`Kubernetes` split for the JWT key set cannot be implemented by Spring profile
+alone: `local-environment.md` §4 runs the canonical Kubernetes chart under the identical
+`spring.profiles.active=local` compose uses, but the two rows need opposite behaviour — generate and
+persist to a file under compose (one instance), fail if absent under Kubernetes (the chart's own HPA
+can run more than one replica). Fixed: a new non-secret switch, `turnbase.auth.jwt-key-set-required`
+(`local-environment.md` §7.4, default `false`), set to `true` only by the Helm chart's ConfigMap;
+`secrets-and-configuration.md` §3.1 now states this is the actual mechanism and profile is not.
+
+**IMP-GATE-15** (`IMP-M0-09`, opened and closed 2026-09-05) — the *Done when* clause requires a
+Kubernetes Secret path for every secret, including the JWT key set, but
+`secrets-and-configuration.md` §3.1 named none: it said only "Supplied; startup fails if absent," and
+§7 deliberately excludes secrets by design, so there was nowhere else it could be named either.
+Fixed: §3.1 now names `TURNBASE_JWT_KEY_SET` (`turnbase.auth.jwt-key-set`), one JSON-valued
+environment variable carrying the whole key set in §3.2's own shape.
 
 **IMP-GATE-14** (`IMP-M0-07`, opened and closed 2026-09-05) — `local-environment.md` §1 said
 compose achieves the loopback-only management port by setting `management.server.address =
