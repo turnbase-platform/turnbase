@@ -1,5 +1,71 @@
 ## Last Session Summary
 
+**Date:** 2026-09-05 (session 23)
+
+**IMP-M0-08 — Local stack, Helm chart, `turnbase-platform`. DONE. 9 of 60 items complete.**
+`deploy/helm/turnbase/` — Platform Monolith, Game Host, Postgres, Redis, MinIO (Deployment/
+StatefulSet + Service each, mirroring the compose profile's five core components) plus the six
+observability containers and a `minio-init` Job, verified against a real Docker Desktop Kubernetes
+cluster rather than only rendered: `helm upgrade --install` brought up all eleven pods; the
+management port answered a real kubelet probe on every workload, unset per §1, with every Service
+`ClusterIP` and the Ingress routing only the `http` port; a live `kubectl rollout restart` showed the
+successor `Running`/`Ready` **before** the incumbent began terminating (`maxSurge: 1,
+maxUnavailable: 0`) — the ADR-0008 property this item exists to prove; and a live Loki query through
+the deployed chart returned real platform-pod log lines, matching the bar `IMP-M0-07` set for
+compose's own Promtail. No gates — `IMP-GATE-12`'s repo-field fix from the previous session was the
+only open item, already closed there.
+
+### `application.yml` was missing the shutdown config the chart's drain budget depends on
+
+`local-environment.md` §3's shutdown table names `server.shutdown: graceful` and
+`spring.lifecycle.timeout-per-shutdown-phase: 30s` as what makes a `preStop` pause and
+`terminationGracePeriodSeconds` mean anything; neither existed in `application.yml`; without them
+Spring exits immediately on SIGTERM and the Helm chart's drain settings are decoration. Not a gate —
+`IMP-M0-03`'s own *Done when* never named them, so nothing had been promised and broken, just never
+exercised until this item sent the app a real SIGTERM inside a pod. Added both; `./mvnw
+verify`/`-Pintegration` stayed green.
+
+### Two toolchain traps that would have shipped a chart silently dropping every log line
+
+**`kubernetes_sd_configs` (`role: pod`) returned zero discovered Promtail targets against this
+cluster's client-go, with no logged error** — reproduced live: RBAC granted exactly `list`/`watch` on
+`pods`, and the same ServiceAccount's token listed pods successfully via a direct API call, yet
+`promtail_targets_active_total` stayed `0` through a manual debug run. Replaced with a `static_configs`
+file glob over `/var/log/pods/*/*/*.log`, extracting namespace/pod/container from the directory name
+Kubernetes itself encodes — no Kubernetes API access needed for a DaemonSet that only ever reads its
+own node's logs. Two more layers surfaced only once log lines still didn't arrive after that swap:
+the entries under `/var/log/pods/.../<container>/` are themselves symlinks into
+`/var/lib/docker/containers` on this cluster's dockerd-backed runtime (needed a second hostPath
+mount), and the files there are Docker's JSON-lines envelope, not CRI plaintext — swapped the
+pipeline's `cri: {}` stage for `docker: {}`, matching `docker-compose.observability.yml`'s own
+Promtail exactly. Both are scoped to the dockerd-backed Docker-Desktop-Kubernetes path this chart
+targets; a containerd-CRI cluster would have needed neither adjustment.
+
+**A `minio-init` Job cannot be a Helm hook here — an ordering deadlock, not a style choice.** A
+completed Job's spec being immutable makes `helm.sh/hook: post-install,post-upgrade` +
+`before-hook-creation` the obvious fit, but it deadlocks under `--wait`: Helm's `--wait` blocks on the
+**main** resources reaching ready *before* running post-install hooks, and the Platform Monolith's
+readiness never arrives without the bucket the hook would create — reproduced live (`--wait` timed
+out with the Platform Monolith crash-looping on `NoSuchBucketException`, the Job never having run).
+Fixed by making `minio-init` an ordinary resource applied in the same batch as MinIO and the
+Platform Monolith, accepting the same eventually-consistent crash-loop-then-recover shape a bare
+Kubernetes Job can't avoid without compose's `depends_on: condition: service_healthy`.
+`{{ .Release.Revision }}` in the Job's name sidesteps the immutable-Job-on-upgrade problem instead of
+a hook's delete policy.
+
+### The cluster's own `ingress-nginx` was reinstalled, not newly added
+
+Docker Desktop Kubernetes already carried an orphaned `IngressClass` named `nginx` and a
+`ValidatingWebhookConfiguration` with no controller behind either — a server-side dry-run of this
+chart's Ingress failed on the stale webhook. Removed the four orphaned cluster-scoped objects
+(verified none had a workload behind them) and reinstalled the upstream `ingress-nginx` chart with
+the same class name `local-environment.md` already assumes exists. Left running as generic cluster
+infrastructure, not scoped to this item.
+
+---
+
+## Session 22 Summary
+
 **Date:** 2026-09-05 (session 22)
 
 **IMP-M0-07 — Local stack, compose profile, `turnbase-platform`. DONE. 8 of 60 items complete.**

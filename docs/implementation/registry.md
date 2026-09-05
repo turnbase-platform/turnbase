@@ -35,7 +35,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M0-05 | Frontend skeleton | frontend | — | DONE |
 | IMP-M0-06 | Flyway baseline `V202608091200__baseline.sql` | platform | M0-03 | DONE |
 | IMP-M0-07 | Local stack — compose profile | platform | M0-03, M0-04, M0-05 | DONE |
-| IMP-M0-08 | Local stack — Helm chart (canonical) | platform | M0-07 | WIP (session 23) |
+| IMP-M0-08 | Local stack — Helm chart (canonical) | platform | M0-07 | DONE |
 | IMP-M0-09 | Configuration and secrets wiring | platform, game-host | M0-03, M0-04 | READY |
 | IMP-M0-10 | Observability baseline | platform, game-host | M0-03, M0-04 | READY |
 | IMP-M0-11 | CI/CD workflows | all | M0-01…05 | READY |
@@ -646,8 +646,82 @@ old (wrong) mechanism were corrected, and `docker-compose.yml` here no longer se
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M0-07
 
+**Done 2026-09-05 (session 23).** `deploy/helm/turnbase/` — Platform Monolith, Game Host, Postgres,
+Redis, MinIO (all as separate Deployment/StatefulSet + Service, mirroring `docker-compose.yml`'s five
+core components) plus the six observability containers (mirroring `docker-compose.observability.yml`),
+an Ingress with the two host rules, and a `minio-init` Job for the bundle bucket. Verified against a
+real Docker Desktop Kubernetes cluster, not just rendered: `helm upgrade --install` brings up all
+eleven pods plus the completed init Job; the management port (`8081`) answers a real kubelet
+readiness probe on every Deployment/StatefulSet, unset per §1; every Service is `ClusterIP` and the
+Ingress routes only the `http` port, so nothing ever names `8081`; a live `kubectl rollout restart`
+on the Platform Monolith showed the successor `Running` and `Ready` **before** the incumbent began
+terminating (`maxSurge: 1, maxUnavailable: 0`), which is the ADR-0008 property this item exists to
+prove, not merely configure; and — matching the bar `IMP-M0-07` set for its own Promtail — a live
+Loki query through the deployed chart returned real platform-pod log lines, not just "the container
+started."
+
 **Closed:** IMP-GATE-12 (opened and closed 2026-09-05, on IMP-M0-07) — `Repo` corrected from "this
 repo" to `turnbase-platform` for the same reason as IMP-M0-07's own note.
+
+### `spring.lifecycle.timeout-per-shutdown-phase` and `server.shutdown: graceful` did not exist before this item
+
+`local-environment.md` §3's shutdown table names both as the mechanism that makes the chart's
+`preStop`/`terminationGracePeriodSeconds` mean anything — without them Spring exits immediately on
+SIGTERM and the drain budget is pure decoration. Neither was in `application.yml`; `IMP-M0-03`'s own
+*Done when* never named them, so this was not a broken promise, just an omission nothing had
+exercised yet, surfaced by the first item that actually sends the app a real SIGTERM inside a pod.
+Added both, `./mvnw verify`/`-Pintegration` still green.
+
+### Two toolchain traps, neither in any spec, that would have shipped a chart that silently drops every log line
+
+- **A wildcard Ingress host (`*.games.localhost`) is a YAML alias to `helm lint`'s parser** —
+  unquoted, `- host: *.games.localhost` fails "did not find expected alphabetic or numeric character"
+  because YAML reads a bare leading `*` as an anchor reference. Quoted both host fields.
+- **`kubernetes_sd_configs` (`role: pod`) returned zero discovered targets against this cluster's
+  Promtail/client-go, with no logged error** — confirmed live: RBAC granted exactly the needed
+  `list`/`watch` on `pods`, and the same ServiceAccount's own token listed pods successfully via a
+  direct `kubectl exec` curl, yet `promtail_targets_active_total` stayed `0` through a manual
+  `-log.level=debug -dry-run` run. Replaced with a `static_configs` file glob
+  (`/var/log/pods/*/*/*.log`) plus a `regex` pipeline stage pulling namespace/pod/container out of
+  the directory name Kubernetes itself encodes — no Kubernetes API access needed at all for a
+  DaemonSet, which only ever needs its own node's logs. Two more layers under that one, both found
+  only by watching real log lines fail to arrive after the SD swap: the entries under
+  `/var/log/pods/.../<container>/` are themselves symlinks into `/var/lib/docker/containers` on this
+  cluster's dockerd-backed runtime (a second hostPath mount was missing), and the files there are
+  Docker's own JSON-lines envelope, not the CRI plaintext format — the `cri: {}` pipeline stage
+  silently no-ops on the wrong format, same as a missing stage; swapped for `docker: {}`, matching
+  `docker-compose.observability.yml`'s own Promtail exactly. A containerd-CRI cluster hits none of the
+  last two — the second hostPath mount is simply unused, and `cri: {}` would have been the right
+  stage — but this chart's target is the Docker-Desktop-Kubernetes canonical path `local-environment.md`
+  §4 names, which is dockerd-backed.
+
+### The `minio-init` Job cannot be a Helm hook here — a genuine ordering deadlock, not a style choice
+
+`local-environment.md` §5 says the bucket-creation step "runs as a Job" under Kubernetes, and a
+Job that fails to reapply on every `helm upgrade` (a completed Job's spec is immutable) is exactly
+what `helm.sh/hook: post-install,post-upgrade` plus `before-hook-creation` is for. It deadlocks
+under `--wait`: Helm's `--wait` blocks on the **main** resources reaching ready *before* running
+post-install hooks, and the Platform Monolith's own readiness never arrives without the bucket the
+hook would create — reproduced live (`helm upgrade --install --wait` timed out with the Platform
+Monolith crash-looping on `NoSuchBucketException`, the Job never having run at all). Fixed by making
+`minio-init` an ordinary resource, applied in the same batch as MinIO and the Platform Monolith, so
+`--wait` watches all three converge together — the Platform Monolith crash-loops briefly, which is
+the same eventually-consistent shape `docker-compose.yml`'s own `depends_on: condition:
+service_healthy` avoids and a bare Kubernetes Job cannot express. `{{ .Release.Revision }}` in the
+Job's name sidesteps the immutable-Job-on-upgrade problem instead of a hook's delete policy, with
+`ttlSecondsAfterFinished` reaping old runs.
+
+### The Docker Desktop Kubernetes cluster's own `ingress-nginx` was reinstalled, not newly added
+
+The cluster already carried an `IngressClass` named `nginx` and a `ValidatingWebhookConfiguration`
+for `ingress-nginx-admission`, both orphaned — no controller Deployment, no Service, empty
+`ingress-nginx` namespace — left over from before this session. A server-side dry-run of this
+chart's Ingress failed on the stale webhook calling a Service that no longer exists. Removed the four
+orphaned cluster-scoped objects (`ClusterRole`/`ClusterRoleBinding` × 2, the webhook, the
+`IngressClass` — verified none had a controller or workload behind them first) and reinstalled the
+upstream `ingress-nginx` chart with `controller.ingressClassResource.name=nginx`, the class name
+`local-environment.md` already assumes exists. Left running: it is generic infrastructure this
+cluster's own spec requires, not scoped to this item's verification.
 
 **Read first:**
 - `docs/specs/deployment/local-environment.md` §4 (*Kubernetes is canonical; compose is the quick
