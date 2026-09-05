@@ -782,6 +782,12 @@ now `READY` outright.** `IMP-M0-12` (seed data) depends on `M0-06` too but stays
 `IMP-M0-09`/`M0-10` (config/secrets, observability) and `IMP-M0-11` (CI/CD workflows, all five
 repos) are open, each depending only on `M0-03`+`M0-04` (or a subset).
 
+**IMP-GATE-12** (`IMP-M0-07`/`IMP-M0-08`, opened and closed 2026-09-05) — both items' `Repo` field
+said "this repo" (the root `turnbase` landing repo), but `local-environment.md` §4 roots the whole
+deploy tree — compose files, Helm chart — at `turnbase-platform/deploy/…`, and ADR-0012 describes
+`turnbase` itself as holding only docs, specs and submodule refs, no deploy artifacts. Fixed: both
+items' `Repo` corrected to `turnbase-platform`, matching the spec and the ADR.
+
 **IMP-GATE-11** (`IMP-M0-06`, opened and closed 2026-09-05) — `schema-migrations.md` §5 names
 `shedlock` as a baseline table but no document supplied its columns. Fixed: §5 now states the DDL,
 which is ShedLock's own fixed schema, not a TurnBase design choice.

@@ -34,8 +34,8 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M0-04 | Game Host skeleton | game-host | M0-01 | DONE |
 | IMP-M0-05 | Frontend skeleton | frontend | — | DONE |
 | IMP-M0-06 | Flyway baseline `V202608091200__baseline.sql` | platform | M0-03 | DONE |
-| IMP-M0-07 | Local stack — compose profile | this repo | M0-03, M0-04, M0-05 | WIP (session 22) |
-| IMP-M0-08 | Local stack — Helm chart (canonical) | this repo | M0-07 | READY |
+| IMP-M0-07 | Local stack — compose profile | platform | M0-03, M0-04, M0-05 | WIP (session 22) |
+| IMP-M0-08 | Local stack — Helm chart (canonical) | platform | M0-07 | READY |
 | IMP-M0-09 | Configuration and secrets wiring | platform, game-host | M0-03, M0-04 | READY |
 | IMP-M0-10 | Observability baseline | platform, game-host | M0-03, M0-04 | READY |
 | IMP-M0-11 | CI/CD workflows | all | M0-01…05 | READY |
@@ -551,7 +551,17 @@ keyed by `session_id` (never by room — ADR-0010) and `game_input_outbox` with 
 
 ### IMP-M0-07 — Local stack, compose profile
 
-**Repo:** this repo · **Depends on:** IMP-M0-03, M0-04, M0-05
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M0-03, M0-04, M0-05
+
+**Closed:** IMP-GATE-12 (opened and closed 2026-09-05) — this item's own `Repo` field said "this
+repo" (the root `turnbase` landing repo), but its read-list document, `local-environment.md` §4,
+roots the whole deploy tree it describes at `turnbase-platform/deploy/…`, and ADR-0012 §*Repos*
+describes `turnbase` itself as holding only "docs, specs, submodule refs" — no deploy artifacts of
+any kind. The two could not both be right: a compose file and Helm chart cannot live in
+`turnbase-platform` per the spec that defines their layout while the registry assigns the item that
+builds them to a different repository entirely. Fixed here, the document that was wrong — `Repo` is
+now `turnbase-platform`, matching `local-environment.md` §4 and ADR-0012. Also fixed on IMP-M0-08
+below, which inherited the same error.
 
 **Read first:**
 - `docs/specs/deployment/local-environment.md` in full — especially §1 (**eleven long-running
@@ -587,7 +597,10 @@ keyed by `session_id` (never by room — ADR-0010) and `game_input_outbox` with 
 
 ### IMP-M0-08 — Local stack, Helm chart
 
-**Repo:** this repo · **Depends on:** IMP-M0-07
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M0-07
+
+**Closed:** IMP-GATE-12 (opened and closed 2026-09-05, on IMP-M0-07) — `Repo` corrected from "this
+repo" to `turnbase-platform` for the same reason as IMP-M0-07's own note.
 
 **Read first:**
 - `docs/specs/deployment/local-environment.md` §4 (*Kubernetes is canonical; compose is the quick
