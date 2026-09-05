@@ -693,6 +693,10 @@ it depends only on `IMP-M0-03` — and `IMP-M3-12` (FE GDK client, `turnbase-sdk
 unblocked since `IMP-M0-02`. `IMP-M0-09`/`M0-10` (config/secrets, observability) are also open,
 each depending only on `M0-03`+`M0-04`.
 
+**IMP-GATE-11** (`IMP-M0-06`, opened and closed 2026-09-05) — `schema-migrations.md` §5 names
+`shedlock` as a baseline table but no document supplied its columns. Fixed: §5 now states the DDL,
+which is ShedLock's own fixed schema, not a TurnBase design choice.
+
 **IMP-GATE-10** (`IMP-M0-06`, opened and closed 2026-09-05) — the *Done when* clause named the
 baseline file `V1__baseline.sql`, contradicting ADR-0011 §5 and `schema-migrations.md` §§1–2, which
 mandate timestamp-based naming and both already name the real file `V202608091200__baseline.sql`.

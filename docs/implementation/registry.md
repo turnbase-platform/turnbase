@@ -510,6 +510,13 @@ sequential scheme produces across parallel branches) and both already name the a
 `V202608091200__baseline.sql`. Fixed: this registry entry — the one document that had it wrong — now
 names `V202608091200__baseline.sql` throughout; ADR-0011 and `schema-migrations.md` needed no change.
 
+**Closed:** IMP-GATE-11 (opened and closed 2026-09-05) — `schema-migrations.md` §5 names `shedlock`
+as one of the baseline's tables, but no document in the read-list — nor any other document in the
+corpus — gives its columns, so the *Done when* clause ("every table... named in the six documents")
+could not be satisfied for this one table by transcription alone. Fixed: `schema-migrations.md` §5
+now states `shedlock`'s DDL explicitly, noting it is ShedLock's own fixed `JdbcTemplateLockProvider`
+schema rather than a TurnBase design choice.
+
 **Done when:** `V202608091200__baseline.sql` creates every table, constraint and index named in the
 six documents; Flyway migrates a clean Postgres 16 to completion; a re-run is a no-op; the FK graph
 admits the creation order used.

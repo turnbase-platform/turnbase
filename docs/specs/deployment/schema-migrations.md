@@ -172,6 +172,20 @@ Non-concurrent `CREATE INDEX` remains correct in the baseline, where the tables 
 appears in the database but not in the migration history is a table nobody can review, and its
 absence on a fresh instance is discovered when the first scheduled job runs, not at startup.
 
+Its shape is the one ShedLock's `JdbcTemplateLockProvider` requires verbatim — this is not a TurnBase
+design choice, and no column here may be renamed or resized without breaking the library's own
+queries:
+
+```sql
+CREATE TABLE shedlock (
+  name       varchar(64)  NOT NULL,
+  lock_until timestamp(3) NOT NULL,
+  locked_at  timestamp(3) NOT NULL,
+  locked_by  varchar(255) NOT NULL,
+  PRIMARY KEY (name)
+);
+```
+
 ---
 
 ## 6. Verification in CI
