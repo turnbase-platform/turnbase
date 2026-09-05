@@ -33,7 +33,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M0-03 | Platform Monolith skeleton | platform | — | DONE |
 | IMP-M0-04 | Game Host skeleton | game-host | M0-01 | DONE |
 | IMP-M0-05 | Frontend skeleton | frontend | — | DONE |
-| IMP-M0-06 | Flyway baseline `V202608091200__baseline.sql` | platform | M0-03 | WIP (session 20) |
+| IMP-M0-06 | Flyway baseline `V202608091200__baseline.sql` | platform | M0-03 | DONE |
 | IMP-M0-07 | Local stack — compose profile | this repo | M0-03, M0-04, M0-05 | READY |
 | IMP-M0-08 | Local stack — Helm chart (canonical) | this repo | M0-07 | READY |
 | IMP-M0-09 | Configuration and secrets wiring | platform, game-host | M0-03, M0-04 | READY |
@@ -489,6 +489,22 @@ from source, which this project never does.
 ### IMP-M0-06 — Flyway baseline
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M0-03
+
+**Done 2026-09-05 (session 20).** `V202608091200__baseline.sql` transcribes all twenty tables from
+the six schema documents, in the order and with the extensions/sequence/deferred FK fixed by
+`schema-migrations.md` §5; `db/schema.sql` is committed alongside it. Verified against a real
+Postgres 16 via Testcontainers (`FlywayBaselineIT`): the migration succeeds, creates exactly the
+twenty expected tables, and a re-run applies zero migrations. `TurnBaseApplicationIT` boots the full
+application against the same image, proving Flyway runs at startup per `schema-migrations.md` §3.
+**CI green on `master`**, including the newly-wired `-Pintegration` step.
+
+Exercising this path for the first time surfaced two dormant defects, fixed in the same session:
+`ModularityTests.java` never matched surefire's `**/*Test.java` include (renamed to
+`ModularityTest.java`), and `spring-modulith` 2.1.1 is binary-incompatible with Spring Boot 3.5.16
+(`NoSuchMethodError` on `ConfigDataEnvironmentPostProcessor.applyTo` — 2.x targets a newer Boot
+generation); pinned to 1.4.13, the latest release actually compatible with this Boot line. Neither
+had ever run: the Modulith verification test — the thing ADR-0014 relies on to catch a feature
+boundary violation — has been silently absent from every green build since IMP-M0-03.
 
 **Read first:** all six schema documents, in this order —
 

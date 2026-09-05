@@ -1,5 +1,46 @@
 ## Last Session Summary
 
+**Date:** 2026-09-05 (session 20)
+
+**IMP-M0-06 — Flyway baseline, `turnbase-platform`. DONE. 6 of 60 items complete.**
+`V202608091200__baseline.sql` transcribes all twenty tables from the six `docs/specs/platform/`
+schema documents, in the table order, extensions, sequence and one deferred FK fixed by
+`schema-migrations.md` §5; `db/schema.sql` is committed alongside it. Verified against a real
+Postgres 16 via Testcontainers: a clean migrate succeeds and creates exactly the twenty expected
+tables, a re-run applies zero migrations, and the full application boots against the same image now
+that Flyway runs at startup. CI green on `master`.
+
+### Two gates, opened and closed the same session
+
+- **IMP-GATE-10** — the *Done when* clause named the baseline file `V1__baseline.sql`, contradicting
+  ADR-0011 §5 and `schema-migrations.md` §§1–2, which mandate timestamp-based naming and both already
+  named the real file `V202608091200__baseline.sql`. Fixed in the registry, the one document that had
+  it wrong.
+- **IMP-GATE-11** — `schema-migrations.md` §5 named `shedlock` as a baseline table but no document
+  supplied its columns. Fixed: §5 now states the DDL, which is ShedLock's own fixed
+  `JdbcTemplateLockProvider` schema, not a TurnBase design choice.
+
+### Actually exercising this path surfaced two defects nobody had seen before
+
+Flyway-at-startup forced the existing app-boot smoke test into the integration tier (a real
+database is now a startup precondition), and running it there for the first time exposed two dormant
+bugs, both fixed this session:
+
+- **`ModularityTests.java` never matched surefire's `**/*Test.java` include** — the file was `*Tests`,
+  plural. The Modulith boundary check (ADR-0014) has been silently absent from every green build since
+  IMP-M0-03. Renamed to `ModularityTest.java`.
+- **`spring-modulith` 2.1.1 is binary-incompatible with Spring Boot 3.5.16** — `NoSuchMethodError` on
+  `ConfigDataEnvironmentPostProcessor.applyTo`; Modulith 2.x targets a newer Boot generation. Pinned to
+  1.4.13, the latest release actually compatible with this Boot line. This had been masked by the same
+  bug above: the test that would have caught it had never run.
+- **CI ran plain `mvnw verify`, never `-Pintegration`** — the merged unit+integration coverage design
+  in `conventions.md` §3 had never been exercised. Wired `-Pintegration` into `build.yml`'s Verify
+  step; ubuntu-latest ships Docker, so Testcontainers needed no extra CI setup.
+
+---
+
+## Session 19 Summary
+
 **Date:** 2026-09-05 (session 19)
 
 **No work item. A workflow change: pull requests are suspended and Dependabot is frozen, across
@@ -680,18 +721,18 @@ says which of them to pick up.
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
-**Progress: 5 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 6 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
-`turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`) and `IMP-M0-05`
-(Frontend skeleton, `turnbase-frontend`), all pushed and green in CI. **No work item is gated**,
-and all 23 readiness blockers remain closed, so an item's status is whatever its own dependencies
-imply.
+`turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), `IMP-M0-05`
+(Frontend skeleton, `turnbase-frontend`) and `IMP-M0-06` (Flyway baseline, `turnbase-platform`), all
+pushed and green in CI. **No work item is gated**, and all 23 readiness blockers remain closed, so
+an item's status is whatever its own dependencies imply.
 
-**`IMP-M0-01`…`M0-05` are now all `DONE`, which unblocks `IMP-M0-11` (CI/CD workflows, all five
-repos) for the first time.** `IMP-M0-06` (Flyway baseline) remains the highest-value open item —
-it depends only on `IMP-M0-03` — and `IMP-M3-12` (FE GDK client, `turnbase-sdk`) is still `READY`,
-unblocked since `IMP-M0-02`. `IMP-M0-09`/`M0-10` (config/secrets, observability) are also open,
-each depending only on `M0-03`+`M0-04`.
+**`IMP-M0-06`'s completion unblocks `IMP-M4-02` (manifest schema validation, `turnbase-platform`),
+now `READY` outright.** `IMP-M0-12` (seed data) depends on `M0-06` too but stays gated on `IMP-M4-03`.
+`IMP-M3-12` (FE GDK client, `turnbase-sdk`) is still `READY`, unblocked since `IMP-M0-02`.
+`IMP-M0-09`/`M0-10` (config/secrets, observability) and `IMP-M0-11` (CI/CD workflows, all five
+repos) are open, each depending only on `M0-03`+`M0-04` (or a subset).
 
 **IMP-GATE-11** (`IMP-M0-06`, opened and closed 2026-09-05) — `schema-migrations.md` §5 names
 `shedlock` as a baseline table but no document supplied its columns. Fixed: §5 now states the DDL,
