@@ -1,99 +1,70 @@
 ## Last Session Summary
 
-**Date:** 2026-09-05 (session 25)
+**Date:** 2026-09-05/06 (session 26)
 
-**IMP-M0-10 — Observability baseline, `turnbase-platform` + `turnbase-game-host`. DONE. 11 of 60
-items complete.** Both services now export Prometheus metrics (`/actuator/prometheus`, management
-port only), emit Logback JSON to stdout, and carry the OpenTelemetry Java agent for tracing.
-`BusinessMetricsConfig` polls the four FR-MET-003 gauges from Postgres every 30 seconds — buildable
-now because the tables already exist from `IMP-M0-06`, independent of the room/social features that
-will eventually populate them. `CorrelationIdFilter` is the HTTP-boundary MDC entry point; a
-`ClientInterceptor`/`ServerInterceptor` pair (duplicated per repo, not shared code — the wire
-contract is the plain metadata key name) copies the five correlation IDs across a gRPC hop, proven
-against a controlled in-process call since no live gRPC client exists in the platform yet. Prometheus
-scrapes both services and evaluates three alert rules (`HighErrorRate`, `HighLatencyP95`,
-`DbPoolSaturated`); Alertmanager renders its webhook receiver in or out at container start with `sed`,
-since the image has no environment-variable expansion. Two of `observability.md` §5's four Grafana
-dashboards are built; the other two wait on signals that don't exist yet. CI green on both repos —
-`./mvnw verify -Pintegration` — and the whole thing was also verified against the real `docker compose`
-stack end to end: a live HTTP request produces a trace visible in Tempo, the log line's `trace_id`
-matches it, both scrape targets are `up`, all three rules evaluate, and both Alertmanager render
-branches were checked directly.
+**IMP-M0-11 — CI/CD workflows, all five repos. DONE. 12 of 60 items complete.** Every repo's
+`build.yml` gained a Trivy dependency scan (report every severity, then gate on CRITICAL,
+FR-CICD-010) — which immediately caught a real finding, CVE-2026-65182 in the Tomcat Spring
+Boot 3.5.16 embeds, fixed in `turnbase-platform` and `turnbase-game-host` by pinning
+`tomcat.version` to `10.1.59` (10.1.58 itself was never published to Central). `turnbase-platform`,
+`turnbase-game-host` and `turnbase-frontend` also gained an image Trivy scan and now push their
+image to `ghcr.io/turnbase-platform/<name>:<sha>` on every push to `master` (FR-CICD-006) —
+verified live in all three. `turnbase-common` and `turnbase-sdk` each gained a `publish.yml`
+gated on a `v*.*.*` tag only; neither has run for real yet, since cutting a tag is a human
+action the agent does not take. `turnbase-platform` gained `make e2e` and a post-merge job —
+**verified for real against the actual compose stack**: both services' health checks return
+`UP`. **CI green on `master` in all five repos.**
 
-### The item's own Done-when clause was wrong before any code was written
+### Three gates, all opened and closed in this session, all found by trying to build the pipeline rather than by reading
 
-`IMP-M0-10`'s *Done when* required proving trace propagation "across the REST → gRPC boundary" — but
-neither service has one yet: `turnbase-platform` issues no outbound gRPC call and runs no gRPC
-server, and the Game Host's one outbound call (`Register`) isn't triggered by an inbound REST request.
-That request chain doesn't exist before `IMP-M3-05`. Same shape as `IMP-GATE-08`, closed as
-**IMP-GATE-18**: the agent-and-Tempo check for a real HTTP request stayed (genuine, but HTTP-only for
-now); the cross-process claim narrowed to the correlation-ID interceptor pair, proven against a
-controlled call; the live, request-shaped, agent-instrumented check moved to `IMP-M3-05`, which
-gained a Done-when clause for it. `IMP-M0-10`'s own *Satisfies* line was narrowed to match — five
-requirements this item genuinely cannot build yet (`FR-MET-002`, `FR-MET-005`,
-`FR-ALERT-003/006/007`, plus the Game Host's own `platform-architecture.md` `FR-OBS-*`) were
-explicitly handed to the items that will have the signal source: `IMP-M2-02`, a new `conventions.md`
-§7 convention, and `IMP-M3-09`/`IMP-M2-10`/`IMP-M3-08` respectively.
+**IMP-GATE-23** — `platform-operations.md` FR-CICD-002/003 and OQ-002's resolution still gated
+the pipeline on a **pull request** ("the PR cannot be merged...", "PR feedback loops"), but
+ADR-0012 (amended 2026-09-05, the same day) suspends pull requests project-wide — a
+`pull_request`-triggered gate would never fire. Fixed: FR-CICD-002 retitled *Pre-merge checks*,
+reworded to gate on push to `master`; FR-CICD-003/OQ-002 updated to match. No workflow code
+changed — the five repos' `build.yml` files already ran on push.
 
-### Four more gates, found only by running the thing
+**IMP-GATE-24** — FR-CICD-007/008 require a tag-triggered production deployment and its
+rollback, but ADR-0001 already deferred all cloud/production deployment to post-MVP and names
+the local Docker Desktop cluster as the only CI-exercised deploy path — no production target
+exists anywhere in the corpus for either to reach. ADR-0001's own *Affected documents* deferred
+`FR-SCALE-*` explicitly but never propagated the same deferral here. Fixed: FR-CICD-007/008
+marked deferred to post-MVP; ADR-0001 updated to record it. `IMP-M0-11`'s own Satisfies/Done-when
+narrowed to match — FR-CICD-006 (image push to a registry) stands, since a registry needs no
+production target.
 
-**IMP-GATE-19** — `observability.md` §3's own worked JSON example showed `"sessionId": null` two
-sentences after the prose next to it said correlation IDs are "omitted when absent rather than
-written as empty strings." The example just contradicted its own rule. Fixed: the example now omits
-the key.
+**IMP-GATE-25** — `game-development-experience.md` CON-003 and ADR-0012's Release Strategy
+commit `turnbase-sdk` to Maven Central + npm, but no document names an open-source license, and
+Maven Central's publish validation rejects a POM with no `<licenses>`. This is a real decision
+the corpus left open, not a CI mechanic — raised to the project owner, who deferred it rather
+than have it picked under a CI work item. Fixed: both documents now say the public-registry
+publish is deferred until a license is chosen. Only the **Maven** half gets an interim home
+(GitHub Packages, same as `turnbase-common`) — GitHub Packages' npm registry requires a scope
+matching the `turnbase-platform` org, which `@turnbase/gdk` (FR-FEGDK-007) cannot satisfy, so the
+npm package stays unpublished by any registry until the public one is available.
 
-**IMP-GATE-20** — `observability.md` §2.1's literal SQL for `turnbase_friend_requests_pending`
-filtered on `WHERE status = 'PENDING'`, but the baseline `friend_request` table (`IMP-M0-06`, already
-`DONE`) has no `status` column at all — the query would fail against the real schema. Fixed: an
-unfiltered `count(*)`, plus a sentence explaining why that's correct rather than a shortcut — a
-pending request's row existing *is* what "pending" means in this schema; accepting one deletes it and
-inserts a `friendship` row, declining or expiring one just deletes it.
+**None of the three would have been caught by `check-corpus.py`**, and the Tomcat CVE would not
+have been caught by reading anything — only by actually running the new Trivy gate.
 
-**IMP-GATE-21** — found only by actually running the compose stack and reading the resulting log
-line: the OpenTelemetry Java agent's `logback-mdc` instrumentation — the mechanism `observability.md`
-§3 itself credits with the injection — writes `trace_id`/`span_id` (OpenTelemetry semantic
-conventions for log correlation, not a project choice), not the camelCase `traceId`/`spanId` the
-doc's worked example and the Grafana derived-field regex both assumed. Fixed the doc and the two
-committed config files that repeated the wrong spelling (`promtail-config.yaml`,
-`datasources.yaml`) — the five project-owned correlation IDs (`requestId` etc.) were never affected.
+### Two things this item could not exercise live, both because of actions reserved to a human
 
-**IMP-GATE-22** — also found only by running the stack: `tempo.yaml` (`IMP-M0-08`) left the OTLP
-receivers on Tempo's own default bind, which is loopback — unreachable from another container even
-though the port is published on the compose network, the same class of bug `IMP-GATE-14` already
-found for the management port. Every span export failed with `Connection refused` and zero traces
-ever reached Tempo until this was fixed with an explicit `endpoint: 0.0.0.0:4317`/`:4318`.
+- **Cutting a `v*.*.*` tag** is the release trigger (ADR-0012) and is explicitly a human action
+  under this project's permissions — the agent does not do it. `turnbase-common`'s and
+  `turnbase-sdk`'s `publish.yml` are reviewed and YAML-valid, but neither has had a real run.
+- **`TURNBASE_GAME_HOST_PAT`**, the fine-grained PAT `make e2e`'s CI job needs to check out the
+  sibling `turnbase-game-host` repo (same bootstrap pattern as `TURNBASE_COMMON_PAT`,
+  `conventions.md`), does not exist yet — provisioning it means signing in to GitHub, the same
+  category of human action as cutting a tag. The `e2e` job currently fails at that checkout step
+  in CI exactly as expected; `continue-on-error: true` keeps that from failing the workflow, and
+  `make e2e` itself was verified for real, locally, against the actual compose stack instead.
 
-**None of the four would have been caught by reading, and none by `check-corpus.py`.** They surfaced
-only because something finally exported a real span and read the log line it produced — the same
-lesson `IMP-GATE-01…03` taught on the first item: a skeleton compiling against the documents is a
-different test than a document being internally consistent.
+### One remote-branch cleanup step the agent could not complete
 
-### One bug fixed outside this item's scope, because it blocked verifying this item's own work
-
-`turnbase-platform`'s Dockerfile (`IMP-M0-03`) never `chown`ed `/app` before switching to the
-non-root `turnbase` user, so `JwtKeySetConfig`'s (`IMP-M0-09`) local key persistence failed with
-`AccessDeniedException` on every single boot of the real image — a bug that would have blocked
-*every* deployment the moment anyone actually ran the container, not something specific to
-observability. Nobody had run the real Docker image end-to-end before this session; earlier
-verification stopped at unit/integration tests and Helm chart validation. Fixed with a one-line
-`chown` in the same `RUN` that creates the user. Not a specification defect — no document
-contradicted another — just an untested path, fixed because it stood between this session and
-verifying its own Done-when clause.
-
-### Two design decisions worth remembering for the items that pick up the deferred pieces
-
-- **The polled-gauge pattern doesn't need its feature to exist.** `turnbase_rooms_active` and
-  friends are pure SQL against tables the baseline migration already created — the fact that no
-  Java code populates `room` rows yet doesn't block exposing (and correctly reading zero from) the
-  metric. The same reasoning is why `IMP-M3-08`'s teardown-age gauge, `IMP-M2-10`'s duty counters and
-  `IMP-M3-09`'s failure-rate signal were *not* pulled forward the same way: their underlying tables
-  either don't exist yet or their exact metric name isn't specified anywhere in this item's
-  read-list, and inventing one would have been exactly the kind of silent decision `spec-defect`
-  exists to stop.
-- **A gRPC boundary needs two interceptors that never share code**, one per repo, because
-  `turnbase-common`'s published stubs deliberately carry no transport or support code
-  (`conventions.md` §5) — the wire contract is the plain string metadata key name, and each side
-  just has to agree on the spelling.
+Every `feat/imp-m0-11-*` branch across the five repos was merged to `master` and deleted
+**locally**, but `git push origin --delete` is denied to the agent (hard deny, not the ADR-0012
+soft convention) — the remote branches still exist, merged and inert. A human should delete
+them: `turnbase-common`, `turnbase-sdk`, `turnbase-platform` (×2: `feat/imp-m0-11-cicd`,
+`feat/imp-m0-11-e2e`), `turnbase-game-host`, `turnbase-frontend`.
 
 ---
 ## Next Priorities
@@ -107,16 +78,16 @@ says which of them to pick up.
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
-**Progress: 11 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 12 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
 `turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), `IMP-M0-05`
 (Frontend skeleton, `turnbase-frontend`), `IMP-M0-06` (Flyway baseline, `turnbase-platform`),
 `IMP-M0-07` (local stack compose profile, `turnbase-platform`), `IMP-M0-08` (Helm chart,
 `turnbase-platform`), `IMP-M0-09` (configuration and secrets wiring, `turnbase-platform` +
 `turnbase-game-host`), `IMP-M0-10` (observability baseline, `turnbase-platform` +
-`turnbase-game-host`) and `IMP-M3-12` (FE GDK client, `turnbase-sdk`), all pushed and green in CI.
-**No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
-whatever its own dependencies imply.
+`turnbase-game-host`), `IMP-M0-11` (CI/CD workflows, all five repos) and `IMP-M3-12` (FE GDK
+client, `turnbase-sdk`), all pushed and green in CI. **No work item is gated**, and all 23
+readiness blockers remain closed, so an item's status is whatever its own dependencies imply.
 
 **IMP-GATE-25** (`IMP-M0-11`, opened and closed 2026-09-05) — `game-development-experience.md`
 CON-003 and ADR-0012's Release Strategy commit `turnbase-sdk` to Maven Central + npm, but no document
@@ -141,12 +112,13 @@ feedback loops"), but ADR-0012 (amended 2026-09-05) suspends pull requests proje
 to gate on push to `master`; FR-CICD-003 and OQ-002 updated to match. No workflow code changed — the
 five repos' `build.yml` files already run on push.
 
-**Next up: `IMP-M0-11` (CI/CD workflows, all five repos) and `IMP-M0-12` (seed data, gated on
-`IMP-M4-03`, not yet `READY`)** — `M0-11` is `READY` now, depending only on `M0-01…05`.
-`IMP-M0-06`'s completion already unblocked `IMP-M4-02` (manifest schema validation,
-`turnbase-platform`). `IMP-M0-10` left five small obligations on later items, each recorded as a
-sentence in that item's own section rather than a gate: `IMP-M2-02` exposes
-`turnbase_websocket_connections_active`, `IMP-M3-09`/`IMP-M2-10`/`IMP-M3-08` wire
+**`IMP-M0-11` is now DONE.** `IMP-M0-12` (seed data) stays not-`READY` — it depends on `IMP-M4-03`,
+which has not been picked up. **M0 is otherwise finished; the next work is M1** (accounts and
+sessions — see *Then, in dependency order* below), starting with `IMP-M1-01` (error model, REST
+conventions, validation harness), `READY` off `IMP-M0-03` alone. `IMP-M0-10` left five small
+obligations on later items, each recorded as a sentence in that item's own section rather than a
+gate: `IMP-M2-02` exposes `turnbase_websocket_connections_active`,
+`IMP-M3-09`/`IMP-M2-10`/`IMP-M3-08` wire
 `GameSessionFailureRate`/`ReconciliationRepairsPersist`/`TeardownOwed`, and any item adding a new
 Redis usage site tags it per `conventions.md` §7. None of these block anything — they surface when
 that item's own Done-when is checked.

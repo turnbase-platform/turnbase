@@ -38,7 +38,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M0-08 | Local stack — Helm chart (canonical) | platform | M0-07 | DONE |
 | IMP-M0-09 | Configuration and secrets wiring | platform, game-host | M0-03, M0-04 | DONE |
 | IMP-M0-10 | Observability baseline | platform, game-host | M0-03, M0-04 | DONE |
-| IMP-M0-11 | CI/CD workflows | all | M0-01…05 | WIP (session 26) |
+| IMP-M0-11 | CI/CD workflows | all | M0-01…05 | DONE |
 | IMP-M0-12 | Seed data | platform | M0-06, M4-03 | READY |
 | **M1 — Accounts and sessions** ||||
 | IMP-M1-01 | Error model, REST conventions, validation harness | platform | M0-03 | READY |
@@ -901,6 +901,29 @@ it from real code:
 ### IMP-M0-11 — CI/CD workflows
 
 **Repo:** all five submodules · **Depends on:** IMP-M0-01…05
+
+**Done 2026-09-05 (session 26).** All five repos' `build.yml` gained a Trivy dependency scan
+(report every severity, then gate on CRITICAL) — which immediately found a real finding,
+CVE-2026-65182 in the Tomcat embedded by Spring Boot 3.5.16, fixed in both
+`turnbase-platform` and `turnbase-game-host` by pinning `tomcat.version` to `10.1.59`, the
+first 10.1.x release carrying the fix. `turnbase-platform`, `turnbase-game-host` and
+`turnbase-frontend` also gained an image Trivy scan and now push their built image to
+`ghcr.io/turnbase-platform/<name>:<sha>` on every push to `master` (FR-CICD-006) — verified
+live: all three pushed successfully. `turnbase-common` and `turnbase-sdk` each gained a
+`publish.yml` triggered only on a `v*.*.*` tag; neither has had a real run, since cutting the
+tag is a human action the agent does not take, but both are reviewed and YAML-valid.
+`turnbase-platform` gained `make e2e` and a post-merge `e2e` job — **verified for real against
+the actual compose stack** (not just written): both services' actuator health checks return
+`UP`. The job's cross-repo checkout of `turnbase-game-host` needs `TURNBASE_GAME_HOST_PAT`
+(`conventions.md`), not yet provisioned (a human action), so it currently fails in CI exactly
+as expected — `continue-on-error: true` keeps that from failing the workflow, matching
+FR-CICD-005/OQ-002's "gates nothing." **CI green on `master` in all five repos.**
+
+Three gates opened and closed in the same session, all found by actually trying to build the
+pipeline rather than by reading: IMP-GATE-23 (PR-gated requirements after PRs were suspended),
+IMP-GATE-24 (a production-deployment requirement with no production to deploy to), IMP-GATE-25
+(a public-registry commitment with no license to publish under). None would have been caught
+by `check-corpus.py`.
 
 **Closed:** IMP-GATE-24 (opened and closed 2026-09-05) — FR-CICD-007 required the pipeline to "trigger
 a production deployment" on a `v*.*.*` tag and FR-CICD-008 required rolling that deployment back, but
