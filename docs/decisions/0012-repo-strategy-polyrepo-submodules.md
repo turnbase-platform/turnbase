@@ -124,7 +124,7 @@ Subject: ≤ 72 chars, imperative mood, no trailing period.
 
 | Repo | Versioning | Trigger |
 |------|-----------|---------|
-| `turnbase-sdk` | Semantic versioning (`v1.2.3`) | Manual tag on `master`; CI publishes to Maven Central + npm |
+| `turnbase-sdk` | Semantic versioning (`v1.2.3`) | Manual tag on `master`; CI publishes to GitHub Packages (Maven + npm). Maven Central + npmjs.com publication is **deferred** — no document names an open-source license for this artifact, and Maven Central's publish validation requires one in the POM (`IMP-GATE-25`, closed by deferring rather than picking a license under a CI work item). Re-scope to the public registries once a license is chosen. |
 | `turnbase-common` | Semantic versioning | Manual tag; CI publishes to GitHub Packages |
 | `turnbase-platform` | Semantic versioning | Manual tag; CI builds + pushes Docker image |
 | `turnbase-game-host` | Semantic versioning | Manual tag; CI builds + pushes Docker image |

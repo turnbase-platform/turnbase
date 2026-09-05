@@ -118,6 +118,13 @@ build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleto
 **No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
 whatever its own dependencies imply.
 
+**IMP-GATE-25** (`IMP-M0-11`, opened and closed 2026-09-05) — `game-development-experience.md`
+CON-003 and ADR-0012's Release Strategy commit `turnbase-sdk` to Maven Central + npm, but no document
+names a license for it, and Maven Central's publish validation rejects a POM with no `<licenses>`.
+Raised to the project owner (a real decision, not a CI mechanic), who deferred it. Fixed: both
+documents now say the Maven Central/npm publish is deferred until a license is chosen, and
+`turnbase-sdk` publishes to GitHub Packages (Maven + npm) in the interim, same as `turnbase-common`.
+
 **IMP-GATE-24** (`IMP-M0-11`, opened and closed 2026-09-05) — FR-CICD-007/008 require a tag-triggered
 production deployment and rollback, but ADR-0001 defers all cloud/production deployment to post-MVP
 and names the local Docker Desktop cluster as the only CI-exercised deploy path — no production target

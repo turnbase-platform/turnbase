@@ -185,7 +185,7 @@ not a presentation detail (see FR-ASSET-001). Realized by
 |----|-------------|
 | CON-001 | The initial backend GDK API targets JVM languages (Java, Kotlin, Scala). Additional language GDKs follow the same interface patterns but are separate artifacts. |
 | CON-002 | The frontend GDK is JavaScript/TypeScript only. Games using other frontend technologies (e.g., Rust+WASM) compile to JS and use the same FE GDK. |
-| CON-003 | The GDK API and GDK Host are separate artifacts. The API is public (published to Maven Central / npm). The Host is platform-internal (never distributed to developers). |
+| CON-003 | The GDK API and GDK Host are separate artifacts. The API is public in intent (published to Maven Central / npm once a license is chosen — deferred, `IMP-GATE-25`; it publishes to GitHub Packages in the interim, same as the internal libraries). The Host is platform-internal (never distributed to developers). |
 | CON-004 | Game state serialization uses JSON. The GDK Host handles serialization transparently; game developers work with plain objects. |
 | CON-005 | The manifest is the single source of truth for all game metadata. Metadata changes that require a new version (team templates, capability flags, parameters, tags) can only be updated via a new bundle upload, as defined in `game-catalog.md` FR-GAME-008. |
 | CON-006 | The game frontend is served within a platform-controlled HTML shell that injects the FE GDK. The game bundle contains only the JS/CSS/asset build output, not an HTML file. |

@@ -914,6 +914,18 @@ marked deferred to post-MVP in `platform-operations.md`, and ADR-0001's *Affecte
 the fix. This item's own *Satisfies*/*Done when* below are narrowed to match — FR-CICD-006 (image
 push to a registry) stands, since a registry needs no production target, only a place to publish to.
 
+**Closed:** IMP-GATE-25 (opened and closed 2026-09-05) — `game-development-experience.md` CON-003 and
+ADR-0012's Release Strategy table both commit `turnbase-sdk` to publishing on Maven Central and npm,
+but neither those two documents nor any other in the corpus names an open-source license for it —
+and Maven Central's publish validation rejects an artifact with no `<licenses>` in its POM, so the
+commitment is unsatisfiable as written. This is a decision the corpus left open, not a CI mechanic:
+raised to the project owner, who chose to defer it rather than pick a license under this item. Fixed:
+ADR-0012's Release Strategy row for `turnbase-sdk` and CON-003 both now say the Maven Central/npm
+publish is deferred until a license is chosen, and that `turnbase-sdk` publishes to GitHub Packages
+(both the Maven artifact and the npm package) in the interim — the same registry `turnbase-common`
+already uses, requiring no new external account and no license metadata. This item's own *Done when*
+below is narrowed to match.
+
 **Closed:** IMP-GATE-23 (opened and closed 2026-09-05) — `platform-operations.md` FR-CICD-002/003 and
 OQ-002's resolution gated the pipeline on a **pull request** ("the PR cannot be merged if any check
 fails", "PR feedback loops"), but ADR-0012 (amended 2026-09-05) suspends pull requests project-wide —
@@ -945,13 +957,15 @@ to change — the defect was in the requirement's prose, not in the pipelines it
    tagged with the commit SHA to GHCR on every push to `master` (FR-CICD-006), authenticating with the
    workflow's own `GITHUB_TOKEN` — no new secret.
 3. `turnbase-common` and `turnbase-sdk` each gain a `publish` workflow that triggers **only** on a
-   `v*.*.*` tag, never on an ordinary push. `turnbase-common`'s publishes to GitHub Packages and is
-   verified against a real tag pushed in this item's own session. `turnbase-sdk`'s publishes to Maven
-   Central and npm per ADR-0012's Release Strategy; cutting a `v*.*.*` tag is a human action the agent
-   does not take (`CLAUDE.md`, permissions), and the Sonatype/npm publish credentials FR-CICD-009
-   requires as secrets are not yet provisioned — provisioning them is the same category of human
-   action as cutting the tag itself. This half is verified as far as it can be without either: the
-   workflow triggers only on a tag, and `mvn deploy` / `npm publish` are dry-run-checked locally.
+   `v*.*.*` tag, never on an ordinary push, and both publish to **GitHub Packages** — Maven for
+   `turnbase-common`, Maven and npm for `turnbase-sdk` (IMP-GATE-25 — the Maven Central/npm publish
+   ADR-0012's Release Strategy names for `turnbase-sdk` is deferred until a license is chosen).
+   Neither workflow's actual first run is exercised in this item: cutting a `v*.*.*` tag is a human
+   action the agent does not take (`CLAUDE.md`, permissions). Verified as far as that allows: both
+   workflows are syntactically valid, trigger only on a tag push and never on an ordinary one, and the
+   version-from-tag/credential-wiring steps are reviewed against `turnbase-common`'s own working
+   `-Prelease deploy` invocation (`conventions.md` §5's bootstrap window already established this
+   exact pattern for consumer resolution).
 4. `turnbase-platform` gains `make e2e` (compose up, an HTTP smoke test against both services' health
    endpoints, compose down) and a post-merge job that runs it on every push to `master`, reporting
    pass/fail for information only — it gates nothing (FR-CICD-005, OQ-002). A full end-to-end feature
