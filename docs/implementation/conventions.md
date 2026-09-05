@@ -195,6 +195,17 @@ accident" failure FR-CICD-003 warns about, and it fails *open*, so nothing ever 
 
 E2E contributes nothing to the gate by design (FR-CICD-003; `platform-operations.md` OQ-002 resolved).
 
+**`make e2e` needs a sibling `turnbase-game-host` checkout**, because `docker-compose.yml`'s
+`gamehost` service has no `build:` block (`turnbase-platform` stays independently usable
+without the root, ADR-0012) — its image is built from
+`$TURNBASE_GAME_HOST_DIR`/`../../../turnbase-game-host` by default, the real repo layout under
+the parent monorepo. `turnbase-platform`'s post-merge `e2e` CI job (`IMP-M0-11`) checks that
+repo out the same way the §5 bootstrap window checks out `turnbase-common`: a fine-grained
+PAT, read-only on Contents, scoped to `turnbase-game-host` only, stored as
+`TURNBASE_GAME_HOST_PAT`. Provisioning it is a human action, so the job's first real run
+waits on that secret existing — it is not part of `IMP-M0-11`'s own verification, which ran
+`make e2e` directly against a real compose stack instead.
+
 ---
 
 ## 4. Git
