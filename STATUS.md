@@ -118,6 +118,13 @@ build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleto
 **No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
 whatever its own dependencies imply.
 
+**IMP-GATE-24** (`IMP-M0-11`, opened and closed 2026-09-05) — FR-CICD-007/008 require a tag-triggered
+production deployment and rollback, but ADR-0001 defers all cloud/production deployment to post-MVP
+and names the local Docker Desktop cluster as the only CI-exercised deploy path — no production target
+exists for a workflow to reach. Fixed: FR-CICD-007/008 marked deferred to post-MVP in
+`platform-operations.md`; ADR-0001's *Affected documents* updated to record it. `IMP-M0-11`'s own
+*Satisfies*/*Done when* narrowed to match — FR-CICD-006 (image push to a registry) stands.
+
 **IMP-GATE-23** (`IMP-M0-11`, opened and closed 2026-09-05) — `platform-operations.md` FR-CICD-002/003
 and OQ-002's resolution gated the pipeline on a **pull request** ("the PR cannot be merged...", "PR
 feedback loops"), but ADR-0012 (amended 2026-09-05) suspends pull requests project-wide, so a

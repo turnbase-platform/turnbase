@@ -51,7 +51,9 @@ tooling already on hand: **WSL2 + Docker Desktop with its bundled single-node Ku
 ## Affected documents
 
 - `docs/requirements/platform-operations.md` — deployment model → local Docker Desktop K8s +
-  compose; `FR-SCALE-*` → post-MVP; availability (see ADR-0003).
+  compose; `FR-SCALE-*` → post-MVP; `FR-CICD-007`/`FR-CICD-008` (tag-triggered production deployment
+  and rollback) → post-MVP, closing `IMP-GATE-24` — no production target exists for the MVP for
+  either to act on; availability (see ADR-0003).
 - `docs/requirements/platform-architecture.md` — gVisor Must → production-only; sandbox story
   (see ADR-0005).
 - Future **deployment & infrastructure spec** — rescoped to the local profile; cloud as appendix.

@@ -902,6 +902,18 @@ it from real code:
 
 **Repo:** all five submodules · **Depends on:** IMP-M0-01…05
 
+**Closed:** IMP-GATE-24 (opened and closed 2026-09-05) — FR-CICD-007 required the pipeline to "trigger
+a production deployment" on a `v*.*.*` tag and FR-CICD-008 required rolling that deployment back, but
+ADR-0001 §*Decision* item 4 ("Cloud deployment is deferred to post-MVP... not built for the MVP") and
+item 2 (the canonical, CI-exercised deploy path is the **local** single-node Docker Desktop cluster)
+together mean no production target exists anywhere in the corpus for a tag-triggered workflow to
+reach — no cluster endpoint, no kubeconfig secret, no `values-production.yaml`. ADR-0001's own
+*Affected documents* deferred `FR-SCALE-*` explicitly but never propagated the same deferral to
+FR-CICD-006/007/008, the same class of gap `IMP-GATE-06` found for CON-010. Fixed: FR-CICD-007/008
+marked deferred to post-MVP in `platform-operations.md`, and ADR-0001's *Affected documents* now names
+the fix. This item's own *Satisfies*/*Done when* below are narrowed to match — FR-CICD-006 (image
+push to a registry) stands, since a registry needs no production target, only a place to publish to.
+
 **Closed:** IMP-GATE-23 (opened and closed 2026-09-05) — `platform-operations.md` FR-CICD-002/003 and
 OQ-002's resolution gated the pipeline on a **pull request** ("the PR cannot be merged if any check
 fails", "PR feedback loops"), but ADR-0012 (amended 2026-09-05) suspends pull requests project-wide —
@@ -920,12 +932,31 @@ to change — the defect was in the requirement's prose, not in the pipelines it
 - `docs/implementation/conventions.md` §§2–4, 6
 - `CLAUDE.md` — *Submodule philosophy* and the End of Session Checklist
 
-**Satisfies:** `platform-operations.md` FR-CICD-001…011
+**Satisfies:** `platform-operations.md` FR-CICD-001…006, FR-CICD-009…011. FR-CICD-007/008 are
+**deferred to post-MVP** (IMP-GATE-24) — no production target exists for the MVP.
 
-**Done when:** each repo has a GitHub Actions workflow that builds, tests, and publishes its
-artifact; coverage is reported and gated on **unit and integration tests only** — the two categories
-that run in the pre-merge pipeline (FR-CICD-003, as narrowed by IR-03; `CLAUDE.md`: >70% on critical paths); the
-workflow is the gate `CLAUDE.md` requires before a submodule ref is bumped here.
+**Done when:**
+
+1. Every repo's existing pre-merge workflow (`IMP-M0-01…05`) keeps gating on push to `master`
+   (FR-CICD-002, IMP-GATE-23) and gains a Trivy scan: a filesystem/dependency scan in all five, plus
+   an image scan in the three that build one. A **critical** finding fails the job; lower severities
+   report only (FR-CICD-010).
+2. `turnbase-platform`, `turnbase-game-host` and `turnbase-frontend` build and push a Docker image
+   tagged with the commit SHA to GHCR on every push to `master` (FR-CICD-006), authenticating with the
+   workflow's own `GITHUB_TOKEN` — no new secret.
+3. `turnbase-common` and `turnbase-sdk` each gain a `publish` workflow that triggers **only** on a
+   `v*.*.*` tag, never on an ordinary push. `turnbase-common`'s publishes to GitHub Packages and is
+   verified against a real tag pushed in this item's own session. `turnbase-sdk`'s publishes to Maven
+   Central and npm per ADR-0012's Release Strategy; cutting a `v*.*.*` tag is a human action the agent
+   does not take (`CLAUDE.md`, permissions), and the Sonatype/npm publish credentials FR-CICD-009
+   requires as secrets are not yet provisioned — provisioning them is the same category of human
+   action as cutting the tag itself. This half is verified as far as it can be without either: the
+   workflow triggers only on a tag, and `mvn deploy` / `npm publish` are dry-run-checked locally.
+4. `turnbase-platform` gains `make e2e` (compose up, an HTTP smoke test against both services' health
+   endpoints, compose down) and a post-merge job that runs it on every push to `master`, reporting
+   pass/fail for information only — it gates nothing (FR-CICD-005, OQ-002). A full end-to-end feature
+   suite has nothing to exercise yet (M1 is not built); the smoke test is the honest ceiling today.
+5. The workflow is still the gate `CLAUDE.md` requires before a submodule ref is bumped here.
 
 **This item ends `IMP-GATE-07`'s bootstrap window.** Once `turnbase-common`'s publish workflow exists
 and its first `v*.*.*` tag is cut (a human action), `turnbase-platform` and `turnbase-game-host` each
