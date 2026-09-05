@@ -33,7 +33,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M0-03 | Platform Monolith skeleton | platform | — | DONE |
 | IMP-M0-04 | Game Host skeleton | game-host | M0-01 | DONE |
 | IMP-M0-05 | Frontend skeleton | frontend | — | DONE |
-| IMP-M0-06 | Flyway baseline `V1__baseline.sql` | platform | M0-03 | WIP (session 20) |
+| IMP-M0-06 | Flyway baseline `V202608091200__baseline.sql` | platform | M0-03 | WIP (session 20) |
 | IMP-M0-07 | Local stack — compose profile | this repo | M0-03, M0-04, M0-05 | READY |
 | IMP-M0-08 | Local stack — Helm chart (canonical) | this repo | M0-07 | READY |
 | IMP-M0-09 | Configuration and secrets wiring | platform, game-host | M0-03, M0-04 | READY |
@@ -503,8 +503,15 @@ Plus `docs/specs/deployment/schema-migrations.md` and `docs/decisions/0011-schem
 
 **Satisfies:** `platform-operations.md` FR-DB-001…004, CON-012
 
-**Done when:** `V1__baseline.sql` creates every table, constraint and index named in the six
-documents; Flyway migrates a clean Postgres 16 to completion; a re-run is a no-op; the FK graph
+**Closed:** IMP-GATE-10 (opened and closed 2026-09-05) — the *Done when* clause named the baseline
+file `V1__baseline.sql`, but ADR-0011 §5 and `schema-migrations.md` §§1–2 mandate timestamp-based
+naming (`V<YYYYMMDDHHmm>__<snake_case_description>.sql`, precisely to avoid the collision a
+sequential scheme produces across parallel branches) and both already name the actual baseline file
+`V202608091200__baseline.sql`. Fixed: this registry entry — the one document that had it wrong — now
+names `V202608091200__baseline.sql` throughout; ADR-0011 and `schema-migrations.md` needed no change.
+
+**Done when:** `V202608091200__baseline.sql` creates every table, constraint and index named in the
+six documents; Flyway migrates a clean Postgres 16 to completion; a re-run is a no-op; the FK graph
 admits the creation order used.
 
 **This item is the first real test of whether the schema documents are mutually consistent.** Any

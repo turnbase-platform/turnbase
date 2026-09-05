@@ -693,6 +693,12 @@ it depends only on `IMP-M0-03` — and `IMP-M3-12` (FE GDK client, `turnbase-sdk
 unblocked since `IMP-M0-02`. `IMP-M0-09`/`M0-10` (config/secrets, observability) are also open,
 each depending only on `M0-03`+`M0-04`.
 
+**IMP-GATE-10** (`IMP-M0-06`, opened and closed 2026-09-05) — the *Done when* clause named the
+baseline file `V1__baseline.sql`, contradicting ADR-0011 §5 and `schema-migrations.md` §§1–2, which
+mandate timestamp-based naming and both already name the real file `V202608091200__baseline.sql`.
+Fixed: the registry entry (the one document that had it wrong) now names
+`V202608091200__baseline.sql` throughout.
+
 **IMP-GATE-09** (`IMP-M0-04`, opened and closed 2026-09-04) — no document names the address the Game
 Host dials to reach the Platform Monolith's `GameHostRegistryService`, which `local-environment.md`
 §2 places on the monolith's `8080` HTTP listener rather than a dedicated port. Fixed: §7.8 gained
