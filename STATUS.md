@@ -50,14 +50,14 @@ lint/typecheck/build/test plus a real `docker build` on `turnbase-frontend`.
   The original PR-only guard existed because the commit that first added the proto had no baseline;
   that window closed the moment the proto landed on `master`.
 
-### Left undone
+### The branch pollution is gone, all of it
 
-**Three stale remote branches survive in `turnbase-frontend`** — `feat/frontend-skeleton`,
-`chore/dependabot-jsdom-ignore`, `chore/dependabot-node-major-ignore`. All three were squash-merged
-long ago and hold nothing `master` lacks (verified by diff: they are strictly behind it). The delete
-was declined at the permission prompt, so they need one command:
-`git push origin --delete feat/frontend-skeleton chore/dependabot-jsdom-ignore chore/dependabot-node-major-ignore`.
-Every other repository is down to `master` alone, and all local stale branches are gone.
+Eight PRs closed with their branches deleted, and eleven abandoned branches removed — the five
+Dependabot leftovers and `feat/game-host-skeleton` in `turnbase-game-host`, and
+`feat/frontend-skeleton` plus the two `chore/dependabot-*-ignore` branches in `turnbase-frontend`.
+Each had been squash-merged long ago and held nothing `master` lacked (verified by diff before
+deleting: strictly behind it). **All five repositories are now `master` alone, local and remote**,
+which is the state the rule above exists to keep them in.
 
 ---
 
