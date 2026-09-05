@@ -37,7 +37,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M0-07 | Local stack — compose profile | platform | M0-03, M0-04, M0-05 | DONE |
 | IMP-M0-08 | Local stack — Helm chart (canonical) | platform | M0-07 | DONE |
 | IMP-M0-09 | Configuration and secrets wiring | platform, game-host | M0-03, M0-04 | DONE |
-| IMP-M0-10 | Observability baseline | platform, game-host | M0-03, M0-04 | WIP (session 25) |
+| IMP-M0-10 | Observability baseline | platform, game-host | M0-03, M0-04 | DONE |
 | IMP-M0-11 | CI/CD workflows | all | M0-01…05 | READY |
 | IMP-M0-12 | Seed data | platform | M0-06, M4-03 | READY |
 | **M1 — Accounts and sessions** ||||

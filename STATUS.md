@@ -1,967 +1,101 @@
 ## Last Session Summary
 
-**Date:** 2026-09-05 (session 24)
+**Date:** 2026-09-05 (session 25)
 
-**IMP-M0-09 — Configuration and secrets wiring, `turnbase-platform` + `turnbase-game-host`. DONE.
-10 of 60 items complete.** Every key in `local-environment.md` §7 is now a typed
-`@ConfigurationProperties` record — `RoomProperties`, `JobsProperties`, `RetentionProperties`,
-`AuthProperties`, `AccountProperties`, `SocialProperties`, `PaginationProperties`,
-`UploadProperties`, `HttpProperties`, `RateLimitProperties`, `SecurityProperties`,
-`PlatformOriginProperties`, `GameFrontendProperties`, `OAuthProperties`, `AdminProperties` in
-`turnbase-platform`, `GameHostProperties` in `turnbase-game-host` — registered via
-`@ConfigurationPropertiesScan`, every default proven against the real `application.yml` rather than
-re-declared in a test. All nine secrets in `secrets-and-configuration.md` now have both a local-dev
-provisioning path and a Kubernetes Secret path; `turnbase_app` still holds no superuser; the JWT key
-set supports two concurrent keys. CI green on both repos.
+**IMP-M0-10 — Observability baseline, `turnbase-platform` + `turnbase-game-host`. DONE. 11 of 60
+items complete.** Both services now export Prometheus metrics (`/actuator/prometheus`, management
+port only), emit Logback JSON to stdout, and carry the OpenTelemetry Java agent for tracing.
+`BusinessMetricsConfig` polls the four FR-MET-003 gauges from Postgres every 30 seconds — buildable
+now because the tables already exist from `IMP-M0-06`, independent of the room/social features that
+will eventually populate them. `CorrelationIdFilter` is the HTTP-boundary MDC entry point; a
+`ClientInterceptor`/`ServerInterceptor` pair (duplicated per repo, not shared code — the wire
+contract is the plain metadata key name) copies the five correlation IDs across a gRPC hop, proven
+against a controlled in-process call since no live gRPC client exists in the platform yet. Prometheus
+scrapes both services and evaluates three alert rules (`HighErrorRate`, `HighLatencyP95`,
+`DbPoolSaturated`); Alertmanager renders its webhook receiver in or out at container start with `sed`,
+since the image has no environment-variable expansion. Two of `observability.md` §5's four Grafana
+dashboards are built; the other two wait on signals that don't exist yet. CI green on both repos —
+`./mvnw verify -Pintegration` — and the whole thing was also verified against the real `docker compose`
+stack end to end: a live HTTP request produces a trace visible in Tempo, the log line's `trace_id`
+matches it, both scrape targets are `up`, all three rules evaluate, and both Alertmanager render
+branches were checked directly.
 
-### Three gates, all opened and closed the same session
+### The item's own Done-when clause was wrong before any code was written
 
-**IMP-GATE-15** — no document named the Kubernetes environment variable for the JWT key set.
-`secrets-and-configuration.md` §3.1 now names `TURNBASE_JWT_KEY_SET`, one JSON-valued env var
-carrying the whole `active`+`retired` set from §3.2's own shape, so a rotation updates atomically.
+`IMP-M0-10`'s *Done when* required proving trace propagation "across the REST → gRPC boundary" — but
+neither service has one yet: `turnbase-platform` issues no outbound gRPC call and runs no gRPC
+server, and the Game Host's one outbound call (`Register`) isn't triggered by an inbound REST request.
+That request chain doesn't exist before `IMP-M3-05`. Same shape as `IMP-GATE-08`, closed as
+**IMP-GATE-18**: the agent-and-Tempo check for a real HTTP request stayed (genuine, but HTTP-only for
+now); the cross-process claim narrowed to the correlation-ID interceptor pair, proven against a
+controlled call; the live, request-shaped, agent-instrumented check moved to `IMP-M3-05`, which
+gained a Done-when clause for it. `IMP-M0-10`'s own *Satisfies* line was narrowed to match — five
+requirements this item genuinely cannot build yet (`FR-MET-002`, `FR-MET-005`,
+`FR-ALERT-003/006/007`, plus the Game Host's own `platform-architecture.md` `FR-OBS-*`) were
+explicitly handed to the items that will have the signal source: `IMP-M2-02`, a new `conventions.md`
+§7 convention, and `IMP-M3-09`/`IMP-M2-10`/`IMP-M3-08` respectively.
 
-**IMP-GATE-16** — the local/test-e2e/Kubernetes split for the JWT key set cannot be driven by Spring
-profile: the canonical Kubernetes chart and compose both run `spring.profiles.active=local`
-(established since `IMP-M0-07`/`M0-08`), but a Pod must never self-generate a key — the chart's own
-HPA can run more than one replica, and each would mint its own. Fixed with a new switch,
-`turnbase.auth.jwt-key-set-required` (default `false`), set `true` only by the Helm chart's
-ConfigMap; `JwtKeySetConfig` branches on that, not on profile, for the required-vs-generated
-decision. `test`/`e2e` still branch on profile — no document runs either of them through Kubernetes.
+### Four more gates, found only by running the thing
 
-**IMP-GATE-17** — `turnbase.gamehost.grpc.port`, shipped in `IMP-M0-04` and already read live by
-`GrpcServerLifecycle`, was never listed in `local-environment.md` §7.8, contradicting §7's own
-"whole tunable surface" claim (the same class of gap IR-24 closed for `spectator-capacity`). Added
-with its existing default; `RegistrationLifecycle` and `GrpcServerLifecycle` now both take
-`GameHostProperties` instead of scattered `@Value` injections.
+**IMP-GATE-19** — `observability.md` §3's own worked JSON example showed `"sessionId": null` two
+sentences after the prose next to it said correlation IDs are "omitted when absent rather than
+written as empty strings." The example just contradicted its own rule. Fixed: the example now omits
+the key.
 
-### Scope calls that were not gates — recorded so the next item doesn't re-derive them
+**IMP-GATE-20** — `observability.md` §2.1's literal SQL for `turnbase_friend_requests_pending`
+filtered on `WHERE status = 'PENDING'`, but the baseline `friend_request` table (`IMP-M0-06`, already
+`DONE`) has no `status` column at all — the query would fail against the real schema. Fixed: an
+unfiltered `count(*)`, plus a sentence explaining why that's correct rather than a shortcut — a
+pending request's row existing *is* what "pending" means in this schema; accepting one deletes it and
+inserts a `friendship` row, declining or expiring one just deletes it.
 
-- **The rate-limit tier budget table (`rate-limiting.md`) stays `IMP-M1-02`'s.** This item bound
-  only the two non-tier keys `local-environment.md` §7.6 itself names —
-  `turnbase.rate-limit.enabled` and `turnbase.security.trusted-proxies` — plus a startup check that
-  `enabled=false` is only honoured under `test`/`e2e` (an `ApplicationRunner`, same pattern as
-  `ArtifactBucketReadinessCheck`).
-- **`turnbase.jobs.*` and `turnbase.retention.*` live in `common`, not split across the features that
-  will eventually run each job** (room, session, notification, upload) — those features don't exist
-  yet, and §7.2/§7.3 are themselves one table each grouped by concern, not by owner.
-- **ADR-0007's "registrable domain" is implemented as "last two dot-separated labels", not a real
-  Public Suffix List lookup** — exact for `*.localhost` locally and for ADR-0007's own
-  `googleusercontent.com`/`github.io`-style production plan, wrong only for a real multi-label
-  suffix like `co.uk`, which the project doesn't use. `DistinctRegistrableDomainsCheck` fails startup
-  if the platform and game-frontend origins ever resolve to the same one.
-- **The Alert webhook URL's Kubernetes Secret path stays `IMP-M0-10`'s** — `alertmanager.yaml`
-  already said as much ("the actual webhook-receiver wiring are IMP-M0-10's job") before this
-  session touched it; the receiver config and the credential that fills it aren't separable.
-- **Admin Basic-auth and Google OAuth credentials are bound (`AdminProperties`, `OAuthProperties`)
-  and wired into compose/Helm, but nothing consumes them yet** — no Spring Security config exists
-  before `IMP-M4-05`/`IMP-M1-04`. Admin has no default (`TurnBaseApplicationIT` and
-  `SingleListenerOriginRoutingIT` now pass `--turnbase.admin.username/password` explicitly, same
-  pattern as the artifact-store credential); OAuth keeps its documented empty-by-default.
+**IMP-GATE-21** — found only by actually running the compose stack and reading the resulting log
+line: the OpenTelemetry Java agent's `logback-mdc` instrumentation — the mechanism `observability.md`
+§3 itself credits with the injection — writes `trace_id`/`span_id` (OpenTelemetry semantic
+conventions for log correlation, not a project choice), not the camelCase `traceId`/`spanId` the
+doc's worked example and the Grafana derived-field regex both assumed. Fixed the doc and the two
+committed config files that repeated the wrong spelling (`promtail-config.yaml`,
+`datasources.yaml`) — the five project-owned correlation IDs (`requestId` etc.) were never affected.
 
----
+**IMP-GATE-22** — also found only by running the stack: `tempo.yaml` (`IMP-M0-08`) left the OTLP
+receivers on Tempo's own default bind, which is loopback — unreachable from another container even
+though the port is published on the compose network, the same class of bug `IMP-GATE-14` already
+found for the management port. Every span export failed with `Connection refused` and zero traces
+ever reached Tempo until this was fixed with an explicit `endpoint: 0.0.0.0:4317`/`:4318`.
 
-## Session 23 Summary
+**None of the four would have been caught by reading, and none by `check-corpus.py`.** They surfaced
+only because something finally exported a real span and read the log line it produced — the same
+lesson `IMP-GATE-01…03` taught on the first item: a skeleton compiling against the documents is a
+different test than a document being internally consistent.
 
-**Date:** 2026-09-05 (session 23)
+### One bug fixed outside this item's scope, because it blocked verifying this item's own work
 
-**IMP-M0-08 — Local stack, Helm chart, `turnbase-platform`. DONE. 9 of 60 items complete.**
-`deploy/helm/turnbase/` — Platform Monolith, Game Host, Postgres, Redis, MinIO (Deployment/
-StatefulSet + Service each, mirroring the compose profile's five core components) plus the six
-observability containers and a `minio-init` Job, verified against a real Docker Desktop Kubernetes
-cluster rather than only rendered: `helm upgrade --install` brought up all eleven pods; the
-management port answered a real kubelet probe on every workload, unset per §1, with every Service
-`ClusterIP` and the Ingress routing only the `http` port; a live `kubectl rollout restart` showed the
-successor `Running`/`Ready` **before** the incumbent began terminating (`maxSurge: 1,
-maxUnavailable: 0`) — the ADR-0008 property this item exists to prove; and a live Loki query through
-the deployed chart returned real platform-pod log lines, matching the bar `IMP-M0-07` set for
-compose's own Promtail. No gates — `IMP-GATE-12`'s repo-field fix from the previous session was the
-only open item, already closed there.
+`turnbase-platform`'s Dockerfile (`IMP-M0-03`) never `chown`ed `/app` before switching to the
+non-root `turnbase` user, so `JwtKeySetConfig`'s (`IMP-M0-09`) local key persistence failed with
+`AccessDeniedException` on every single boot of the real image — a bug that would have blocked
+*every* deployment the moment anyone actually ran the container, not something specific to
+observability. Nobody had run the real Docker image end-to-end before this session; earlier
+verification stopped at unit/integration tests and Helm chart validation. Fixed with a one-line
+`chown` in the same `RUN` that creates the user. Not a specification defect — no document
+contradicted another — just an untested path, fixed because it stood between this session and
+verifying its own Done-when clause.
 
-### `application.yml` was missing the shutdown config the chart's drain budget depends on
+### Two design decisions worth remembering for the items that pick up the deferred pieces
 
-`local-environment.md` §3's shutdown table names `server.shutdown: graceful` and
-`spring.lifecycle.timeout-per-shutdown-phase: 30s` as what makes a `preStop` pause and
-`terminationGracePeriodSeconds` mean anything; neither existed in `application.yml`; without them
-Spring exits immediately on SIGTERM and the Helm chart's drain settings are decoration. Not a gate —
-`IMP-M0-03`'s own *Done when* never named them, so nothing had been promised and broken, just never
-exercised until this item sent the app a real SIGTERM inside a pod. Added both; `./mvnw
-verify`/`-Pintegration` stayed green.
-
-### Two toolchain traps that would have shipped a chart silently dropping every log line
-
-**`kubernetes_sd_configs` (`role: pod`) returned zero discovered Promtail targets against this
-cluster's client-go, with no logged error** — reproduced live: RBAC granted exactly `list`/`watch` on
-`pods`, and the same ServiceAccount's token listed pods successfully via a direct API call, yet
-`promtail_targets_active_total` stayed `0` through a manual debug run. Replaced with a `static_configs`
-file glob over `/var/log/pods/*/*/*.log`, extracting namespace/pod/container from the directory name
-Kubernetes itself encodes — no Kubernetes API access needed for a DaemonSet that only ever reads its
-own node's logs. Two more layers surfaced only once log lines still didn't arrive after that swap:
-the entries under `/var/log/pods/.../<container>/` are themselves symlinks into
-`/var/lib/docker/containers` on this cluster's dockerd-backed runtime (needed a second hostPath
-mount), and the files there are Docker's JSON-lines envelope, not CRI plaintext — swapped the
-pipeline's `cri: {}` stage for `docker: {}`, matching `docker-compose.observability.yml`'s own
-Promtail exactly. Both are scoped to the dockerd-backed Docker-Desktop-Kubernetes path this chart
-targets; a containerd-CRI cluster would have needed neither adjustment.
-
-**A `minio-init` Job cannot be a Helm hook here — an ordering deadlock, not a style choice.** A
-completed Job's spec being immutable makes `helm.sh/hook: post-install,post-upgrade` +
-`before-hook-creation` the obvious fit, but it deadlocks under `--wait`: Helm's `--wait` blocks on the
-**main** resources reaching ready *before* running post-install hooks, and the Platform Monolith's
-readiness never arrives without the bucket the hook would create — reproduced live (`--wait` timed
-out with the Platform Monolith crash-looping on `NoSuchBucketException`, the Job never having run).
-Fixed by making `minio-init` an ordinary resource applied in the same batch as MinIO and the
-Platform Monolith, accepting the same eventually-consistent crash-loop-then-recover shape a bare
-Kubernetes Job can't avoid without compose's `depends_on: condition: service_healthy`.
-`{{ .Release.Revision }}` in the Job's name sidesteps the immutable-Job-on-upgrade problem instead of
-a hook's delete policy.
-
-### The cluster's own `ingress-nginx` was reinstalled, not newly added
-
-Docker Desktop Kubernetes already carried an orphaned `IngressClass` named `nginx` and a
-`ValidatingWebhookConfiguration` with no controller behind either — a server-side dry-run of this
-chart's Ingress failed on the stale webhook. Removed the four orphaned cluster-scoped objects
-(verified none had a workload behind them) and reinstalled the upstream `ingress-nginx` chart with
-the same class name `local-environment.md` already assumes exists. Left running as generic cluster
-infrastructure, not scoped to this item.
+- **The polled-gauge pattern doesn't need its feature to exist.** `turnbase_rooms_active` and
+  friends are pure SQL against tables the baseline migration already created — the fact that no
+  Java code populates `room` rows yet doesn't block exposing (and correctly reading zero from) the
+  metric. The same reasoning is why `IMP-M3-08`'s teardown-age gauge, `IMP-M2-10`'s duty counters and
+  `IMP-M3-09`'s failure-rate signal were *not* pulled forward the same way: their underlying tables
+  either don't exist yet or their exact metric name isn't specified anywhere in this item's
+  read-list, and inventing one would have been exactly the kind of silent decision `spec-defect`
+  exists to stop.
+- **A gRPC boundary needs two interceptors that never share code**, one per repo, because
+  `turnbase-common`'s published stubs deliberately carry no transport or support code
+  (`conventions.md` §5) — the wire contract is the plain string metadata key name, and each side
+  just has to agree on the spelling.
 
 ---
-
-## Session 22 Summary
-
-**Date:** 2026-09-05 (session 22)
-
-**IMP-M0-07 — Local stack, compose profile, `turnbase-platform`. DONE. 8 of 60 items complete.**
-`deploy/compose/docker-compose.yml` (Postgres, Redis, MinIO, `minio-init`, Platform Monolith, Game
-Host) and `docker-compose.observability.yml` (Prometheus, Grafana, Loki, Tempo, Promtail,
-Alertmanager) — every claim checked against the real stack, not just written: a clean
-`docker compose up` migrates a real Postgres and reaches `healthy` on all five core containers, the
-Game Host registers with the Platform Monolith over the compose network, the host port map matches
-`local-environment.md` §1 exactly (`8081`/`8082`/`9090` loopback-only, `9091` the Prometheus remap,
-`8080`/`3000` on all interfaces), Promtail ships real container log lines into Loki (confirmed by a
-live Loki query returning actual log entries, not just "the container started"), and both
-`turnbase.localhost:8080` and `{gameId}.games.localhost:8080` reach the same listener. **CI green on
-`master`, both `turnbase-platform` and `turnbase-game-host`.**
-
-### Repo assignment was wrong before any code existed
-
-**IMP-GATE-12** — the registry's own `Repo` field said `IMP-M0-07`/`IMP-M0-08` belonged in "this
-repo" (the root landing repo), but their own read-list document, `local-environment.md` §4, roots
-the whole deploy tree at `turnbase-platform/deploy/…`, and ADR-0012 describes `turnbase` itself as
-holding only docs, specs and submodule refs — no deploy artifacts of any kind. Fixed: both items'
-`Repo` corrected to `turnbase-platform`.
-
-### Two real defects, neither one visible until the compose stack actually ran
-
-Six of the previous seven items found contradictions by *reading* the corpus before writing code.
-This one found two more by *running* it — the first thing in Phase 1 to bring up a real Postgres
-under the two-role split and reach a service through an actual Docker-published port, rather than
-through Testcontainers (which authenticates as its own superuser) or a bare `java -jar` on the host.
-
-**IMP-GATE-13** — ADR-0011 §6 requires `pg_trgm` and `btree_gin` to be created by the Postgres init
-script as superuser, with the baseline migration's own `CREATE EXTENSION IF NOT EXISTS` for both
-succeeding as a no-op once provisioning has done its job. But `secrets-and-configuration.md` §4's
-actual `01-roles.sql` content — the concrete init script ADR-0011 §6 describes — created only
-`pgcrypto`. Running the real stack failed baseline migration outright: `permission denied to create
-extension "pg_trgm"`, because PostgreSQL 16 does not trust that extension for a role holding only
-schema-level `CREATE`. Fixed: the init script (both the spec's copy and the compose file's) now
-creates all three; the baseline migration file (`IMP-M0-06`'s artifact) needed no change — verified
-that the app role's own `IF NOT EXISTS` becomes a harmless no-op once the owner has already created
-the extension.
-
-**IMP-GATE-14** — `local-environment.md` §1 said compose achieves the loopback-only management port
-by setting `management.server.address = 127.0.0.1` *inside* the container, with the published port
-mapping doing the rest. The two cannot combine: a Docker published port always forwards to the
-container's bridge-network interface, never to its own loopback, so a listener bound to `127.0.0.1`
-inside the container is unreachable through its own published port regardless of the host-side bind
-— proven live (the container refused every host connection with the address set, `Connection reset
-by peer`, and answered normally with it unset, through the identical publish syntax). `IMP-M0-03`
-and `IMP-M0-04`'s "verified live" claims about this exact property never exercised a real Docker
-port-publish round trip, because neither item had a working compose file to test it through. Fixed:
-the app now listens on all interfaces in **both** profiles; compose's restriction is the published
-port's own host-side bind (already correct in the compose file — only the spec and two stale code
-comments described the wrong mechanism). No application behavior changed.
-
-### A new feature, built because the item's own *Done when* clause required it
-
-**`ArtifactBucketReadinessCheck`** (`io.turnbase.platform.upload`) asserts the bundle bucket exists
-at startup and fails loudly, naming `TURNBASE_ARTIFACT_STORE_BUCKET`, if it does not
-(`local-environment.md` §5) — proven by a unit test against a mocked `S3Client` and a real-MinIO
-`*IT` via Testcontainers. Backed by the AWS SDK v2 S3 client rather than a MinIO-specific one: no
-document names a client library, but `file-uploads.md` §1 already commits to "the same pre-signed
-URL code path... against MinIO in tests as in production against S3," which only the v2 S3 client
-(pointed at MinIO via an endpoint override) actually satisfies — recorded as an ordinary engineering
-choice, not a gate, since no *Done when* clause depends on which library it is.
-
-### Repo boundary for the compose file itself
-
-`platform` builds from `turnbase-platform`'s own Dockerfile (`context: ../..` — same repo, no path
-outside it); `gamehost` has no `build:` block at all, because `turnbase-game-host` is a sibling
-submodule and ADR-0012 requires every component repo to stay independently usable without the root.
-The developer builds `turnbase/game-host:dev` separately, first; the compose file only ever
-references it by image name.
-
----
-
-## Session 21 Summary
-
-**Date:** 2026-09-05 (session 21)
-
-**IMP-M3-12 — FE GDK client, `turnbase-sdk`. DONE. 7 of 60 items complete.** `TurnBaseClient<TAction,
-TEvent>` lands in `src/main/ts/client.ts`, exported alongside the declared types from `IMP-M0-02`:
-setter-style `onInit`/`onGameEvent`/`onPlayerJoined`/`onPlayerLeft`/`onGameOver` (each replaces the
-prior handler and returns `this`), `start()`/`dispose()` lifecycle, the `window.__TURNBASE__` bootstrap
-handshake, and `sendAction()` gated on `init` having been delivered. CI green on `master`, no gates —
-both the spec (`frontend-gdk-api.md`, read in full) and its two requirement documents
-(`game-development-experience.md`, `game-contracts.md`) agreed with each other on every clause this
-item touches.
-
-### No contradiction this time — worth noting precisely because six of the last seven items found one
-
-Cross-checked `frontend-gdk-api.md` §3–§10 against `game-development-experience.md` FR-FEGDK-001…009
-and `game-contracts.md` FR-FE-001…006/FR-FA-001…003/NFR-SEC-004 clause by clause before writing any
-code. All three documents matched — the *Done when* clause's five assertions (both origin+source
-required, no `targetOrigin: '*'` ever, synchronous throw on a missing bootstrap, `sendAction` before
-`init` throws) were each satisfiable exactly as written, each proven by a test named after the clause
-it checks.
-
-### The one thing the spec didn't say: how to test code that assumes a browser `window`
-
-`TurnBaseClient` reads `window`/`window.parent` and the `message` event directly, per §4/§8 — but
-`vitest.config.ts`'s default environment is `"node"`, where `window` doesn't exist. Added
-`environment: "jsdom"`, pinned to `29.1.1` **not** the current `30.x` — the exact Node-engine-floor
-trap `IMP-M0-05` hit on `turnbase-frontend` (`jsdom@30`'s `engines` field wants `^22.22.2`, past
-`.nvmrc`'s `22.20.0`, and `npm install` only warns rather than failing). Same `dependabot.yml` `ignore`
-entry landed in the same commit as the pin, mirroring `turnbase-frontend`'s.
-
-**A second, non-obvious trap: `vi.spyOn` without `restoreMocks: true` stacks across tests.** jsdom
-keeps one `window` for the whole file, so `window.parent` is the same object in every test; spying on
-its `postMessage` in test N without restoring leaves test N+1's spy wrapping test N's, and a call count
-assertion silently counts calls from tests that already finished. Added `restoreMocks: true` to
-`vitest.config.ts` — general-purpose, not `TurnBaseClient`-specific, and worth carrying into any future
-suite here that spies on a shared global.
-
-### Coverage went from vacuous to real
-
-The merged coverage gate (`vitest.config.ts`, 70% across lines/statements/branches/functions) had
-measured an empty module since `IMP-M0-02`, by design, per that item's own note not to fake the number
-until there was branching logic to miss. Fifteen tests now exercise it for real: 94.9%
-statements/lines, 88.9% branches, 100% functions — first non-trivial run of a threshold that was
-inert on paper until this session.
-
----
-
-## Session 20 Summary
-
-**Date:** 2026-09-05 (session 20)
-
-**IMP-M0-06 — Flyway baseline, `turnbase-platform`. DONE. 6 of 60 items complete.**
-`V202608091200__baseline.sql` transcribes all twenty tables from the six `docs/specs/platform/`
-schema documents, in the table order, extensions, sequence and one deferred FK fixed by
-`schema-migrations.md` §5; `db/schema.sql` is committed alongside it. Verified against a real
-Postgres 16 via Testcontainers: a clean migrate succeeds and creates exactly the twenty expected
-tables, a re-run applies zero migrations, and the full application boots against the same image now
-that Flyway runs at startup. CI green on `master`.
-
-### Two gates, opened and closed the same session
-
-- **IMP-GATE-10** — the *Done when* clause named the baseline file `V1__baseline.sql`, contradicting
-  ADR-0011 §5 and `schema-migrations.md` §§1–2, which mandate timestamp-based naming and both already
-  named the real file `V202608091200__baseline.sql`. Fixed in the registry, the one document that had
-  it wrong.
-- **IMP-GATE-11** — `schema-migrations.md` §5 named `shedlock` as a baseline table but no document
-  supplied its columns. Fixed: §5 now states the DDL, which is ShedLock's own fixed
-  `JdbcTemplateLockProvider` schema, not a TurnBase design choice.
-
-### Actually exercising this path surfaced two defects nobody had seen before
-
-Flyway-at-startup forced the existing app-boot smoke test into the integration tier (a real
-database is now a startup precondition), and running it there for the first time exposed two dormant
-bugs, both fixed this session:
-
-- **`ModularityTests.java` never matched surefire's `**/*Test.java` include** — the file was `*Tests`,
-  plural. The Modulith boundary check (ADR-0014) has been silently absent from every green build since
-  IMP-M0-03. Renamed to `ModularityTest.java`.
-- **`spring-modulith` 2.1.1 is binary-incompatible with Spring Boot 3.5.16** — `NoSuchMethodError` on
-  `ConfigDataEnvironmentPostProcessor.applyTo`; Modulith 2.x targets a newer Boot generation. Pinned to
-  1.4.13, the latest release actually compatible with this Boot line. This had been masked by the same
-  bug above: the test that would have caught it had never run.
-- **CI ran plain `mvnw verify`, never `-Pintegration`** — the merged unit+integration coverage design
-  in `conventions.md` §3 had never been exercised. Wired `-Pintegration` into `build.yml`'s Verify
-  step; ubuntu-latest ships Docker, so Testcontainers needed no extra CI setup.
-
----
-
-## Session 19 Summary
-
-**Date:** 2026-09-05 (session 19)
-
-**No work item. A workflow change: pull requests are suspended and Dependabot is frozen, across
-all five repositories.** No code was written; the eight open PRs were drained first, then the rule
-that produced them was changed in the documents that carry it. Still **5 of 60 items complete**.
-
-### What changed, and where it is written down
-
-- **[ADR-0012](docs/decisions/0012-repo-strategy-polyrepo-submodules.md) gained a *Pull requests are
-  suspended* section**, reversing the clause that read *"self-merge is fine for solo work; the PR
-  record is the value."* Branches stay — same `feat/`/`fix/`/`docs/`/`chore/` names, same isolation —
-  but each is **merged into `master` and deleted within the session that created it**, `--ff-only`
-  preferred. This is the authoritative statement; `conventions.md` §4, `CLAUDE.md`, the `work-item`
-  skill and `implementation/INDEX.md`'s `WIP → REVIEW` row all now point at it rather than
-  restating a PR step.
-- **Dependabot version updates are off in all five repos** via `open-pull-requests-limit: 0` on every
-  ecosystem — GitHub's documented switch. Security updates were already off in repository settings.
-  `conventions.md` §6 gained a *Dependabot is frozen* subsection; FR-CICD-010 in
-  `platform-operations.md` records the suspension without changing what the delivered system requires.
-- **The `dependabot.yml` files are kept, deliberately.** Their `ignore` entries are the only record
-  of why five pins are decisions rather than neglect — protobuf-maven-plugin 5.x's config rewrite,
-  the `typescript-eslint` peer range capping TypeScript below 6.1, Astryx's codemod-only Beta
-  upgrades, jsdom's Node engine floor, the Espresso artifacts tied to a spike result. Deleting the
-  files would have discarded that. Re-enabling is restoring the limits, nothing more.
-
-### The backlog was drained before the freeze, not discarded
-
-All eight open Dependabot PRs were reviewed and their bumps applied directly on `master`, then closed
-with their branches deleted. Every one was routine: spotless 3.10.1, NullAway 0.14.1,
-maven-compiler-plugin 3.16.0 (`turnbase-common`); NullAway 0.14.1, eslint 10.9.1, typescript-eslint
-8.68.0, @types/node 26.3.0 (`turnbase-sdk`); Spring Boot 3.5.16, grpc-bom 1.84.0, failsafe 3.6.0
-(`turnbase-platform`); node 22.23.2-alpine in the Docker build stage (`turnbase-frontend`). Each repo
-was verified before merging — `./mvnw verify` everywhere, `-Pintegration` on `turnbase-platform`,
-lint/typecheck/build/test plus a real `docker build` on `turnbase-frontend`.
-
-### Two defects the drain surfaced
-
-- **grpc was drifting three ways.** `turnbase-platform`'s pom documents its pin as *"Matches
-  turnbase-common's pin"*, but `turnbase-game-host` took 1.84.0 on 2026-09-04 while `turnbase-common`
-  sat at 1.83.1 — so the comment describing the invariant was already false. All three are now on
-  1.84.0 (protobuf unchanged at 4.36.0, codegen green). Dependabot would eventually have proposed
-  this in the grpc-protobuf group; with the freeze landing the same session, it no longer will, which
-  is exactly the class of drift worth levelling by hand before it compounds.
-- **`buf breaking` would have gone dark.** It was gated on `github.event_name == 'pull_request'` in
-  `turnbase-common` — under a no-PR workflow it never fires, and a contract check that never runs is
-  worse than none because it still looks like coverage. It now runs on every push against
-  `.git#ref=HEAD~1` (verified locally), keeping the base-branch comparison for whenever PRs return.
-  The original PR-only guard existed because the commit that first added the proto had no baseline;
-  that window closed the moment the proto landed on `master`.
-
-### The branch pollution is gone, all of it
-
-Eight PRs closed with their branches deleted, and eleven abandoned branches removed — the five
-Dependabot leftovers and `feat/game-host-skeleton` in `turnbase-game-host`, and
-`feat/frontend-skeleton` plus the two `chore/dependabot-*-ignore` branches in `turnbase-frontend`.
-Each had been squash-merged long ago and held nothing `master` lacked (verified by diff before
-deleting: strictly behind it). **All five repositories are now `master` alone, local and remote**,
-which is the state the rule above exists to keep them in.
-
----
-
-## Session 18 Summary
-
-**Date:** 2026-09-04 (session 18)
-
-**`IMP-M0-05` is `DONE` — the frontend skeleton, and a version-drift note rather than a spec
-defect.** `turnbase-frontend` now has Vite 8 + React 19.2 + TypeScript 6.0.3, ESLint/Prettier in
-CI and `pre-push`, a multi-stage Dockerfile (Node build → nginx-alpine), and Astryx wired per
-`design-system.md`. **CI green on `master`, first push, both jobs. 5 of 60 items complete.**
-
-### Astryx landed at 0.5.2, not the 0.4.3 the spec names — not a gate
-
-`design-system.md` §1 says "Astryx is Beta at 0.4.3", written 2026-08-17. npm's `latest` had moved
-to `0.5.2` (released 2026-08-30) by the time this item ran. Not escalated: the normative rule is
-"pin exact versions, no `^`/`~`", satisfied regardless of which exact version, and no *Done when*
-clause names a version number. Landed `0.5.2` exact-pinned across `@astryxdesign/core`,
-`@astryxdesign/theme-neutral`, `@astryxdesign/cli`, with `@stylexjs/stylex` at `0.19.0` per core's
-own peer range. Worth remembering for `IMP-M6-01`: a spec that names a Beta library's current
-version is describing a moment, not a requirement.
-
-### `<LinkProvider>` deferred to `IMP-M6-02`, deliberately
-
-`shell-architecture.md` §2 and `design-system.md` §2 both present `<Theme>` and `<LinkProvider>`
-as "the shell's two providers," mounted together. `LinkProvider` needs `react-router`'s `Link`,
-and routing is `IMP-M6-02`'s to add — there's no router yet for it to wrap. This item's own text
-names only the three CSS imports and `<Theme>` as required at skeleton time, so `App.tsx` mounts
-only those, with an inline comment pointing at `IMP-M6-02`. Worth checking when that item lands:
-the full provider nesting from the spec, not a re-derivation.
-
-### Self-hosting Figtree without a binary-file fetch
-
-`@fontsource/figtree` ships the `.woff2`/`.woff` files and `@font-face` rules pre-written;
-importing `400.css`/`600.css`/`700.css` (the weights `theme-neutral`'s heading/body scale
-actually references) bundles them as ordinary Vite static assets from our own origin — satisfying
-`shell-architecture.md` §6's `font-src 'self'` without hand-managing font binaries in the repo or
-fetching one from Google Fonts. Confirmed in a real browser via Playwright: `body`'s computed
-font resolves to Figtree, `data-astryx-theme="neutral"` lands on `<html>` (the `<Theme>`
-component syncs it there itself — no manual attribute needed), and the composed Astryx `Button`
-renders themed.
-
-### Three toolchain traps, none named in any spec — worth knowing before `IMP-M6-01`
-
-- **`typescript-eslint@8.69.0`'s peer range is still `>=4.8.4 <6.1.0`** — the same trap
-  `IMP-M0-02` found on `turnbase-sdk`. `typescript` pinned to `6.0.3` again.
-- **`jsdom@30.x` raises its own `engines` floor** to `^22.22.2 || ^24.15.0 || >=26.0.0`, past
-  `.nvmrc`'s `22.20.0` — and `npm install` only warns (`EBADENGINE`), it doesn't fail, so the
-  wrong version installs silently. Pinned to `29.1.1`.
-- **Vitest 5 removed `coverage.all`.** Specifying `coverage.include` now collects coverage for
-  every matched file whether a test imports it or not — the replacement for what `all: true` used
-  to name. Separately, `vitest.config.ts` must `import {defineConfig} from "vitest/config"`, not
-  `"vite"` — the latter's type doesn't know the `test` key, and a stale `tsc -b` incremental cache
-  hid the error on the first local `npm run build`, so it only surfaced in a clean Docker build.
-
-### Five Dependabot PRs, three closed — the Astryx/Espresso-shaped trap generalizes to jsdom and the base image
-
-`docker/build-push-action` 6→7 and `nginx` 1.29→1.31-alpine were routine, merged directly. Closed
-and ignored, each with its own follow-up PR per `conventions.md` §6: `jsdom` 29.1.1→30.0.1 (the
-engine-floor trap above), and the Docker build stage's `node:22.20.0-alpine`→`26.8.1-alpine` — CI
-passed on that one, because the build stage happens to still *compile* under Node 26, which is a
-different claim from "the project has adopted Node 26." The base image moves when `.nvmrc` does,
-not when Dependabot notices it can.
-
----
-
-## Session 17 Summary
-
-**Date:** 2026-09-04 (session 17)
-
-**`IMP-M0-04` is `DONE` — the Game Host skeleton, two more registry gates, and five Dependabot PRs
-that turned into two real `dependabot.yml` bugs.** `turnbase-game-host` now boots GraalVM CE 21.0.2
-(`ghcr.io/graalvm/jdk-community:21.0.2`) with Espresso available, CI green on `master` including the
-container build. **4 of 60 items complete.**
-
-### Two gates, opened and closed before and during the build
-
-**IMP-GATE-08** — the *Done when* clause required "the process registers with the Platform Monolith
-per §3's 60-second budget," but the Platform Monolith's server side of `GameHostRegistryService` is
-not implemented until `IMP-M3-05` (depends on `IMP-M3-04`, `IMP-M2-04`) — nearly all of M2 and M3's
-game-host chain, none of which this item (depends only on `IMP-M0-01`) can assume. Same shape as
-`IMP-GATE-03`: an item's *Done when* clause needed its own dependents to exist first. Fixed: narrowed
-to a client-side `Register` call proven against an in-process stub `GameHostRegistryService`; the real
-cross-repo, live-monolith check moved to `IMP-M3-05`'s own *Done when* clause.
-
-**IMP-GATE-09** — proving that `Register` call needed an address to dial, and no document named one.
-`local-environment.md` §7 claims to be the whole tunable surface and §2's diagram puts the registry
-service on the monolith's `8080` listener, but §7.8 (the Game Host's own properties) had no entry for
-it — the same class of gap IR-24 closed for `turnbase.room.spectator-capacity`. Fixed: §7.8 gained
-`turnbase.gamehost.orchestration-address` (default `platform:8080`, following the
-`<service-name>:<port>` convention every other compose dependency already uses).
-
-### What `turnbase-game-host` now has
-
-`9090` serves `GameHostService` (every RPC inherits the generated base class's `UNIMPLEMENTED` response
-until `IMP-M3-04`); `8081` is management only — `server.port=-1` disables the main servlet container,
-so unlike the monolith there is no port `8080` here at all, just Spring's separate management server.
-A `RegistrationLifecycle` component attempts `Register` on a background daemon thread at startup,
-retrying every 2s for the 60-second budget without blocking startup — proven with three tests against
-an in-process stub `GameHostRegistryService` (succeeds first try, retries then succeeds, gives up after
-the budget). A trivial Espresso (`java`) guest context is created and disposed against the running
-GraalVM CE 21 JDK (`allowNativeAccess(true)` is required for Espresso to boot at all on CE, per
-`espresso-spike-results.md` — not a relaxation). Espresso pinned to the exact Maven artifacts
-(`org.graalvm.polyglot:polyglot`/`java-community:23.1.2`) the spike verified.
-
-**Everything was run, not just written**: `./mvnw verify` and `-Pintegration` both green locally, the
-packaged jar boots in the built Docker image and answers `/actuator/health*` (all `UP`) on `8081` while
-`9090` accepts connections, the guest JDK 21 symlink (`/opt/graalvm-guest-jdk21` → the host GraalVM's
-own `$JAVA_HOME`) is present in the container, and CI is green on `master` including the container
-build — the bar `work-item` sets, not a local pass.
-
-### Five Dependabot PRs, two of which were real `dependabot.yml` bugs
-
-Opened within a minute of the first push to `master`, as expected. Three were routine bumps within
-pinned majors and were applied directly (not merged — Dependabot's own `pull_request` runs still lack
-the bootstrap secret): Spring Boot 3.5.7→3.5.16, `grpc-bom` 1.83.1→1.84.0, `maven-failsafe-plugin`
-3.5.6→3.6.0.
-
-**The other two exposed gaps in the `dependabot.yml` ignore rules this session's own first draft
-wrote.** A GraalVM/`jdk-community` docker bump to 25.0.2 opened despite an `ignore` entry naming
-`ghcr.io/graalvm/jdk-community` — Dependabot's docker `dependency-name` omits the registry host, so
-the entry never matched anything; fixed to `graalvm/jdk-community`. An Espresso bump to `23.1.12.1`
-opened despite an `ignore` entry — but that entry only blocked `>=24`, treating Espresso like an
-ordinary dependency, when the pom's own comment says it is pinned to **the exact build the spike
-verified**. Any bump, patch included, needs a deliberate re-run of `espresso-spike-results.md`'s
-probes, not a version-range judgment call. Both are the kind of thing that looks correct until the
-first real PR proves it isn't — worth remembering for `turnbase-frontend`'s own `dependabot.yml`
-(`IMP-M0-05`), which will pin Astryx exactly for a similar reason.
-
-### Docker image note for the next session touching this repo
-
-`ghcr.io/graalvm/jdk-community:21.0.2` is the base image (Oracle Linux 9, `$JAVA_HOME` at
-`/usr/lib64/graalvm/graalvm-community-java21`), not `eclipse-temurin` — the host process itself must
-run on GraalVM CE, unlike the plain-JRE `turnbase-platform` image. It has no `/usr/sbin/nologin`; the
-non-root user's shell is `/bin/false` instead, which exists on every base image checked so far.
-
----
-
-## Session 16 Summary
-
-**Date:** 2026-09-04 (session 16)
-
-**`IMP-M0-03` is `DONE` — the Platform Monolith skeleton, two more registry gates, and a real
-infrastructure gap the corpus had no way to predict.** `turnbase-platform` now has Spring Boot 3.5.7
-on Java 21, packaged by feature under `io.turnbase.platform` (ADR-0014), CI green on `master`
-including the container build. **3 of 60 items complete.**
-
-### Two gates, closed before and during the build
-
-**IMP-GATE-06** — the item's own read-list cites `platform-operations.md` CON-010, which still said
-integration tests use Docker Compose "within the CI runner." That directly contradicts
-`platform-operations.md` FR-CICD-004, corrected 2026-08-20 to Testcontainers-only, and the same rule
-restated in `conventions.md` §3. Simply missed when FR-CICD-004 was fixed. Fixed `platform-operations.md`
-CON-010 to match.
-
-**IMP-GATE-07** — the *Done when* clause required `turnbase-grpc` to "resolve at the exact pinned
-version" under §5's absolute no-`SNAPSHOT` rule, but `turnbase-common` has never been tagged (tagging
-is a human action) and the publish workflow that would produce a release is `IMP-M0-11`, which
-**depends on** this item. Unsatisfiable as written — no release exists, and the pipeline that would
-produce one hadn't been built yet. `conventions.md` §5 gained a bootstrap exception: pin the current
-development version, resolve it from a local install, until the first tag exists; `IMP-M0-11` owns
-both the real publish workflow and the follow-up consumer bump once it lands.
-
-### What the gate's fix didn't anticipate: CI needs the same install, and `turnbase-common` is private
-
-The bootstrap exception said resolve "from the local install" — true for a developer's machine, but a
-GitHub-hosted runner starts with an empty one. The obvious fix — clone `turnbase-common` and install
-it before building — hit a wall the corpus had no way to name in advance: `turnbase-common` is
-**private**, and GitHub's default `GITHUB_TOKEN` cannot read a different private repository under
-**any** organization setting, only a real credential can. First CI push failed on `git clone` with
-*"could not read Username for 'https://github.com'."*
-
-Resolved with the user: a fine-grained PAT, **read-only on Contents, scoped to `turnbase-common`
-only**, stored as `TURNBASE_COMMON_PAT` in `turnbase-platform`'s secrets — narrowest credential that
-does the job, revocable, and deliberately temporary (deleted the same PR that bumps the version
-property once `IMP-M0-11` publishes a real release). `conventions.md` §5 now names this mechanism so
-`IMP-M0-04` doesn't rediscover it. Two mechanical snags on the way: `gh secret set`'s interactive
-prompt didn't survive being run through the session's `!` bridge (silently produced an empty secret,
-which is why the *second* attempt also failed with `TURNBASE_COMMON_PAT: ` blank in the log) — the
-`--body` flag worked where `read -s` didn't.
-
-**Separately, the Docker build doesn't need this at all.** Rather than resolving `turnbase-grpc` a
-second time inside a network-isolated build stage, the Dockerfile packages a jar `./mvnw verify`
-already built in the same CI step — no in-container Maven build, so the image never needs its own
-repository credential.
-
-### Three Dependabot PRs, and a limitation worth knowing before `IMP-M0-04`
-
-The first push opened three: a legitimate patch bump (spotless, nullaway), and two that jump a major
-version this project hasn't adopted (Spring Boot 4.1.1 against the CLAUDE.md-pinned 3.5+; Java 25
-against the pinned 21). All three initially showed CI failing — but not because of their content:
-**Dependabot's own `pull_request`-triggered runs get no repository secrets**, so every Dependabot PR
-against a bootstrap-window consumer fails the install step regardless of what it changes. Closed all
-three, applied the legitimate bump directly (push-triggered CI has the secret), and added
-`dependabot.yml` ignores for the two major bumps. Now in `conventions.md` §6 as the third
-first-push trap, alongside the GraalVM and `buf breaking` ones `IMP-M0-01` found.
-
-### What `turnbase-platform` now has
-
-Twelve empty feature packages under `io.turnbase.platform`, `spring-modulith-starter-core`, and
-`ApplicationModules.verify()` green (passes trivially — no code exists to violate a boundary yet, but
-the first violation now fails a build). `8080` HTTP, `8081` management with its bind address driven by
-`MANAGEMENT_SERVER_ADDRESS` — **verified live**, not just configured: loopback-only when the compose
-value is set, all-interfaces when unset, matching `local-environment.md` §1 exactly. Health,
-readiness and liveness all respond and report nothing about the Game Host. A `GameHostServiceGrpc`
-blocking-stub test proves `turnbase-grpc` resolves and compiles here, not just in a throwaway
-consumer. Merged JaCoCo at 70%, non-vacuous this time — a real `TurnBaseApplicationTest` boots the app
-through its own `main` on ephemeral ports for 100% coverage of the one hand-written class.
-
-**Everything was run, not just written**: `./mvnw verify` and `-Pintegration` both green locally,
-the packaged jar boots and answers `/actuator/health`, the Docker image builds and its container
-answers the same endpoints, and CI is green on `master` including the container-build step — the bar
-`work-item` sets, not a local pass.
-
----
-
-## Session 15 Summary
-
-**Date:** 2026-08-22 (session 15)
-
-**`IMP-M0-02` is `DONE` — the SDK's build-and-publish floor, and two more registry defects found
-before any code existed.** `turnbase-sdk` now has `io.turnbase:turnbase-sdk` (Maven) and
-`@turnbase/gdk` (npm) building, testing and publishing locally, both green in CI on the first
-push. **2 of 60 items complete.**
-
-### Two gates, opened and closed before writing code
-
-Reading `IMP-M0-02`'s own three-document read-list found the item could not be built as written —
-same shape as `IMP-M0-01`'s three gates, this time caught before any code rather than during it:
-
-| Gate | The contradiction | Fix |
-|---|---|---|
-| **IMP-GATE-04** | Read-list was `backend-gdk-api.md` §1–3, claiming `FR-GDK-001`; but §3's `TurnBaseGame` references ten types defined in §4/§7 and its default method calls `PlayerJoinedResult.of(state)` — the §1–3 surface cannot compile without all of §§3–8, which is `IMP-M3-01`'s own *Done when* | `IMP-M0-02` narrowed to build-and-publish floor only; the Java type surface stays `IMP-M3-01`'s |
-| **IMP-GATE-05** | `FR-FEGDK-001…009` (`TurnBaseClient`) was claimed only by `IMP-M6-05`, which implements the platform shell's half of the boundary, not the client — no item in `turnbase-sdk`, the repo that publishes `@turnbase/gdk`, owned it | New `IMP-M3-12 — FE GDK client`, in `turnbase-sdk`, depends on `IMP-M0-02`. `IMP-M6-05`'s *Satisfies* corrected |
-
-Registry is now **60 live items**. Both gates closed in the same session they opened, per
-`spec-defect`'s "still write both" guidance — the record of *why* is the durable part even when
-open and close land together.
-
-### What `turnbase-sdk` now has
-
-Modelled on `turnbase-common`'s pom rather than re-derived: enforcer (JDK 21, plus a
-**`bannedDependencies`** rule new to this repo — `turnbase-grpc` and `turnbase-game-host` banned
-at every scope, verified to actually fire, mechanizing the rule `turnbase-sdk/CLAUDE.md` already
-stated), Spotless, **Checkstyle** (the one repository that runs it, public-type Javadoc only,
-verified to actually fire), Error Prone + NullAway (`AnnotatedPackages=io.turnbase.gdk` — no
-generated code here to exclude), merged JaCoCo at 70% (vacuous today, same documented shape as
-`turnbase-common`'s). `io.turnbase.gdk.GameState` plus all five `@NullMarked` packages
-`backend-gdk-api.md` §2 fixes — four empty, because the layout is part of the published surface
-and a later rename would be a breaking change.
-
-npm side: `tsup` building ESM + CJS + bundled `.d.ts` from `src/main/ts/` (kept under Maven's
-`src/main/<lang>` shape rather than a conventional npm `src/`, so the two toolchains share one
-tree), the **declared** FE GDK types from `frontend-gdk-api.md` §5/§6/§9/§10 — `Role`, `Player`,
-`Team`, `InitContext`, the `Window.__TURNBASE__` bootstrap global, the inbound/outbound message
-envelope. Zero runtime dependencies, asserted by a test rather than assumed. No `TurnBaseGame`, no
-`TurnBaseClient` — both deliberately absent, and `CLAUDE.md` now says so, so `IMP-M3-01` and
-`IMP-M3-12` don't read as something broken.
-
-### The one build trap this item hit
-
-**`npm install` failed `ERESOLVE`** on the latest `typescript` (7.0.2): `typescript-eslint@8.67.0`
-peers on `<6.1.0`. Not a spec defect — a toolchain-compatibility fact no document could have
-stated — pinned to `6.0.3`, with the `dependabot.yml` `ignore` entry landing in the same commit as
-the pin (`conventions.md` §6's rule, now exercised by a second repository). Separately, `tsup`'s
-`.d.ts` bundling step tripped TS's new `baseUrl`-deprecation error even though this `tsconfig.json`
-sets no `baseUrl`; `"ignoreDeprecations": "6.0"` silenced it. Neither reproduced by reading a spec —
-both were found by running the build.
-
-### CI green on both jobs, first push — unlike `IMP-M0-01`
-
-Neither of `IMP-M0-01`'s two first-push failures applied here: no proto means no `buf` job, and
-`conventions.md` §6 already carried the `graalvm/setup-graalvm` fix into this workflow from the
-start. Both Dependabot PRs opened on the first push (`actions/setup-node` 6→7, `@eslint/js`
-9.39.1→10.0.1) were legitimate and merged directly — neither touched a protected pin, unlike
-`turnbase-common`'s five.
-
-### Process note
-
-**The provided-scope consumer probe and the two enforcement rules (Checkstyle, banned
-dependencies) were each demonstrated against a deliberate violation**, not just asserted to exist
-— the same discipline session 13 applied to `check-corpus.py`. All three fired correctly, then were
-reverted.
-
----
-
-## Session 14 Summary
-
-**Date:** 2026-08-20 (session 14)
-
-**The first code in the project, and three specification defects found by trying to write it.**
-`IMP-M0-01` is **`DONE`** — the gRPC stubs are built, tested, pushed, and green in CI, and
-`turnbase-common` now carries the full build floor of `conventions.md` §6. **1 of 59 items complete.**
-
-The session also settled how this project is actually worked: the agent can now push (without any
-force variant), so it sees its own hooks and its own pipeline fail. ADR-0012 lost a branch-protection
-rule that never existed.
-
-### The headline is not the code
-
-Phase 0 produced a corpus that had been audited twice. The first item to actually compile something
-against it hit **three contradictions in its own three-document read-list**, none of which any of the
-five corpus checks could have found:
-
-| Gate | The contradiction | Where the fix landed |
-|---|---|---|
-| **01** | `gamehost.proto` declared `java_package = "com.turnbase.gamehost.grpc.v1"`; `conventions.md` §1, ADR-0014 §1 and the item's own *Done when* all say `io.turnbase.grpc`. `com.turnbase` occurred **exactly once** in the entire corpus | the proto, now `io.turnbase.grpc.gamehost.v1`; rule stated in `conventions.md` §5 |
-| **02** | ADR-0012 said the proto is copied into `src/main/proto/` **at build time**, and — eight lines earlier — that each repo is **independently usable without the root**. Both cannot hold | ADR-0012 amended: the copy is **committed**; drift guarded by `scripts/sync-proto.sh --check` |
-| **03** | The *Done when* clause required resolution from `turnbase-platform` and `turnbase-game-host`, but `IMP-M0-04` **depends on** `IMP-M0-01` — the clause needed its own dependents | clause split: the local half stayed, the cross-repo half moved to `IMP-M0-03`/`IMP-M0-04` |
-
-**GATE-02 is the one worth remembering.** It was not a typo or a stale sentence: two individually
-correct statements combined into an impossible requirement, and resolving it silently would have
-picked a repository layout by accident. The first symptom would have been `turnbase-common`'s CI
-failing on the day it was first pushed, long after the choice was made and with nothing recording
-that a choice existed.
-
-That is exactly the failure `spec-defect` was written to prevent, and this is its first real
-outing — three for three on an item budgeted as "close to mechanical".
-
-### What `turnbase-common` now has
-
-`./mvnw verify` runs Spotless → Error Prone + NullAway → protoc codegen → 15 tests → merged JaCoCo.
-Enforcer fails a wrong JDK at `validate` rather than deep inside codegen. `buf lint` is clean with
-**no** exception, because the committed copy sits at the canonical `turnbase/gamehost/v1/` path — the
-lint waiver stays scoped to the spec tree, where the file is flat for readability beside its design
-doc. Dependabot, a `pre-push` hook, and a workflow running `verify` plus `buf lint`/`breaking`.
-
-**The surface test parses the `.proto` instead of hard-coding what it expects.** A hard-coded list
-asserts that codegen produced what the test author typed, and stays green when someone adds a service
-to the contract and forgets everything downstream. It also pins the thing GATE-01 could have broken
-silently: the **wire** name is still `turnbase.gamehost.v1.*` regardless of the Java package, and
-since both peers regenerate from the same file, nothing else would have noticed.
-
-### Three build traps, none of which said what they were
-
-- **Error Prone on JDK 21 additionally needs `-XDaddTypeAnnotationsToSymbol=true`**, beyond the
-  `compilePolicy` and `should-stop` flags `conventions.md` §2 already named. Now in §2.
-- **`protobuf-maven-plugin` 5.x rewrote its configuration surface.** Pinned to 4.1.3, with a
-  Dependabot `ignore` entry so the pin is not mistaken for neglect.
-- **XML comments cannot contain a double hyphen**, so no pom comment can quote a compiler flag.
-
-And one that would have bitten later: the parent checks out the proto as CRLF while the submodule
-pins it to LF, so `sync-proto.sh --check` would have reported drift on **every line of an identical
-file** after a fresh clone — a false alarm on the one check whose value is that a real difference is
-never dismissed as noise. Both ends pinned, and the comparison made line-ending agnostic anyway.
-
-### CI failed both jobs on the first push, and neither failure reproduced locally
-
-This is the part worth carrying, because the other three Java repos will meet the first one:
-
-- **`actions/setup-java` has no `graalvm-community` distribution.** GraalVM CE is set up by
-  `graalvm/setup-graalvm`. The error names the distribution, so it reads as a typo rather than as the
-  wrong action entirely.
-- **`buf breaking` had no baseline.** On a push it compared against `HEAD~1` — which, on the commit
-  that *introduces* the proto, is a tree with no protos. `Module "path: "." had no .proto files`
-  names the module, not the absent baseline. It now runs on pull requests only, against the base
-  branch; `buf lint` still runs on everything because it always has an answer.
-
-Both are recorded in `conventions.md` §6.
-
-**Dependabot opened five PRs within a minute of the first push**, one of them reverting the
-deliberate `protobuf-maven-plugin` pin. The rest were right and were applied directly — `checkout`
-and `upload-artifact` to v7, the Maven wrapper to 3.9.16 — then all five were closed as superseded.
-The rule that came out of it, now in `conventions.md` §6: **an `ignore` entry ships in the same
-change as the pin it protects**, carrying the reason.
-
-### Two process decisions
-
-**The agent pushes now, without any force variant.** `--force`, `--force-with-lease`, `--mirror`,
-`--delete`, `--prune`, `--tags` and `+refspec` are denied; tag pushes stay a human action because
-ADR-0012 makes a `v*.*.*` tag the release trigger. This closed a real gap rather than a theoretical
-one — the `pre-push` hooks existed for a session without ever having been seen to run. They now fire
-on every push and are visible in the transcript. The alternative, moving them to `pre-commit`, was
-rejected: it would have taxed all nine commits of this session to run a check that mattered on four
-pushes, and a commit is *allowed* to be broken — the `work-item` skill mandates a claim commit before
-any code exists.
-
-**ADR-0012's "`master` — protected, no direct pushes" is removed.** GitHub does not offer branch
-protection on private repositories outside a paid plan, so the clause described a setting that never
-existed, read as a guarantee, and contradicted the same ADR's "self-merge is fine for solo work".
-Feature branches and PRs remain the normal path; the document now describes what the platform
-enforces.
-
-### One thing left deliberately imperfect, and written down rather than hidden
-
-**The coverage gate in `turnbase-common` is inert.** It measures the hand-written remainder, which is
-empty, so JaCoCo logs "All coverage checks have been met" over a bundle of **zero classes** — the
-same fail-open shape `conventions.md` §3 warns about. That is a true statement about a codegen-only
-module, and the alternatives were worse: lowering the threshold, or including generated stubs and
-setting the gate to whatever codegen happens to emit. It becomes load-bearing with no build change on
-the first class under `io.turnbase.grpc.internal`, which is why that package exists now carrying
-`@NullMarked`. Recorded in the pom, the README and the registry — three places a reader would look.
-
----
-
-## Session 13 Summary
-
-**Date:** 2026-08-20 (session 13)
-
-**A readiness review of the harness rather than the corpus, and everything it produced.** The
-specifications were already implementation-ready; what was missing was the layer beneath them — the
-conventions every work item assumes, and the Claude Code setup that executes them. Two ADRs, two new
-documents, a checker, two skills, five submodule instruction files. Still no code.
-
-### What the review found
-
-The corpus says *what* to build (requirements), *how it is designed* (specs) and *what to build next*
-(the registry). It said nothing about **how the code is written**: no package layout, no formatter,
-no static analysis, no coverage tool, no test-suffix convention, no cross-repo version rule.
-
-**The corpus's only evidence of the monolith's package root was a logger name in a JSON sample** in
-`observability.md`, written to illustrate log structure rather than to decide anything. That is the
-shape of the whole gap: the decisions existed nowhere, so the first item to need one would have made
-it silently and the next thirty would have disagreed.
-
-### Seven defects, all closed
-
-| # | Defect | Fix |
-|---|---|---|
-| 1 | FR-CICD-002/006/007 + CON-009 + OQ-002 gated on `main`; every repo is on `master` | Corrected against ADR-0012. A workflow written from the old text never fires |
-| 2 | FR-CICD-004 said integration tests use Docker Compose; `local-environment.md` §8 says Testcontainers and rejects a hand-started stack | §8 was right; the requirement now carries the reason inline |
-| 3 | IMP-M3-10's repo did not exist and ADR-0012 lists five | Deferred **by decision**: `turnbase-game-<name>` is created when the item starts |
-| 4 | FR-CICD-003 gates on coverage; no tool named anywhere | JaCoCo, over **merged** unit + integration exec data |
-| 5 | Google Java Style was a `CLAUDE.md` SHOULD with no mechanism | Spotless + `google-java-format` at `validate` |
-| 6 | No package layout, and none for tests | ADR-0014 + `conventions.md` §§1, 3 |
-| 7 | No cross-repo version rule | Exact pins, a `-D` override for the local loop, a stated release order |
-
-### Two ADRs, and they share one argument
-
-**[ADR-0014](docs/decisions/0014-modular-monolith-spring-modulith.md)** — the monolith is packaged by
-feature under `io.turnbase.platform`, and **Spring Modulith fails the build** when one feature reaches
-into another's internals. The twelve feature packages are the registry's own milestone decomposition,
-lifted rather than invented, so every work item already knows its package.
-
-**[ADR-0015](docs/decisions/0015-static-analysis-error-prone-nullaway.md)** — **Error Prone +
-NullAway**, JSpecify `@NullMarked` at package level, in every Java repository. Formatting checks the
-*shape* of code; nothing in the build was looking for **defects**. Nullness is load-bearing in this
-data model specifically: `left_at` / `lost_announced_at` drive the deferred-tail partial index, and
-`owner_user_id`'s nullness is tied to `badge='OFFICIAL'` by a check constraint. Rejected SpotBugs and
-PMD (noise), and ArchUnit (Modulith already owns that invariant).
-
-**Both were taken before any code existed, for the same reason: a build-time check is cheap at
-skeleton time and prohibitive at work item forty**, where the retrofit arrives as one unreviewable
-change and gets downgraded to a warning — which is the same as not having it. There is no later point
-at which either decision is available on the same terms. That argument is why they are ADRs and
-Spotless, JaCoCo and the test suffixes are not.
-
-### `docs/implementation/conventions.md` — new, and normative
-
-Package layout, formatting, static analysis, tests and coverage, git, cross-repo dependencies, and
-the per-repo build floor. Deliberately **not** repeated in read-lists: it is assumed the way
-`CLAUDE.md` is. `implementation/INDEX.md` carries the rule that makes that safe — *if you are
-deciding something that should be the same across all forty platform items, the answer belongs in
-`conventions.md` and its absence is a defect.* Settling it locally is what produces four conventions.
-
-### The harness layer
-
-**Five submodule `CLAUDE.md` files**, additive to the root one, each carrying only what is repo-local.
-The bias was toward traps that surface far from their cause: the management port differing between
-compose and Kubernetes, `<LinkProvider>` presenting as a navigation bug three milestones downstream,
-the proto copy that diverges invisibly because both sides still compile, the CE-23 image that does
-not exist. `turnbase-game-host/README.md` still advertised GraalVM CE 23; corrected.
-
-**`scripts/check-corpus.py`** — five checks, exit 1 on failure: `links`, `cites`, `sections`,
-`index`, `registry`. It is a script rather than a skill because it is mechanical, and what is
-enforceable by validation should be automated. **Verified against deliberate defects rather than
-assumed**, and the registry check confirmed non-vacuous (60 rows, 60 sections, 59 `READY` + 1
-`CANCELLED`).
-
-It found two real citation defects on its first run — one of them written three commits earlier in
-the same session (`registry.md` qualifying FR-CICD-004 with `local-environment.md`), the other
-`bundle-format.md` qualifying CON-006 with a document that does not define it, where CON-006 exists
-in six documents with unrelated meanings.
-
-**Registry status protocol** — status lives in the register table and nowhere else; whoever works the
-item writes the transition in the same commit as the work, not from memory at session end. Two
-invariants are now machine-checked: every ID has both a row and a section, and `BLOCKED` holds if and
-only if a `Gate:` line exists. **Escalation format** — the `Gate:` line, the specification fix and the
-`STATUS.md` entry happen together or none of them count.
-
-**Two project skills** in `.claude/skills/`: **`work-item`** (the cadence — claim, read exactly the
-read-list, build to the *Done when*, verify green, bump the ref) and **`spec-defect`** (the
-escalation, whose argument is that stopping is the *cheap* option). Written with skill-creator's
-guidance; **not stress-tested against subagents** — the owner's call, reasonable for a solo project,
-and their real test is the first M0 items.
-
-### Decisions worth carrying
-
-- **Spotless over Checkstyle for format.** A formatter that rewrites gives an agent a diff; a linter
-  gives it forty complaints to hand-edit. `spotless:apply` **before** the PR — a bounced pipeline
-  costs one turn to discover and another to fix. Checkstyle survives in `turnbase-sdk` only, for the
-  one rule a formatter cannot check.
-- **Git hooks: `pre-push`, native, via `core.hooksPath`. Not husky, not pre-commit.** Commits here
-  are constant and a pre-commit hook pays a JVM start on each; pushes are roughly one per work item.
-  And **the agent cannot push** — `git push` is denied — so a `pre-push` hook catches what an agent
-  left broken at the moment a human is about to publish it. husky would mean adding `package.json` to
-  three Maven repos, and one repo differing is worse than five matching.
-- **No `-SNAPSHOT` in a committed pom.** It makes builds unreproducible and hides breaking proto
-  changes. The local loop is a `-D` override with nothing to forget to revert.
-- **A check that fires is fixed or suppressed at the site with a reason.** Lowering severity
-  build-wide is one invisible decision that turns off a class of finding forever.
-
-### Three traps now written down because they fail confusingly
-
-- **JaCoCo wired the obvious way measures unit tests only** — and it fails *open*, reporting a number
-  nobody can tell is wrong. FR-CICD-003 counts unit *and* integration, so two exec files must be
-  merged before a single `check`.
-- **Naively annotated, forty integration tests start forty PostgreSQL containers** and the PR
-  pipeline stops being run. Containers start once per JVM; isolation comes from truncating.
-- **`google-java-format` and Error Prone both need `.mvn/jvm.config` flags** (`--add-exports`,
-  `-XDcompilePolicy=simple`, `--should-stop=ifError=FLOW`). The first failure reads like a broken
-  toolchain rather than a missing flag.
-
-### `IMP-M0-03` is no longer a mechanical item
-
-It now establishes the build floor for the repository holding forty of the 59 work items: wrapper,
-Spotless, Error Prone + NullAway, JaCoCo, the twelve empty feature packages, the Modulith
-verification test, and the `pre-push` hook. Deliberate — every one of those is cheapest at skeleton
-time — but the old framing of *"M0-01…05 are mechanical and unblock everything"* is no longer true
-of it.
-
-### Verification
-
-`python3 scripts/check-corpus.py` clean across all five checks. Both new ADRs registered in
-`decisions/INDEX.md`; `conventions.md` registered in `implementation/INDEX.md`.
-
-### Permissions
-
-Applied by the owner, and bare `Bash(mvn *)` deliberately dropped so only `./mvnw` is frictionless —
-which is what `conventions.md` §6 requires. **Two gaps remain:** `mcp__playwright__*` does not match
-the actual tool names (`mcp__plugin_playwright_playwright__*`), and **`mcp__astryx__*` is not
-allowlisted at all**, so every Astryx component lookup will prompt — and ADR-0013 makes that lookup a
-tool call by design.
-
----
-
-## Session 12 Summary
-
-**Date:** 2026-08-17 (session 12)
-
-**Adopted [Astryx](https://github.com/facebook/astryx) as the platform's design system**
-([ADR-0013](docs/decisions/0013-astryx-design-system.md)) — Meta's open-source library, MIT, 150+
-components, React 19+ — superseding `design-system.md`'s in-house seventeen written one day earlier.
-Also scanned the local toolchain: **no installs needed.** Node v22.20.0, `.sdkmanrc` pinning
-`21.0.2-graalce`, Maven 3.9.11, Docker 29.1.2, **Helm v4** (not 3 — `IMP-M0-08` is written against v4
-conventions). `.nvmrc` and `.mcp.json` (the `astryx` docs server) landed with it.
-
-**The substantive change was the aesthetic, not the library.** `theme-neutral` is muted and minimal
-where `platform-ui-library.md` had described neon on near-black with frosted glass: FR-TOK-007
-withdrawn, FR-TOK-001 loses the neon palette, FR-TOK-005 the frosted glass, and NFR-PERF-002's
-`backdrop-filter` clause with it. All five `OQ-*` in `platform-ui-library.md` closed — three
-*dropped*, because each asked the platform to decide something Astryx has already decided.
-
-Four rules keep it from drifting, all in `design-system.md`: **exact version pins, no `^`** (Astryx is
-Beta at 0.4.3); the **compose → swizzle → write ladder**, stopping at the first rung that works, because
-a swizzle is a fork with a nice name; **no wrapper layer** — application code imports
-`@astryxdesign/core/Button` directly; and **nothing in this corpus lists Astryx's components** —
-lookup is `npm run astryx -- component <Name>` or the MCP server, because a copy is stale within a
-release.
-
-**The one trap worth repeating:** `<LinkProvider component={Link}>` must be mounted in the shell.
-Without it every Astryx `Link` emits a plain `<a href>` and triggers a full page reload — dropping the
-STOMP connection, the room subscription and all in-memory session state. It surfaces as a navigation
-bug three milestones from where it was introduced.
-
----
-
-## Earlier Sessions
-
-**2026-08-16 (session 11) — the corpus became implementation-ready.** Closed all 23
-implementation-readiness blockers; completed the registry so that **all 59 live items carry Repo,
-Depends on, Read first, Satisfies and Done when** (an audit had found 19 with no body at all); wrote
-`docs/requirements/INDEX.md`; named `turnbase.room.spectator-capacity`; then harvested the ten
-surviving non-blocking findings and **pruned `docs/` from 30 229 lines to 22 715** by deleting spent
-working files — five machine-extracted inventories, the executed remediation plan, thirteen slice and
-domain reports.
-
-Four things from it that still bear on Phase 1:
-
-- **A stale inventory is worse than no inventory** — it is exactly the kind of file an agent greps
-  into and believes. That, rather than size, is why they went. Working files are deleted once spent,
-  not archived.
-- **Cite a requirement with the document that *defines* it.** Twelve prefixes genuinely collide;
-  checking citations strictly against definitions found **19 mis-qualified** ones. A wrong qualifier
-  is worse than a bare ID, and `docs/requirements/INDEX.md` is the lookup.
-- **`Gate:` now appears only when something is open**, so its absence means what it says.
-- Two mechanical checks are worth reconstructing after any documentation change: every relative link
-  resolves, and every requirement citation exists in the document it is qualified with. They are the
-  two that found real defects. (Session 13 ran both; both clean.)
-
-**2026-08-15 (session 9) — Phase 0 finished.** 21 new files, ~35 edited: the rest of the data model
-(five schema documents, ~30 tables), schema migrations (ADR-0011 + Flyway), system wiring and the
-consolidated configuration surface, secrets and JWT key rotation, and eight end-to-end journeys under
-`docs/specs/flows/`.
-
-**27 defects, found three distinct ways**, and the pattern is the lesson: the worst were found by
-*composing two individually correct documents*. `file-uploads.md` cleared Verified status
-unconditionally at activation while `game_official_ownerless_ck` tied `badge='OFFICIAL'` to a null
-owner as an equivalence — so **every official upload would abort its activation transaction, and no
-official game could ever be updated.** The only path the MVP exercises. Also: unpacking the whole
-bundle under a derivable URL **published the backend JAR to anonymous callers**; `PROCESSING` had no
-exit, so a validation job that died with its pod permanently burned that version number.
-
-Two process lessons that held: **a constraint that turns silent corruption into a loud failure is
-doing its job and will look like the bug** — tightening the badge check is what surfaced the defect,
-and the right response was to fix the transition, not loosen the check. And a subagent returning a
-bare idle notification is recovered by re-tasking with an explicit file list, explicit scenarios and
-an explicit *"an idle notification is not a usable answer"*.
-
----
-
 ## Next Priorities
 
 **Phase 1 is under way. Work from [`docs/implementation/INDEX.md`](docs/implementation/INDEX.md), not
@@ -973,20 +107,26 @@ says which of them to pick up.
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
-**Progress: 10 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 11 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
 `turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), `IMP-M0-05`
 (Frontend skeleton, `turnbase-frontend`), `IMP-M0-06` (Flyway baseline, `turnbase-platform`),
 `IMP-M0-07` (local stack compose profile, `turnbase-platform`), `IMP-M0-08` (Helm chart,
 `turnbase-platform`), `IMP-M0-09` (configuration and secrets wiring, `turnbase-platform` +
+`turnbase-game-host`), `IMP-M0-10` (observability baseline, `turnbase-platform` +
 `turnbase-game-host`) and `IMP-M3-12` (FE GDK client, `turnbase-sdk`), all pushed and green in CI.
 **No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
 whatever its own dependencies imply.
 
-**Next up: `IMP-M0-10` (observability baseline), `IMP-M0-11` (CI/CD workflows, all five repos) and
-`IMP-M0-12` (seed data, gated on `IMP-M4-03`, not yet `READY`)** — `M0-10` and `M0-11` are `READY`
-now, each depending only on `M0-03`+`M0-04` (or a subset). `IMP-M0-06`'s completion already
-unblocked `IMP-M4-02` (manifest schema validation, `turnbase-platform`).
+**Next up: `IMP-M0-11` (CI/CD workflows, all five repos) and `IMP-M0-12` (seed data, gated on
+`IMP-M4-03`, not yet `READY`)** — `M0-11` is `READY` now, depending only on `M0-01…05`.
+`IMP-M0-06`'s completion already unblocked `IMP-M4-02` (manifest schema validation,
+`turnbase-platform`). `IMP-M0-10` left five small obligations on later items, each recorded as a
+sentence in that item's own section rather than a gate: `IMP-M2-02` exposes
+`turnbase_websocket_connections_active`, `IMP-M3-09`/`IMP-M2-10`/`IMP-M3-08` wire
+`GameSessionFailureRate`/`ReconciliationRepairsPersist`/`TeardownOwed`, and any item adding a new
+Redis usage site tags it per `conventions.md` §7. None of these block anything — they surface when
+that item's own Done-when is checked.
 
 **IMP-GATE-17** (`IMP-M0-09`, opened and closed 2026-09-05) — `turnbase.gamehost.grpc.port`, shipped
 in `IMP-M0-04` and already read live by `GrpcServerLifecycle`, was never added to
