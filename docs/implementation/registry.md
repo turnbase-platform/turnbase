@@ -33,7 +33,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M0-03 | Platform Monolith skeleton | platform | — | DONE |
 | IMP-M0-04 | Game Host skeleton | game-host | M0-01 | DONE |
 | IMP-M0-05 | Frontend skeleton | frontend | — | DONE |
-| IMP-M0-06 | Flyway baseline `V1__baseline.sql` | platform | M0-03 | READY |
+| IMP-M0-06 | Flyway baseline `V1__baseline.sql` | platform | M0-03 | WIP (session 20) |
 | IMP-M0-07 | Local stack — compose profile | this repo | M0-03, M0-04, M0-05 | READY |
 | IMP-M0-08 | Local stack — Helm chart (canonical) | this repo | M0-07 | READY |
 | IMP-M0-09 | Configuration and secrets wiring | platform, game-host | M0-03, M0-04 | READY |
