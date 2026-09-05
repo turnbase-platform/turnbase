@@ -122,8 +122,10 @@ whatever its own dependencies imply.
 CON-003 and ADR-0012's Release Strategy commit `turnbase-sdk` to Maven Central + npm, but no document
 names a license for it, and Maven Central's publish validation rejects a POM with no `<licenses>`.
 Raised to the project owner (a real decision, not a CI mechanic), who deferred it. Fixed: both
-documents now say the Maven Central/npm publish is deferred until a license is chosen, and
-`turnbase-sdk` publishes to GitHub Packages (Maven + npm) in the interim, same as `turnbase-common`.
+documents now say the Maven Central/npm publish is deferred until a license is chosen. Only the Maven
+half gets an interim home (GitHub Packages, same as `turnbase-common`) — GitHub Packages' npm registry
+requires a scope matching the `turnbase-platform` org, which `@turnbase/gdk` (FR-FEGDK-007) cannot
+satisfy, so the npm package stays unpublished by any registry until the public one is available.
 
 **IMP-GATE-24** (`IMP-M0-11`, opened and closed 2026-09-05) — FR-CICD-007/008 require a tag-triggered
 production deployment and rollback, but ADR-0001 defers all cloud/production deployment to post-MVP

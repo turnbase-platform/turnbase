@@ -921,10 +921,13 @@ and Maven Central's publish validation rejects an artifact with no `<licenses>` 
 commitment is unsatisfiable as written. This is a decision the corpus left open, not a CI mechanic:
 raised to the project owner, who chose to defer it rather than pick a license under this item. Fixed:
 ADR-0012's Release Strategy row for `turnbase-sdk` and CON-003 both now say the Maven Central/npm
-publish is deferred until a license is chosen, and that `turnbase-sdk` publishes to GitHub Packages
-(both the Maven artifact and the npm package) in the interim — the same registry `turnbase-common`
-already uses, requiring no new external account and no license metadata. This item's own *Done when*
-below is narrowed to match.
+publish is deferred until a license is chosen. Only the **Maven** half has a working interim home —
+GitHub Packages, same registry `turnbase-common` already uses, no new external account. The **npm**
+half does not: GitHub Packages' npm registry requires a scoped package's scope to match the owning
+GitHub org (`turnbase-platform`), and `@turnbase/gdk` (FR-FEGDK-007) cannot satisfy that — a hard
+registry constraint, not a naming choice — so npm publication waits for the public registry alongside
+the license, same as it already did before this gate. This item's own *Done when* below is narrowed
+to match.
 
 **Closed:** IMP-GATE-23 (opened and closed 2026-09-05) — `platform-operations.md` FR-CICD-002/003 and
 OQ-002's resolution gated the pipeline on a **pull request** ("the PR cannot be merged if any check
@@ -957,15 +960,16 @@ to change — the defect was in the requirement's prose, not in the pipelines it
    tagged with the commit SHA to GHCR on every push to `master` (FR-CICD-006), authenticating with the
    workflow's own `GITHUB_TOKEN` — no new secret.
 3. `turnbase-common` and `turnbase-sdk` each gain a `publish` workflow that triggers **only** on a
-   `v*.*.*` tag, never on an ordinary push, and both publish to **GitHub Packages** — Maven for
-   `turnbase-common`, Maven and npm for `turnbase-sdk` (IMP-GATE-25 — the Maven Central/npm publish
-   ADR-0012's Release Strategy names for `turnbase-sdk` is deferred until a license is chosen).
-   Neither workflow's actual first run is exercised in this item: cutting a `v*.*.*` tag is a human
-   action the agent does not take (`CLAUDE.md`, permissions). Verified as far as that allows: both
-   workflows are syntactically valid, trigger only on a tag push and never on an ordinary one, and the
-   version-from-tag/credential-wiring steps are reviewed against `turnbase-common`'s own working
-   `-Prelease deploy` invocation (`conventions.md` §5's bootstrap window already established this
-   exact pattern for consumer resolution).
+   `v*.*.*` tag, never on an ordinary push. `turnbase-common` publishes its Maven artifact to GitHub
+   Packages. `turnbase-sdk` publishes only its Maven artifact there too — its npm package stays
+   unpublished by any registry, public or interim (IMP-GATE-25: the public Maven Central/npm publish
+   ADR-0012 names is deferred pending a license, and GitHub Packages' npm registry cannot host
+   `@turnbase/gdk` under the `turnbase-platform` org scope it would require). `npm pack --dry-run`
+   (already `IMP-M0-02`'s check) remains the ceiling for the npm side until both are resolved. Neither
+   workflow's actual first run is exercised in this item: cutting a `v*.*.*` tag is a human action the
+   agent does not take (`CLAUDE.md`, permissions). Verified as far as that allows: both workflows are
+   syntactically valid and trigger only on a tag push, and the version-from-tag/credential-wiring steps
+   mirror `turnbase-common`'s own working `-Prelease deploy` invocation.
 4. `turnbase-platform` gains `make e2e` (compose up, an HTTP smoke test against both services' health
    endpoints, compose down) and a post-merge job that runs it on every push to `master`, reporting
    pass/fail for information only — it gates nothing (FR-CICD-005, OQ-002). A full end-to-end feature

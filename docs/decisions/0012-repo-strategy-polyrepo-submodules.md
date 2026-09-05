@@ -124,7 +124,7 @@ Subject: ≤ 72 chars, imperative mood, no trailing period.
 
 | Repo | Versioning | Trigger |
 |------|-----------|---------|
-| `turnbase-sdk` | Semantic versioning (`v1.2.3`) | Manual tag on `master`; CI publishes to GitHub Packages (Maven + npm). Maven Central + npmjs.com publication is **deferred** — no document names an open-source license for this artifact, and Maven Central's publish validation requires one in the POM (`IMP-GATE-25`, closed by deferring rather than picking a license under a CI work item). Re-scope to the public registries once a license is chosen. |
+| `turnbase-sdk` | Semantic versioning (`v1.2.3`) | Manual tag on `master`; CI publishes the **Maven** artifact to GitHub Packages. Maven Central + the npm publish are both **deferred** — no document names an open-source license for this artifact, and Maven Central's publish validation requires one in the POM (`IMP-GATE-25`, closed by deferring rather than picking a license under a CI work item). The npm half has no working interim registry: GitHub Packages' npm registry requires a scoped package's scope to match the org that owns it (`turnbase-platform`), which `@turnbase/gdk` (FR-FEGDK-007) cannot — the mismatch is a hard constraint of the registry, not a naming choice. Re-scope both to the public registries once a license is chosen. |
 | `turnbase-common` | Semantic versioning | Manual tag; CI publishes to GitHub Packages |
 | `turnbase-platform` | Semantic versioning | Manual tag; CI builds + pushes Docker image |
 | `turnbase-game-host` | Semantic versioning | Manual tag; CI builds + pushes Docker image |
