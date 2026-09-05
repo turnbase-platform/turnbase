@@ -152,7 +152,7 @@ the container the log's owner rather than the process.
   "message": "Room claimed",
   "requestId": "0b4c…", "userId": "a1b2…", "roomId": "9c1e…",
   "gameId": "3f2b…",
-  "traceId": "4bf92f3577b34da6a3ce929d0e0e4736", "spanId": "00f067aa0ba902b7"
+  "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736", "span_id": "00f067aa0ba902b7"
 }
 ```
 
@@ -161,7 +161,10 @@ FR-OBS-003's list, populated from the MDC and **omitted when absent** rather tha
 strings — an absent `roomId` and a blank one are different facts, and Loki's label extraction treats
 them differently.
 
-`traceId`/`spanId` are FR-TRACE-003 and are injected by the agent (§4).
+`trace_id`/`span_id` are FR-TRACE-003 and are injected by the agent (§4) — snake_case, not the five
+correlation IDs' camelCase, because that is the literal MDC key the agent's `logback-mdc`
+instrumentation writes (OpenTelemetry semantic conventions for log correlation, not a choice this
+project made), and nothing here should rename it (IMP-GATE-21).
 
 ### Correlation IDs enter the MDC at exactly four places
 
@@ -205,12 +208,12 @@ directory; the pipeline stages are identical.
 # promtail-config.yaml — pipeline stages
 - docker: {}                                   # unwrap the Docker envelope
 - json:
-    expressions: { level: level, service: service, traceId: traceId }
+    expressions: { level: level, service: service, trace_id: trace_id }
 - labels: { level, service }                   # labels only — see below
 ```
 
-**`traceId` is parsed but not made a label.** Loki labels are an index and a high-cardinality label
-set is the standard way to make Loki slow; `traceId` is unique per request. It stays in the log line,
+**`trace_id` is parsed but not made a label.** Loki labels are an index and a high-cardinality label
+set is the standard way to make Loki slow; `trace_id` is unique per request. It stays in the log line,
 where a Grafana derived field turns it into a link to Tempo (§5).
 
 ---
@@ -265,7 +268,7 @@ completes, which is a real memory budget for a laptop.
 
 **Stated as a gap rather than silently satisfied**, because "10% sampling" and "10% plus every error"
 are different systems and only the first is built. The mitigation is that errors are never *only* in
-traces: every 5xx is a log line with its `traceId`, and FR-ALERT-001 fires on the metric. The
+traces: every 5xx is a log line with its `trace_id`, and FR-ALERT-001 fires on the metric. The
 escalation is the Collector, and nothing here forecloses it — the agent already exports OTLP, so it
 is a change of endpoint.
 
@@ -294,12 +297,12 @@ apiVersion: 1
 datasources:
   - { name: Prometheus, type: prometheus, uid: prom, url: http://prometheus:9090, isDefault: true }
   - { name: Loki, type: loki, uid: loki, url: http://loki:3100,
-      jsonData: { derivedFields: [ { name: TraceID, matcherRegex: '"traceId":"(\w+)"',
+      jsonData: { derivedFields: [ { name: TraceID, matcherRegex: '"trace_id":"(\w+)"',
                                      url: '$${__value.raw}', datasourceUid: tempo } ] } }
   - { name: Tempo, type: tempo, uid: tempo, url: http://tempo:3200 }
 ```
 
-**The derived field is the payoff for the whole design.** It turns the `traceId` in a log line into a
+**The derived field is the payoff for the whole design.** It turns the `trace_id` in a log line into a
 link to that trace in Tempo — one click from "this request failed" to "here is where it spent its
 time". FR-TRACE-003 exists to make this possible and it is the single most useful thing in the stack;
 without the derived field the MDC injection is data nobody can traverse.

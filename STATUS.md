@@ -1013,6 +1013,12 @@ rather than written as empty strings." Fixed: the example now omits the key.
 (`IMP-M0-06`'s baseline). Fixed: an unfiltered `count(*)` — a pending request's row existing is what
 "pending" means in this schema; accepting or declining one deletes the row.
 
+**IMP-GATE-21** (`IMP-M0-10`, opened and closed 2026-09-05) — found by actually running the stack:
+`observability.md`'s JSON log example and Grafana derived-field regex used camelCase
+`traceId`/`spanId`, but the OpenTelemetry Java agent's `logback-mdc` instrumentation — the mechanism
+the doc itself credits — writes `trace_id`/`span_id` (OTel semantic conventions, not configurable).
+Fixed: doc, `promtail-config.yaml` and `datasources.yaml` all changed to `trace_id`/`span_id`.
+
 **IMP-GATE-16** (`IMP-M0-09`, opened and closed 2026-09-05) — `secrets-and-configuration.md`'s
 `local`/`test,e2e`/`Kubernetes` split for the JWT key set cannot be implemented by Spring profile
 alone: `local-environment.md` §4 runs the canonical Kubernetes chart under the identical

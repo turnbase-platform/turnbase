@@ -841,6 +841,17 @@ column — the query would fail against the real schema. Fixed: the query is now
 a pending request's row exists; accepting one deletes it and inserts a `friendship` row, declining or
 expiring one just deletes it, so existence already means pending.
 
+**Closed:** IMP-GATE-21 (opened and closed 2026-09-05) — `observability.md`'s worked log example and
+its Grafana derived-field regex both used camelCase `traceId`/`spanId`, but the OpenTelemetry Java
+agent's `logback-mdc` instrumentation — the mechanism §3 itself assigns this job to ("injected by the
+agent") — writes `trace_id`/`span_id` (OpenTelemetry semantic conventions for log correlation, not a
+choice available to configure). Verified empirically against a running container: the field is real
+and correctly populated, just spelled differently than the doc's own example. Fixed: the JSON
+example, the promtail pipeline stage, and the Grafana derived-field `matcherRegex` all changed to
+`trace_id`/`span_id`, in `observability.md` and in the committed `promtail-config.yaml` and
+`datasources.yaml` this repeats. The five correlation IDs (`requestId` etc.) are unaffected — those
+are this project's own MDC keys, not the agent's.
+
 **Deferred to later items** — each of these needs a signal source this item's dependencies (`M0-03`,
 `M0-04`) do not yet provide, so building it here would mean inventing the signal rather than reading
 it from real code:
