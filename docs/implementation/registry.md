@@ -41,7 +41,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M0-11 | CI/CD workflows | all | M0-01…05 | DONE |
 | IMP-M0-12 | Seed data | platform | M0-06, M4-03 | READY |
 | **M1 — Accounts and sessions** ||||
-| IMP-M1-01 | Error model, REST conventions, validation harness | platform | M0-03 | READY |
+| IMP-M1-01 | Error model, REST conventions, validation harness | platform | M0-03 | WIP (session 27) |
 | IMP-M1-02 | Rate limiter (Tiers 1–5) | platform | M1-01 | READY |
 | IMP-M1-03 | JWT key set, issuance, rotation | platform | M0-09 | READY |
 | IMP-M1-04 | Registration and login | platform | M1-01, M1-03 | READY |
