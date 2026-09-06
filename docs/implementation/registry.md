@@ -43,7 +43,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M1 — Accounts and sessions** ||||
 | IMP-M1-01 | Error model, REST conventions, validation harness | platform | M0-03 | DONE |
 | IMP-M1-02 | Rate limiter (Tiers 1–5) | platform | M1-01 | READY |
-| IMP-M1-03 | JWT key set, issuance, rotation | platform | M0-09 | READY |
+| IMP-M1-03 | JWT key set, issuance, rotation | platform | M0-09 | DONE |
 | IMP-M1-04 | Registration and login | platform | M1-01, M1-03 | READY |
 | IMP-M1-05 | Guest minting and purge | platform | M1-04 | READY |
 | IMP-M1-06 | Session lifecycle and displacement | platform | M1-04 | READY |
@@ -1094,6 +1094,32 @@ successful one mint freely.
 ### IMP-M1-03 — JWT key set, issuance and rotation
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M0-09
+
+**Done 2026-09-06 (session 28).** `JwtService` issues HS256 tokens (jjwt) carrying `sub`/`jti`/`kid`
+per §3.5, signed with the current active key from `JwtKeySetManager` — the mutable wrapper this item
+adds around `IMP-M0-09`'s immutable `JwtKeySet` bean, needed because §3.3's rotation changes the set
+while the process keeps running. Verification resolves the signing key by the token's `kid` header
+against active-or-retired via a jjwt `Locator`, so a token signed under a just-retired key keeps
+validating. `JwtKeyRotationService.promote()`/`retire(kid)` implement §3.3's three steps; `retire`
+revokes every `user_session` row still bound to that `kid` (`revoked_reason = 'KEY_ROTATED'`) in the
+same transaction the key disappears from the set, via a plain-JDBC `UserSessionRepository`
+(`JdbcClient` — no ORM in this repo, `IMP-M0-06`'s own note). `JwtKeySetManagerTest`/`JwtServiceTest`
+(unit) and `JwtKeyRotationServiceIT` (Testcontainers Postgres, full application boot) prove the
+Done-when clause directly: a token issued under the original key still verifies after that key is
+promoted to `retired`, and retiring it revokes exactly the session bound to it while a session on the
+new active key is untouched. `./mvnw verify` and `-Pintegration` both green locally; **CI green on
+`master`** (build, 5m36s).
+
+**No registration/login endpoint exists yet** (`IMP-M1-04`) to produce a real session through the
+ordinary flow, so `JwtKeyRotationServiceIT` inserts a minimal `app_user`/`user_session` fixture
+directly — this item owns the key set and the session-revocation mechanics, not the endpoints that
+create these rows once `IMP-M1-04` lands.
+
+**No specification defect found.** §3 named the algorithm, claim shape and three-step rotation
+precisely enough to implement without a gap; the one judgement call this item made — which JWT
+library (`io.jsonwebtoken:jjwt` 0.12.6) and which persistence primitive (`JdbcClient`, matching the
+jdbc-not-JPA choice `IMP-M0-06` already recorded) — is implementation detail no document claims to
+settle, not an underspecified requirement.
 
 **Read first:**
 - `docs/specs/deployment/secrets-and-configuration.md` §3 (JWT signing keys, in full)

@@ -1,52 +1,41 @@
 ## Last Session Summary
 
-**Date:** 2026-09-06 (session 27)
+**Date:** 2026-09-06 (session 28)
 
-**IMP-M1-01 — Error model, REST conventions, validation harness. DONE. 13 of 60 items complete.**
-The first M1 item and the first to add real application code to `turnbase-platform`'s `common`
-package. One `GlobalExceptionHandler` (`@RestControllerAdvice extends
-ResponseEntityExceptionHandler`) produces `error-handling.md`'s RFC 9457 Problem Detail shape for
-every entry in the closed taxonomy: a `DomainException` hierarchy
-(`NotFoundException`/`ConflictException`/`GoneException`/`UnauthenticatedException`/
-`ForbiddenException`/`PayloadTooLargeException`/`BusinessRuleException`/
-`RateLimitExceededException`/`ServiceUnavailableException`/`RoomUnavailableRetryException`/
-`ValidationFailedException`), Bean Validation (`MethodArgumentNotValidException`, malformed-body
-`HttpMessageNotReadableException`, and Spring 6.1's newer `HandlerMethodValidationException` for
-constrained `@RequestParam`s), and an uncaught-exception catch-all that logs the stack trace but
-never leaks it into the response. `PageResponse`/`PaginationMetadata` is the pagination contract
-from `pagination-filtering-sorting.md`, built once and wired to a one-indexed `Pageable` resolver
-(`PlatformWebMvcConfig`) that clamps an oversized `size` silently rather than rejecting it,
-consuming the `HttpProperties`/`PaginationProperties` beans `IMP-M0-09` had already bound but
-nothing yet read. `SortFieldValidator` rejects an unwhitelisted sort key before the query runs. The
-64 KB body cap (`input-validation.md` § Size limits) is enforced by a `HandlerInterceptor` rather
-than a `Filter`, specifically so a rejection reaches the same `@RestControllerAdvice` as every other
-failure class instead of producing a second error shape.
+**IMP-M1-03 — JWT key set, issuance, rotation. DONE. 14 of 60 items complete.** Builds on
+`IMP-M0-09`'s immutable `JwtKeySet`/`JwtKeySetConfig` with the mutable half `secrets-and-
+configuration.md` §3.3's rotation actually needs: `JwtKeySetManager` wraps the resolved key set in
+an `AtomicReference`, exposing `promote()` (new active key, old active moves to retired) and
+`retire(kid)` (drops a retired key from the set), persisting the rotated set back to
+`.secrets/jwt-keys.json` in the same local/`test`/`e2e`/required-mode split `IMP-M0-09` already
+established. `JwtService` (jjwt 0.12.6, HS256) issues §3.5's claim shape (`sub`/`jti`/`kid`/`iat`/
+`exp`) signed with the active key, and verifies by resolving the signing key from the token's `kid`
+header against active-or-retired via a jjwt `Locator` — so a token signed under a key that has since
+moved to `retired` keeps validating. `JwtKeyRotationService.retire(kid)` revokes every live
+`user_session` row bound to that key (`revoked_reason = 'KEY_ROTATED'`) in the same transaction the
+key leaves the set, through a new plain-JDBC `UserSessionRepository` (`JdbcClient`, no ORM — matching
+the jdbc-not-JPA choice `IMP-M0-06`'s pom comment already recorded).
 
-**Verified end-to-end, not just unit-tested.** `GlobalExceptionHandlerIT` boots the real application
-(`SpringApplication.run`, the same pattern `TurnBaseApplicationIT`/`SingleListenerOriginRoutingIT`
-already use) against a test-only `ErrorHarnessController` (`src/test/java` only, never shipped) and
-asserts the exact response body and headers — type URI, title, status, detail, instance, the
-`errors`/`retryAfterMs` extension members, and the `Retry-After` header — for all twelve taxonomy
-entries including `room-unavailable-retry`, plus the pagination envelope's one-indexing and size
-clamp. 24/24 integration tests green, 29/29 unit tests green, `ModularityTest` confirms no feature
-boundary was crossed, merged JaCoCo coverage gate passes. CI green on `turnbase-platform` `master`.
+**Verified end-to-end, not just unit-tested.** `JwtKeySetManagerTest`/`JwtServiceTest` (unit) prove
+promotion/retirement and that a token survives its signing key's retirement until the key is fully
+removed. `JwtKeyRotationServiceIT` boots the real application against Testcontainers Postgres
+(the `PostgresIntegrationTest` pattern `IMP-M1-01` already established) and proves the Done-when
+clause directly against the database: a token issued under the original key still verifies after
+`promote()`, and `retire()` revokes exactly the `user_session` row bound to that key while a session
+on the new active key — a different account, since `user_session_active_key` permits only one live
+session per user — is untouched. `./mvnw verify` and `-Pintegration` both green locally; CI green on
+`turnbase-platform` `master` (build, 5m36s).
 
-**One incidental fix surfaced by actually running the test, not by reading:** the JDK's default
-`HttpURLConnection`-backed `RestTemplate` request factory silently drops the response body on a 401
-specifically (a long-standing quirk in its built-in auth-challenge handling, distinct from every
-other status code) — switched the test's `RestTemplate` to `JdkClientHttpRequestFactory`
-(`java.net.http`-backed), which doesn't have it. No production code was affected; this was purely a
-test-client gotcha.
+**No registration/login endpoint exists yet** (`IMP-M1-04`) to produce a real session through the
+ordinary flow, so the integration test's fixture inserts a minimal `app_user`/`user_session` pair
+directly with raw SQL — this item owns the key set and the session-revocation mechanics, not the
+endpoints `IMP-M1-04` will use to create these rows in the real flow.
 
-**One small widening to an existing test fixture:** `PostgresIntegrationTest`'s shared `POSTGRES`/
-`MINIO` containers were package-private, usable only by `*IT` classes in the root
-`io.turnbase.platform` package. Widened to `protected` so a feature-package `*IT` (this item's, in
-`.common`) can reuse the same shared-container mechanics the class's own Javadoc already promises —
-its stated purpose was never "for the root package only."
-
-**No specification defects found this session** — the first M1 item to close without opening a
-gate. `error-handling.md`, `rest-conventions.md`, `input-validation.md` and
-`pagination-filtering-sorting.md` were mutually consistent and sufficient as written.
+**No specification defect found this session.** `secrets-and-configuration.md` §3, `data-model-
+accounts.md` §3 and `rest-conventions.md`'s *Authentication* section were mutually consistent and
+sufficient as written. The one judgement call — which JWT library (`io.jsonwebtoken:jjwt`) and which
+persistence primitive (`JdbcClient`) — is implementation detail no document claims to settle, not an
+underspecified requirement.
 
 ---
 ## Next Priorities
@@ -60,7 +49,7 @@ says which of them to pick up.
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
-**Progress: 13 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 14 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
 `turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), `IMP-M0-05`
 (Frontend skeleton, `turnbase-frontend`), `IMP-M0-06` (Flyway baseline, `turnbase-platform`),
@@ -68,9 +57,10 @@ build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleto
 `turnbase-platform`), `IMP-M0-09` (configuration and secrets wiring, `turnbase-platform` +
 `turnbase-game-host`), `IMP-M0-10` (observability baseline, `turnbase-platform` +
 `turnbase-game-host`), `IMP-M0-11` (CI/CD workflows, all five repos), `IMP-M3-12` (FE GDK
-client, `turnbase-sdk`) and `IMP-M1-01` (error model, REST conventions, validation harness,
-`turnbase-platform`), all pushed and green in CI. **No work item is gated**, and all 23
-readiness blockers remain closed, so an item's status is whatever its own dependencies imply.
+client, `turnbase-sdk`), `IMP-M1-01` (error model, REST conventions, validation harness,
+`turnbase-platform`) and `IMP-M1-03` (JWT key set, issuance, rotation, `turnbase-platform`), all
+pushed and green in CI. **No work item is gated**, and all 23 readiness blockers remain closed, so
+an item's status is whatever its own dependencies imply.
 
 **IMP-GATE-25** (`IMP-M0-11`, opened and closed 2026-09-05) — `game-development-experience.md`
 CON-003 and ADR-0012's Release Strategy commit `turnbase-sdk` to Maven Central + npm, but no document
@@ -96,12 +86,12 @@ to gate on push to `master`; FR-CICD-003 and OQ-002 updated to match. No workflo
 five repos' `build.yml` files already run on push.
 
 **`IMP-M0-11` is now DONE.** `IMP-M0-12` (seed data) stays not-`READY` — it depends on `IMP-M4-03`,
-which has not been picked up. **M0 is otherwise finished, and `IMP-M1-01` is now DONE too** —
-every later endpoint conforms to the error/pagination shape it built. Next up in M1 (accounts and
-sessions — see *Then, in dependency order* below): `IMP-M1-02` (rate limiter, Tiers 1–5), `READY`
-off `IMP-M1-01`, and `IMP-M1-03` (JWT key set, issuance, rotation), `READY` off `IMP-M0-09` — either
-is a reasonable next pick, and `IMP-M1-04` (registration and login) needs both done first.
-`IMP-M0-10` left five small
+which has not been picked up. **M0 is otherwise finished, and `IMP-M1-01`/`IMP-M1-03` are now DONE
+too.** Next up in M1 (accounts and sessions — see *Then, in dependency order* below): `IMP-M1-04`
+(registration and login), `READY` off both `IMP-M1-01` and `IMP-M1-03`, is the natural next pick —
+it is the first item to actually create an `app_user`/`user_session` row through an endpoint rather
+than a test fixture. `IMP-M1-02` (rate limiter, Tiers 1–5), `READY` off `IMP-M1-01`, remains
+independently pickable if `IMP-M1-04` is deferred. `IMP-M0-10` left five small
 obligations on later items, each recorded as a sentence in that item's own section rather than a
 gate: `IMP-M2-02` exposes `turnbase_websocket_connections_active`,
 `IMP-M3-09`/`IMP-M2-10`/`IMP-M3-08` wire
