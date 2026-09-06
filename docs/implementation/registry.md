@@ -44,7 +44,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M1-01 | Error model, REST conventions, validation harness | platform | M0-03 | DONE |
 | IMP-M1-02 | Rate limiter (Tiers 1–5) | platform | M1-01 | READY |
 | IMP-M1-03 | JWT key set, issuance, rotation | platform | M0-09 | DONE |
-| IMP-M1-04 | Credential registration and login | platform | M1-01, M1-03 | WIP (session 29) |
+| IMP-M1-04 | Credential registration and login | platform | M1-01, M1-03 | DONE |
 | IMP-M1-05 | Guest minting and purge | platform | M1-04 | READY |
 | IMP-M1-06 | Session lifecycle and displacement | platform | M1-04 | READY |
 | IMP-M1-07 | Profiles and privacy settings | platform | M1-04 | READY |
@@ -1143,6 +1143,55 @@ is the one you want.
 ### IMP-M1-04 — Credential registration and login
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-01, IMP-M1-03
+
+**Done 2026-09-06 (session 29).** `POST /api/auth/register` and `POST /api/auth/login`
+(`AuthController`, `account` package). `UsernamePolicy` runs `input-validation.md`'s canonicalization
+pipeline plus ICU4J `SpoofChecker` at `MODERATELY_RESTRICTIVE` for FR-AUTH-015's single-script rule,
+computes the `getSkeleton(caseFold(NFC(username)))` uniqueness key, and rejects the `guest-` prefix on
+that same skeleton (FR-AUTH-013). `CredentialPolicy` validates email (FR-AUTH-002) and password
+(FR-AUTH-005) shape. Registration is one transaction (`AccountRepository.insertRegisteredUser`,
+`@Transactional`) inserting `app_user`/`user_auth_method`/`user_privacy_settings`; a unique-index
+violation is mapped to `ConflictException` by matching the constraint name in Postgres's own error
+text (`app_user_email_key` vs `app_user_skeleton_key`) rather than a compile-time dependency on the
+driver's exception type, which stays at `runtime` scope. Passwords are Argon2id via
+`Argon2PasswordEncoder(16, 32, 1, 19456, 2)` per `input-validation.md`'s explicit cost parameters — the
+no-argument constructor input-validation.md itself rejects as too weak.
+
+**New `session.SessionService`** — the public API a principal-resolving flow calls to get a session —
+implements `data-model-accounts.md` §3's atomic displace-then-insert (FR-SESS-001/002/003): revoke
+whatever session is active for the user, insert the new row, retry (bounded, 5 attempts) on the
+partial-unique-index race between two concurrent logins. Both `RegistrationService` and `LoginService`
+call it *after* their own transaction commits, never inside it, per this repo's "commit before publish"
+rule. `rest-conventions.md`'s newly-named `turnbase_session` cookie (`common.SessionCookie.NAME`,
+IMP-GATE-27) is set `HttpOnly; Secure; SameSite=Strict; Path=/` with `maxAge` from the session's actual
+`expiresAt`.
+
+**Verified end-to-end, not unit-tested in isolation.** `UsernamePolicyTest`/`CredentialPolicyTest`
+(unit) prove the validation/skeleton rules directly, including that case variants of one username
+share a skeleton and that a confusable lookalike of `guest-` is still caught. `AuthControllerIT` boots
+the real application against Testcontainers Postgres and drives both endpoints over real HTTP: the
+three rows land correctly, a duplicate username/email each produce their own 409 message, the reserved
+prefix and a mismatched password confirmation both produce 400, login succeeds by username or by
+email, a wrong password and an unknown identifier both produce the identical generic 401, and — the
+FR-SESS-003 clause itself — a second login revokes the first session's row (`revoked_reason =
+'DISPLACED'`) while leaving exactly one active session for the account. `./mvnw verify` and
+`-Pintegration` both green locally; **CI green on `master`** (build, 7m59s).
+
+**No specification defect found in the credential-auth path itself.** Two were found and closed
+opening the item — see `IMP-GATE-26`/`IMP-GATE-27` below, both opened and closed this session.
+
+**Two runtime dependencies neither `input-validation.md` nor `conventions.md` names, because they are
+transitive gaps in libraries the documents *do* name, not choices made here:**
+`Argon2PasswordEncoder` delegates to Bouncy Castle's Argon2 implementation
+(`org.bouncycastle.crypto.params.Argon2Parameters$Builder`) at runtime — `spring-security-crypto`
+keeps `bcprov-jdk18on` optional since not every consumer hashes with Argon2 — so registering a user
+threw `NoClassDefFoundError` until it was added explicitly (`runtime` scope, pinned `1.85.2`, not
+managed by the Spring Boot BOM). ICU4J itself needed no such fix; only the SpoofChecker API shape
+(`failsChecks(String)`, `getSkeleton(CharSequence)`, `Builder.setChecks`/`setRestrictionLevel`) had to
+be read from the actual `78.3` jar rather than assumed.
+
+**No OAuth here.** `FR-AUTH-007…012`/`016` and the Google round trip are `IMP-M1-10`, split out by
+`IMP-GATE-26` below — this item's own read-list and Done-when never covered them.
 
 **Closed:** IMP-GATE-26 (opened and closed 2026-09-06, session 29) — this item's *Satisfies* claimed the full
 `FR-AUTH-001…016` range, which includes six OAuth requirements (`FR-AUTH-007…012`, `FR-AUTH-016`) and

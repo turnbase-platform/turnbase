@@ -1,41 +1,53 @@
 ## Last Session Summary
 
-**Date:** 2026-09-06 (session 28)
+**Date:** 2026-09-06 (session 29)
 
-**IMP-M1-03 — JWT key set, issuance, rotation. DONE. 14 of 60 items complete.** Builds on
-`IMP-M0-09`'s immutable `JwtKeySet`/`JwtKeySetConfig` with the mutable half `secrets-and-
-configuration.md` §3.3's rotation actually needs: `JwtKeySetManager` wraps the resolved key set in
-an `AtomicReference`, exposing `promote()` (new active key, old active moves to retired) and
-`retire(kid)` (drops a retired key from the set), persisting the rotated set back to
-`.secrets/jwt-keys.json` in the same local/`test`/`e2e`/required-mode split `IMP-M0-09` already
-established. `JwtService` (jjwt 0.12.6, HS256) issues §3.5's claim shape (`sub`/`jti`/`kid`/`iat`/
-`exp`) signed with the active key, and verifies by resolving the signing key from the token's `kid`
-header against active-or-retired via a jjwt `Locator` — so a token signed under a key that has since
-moved to `retired` keeps validating. `JwtKeyRotationService.retire(kid)` revokes every live
-`user_session` row bound to that key (`revoked_reason = 'KEY_ROTATED'`) in the same transaction the
-key leaves the set, through a new plain-JDBC `UserSessionRepository` (`JdbcClient`, no ORM — matching
-the jdbc-not-JPA choice `IMP-M0-06`'s pom comment already recorded).
+**IMP-M1-04 — Credential registration and login. DONE. 15 of 61 items complete** (the registry grew
+by one this session — see the gate below). `POST /api/auth/register` and `POST /api/auth/login`
+(`AuthController`, new `account` package). `UsernamePolicy` runs `input-validation.md`'s
+canonicalization pipeline plus ICU4J `SpoofChecker` at `MODERATELY_RESTRICTIVE` for FR-AUTH-015's
+single-script rule, computes the `getSkeleton(caseFold(NFC(username)))` uniqueness key, and rejects
+the `guest-` prefix on that same skeleton (FR-AUTH-013). `CredentialPolicy` validates email
+(FR-AUTH-002) and password (FR-AUTH-005) shape. Registration is one transaction inserting
+`app_user`/`user_auth_method`/`user_privacy_settings`; a unique-index violation is mapped to the right
+409 message (username vs. email) by matching the constraint name in Postgres's own error text, keeping
+the driver's exception type at `runtime` scope. Passwords are Argon2id via
+`Argon2PasswordEncoder(16, 32, 1, 19456, 2)`, `input-validation.md`'s explicit cost parameters.
 
-**Verified end-to-end, not just unit-tested.** `JwtKeySetManagerTest`/`JwtServiceTest` (unit) prove
-promotion/retirement and that a token survives its signing key's retirement until the key is fully
-removed. `JwtKeyRotationServiceIT` boots the real application against Testcontainers Postgres
-(the `PostgresIntegrationTest` pattern `IMP-M1-01` already established) and proves the Done-when
-clause directly against the database: a token issued under the original key still verifies after
-`promote()`, and `retire()` revokes exactly the `user_session` row bound to that key while a session
-on the new active key — a different account, since `user_session_active_key` permits only one live
-session per user — is untouched. `./mvnw verify` and `-Pintegration` both green locally; CI green on
-`turnbase-platform` `master` (build, 5m36s).
+**New `session.SessionService`** is the public API a principal-resolving flow calls to get a session —
+`data-model-accounts.md` §3's atomic displace-then-insert (FR-SESS-001/002/003), retrying (bounded) on
+the unique-index race between two concurrent logins. Both registration and login call it *after* their
+own transaction commits, per this repo's commit-before-publish rule. The session cookie is
+`turnbase_session` (new `IMP-GATE-27`, below), `HttpOnly; Secure; SameSite=Strict; Path=/`.
 
-**No registration/login endpoint exists yet** (`IMP-M1-04`) to produce a real session through the
-ordinary flow, so the integration test's fixture inserts a minimal `app_user`/`user_session` pair
-directly with raw SQL — this item owns the key set and the session-revocation mechanics, not the
-endpoints `IMP-M1-04` will use to create these rows in the real flow.
+**Verified end-to-end.** `UsernamePolicyTest`/`CredentialPolicyTest` (unit) prove the validation and
+skeleton rules directly. `AuthControllerIT` boots the real application against Testcontainers Postgres
+and drives both endpoints over real HTTP: the three rows land correctly, duplicate username/email each
+produce their own 409, the reserved prefix and a mismatched password confirmation both produce 400,
+login succeeds by username or by email, a wrong password and an unknown identifier produce the
+identical generic 401, and a second login revokes the first session (`revoked_reason = 'DISPLACED'`)
+while exactly one session stays active — the FR-SESS-003 clause itself, checked against the database.
+`./mvnw verify` and `-Pintegration` both green locally; CI green on `turnbase-platform` `master`
+(build, 7m59s).
 
-**No specification defect found this session.** `secrets-and-configuration.md` §3, `data-model-
-accounts.md` §3 and `rest-conventions.md`'s *Authentication* section were mutually consistent and
-sufficient as written. The one judgement call — which JWT library (`io.jsonwebtoken:jjwt`) and which
-persistence primitive (`JdbcClient`) — is implementation detail no document claims to settle, not an
-underspecified requirement.
+**Two gates, both opened and closed this session, before any code was written for either.**
+`IMP-GATE-26`: the item's *Satisfies* claimed all of `FR-AUTH-001…016`, including six OAuth
+requirements, but its *Done when* clause never mentioned OAuth and its read-list didn't carry the
+document naming the OAuth client secret's config key. Fixed by retitling this item *Credential
+registration and login*, narrowing it to `FR-AUTH-001…006, 011, 013…015`, and adding **`IMP-M1-10`**
+(Google OAuth registration and login, `READY` off this item) to own `FR-AUTH-007…012/016` and
+`VW-OAUTHCOMP-001…002` — pushing the registry to **61 live items**. `IMP-GATE-27`: no document in the
+corpus named the session cookie itself, only its `httpOnly`/`Secure`/`SameSite=Strict` properties, and
+this item's read-list was also missing `rest-conventions.md`'s Authentication section entirely. Fixed
+by naming it there — `turnbase_session`, `Path=/` — as a fixed protocol constant every future reader
+(the `IMP-M2-02` STOMP handshake, the `IMP-M5-03` SSE endpoint, any auth filter) must agree on.
+
+**Two runtime dependencies neither `input-validation.md` nor `conventions.md` named, both transitive
+gaps in libraries the documents do name rather than choices made here.** `Argon2PasswordEncoder`
+delegates to Bouncy Castle's Argon2 implementation at runtime — `spring-security-crypto` keeps
+`bcprov-jdk18on` optional — so registration threw `NoClassDefFoundError` until it was added explicitly
+(pinned `1.85.2`, `runtime` scope). ICU4J's `SpoofChecker` API shape (`failsChecks`, `getSkeleton`,
+`Builder.setChecks`/`setRestrictionLevel`) had to be read from the real `78.3` jar rather than assumed.
 
 ---
 ## Next Priorities
@@ -51,8 +63,8 @@ claimed the full `FR-AUTH-001…016` range, including six OAuth-only requirement
 and its read-list didn't even carry the document naming the OAuth client secret's config key.
 Fixed: `IMP-M1-04` retitled *Credential registration and login* and narrowed to `FR-AUTH-001…006, 011,
 013…015`; the OAuth round trip (consent redirect, code exchange, signed `state`, the FR-AUTH-016
-email-collision challenge-and-link path) is new item **`IMP-M1-10`**, `READY` off `IMP-M1-04`. Picked
-up as the current session's work is `IMP-M1-04` in its narrowed form — session 29 is `WIP` on it.
+email-collision challenge-and-link path) is new item **`IMP-M1-10`**, `READY` off `IMP-M1-04`, which
+is now `DONE` (see *Last Session Summary*).
 
 **IMP-GATE-27** (`IMP-M1-04`, opened and closed 2026-09-06, session 29) — no document in the corpus
 named the session cookie itself, only its `httpOnly`/`Secure`/`SameSite=Strict` properties
@@ -65,7 +77,7 @@ handshake, SSE endpoint, and any authenticated-route filter) must agree on; read
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
-**Progress: 14 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 15 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
 `turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), `IMP-M0-05`
 (Frontend skeleton, `turnbase-frontend`), `IMP-M0-06` (Flyway baseline, `turnbase-platform`),
@@ -74,9 +86,18 @@ build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleto
 `turnbase-game-host`), `IMP-M0-10` (observability baseline, `turnbase-platform` +
 `turnbase-game-host`), `IMP-M0-11` (CI/CD workflows, all five repos), `IMP-M3-12` (FE GDK
 client, `turnbase-sdk`), `IMP-M1-01` (error model, REST conventions, validation harness,
-`turnbase-platform`) and `IMP-M1-03` (JWT key set, issuance, rotation, `turnbase-platform`), all
-pushed and green in CI. **No work item is gated**, and all 23 readiness blockers remain closed, so
-an item's status is whatever its own dependencies imply.
+`turnbase-platform`), `IMP-M1-03` (JWT key set, issuance, rotation, `turnbase-platform`) and
+`IMP-M1-04` (credential registration and login, `turnbase-platform`), all pushed and green in CI.
+**No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
+whatever its own dependencies imply.
+
+**Next up in M1**: `IMP-M1-05` (guest minting and purge), `IMP-M1-06` (session lifecycle and
+displacement), `IMP-M1-07` (profiles and privacy settings) and `IMP-M1-10` (Google OAuth) are all
+`READY` off `IMP-M1-04`. `IMP-M1-02` (rate limiter) remains independently `READY` off `IMP-M1-01`.
+`IMP-M1-06` is the one that actually closes the loop `IMP-M1-04` opened — FR-SESS-004's 401 shape for
+a displaced request, FR-SESS-010's live-connection close, and FR-SESS-011 logout are still unbuilt;
+`IMP-M1-04` only proved the displacement write itself, at the database, per its own narrowed
+Done-when.
 
 **IMP-GATE-25** (`IMP-M0-11`, opened and closed 2026-09-05) — `game-development-experience.md`
 CON-003 and ADR-0012's Release Strategy commit `turnbase-sdk` to Maven Central + npm, but no document
