@@ -1161,11 +1161,25 @@ OAuth end to end, depending on this item for the `user_auth_method`/session-issu
 reuses. `VW-LOGIN-001…004`/`VW-REG-001…003` stay split across both — the credential form and page
 shell here, the OAuth button and its endpoint in `IMP-M1-10`.
 
+**Closed:** IMP-GATE-27 (opened and closed 2026-09-06, session 29) — building the endpoints that set
+the session cookie (`user-accounts.md` CON-004) needs `rest-conventions.md`'s Authentication section,
+which was missing from this item's read-list entirely — a registry defect independent of IMP-GATE-26.
+Reading it surfaced a second gap: no document anywhere in the corpus names the cookie itself — its
+`httpOnly`/`Secure`/`SameSite=Strict` properties are specified, but never its name. Every future item
+that reads the cookie back (the STOMP handshake in `IMP-M2-02`, the SSE endpoint in `IMP-M5-03`, any
+authenticated-route filter) needs the same string this item picks when setting it, and nothing forced
+that agreement. Fixed: `rest-conventions.md`'s Authentication section now names it —
+`turnbase_session`, `Path=/` — as a fixed protocol constant, not a `local-environment.md` §7 tunable:
+a name two server-side code paths must agree on is not something an operator should be able to change
+independently. Read-list corrected to include `rest-conventions.md`.
+
 **Read first:**
 - `docs/requirements/user-accounts.md` — FR-AUTH-001…006, FR-AUTH-011, FR-AUTH-013…015, FR-ACCT-001,
   NFR-SEC-001…003, 005…007
 - `docs/specs/platform/data-model-accounts.md` §1 (`app_user`), §2 (`user_auth_method`)
 - `docs/specs/api-design/input-validation.md` — the field catalogue and canonicalization
+- `docs/specs/api-design/rest-conventions.md` — Authentication section (the session cookie's shape
+  and name)
 - `docs/specs/flows/01-arrival-and-account.md` §A, §D (§E is `IMP-M1-10`'s)
 
 **Satisfies:** `user-accounts.md` FR-AUTH-001…006, FR-AUTH-011, FR-AUTH-013…015, FR-ACCT-001,

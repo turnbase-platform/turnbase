@@ -54,6 +54,13 @@ Fixed: `IMP-M1-04` retitled *Credential registration and login* and narrowed to 
 email-collision challenge-and-link path) is new item **`IMP-M1-10`**, `READY` off `IMP-M1-04`. Picked
 up as the current session's work is `IMP-M1-04` in its narrowed form — session 29 is `WIP` on it.
 
+**IMP-GATE-27** (`IMP-M1-04`, opened and closed 2026-09-06, session 29) — no document in the corpus
+named the session cookie itself, only its `httpOnly`/`Secure`/`SameSite=Strict` properties
+(`user-accounts.md` CON-004); `rest-conventions.md`'s Authentication section, the natural home, was
+also missing from `IMP-M1-04`'s read-list. Fixed: `rest-conventions.md` now names it —
+`turnbase_session`, `Path=/` — as a fixed constant every server-side reader (the future STOMP
+handshake, SSE endpoint, and any authenticated-route filter) must agree on; read-list corrected.
+
 **Before starting any of them: no pull requests** (ADR-0012, amended 2026-09-05). Branch, build,
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.

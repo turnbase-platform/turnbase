@@ -55,7 +55,7 @@ Error responses follow RFC 9457 Problem Details — see [error-handling.md](erro
 
 ## Authentication
 
-All endpoints except those listed as public in `user-accounts.md NFR-SEC-006` require a valid session token delivered as an `httpOnly`, `Secure`, `SameSite=Strict` cookie (`user-accounts.md CON-004`). Unauthenticated requests to protected endpoints receive a 401 response.
+All endpoints except those listed as public in `user-accounts.md NFR-SEC-006` require a valid session token delivered as an `httpOnly`, `Secure`, `SameSite=Strict` cookie (`user-accounts.md CON-004`), named **`turnbase_session`**, `Path=/`. The name is a fixed protocol constant, not a `local-environment.md` §7 tunable — every server-side path that reads the cookie back (the STOMP handshake, the SSE endpoint, any authenticated-route filter) must agree on the same literal string, which an operator-configurable name would put at risk for no benefit. Unauthenticated requests to protected endpoints receive a 401 response.
 
 The session lifecycle is four endpoints:
 
