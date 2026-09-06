@@ -41,15 +41,24 @@ underspecified requirement.
 ## Next Priorities
 
 **Phase 1 is under way. Work from [`docs/implementation/INDEX.md`](docs/implementation/INDEX.md), not
-from this file.** The registry holds **60 live work items** (IMP-M6-07 is cancelled), each with a
+from this file.** The registry holds **61 live work items** (IMP-M6-07 is cancelled), each with a
 read-list, dependencies, the requirement IDs it satisfies and a done-when clause; this section only
 says which of them to pick up.
+
+**IMP-GATE-26** (`IMP-M1-04`, opened and closed 2026-09-06, session 29) — the item's *Satisfies*
+claimed the full `FR-AUTH-001…016` range, including six OAuth-only requirements
+(`FR-AUTH-007…012, 016`) and `VW-OAUTHCOMP-001…002`, but its *Done when* clause never mentioned OAuth
+and its read-list didn't even carry the document naming the OAuth client secret's config key.
+Fixed: `IMP-M1-04` retitled *Credential registration and login* and narrowed to `FR-AUTH-001…006, 011,
+013…015`; the OAuth round trip (consent redirect, code exchange, signed `state`, the FR-AUTH-016
+email-collision challenge-and-link path) is new item **`IMP-M1-10`**, `READY` off `IMP-M1-04`. Picked
+up as the current session's work is `IMP-M1-04` in its narrowed form — session 29 is `WIP` on it.
 
 **Before starting any of them: no pull requests** (ADR-0012, amended 2026-09-05). Branch, build,
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
-**Progress: 14 of 60 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 14 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
 `turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), `IMP-M0-05`
 (Frontend skeleton, `turnbase-frontend`), `IMP-M0-06` (Flyway baseline, `turnbase-platform`),
@@ -88,7 +97,8 @@ five repos' `build.yml` files already run on push.
 **`IMP-M0-11` is now DONE.** `IMP-M0-12` (seed data) stays not-`READY` — it depends on `IMP-M4-03`,
 which has not been picked up. **M0 is otherwise finished, and `IMP-M1-01`/`IMP-M1-03` are now DONE
 too.** Next up in M1 (accounts and sessions — see *Then, in dependency order* below): `IMP-M1-04`
-(registration and login), `READY` off both `IMP-M1-01` and `IMP-M1-03`, is the natural next pick —
+(credential registration and login — narrowed from *Registration and login* by IMP-GATE-26; OAuth is
+now the separate `IMP-M1-10`), `READY` off both `IMP-M1-01` and `IMP-M1-03`, is the natural next pick —
 it is the first item to actually create an `app_user`/`user_session` row through an endpoint rather
 than a test fixture. `IMP-M1-02` (rate limiter, Tiers 1–5), `READY` off `IMP-M1-01`, remains
 independently pickable if `IMP-M1-04` is deferred. `IMP-M0-10` left five small
@@ -450,8 +460,9 @@ submodules), ADR-0013 (Astryx supersedes the in-house design system), **ADR-0014
 enforced by Spring Modulith)**, **ADR-0015 (static analysis — Error Prone and NullAway, at skeleton
 time)**.
 
-**Implementation:** `docs/implementation/` — the registry Phase 1 executes from. **60 live work items
-across 7 milestones** (IMP-M6-07 cancelled; `IMP-M3-12` added session 15), each carrying a
+**Implementation:** `docs/implementation/` — the registry Phase 1 executes from. **61 live work items
+across 7 milestones** (IMP-M6-07 cancelled; `IMP-M3-12` added session 15; `IMP-M1-10` added session 29),
+each carrying a
 read-list, dependencies, the requirement IDs it satisfies and a done-when clause. Nothing is gated.
 Plus **`conventions.md`** (new, session 13): the code and build conventions every item assumes —
 package layout, Spotless, tests and coverage, git, cross-repo dependencies, and the per-repo build

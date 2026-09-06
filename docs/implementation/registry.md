@@ -44,12 +44,13 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M1-01 | Error model, REST conventions, validation harness | platform | M0-03 | DONE |
 | IMP-M1-02 | Rate limiter (Tiers 1–5) | platform | M1-01 | READY |
 | IMP-M1-03 | JWT key set, issuance, rotation | platform | M0-09 | DONE |
-| IMP-M1-04 | Registration and login | platform | M1-01, M1-03 | READY |
+| IMP-M1-04 | Credential registration and login | platform | M1-01, M1-03 | WIP (session 29) |
 | IMP-M1-05 | Guest minting and purge | platform | M1-04 | READY |
 | IMP-M1-06 | Session lifecycle and displacement | platform | M1-04 | READY |
 | IMP-M1-07 | Profiles and privacy settings | platform | M1-04 | READY |
 | IMP-M1-08 | Account deletion and erasure | platform | M1-07 | READY |
 | IMP-M1-09 | Social graph — friendships and requests | platform | M1-07 | READY |
+| IMP-M1-10 | Google OAuth registration and login | platform | M1-04 | READY |
 | **M2 — Rooms and realtime** ||||
 | IMP-M2-01 | Room CRUD and listing | platform | M1-06 | READY |
 | IMP-M2-02 | STOMP endpoint, auth, subscriptions | platform | M2-01 | READY |
@@ -96,10 +97,11 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M6-06 | Catalog and history views | frontend | M6-02, M4-01 | READY |
 | ~~IMP-M6-07~~ | ~~Onboarding wizard~~ | frontend | — | CANCELLED |
 
-**60 live items.** IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
+**61 live items.** IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
 `onboarding-wizard.md`'s FR-ONB-* and NFR-ONB-* have no implementing item by design. The heading is
 kept below so the number is never reused. `IMP-M3-12` was added 2026-08-22, closing IMP-GATE-05 — see
-its section under M3.
+its section under M3. `IMP-M1-10` was added 2026-09-06, closing IMP-GATE-26 — see its section under
+M1.
 
 Statuses are seeded as `READY`. **No item is gated** — the 2026-08-16 audit's 23 blockers are all
 closed (see *Readiness gates* at the end for what each fix changed). An item's real status is
@@ -1138,18 +1140,37 @@ is the one you want.
 
 ---
 
-### IMP-M1-04 — Registration and login
+### IMP-M1-04 — Credential registration and login
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-01, IMP-M1-03
 
+**Closed:** IMP-GATE-26 (opened and closed 2026-09-06, session 29) — this item's *Satisfies* claimed the full
+`FR-AUTH-001…016` range, which includes six OAuth requirements (`FR-AUTH-007…012`, `FR-AUTH-016`) and
+`VW-OAUTHCOMP-001…002`, but the *Done when* clause never mentioned OAuth — no `/auth/callback`, no
+`/auth/complete-registration`, no Google client, no `state` handling — and the read-list didn't even
+carry `secrets-and-configuration.md` §5, the document naming the OAuth client secret's config key
+(`TURNBASE_OAUTH_GOOGLE_CLIENT_SECRET`) an implementation would need. `platform-operations.md`'s own
+account of the OAuth client secret states "Google login is unavailable without it... credential login
+(FR-AUTH-006) is complete on its own" — i.e. the two are already understood as separable features, so
+Google OAuth (a full external round trip: consent screen, code exchange, `state` signing, the
+FR-AUTH-016 collision-and-link path) not fitting the same *Done when* as credential auth is not a
+surprise, it just was never given its own item. Fixed: this item is retitled *Credential registration
+and login* and narrowed to what its *Done when* actually checks — `FR-AUTH-001…006, 011, 013…015`,
+dropping the six OAuth-only IDs and `VW-OAUTHCOMP-001…002`. **IMP-M1-10** (new, below) owns Google
+OAuth end to end, depending on this item for the `user_auth_method`/session-issuance machinery it
+reuses. `VW-LOGIN-001…004`/`VW-REG-001…003` stay split across both — the credential form and page
+shell here, the OAuth button and its endpoint in `IMP-M1-10`.
+
 **Read first:**
-- `docs/requirements/user-accounts.md` — FR-AUTH-001…016, FR-ACCT-001, NFR-SEC-001…003, 005…007
+- `docs/requirements/user-accounts.md` — FR-AUTH-001…006, FR-AUTH-011, FR-AUTH-013…015, FR-ACCT-001,
+  NFR-SEC-001…003, 005…007
 - `docs/specs/platform/data-model-accounts.md` §1 (`app_user`), §2 (`user_auth_method`)
 - `docs/specs/api-design/input-validation.md` — the field catalogue and canonicalization
-- `docs/specs/flows/01-arrival-and-account.md`
+- `docs/specs/flows/01-arrival-and-account.md` §A, §D (§E is `IMP-M1-10`'s)
 
-**Satisfies:** `user-accounts.md` FR-AUTH-001…016, FR-ACCT-001, NFR-SEC-001…003, NFR-SEC-005…007;
-`platform-views.md` VW-LOGIN-001…004, VW-REG-001…003, VW-OAUTHCOMP-001…002
+**Satisfies:** `user-accounts.md` FR-AUTH-001…006, FR-AUTH-011, FR-AUTH-013…015, FR-ACCT-001,
+NFR-SEC-001…003, NFR-SEC-005…007; `platform-views.md` VW-LOGIN-001, VW-LOGIN-003…004, VW-REG-001,
+VW-REG-003
 
 **Done when:** registration and login endpoints exist with the validation rules of
 `input-validation.md`; uniqueness is enforced by a database constraint **and** surfaced as a domain
@@ -1283,6 +1304,45 @@ FR-FREQ-001…006; `user-accounts.md` FR-GUEST-007
 FR-SOC-020 cannot be violated from any code path; friendship rows are stored in the canonical
 ordering `data-model-social.md` §1 defines, so the pair `(a,b)` and `(b,a)` cannot both exist; a
 blocked user's request is rejected without disclosing that a block exists.
+
+---
+
+### IMP-M1-10 — Google OAuth registration and login
+
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M1-04
+
+**Added 2026-09-06 (session 29), closing IMP-GATE-26** — see `IMP-M1-04`'s *Closed* note. Split out
+because credential auth (`FR-AUTH-006`) is complete without it (`secrets-and-configuration.md` §1
+says so directly — the OAuth client secret is absent by default and the platform starts anyway) and
+because the OAuth round trip is a comparable amount of work to `IMP-M1-04` in its own right: consent
+redirect, server-side code exchange, signed `state`, a Redis-backed pending-registration token, and
+the FR-AUTH-016 email-collision challenge-and-link path — none of which the credential flow touches.
+
+**Read first:**
+- `docs/requirements/user-accounts.md` FR-AUTH-007…012, FR-AUTH-016
+- `docs/specs/platform/data-model-accounts.md` §1 (`email_source`), §2 (`user_auth_method`)
+- `docs/specs/deployment/secrets-and-configuration.md` §1 (the OAuth client secret's absent-by-default
+  behaviour), §5 (`TURNBASE_OAUTH_GOOGLE_CLIENT_SECRET`, the redirect URI, the signed `state`)
+- `docs/specs/flows/01-arrival-and-account.md` §E
+- `docs/requirements/platform-views.md` VW-LOGIN-002, VW-REG-002, VW-OAUTHCOMP-001…002
+
+**Satisfies:** `user-accounts.md` FR-AUTH-007…012, FR-AUTH-016; `platform-views.md` VW-LOGIN-002,
+VW-REG-002, VW-OAUTHCOMP-001…002
+
+**Done when:** `/auth/callback` verifies the signed `state`, exchanges the code server-side (client
+secret never reaches the browser), and resolves the identity by `(method='GOOGLE',
+provider_subject=sub)` — never by email; a first-time login mints a short-lived pending token (Redis,
+no table) and redirects to `/auth/complete-registration`, which creates `app_user`
+(`email_source='OAUTH'`), `user_auth_method` and default privacy settings and issues a session; an
+email already held by an active credential account (FR-AUTH-016) is neither silently linked nor
+duplicated — it challenges for the existing account's credential, links the Google identity as an
+additional `user_auth_method` on success, and returns the same generic failure message on failure
+that reveals nothing about which account exists; the login/registration pages hide the Google button
+when `TURNBASE_OAUTH_GOOGLE_CLIENT_SECRET` is absent rather than offering a button that fails.
+
+**The redirect URI is `http://turnbase.localhost:8080/auth/callback`, not `localhost`** —
+`secrets-and-configuration.md` §5 flags this explicitly: they are different URIs to Google, and the
+platform origin is deliberately the non-obvious one.
 
 ---
 
