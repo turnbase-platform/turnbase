@@ -49,6 +49,14 @@ unrelated, pre-existing reason also present in `IMP-M1-02`'s accepted run.
 ---
 ## Next Priorities
 
+**IMP-GATE-40** (`IMP-M2-01`, opened and closed 2026-09-08, session 37) — this item's Done-when clause
+5 needs the room-ownership claim/redirect/`503` mechanism that `IMP-M2-03` builds, but `IMP-M2-03`
+depended on `IMP-M2-02`, which depended on `IMP-M2-01` — a cycle in substance. `IMP-M2-04`, `IMP-M2-07`
+and `IMP-M2-10` already depend on `IMP-M2-03` directly and needed no change. Fixed: `IMP-M2-03`'s
+*Depends on* moves to `IMP-M1-06`; `IMP-M2-01`'s gains `IMP-M2-03`; `IMP-M2-02`'s gains `IMP-M2-03`
+alongside `IMP-M2-01`. **`IMP-M2-03` is now the item to build first** — `IMP-M2-01` and `IMP-M2-02`
+both wait on its claim component. `IMP-M2-01` is back to `READY` (not `WIP`) pending `IMP-M2-03`.
+
 **IMP-GATE-39** (`IMP-M2-01`, opened and closed 2026-09-08, session 37) — this item's read-list never
 named `docs/specs/platform/room-lifecycle.md`, though `room-rest-api.md` (its own read-list document)
 cites it repeatedly for the ownership-claim mechanism behind Done-when clause 5 and the host-leave

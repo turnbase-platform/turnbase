@@ -52,9 +52,9 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M1-09 | Social graph — friendships and requests | platform | M1-07 | DONE |
 | IMP-M1-10 | Google OAuth registration and login | platform | M1-04 | DONE |
 | **M2 — Rooms and realtime** ||||
-| IMP-M2-01 | Room CRUD and listing | platform | M1-06 | WIP (session 37) |
-| IMP-M2-02 | STOMP endpoint, auth, subscriptions | platform | M2-01 | READY |
-| IMP-M2-03 | Ownership claim, lease, epoch fence | platform | M2-02 | READY |
+| IMP-M2-01 | Room CRUD and listing | platform | M1-06, M2-03 | READY |
+| IMP-M2-02 | STOMP endpoint, auth, subscriptions | platform | M2-01, M2-03 | READY |
+| IMP-M2-03 | Ownership claim, lease, epoch fence | platform | M1-06 | READY |
 | IMP-M2-04 | Room event versioning and fan-out | platform | M2-03 | READY |
 | IMP-M2-05 | Join, teams, readiness | platform | M2-04 | READY |
 | IMP-M2-06 | Host management and transfer | platform | M2-05 | READY |
@@ -1862,7 +1862,26 @@ bite:
 
 ### IMP-M2-01 — Room CRUD and listing
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M1-06
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M1-06, IMP-M2-03
+
+**Closed:** IMP-GATE-40 (opened and closed 2026-09-08, session 37) — this item's own Done-when clause
+5 requires the room-ownership claim/redirect/`503` mechanism, which `room-lifecycle.md` §1 documents
+in full and which `IMP-M2-03` ("Ownership claim, lease, epoch fence") is the item that builds — but
+`IMP-M2-03` depended on `IMP-M2-02`, which depended on `IMP-M2-01`. That is a cycle in substance: this
+item cannot satisfy its own clause 5 without the mechanism `IMP-M2-03` owns, `IMP-M2-03` cannot start
+under its old dependency until `IMP-M2-02` is done, and `IMP-M2-02` cannot start until this item is
+done. Same shape as `IMP-GATE-03`/`08`/`18`/`28` — a *Done when* clause reaching past infrastructure
+that does not exist yet — but here the infrastructure's own item was mis-sequenced *behind* the item
+that needs it, rather than simply not yet written. `IMP-M2-04`, `IMP-M2-07` and `IMP-M2-10` already
+depend on `IMP-M2-03` directly and needed no change — only the two REST/STOMP consumers were
+mis-ordered relative to the mechanism they call. Fixed: `IMP-M2-03`'s *Depends on* changes to
+`IMP-M1-06` (nothing in its own read-list — ADR-0008, `room-lifecycle.md` §1–§2, `data-model.md` §1,
+`local-environment.md` §7.1 — needs REST or STOMP to exist first); this item's *Depends on* gains
+`IMP-M2-03`; `IMP-M2-02`'s *Depends on* gains `IMP-M2-03` alongside its existing `IMP-M2-01` (its own
+subscribe-time ownership re-verification, `room-lifecycle.md` §1.7, needs the same mechanism). Done-when
+clause 5 below is unchanged in substance — the claim/redirect/`503` behaviour it describes is real and
+still this item's to expose over REST — but it now presumes `IMP-M2-03`'s claim component exists to be
+called, rather than requiring this item to build it.
 
 **Closed:** IMP-GATE-39 (opened and closed 2026-09-08, session 37) — this item's read-list never named
 `docs/specs/platform/room-lifecycle.md`, although `room-rest-api.md` (this item's own read-list
@@ -1889,8 +1908,9 @@ FR-XFER-003 are this item's, not the host-transfer STOMP layer's.
 
 **Read first:**
 - `docs/specs/platform/room-lifecycle.md` §1.2 (*Claim*), §1.3 (*Release*), §1.4 (*Adoption*), §1.7
-  (*Affinity Hint*) — the ownership mechanism behind Done-when clause 5, and enough of §4 to know the
-  host-leave delegation boundary in `room-rest-api.md` §6
+  (*Routing*) — the contract of `IMP-M2-03`'s claim component this item's handlers call for Done-when
+  clause 5 (not this item's to implement, `IMP-GATE-40`), and enough of §4 to know the host-leave
+  delegation boundary in `room-rest-api.md` §6
 - `docs/specs/api-design/room-rest-api.md` **in full** — the five endpoints, §3's inclusion
   predicate, §5's join contract, §7's error table
 - `docs/specs/platform/data-model.md` §1 (`room`), §2 (`room_participant`), §3 (`room_team`)
@@ -1934,7 +1954,8 @@ spectator.
 
 ### IMP-M2-02 — STOMP endpoint, auth, subscriptions
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M2-01
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M2-01, IMP-M2-03 (`IMP-GATE-40`: subscribe-time
+ownership re-verification, `room-lifecycle.md` §1.7, needs `IMP-M2-03`'s claim component)
 
 **Read first:**
 - `docs/specs/api-design/websocket.md` — connection, authentication, envelope, authorization
@@ -1964,7 +1985,9 @@ there to close.
 
 ### IMP-M2-03 — Ownership claim, lease, epoch fence
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M2-02
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M1-06 (`IMP-GATE-40`: moved off `IMP-M2-02` —
+nothing in this item's own read-list needs REST or STOMP to exist first, and both `IMP-M2-01` and
+`IMP-M2-02` need this item's claim component, not the other way round)
 
 **Read first:**
 - `docs/decisions/0008-room-ownership-lifecycle.md` **in full**
