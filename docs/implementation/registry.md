@@ -1896,6 +1896,9 @@ FR-XFER-003 are this item's, not the host-transfer STOMP layer's.
 - `docs/specs/platform/data-model.md` §1 (`room`), §2 (`room_participant`), §3 (`room_team`)
 - `docs/requirements/game-rooms.md` FR-CREATE-001…004, FR-LIST-001…007, FR-JOIN-001…006
 - `docs/specs/api-design/pagination-filtering-sorting.md`, `rest-conventions.md`
+- `docs/specs/manifest/manifest-schema.md` § `capabilities`, § `teamTemplates` — the JSON shape behind
+  `game.capabilities.midGameJoin`/`.spectating` and FR-TEAM-012's team instantiation; no other
+  read-list document defines it (repaired, no gate — a plain missing citation)
 
 **Satisfies:** `game-rooms.md` FR-CREATE-001…004, FR-LIST-001…007, FR-JOIN-001…007, FR-XFER-003,
 FR-HOST-002, FR-LIFE-004, NFR-PERF-001, NFR-SEC-001…002, NFR-USAB-001, NFR-SPEC-001;
