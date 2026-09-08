@@ -54,7 +54,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M2 — Rooms and realtime** ||||
 | IMP-M2-01 | Room CRUD and listing | platform | M1-06, M2-03 | READY |
 | IMP-M2-02 | STOMP endpoint, auth, subscriptions | platform | M2-01, M2-03 | READY |
-| IMP-M2-03 | Ownership claim, lease, epoch fence | platform | M1-06 | READY |
+| IMP-M2-03 | Ownership claim, lease, epoch fence | platform | M1-06 | WIP (session 37) |
 | IMP-M2-04 | Room event versioning and fan-out | platform | M2-03 | READY |
 | IMP-M2-05 | Join, teams, readiness | platform | M2-04 | READY |
 | IMP-M2-06 | Host management and transfer | platform | M2-05 | READY |
