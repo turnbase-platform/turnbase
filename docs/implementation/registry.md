@@ -50,7 +50,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M1-07 | Profiles and privacy settings | platform | M1-04 | DONE |
 | IMP-M1-08 | Account deletion and erasure | platform | M1-07 | DONE |
 | IMP-M1-09 | Social graph — friendships and requests | platform | M1-07 | DONE |
-| IMP-M1-10 | Google OAuth registration and login | platform | M1-04 | WIP (session 36) |
+| IMP-M1-10 | Google OAuth registration and login | platform | M1-04 | DONE |
 | **M2 — Rooms and realtime** ||||
 | IMP-M2-01 | Room CRUD and listing | platform | M1-06 | READY |
 | IMP-M2-02 | STOMP endpoint, auth, subscriptions | platform | M2-01 | READY |
@@ -1742,6 +1742,45 @@ against `friendship`, canonically ordered, is enough — no new public API is ne
 ### IMP-M1-10 — Google OAuth registration and login
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-04
+
+**Done 2026-09-08 (session 36).** Five endpoints (`OAuthController`, `OAuthRegistrationController`,
+`account` package): `GET /auth/google` builds the consent-screen URL with a signed, short-lived
+`state` (`session.OAuthStateService`, over the same JWT key set session tokens use) carrying a
+validated internal redirect destination; `GET /auth/callback` exchanges the code server-side
+(`GoogleOAuthClient`, resolving identity from Google's userinfo endpoint with the freshly-issued
+access token rather than verifying the ID token itself) and resolves by
+`(method='GOOGLE', provider_subject=sub)`, never by email; a first-time login mints a Redis-backed
+pending record (`PendingOAuthRegistration`, `concern=application`) and sets `turnbase_oauth_pending`
+rather than a session cookie. `POST /api/auth/oauth/complete-registration` creates the account or
+reports `CHALLENGE_REQUIRED` (`200`, not an error — same shape as `social-rest-api.md`'s outcome
+pattern) on an FR-AUTH-016 email collision, without creating a duplicate or silently linking;
+`POST /api/auth/oauth/link-challenge` verifies the existing account's password and links the Google
+identity as an additional `user_auth_method` on success, the same generic 401 on failure whether the
+password is wrong or the collision account no longer resolves.
+
+**One platform-wide gap found and fixed while building this item, not gated because the spec was
+already correct.** `rest-conventions.md`'s Origin check for state-changing requests had never been
+implemented anywhere in the app — six already-`DONE` items (`IMP-M1-04` through `IMP-M1-09`) build
+`POST`/`PATCH`/`DELETE` endpoints with no such enforcement. Fixed with a new
+`common.OriginCheckInterceptor`, registered ahead of every other interceptor
+(`Ordered.HIGHEST_PRECEDENCE`) in `PlatformWebMvcConfig`, covering the whole app at once rather than
+just this item's two new `POST` endpoints.
+
+**`rate-limiting.md` changes**: Tier 1 gained `POST /api/auth/oauth/link-challenge` (an
+auth-method-addition credential guess); Tier 4 gained the two redirect routes; Tier 5's OAuth
+accounting moves to `complete-registration`'s actual success path — the callback never creates the
+row, so counting there would charge an aborted registration against the cap.
+
+**Verified end to end.** `GoogleOAuthClientTest`/`OAuthStateServiceTest`/`PendingOAuthRegistrationTest`
+(unit) prove the pure mechanics directly, Google stubbed with a plain JDK `HttpServer` — no mock-HTTP
+library is a project dependency. `OAuthServiceTest` (unit, Mockito) covers every branch of the
+orchestration. `OAuthControllerIT` (Testcontainers Postgres + Redis, real HTTP) drives the full round
+trip against a real boot: initiate → callback → complete-registration for a first-time login, a
+returning login skipping the pending cookie entirely, and the email-collision challenge-and-link path
+including a wrong-password rejection. `./mvnw verify -Pintegration` green locally (211 tests). CI
+green on `turnbase-platform` `master` (`build`, 12m27s) — the `e2e` job's "Check out
+turnbase-game-host" step fails for an unrelated, pre-existing reason also present in `IMP-M1-02`'s
+accepted run.
 
 **Closed:** IMP-GATE-37 (opened and closed 2026-09-08, session 36) — no document in the corpus named
 the JSON/redirect REST surface this item builds: `secrets-and-configuration.md` §5 and

@@ -1,52 +1,50 @@
 ## Last Session Summary
 
-**Date:** 2026-09-08 (session 35)
+**Date:** 2026-09-08 (session 36)
 
-**IMP-M1-02 — Rate limiter, Tiers 1–5. DONE. 21 of 61 items complete.**
-One `common.RateLimitInterceptor` covers all five HTTP tiers from `rate-limiting.md`. Tiers 2–4
-share a plain Bucket4j capacity/window bucket (`Bandwidth.simple`) resolved through a
-`ProxyManager<byte[]>` built from a raw Lettuce `RedisClient` (`common.RedisRateLimiterConfig`) —
-independent of `spring-boot-starter-data-redis`'s own `LettuceConnectionFactory`, which Bucket4j's
-proxy manager cannot use directly. Tier 2 alone emits `X-RateLimit-Limit/Remaining/Reset`. Tier 5
-(account minting) pre-consumes a token in `preHandle` and refunds it in `afterCompletion` on a
-non-2xx response — the mechanism that makes it success-only without a check-then-consume race — and
-runs independently of Tier 1 (a hand-rolled `StringRedisTemplate` failure counter plus a doubling
-lockout key) even though both apply to `POST /api/auth/register` at once. `common.ClientIpResolver`
-implements the two-sided trusted-proxy policy (`X-Forwarded-For` honoured only from a peer inside
-`turnbase.security.trusted-proxies`) and IPv6 /64 keying, with a dependency-free CIDR matcher.
-Endpoint classification is exact-match against routes that exist today, the same convention
-`session.SessionAuthenticationInterceptor` already uses — Tier 3's upload-version-create route
-(`IMP-M4-03`), Tier 1's auth-method add/remove and Tier 5's OAuth callback (`IMP-M1-10`) aren't built
-yet, and each item extends the matching set when it lands.
+**IMP-M1-10 — Google OAuth registration and login. DONE. 22 of 61 items complete.**
+Five endpoints (`OAuthController`, `OAuthRegistrationController`, `account` package):
+`GET /auth/google` builds the consent-screen URL with a signed, short-lived `state`
+(`session.OAuthStateService`, over the same JWT key set session tokens use) carrying a validated
+internal redirect destination; `GET /auth/callback` exchanges the code server-side
+(`GoogleOAuthClient`, resolving identity from Google's userinfo endpoint with the freshly-issued
+access token rather than verifying the ID token itself) and resolves by
+`(method='GOOGLE', provider_subject=sub)`, never by email; a first-time login mints a Redis-backed
+pending record (`PendingOAuthRegistration`, `concern=application`) and sets `turnbase_oauth_pending`
+rather than a session cookie. `POST /api/auth/oauth/complete-registration` creates the account or
+reports `CHALLENGE_REQUIRED` (`200`, not an error — the same outcome pattern `social-rest-api.md`
+uses) on an FR-AUTH-016 email collision, without creating a duplicate or silently linking;
+`POST /api/auth/oauth/link-challenge` verifies the existing account's password and links the Google
+identity as an additional `user_auth_method` on success, the same generic 401 on failure whether the
+password is wrong or the collision account no longer resolves.
 
-**This is the first Redis consumer in `turnbase-platform`**, which is what opened `IMP-GATE-36`
-before any code could be written: nothing named the Spring property carrying the compose stack's
-already-`requirepass`'d Redis password into a running service. Closed the same session (see below).
-`docker-compose.yml`'s `platform` service and the Helm chart's configmap/secret now carry
-`SPRING_DATA_REDIS_URL`/`SPRING_DATA_REDIS_PASSWORD`. `conventions.md` §7's `concern=application` tag
-is applied via `common.RateLimitMetrics`, wrapping every Redis call this item makes.
+**One platform-wide gap found and fixed while building this item, not gated because the spec was
+already correct.** `rest-conventions.md`'s Origin check for state-changing requests had never been
+implemented anywhere in the app — six already-`DONE` items (`IMP-M1-04` through `IMP-M1-09`) build
+`POST`/`PATCH`/`DELETE` endpoints with no such enforcement. Fixed with a new
+`common.OriginCheckInterceptor`, registered ahead of every other interceptor in
+`PlatformWebMvcConfig`, covering the whole app at once.
 
-**Verified end to end.** `ClientIpResolverTest` (unit) proves the trusted-proxy/XFF policy and IPv6
-/64 masking directly. `RateLimitInterceptorIT` (Testcontainers Postgres + Redis, real HTTP) boots its
-own tiny-limit context per test — every number on the spec's page is a property — and proves: Tier 5
-rejects over-cap minting with `Retry-After` and refunds a validation failure rather than counting it;
-Tier 1 locks out after the configured failure count and recovers once the lockout elapses; Tier 2
-emits the three headers and 429s on the third request; Tier 4 caps an unauthenticated profile read;
-the `enabled=false` escape hatch is honoured under the `test` profile. `PostgresIntegrationTest`
-gained a shared Redis Testcontainer (`@ServiceConnection(name = "redis")` on a plain
-`GenericContainer` — no official Testcontainers Redis module exists) so every full-boot `*IT` can
-reach one; four pre-existing classes that drive `/register` or `/guest` repeatedly across many test
-methods (`AuthControllerIT`, `ProfileControllerIT`, `SocialControllerIT`,
-`AccountDeletionControllerIT`) needed generous Tier 1/5 overrides to keep passing once real budgets
-were enforced against them. `./mvnw verify -Pintegration` green locally (85 integration tests). CI
-green on `turnbase-platform` `master` (`build`, 11m10s).
+**Two gates, both opened and closed this session.** `IMP-GATE-37`: no document named the
+JSON/redirect REST surface this item builds, and the item's read-list never named
+`rest-conventions.md`. Same shape as `IMP-GATE-31`/`33`/`35`. Fixed: new
+`docs/specs/api-design/oauth-rest-api.md` — five endpoints, the `turnbase_oauth_pending` cookie, two
+new `local-environment.md` §7.4 TTL properties (plus three Google-endpoint properties added while
+implementing, for test stubbing); `rate-limiting.md` Tier 1 gained the link-challenge route, Tier 4
+gained the two redirects, and Tier 5's OAuth accounting moved to `complete-registration`'s actual
+success path rather than the callback, which never creates the row. `IMP-GATE-38`: `user-accounts.md`
+NFR-SEC-006 never named this item's five endpoints as session-exempt (same shape as `IMP-GATE-29`).
+Fixed: NFR-SEC-006 now names all five.
 
-**One gate, opened and closed this session.** `IMP-GATE-36`: `secrets-and-configuration.md` required
-a shared Redis `requirepass` but never named the Spring property carrying it into a running service
-(unlike the PostgreSQL section right above it), and `local-environment.md` §7.9's Redis URL row
-showed no credentials. Fixed: `secrets-and-configuration.md` § Redis now names
-`spring.data.redis.password` (`SPRING_DATA_REDIS_PASSWORD`), kept separate from the URL the same way
-the datasource password is; `local-environment.md` §7.9 gained the row.
+**Verified end to end.** `GoogleOAuthClientTest`/`OAuthStateServiceTest`/`PendingOAuthRegistrationTest`
+(unit) prove the pure mechanics directly, Google stubbed with a plain JDK `HttpServer` — no mock-HTTP
+library is a project dependency. `OAuthServiceTest` (unit, Mockito) covers every orchestration branch.
+`OAuthControllerIT` (Testcontainers Postgres + Redis, real HTTP) drives the full round trip: initiate
+→ callback → complete-registration for a first-time login, a returning login skipping the pending
+cookie entirely, and the email-collision challenge-and-link path including a wrong-password
+rejection. `./mvnw verify -Pintegration` green locally (211 tests). CI green on `turnbase-platform`
+`master` (`build`, 12m27s) — the `e2e` job's "Check out turnbase-game-host" step fails for an
+unrelated, pre-existing reason also present in `IMP-M1-02`'s accepted run.
 
 ---
 ## Next Priorities
@@ -64,10 +62,9 @@ is back to `WIP` and code is next.
 NFR-SEC-006 never named this item's five endpoints as session-exempt (same shape as IMP-GATE-29).
 Fixed: NFR-SEC-006 now names all five; read-list corrected.
 
-**Next up in M1**: `IMP-M1-10` (Google OAuth) remains `READY` off `IMP-M1-04` — the only item still
-pickable in M1 proper. `IMP-M2-01` (room CRUD and listing) is `READY` off `IMP-M1-06` — its listing
-predicate needs a `friendship` join for `FRIENDS_ONLY` rooms, which `IMP-M1-09` now supplies.
-`IMP-M2-12` (room invitations) is `READY` off `IMP-M2-01, IMP-M1-09`,
+**M1 is now fully DONE.** Next up: `IMP-M2-01` (room CRUD and listing) is `READY` off `IMP-M1-06` —
+its listing predicate needs a `friendship` join for `FRIENDS_ONLY` rooms, which `IMP-M1-09` now
+supplies. `IMP-M2-12` (room invitations) is `READY` off `IMP-M2-01, IMP-M1-09`,
 now unblocked on its second dependency. `IMP-M5-03` (notifications and the SSE stream) is `READY` off
 `IMP-M1-06, IMP-M1-07` — it now delivers the `notification` rows this item writes over SSE, rather
 than writing any of its own for friend requests (`IMP-GATE-34`).
@@ -185,7 +182,7 @@ endpoint itself and was missing.
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
-**Progress: 21 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 22 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
 `turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), `IMP-M0-05`
 (Frontend skeleton, `turnbase-frontend`), `IMP-M0-06` (Flyway baseline, `turnbase-platform`),
@@ -199,13 +196,13 @@ client, `turnbase-sdk`), `IMP-M1-01` (error model, REST conventions, validation 
 lifecycle and displacement, `turnbase-platform`), `IMP-M1-05` (guest minting and purge,
 `turnbase-platform`), `IMP-M1-07` (profiles and privacy settings, `turnbase-platform`),
 `IMP-M1-08` (account deletion and erasure, `turnbase-platform`), `IMP-M1-09` (social graph —
-friendships and requests, `turnbase-platform`) and `IMP-M1-02` (rate limiter, Tiers 1-5,
-`turnbase-platform`), all pushed and green in CI.
+friendships and requests, `turnbase-platform`), `IMP-M1-02` (rate limiter, Tiers 1-5,
+`turnbase-platform`) and `IMP-M1-10` (Google OAuth registration and login, `turnbase-platform`), all
+pushed and green in CI. **M1 is complete.**
 **No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
 whatever its own dependencies imply.
 
-**Next up in M1**: `IMP-M1-10` (Google OAuth) remains `READY` off `IMP-M1-04` — the only item still
-pickable in M1 proper. `IMP-M2-01` (room CRUD and listing) is `READY` off `IMP-M1-06`, the first M2
+**M1 is now fully DONE.** `IMP-M2-01` (room CRUD and listing) is `READY` off `IMP-M1-06`, the first M2
 item on the board — its `FRIENDS_ONLY` listing predicate now has `IMP-M1-09`'s `friendship` table to
 join against. `IMP-M2-12` (room invitations) is now `READY` off both `IMP-M2-01` and `IMP-M1-09`.
 `IMP-M5-03` (notifications and the SSE stream) is `READY` off `IMP-M1-06` and `IMP-M1-07`, and now
