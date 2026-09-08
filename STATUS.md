@@ -1,50 +1,50 @@
 ## Last Session Summary
 
-**Date:** 2026-09-08 (session 36)
+**Date:** 2026-09-08 (session 37)
 
-**IMP-M1-10 — Google OAuth registration and login. DONE. 22 of 61 items complete.**
-Five endpoints (`OAuthController`, `OAuthRegistrationController`, `account` package):
-`GET /auth/google` builds the consent-screen URL with a signed, short-lived `state`
-(`session.OAuthStateService`, over the same JWT key set session tokens use) carrying a validated
-internal redirect destination; `GET /auth/callback` exchanges the code server-side
-(`GoogleOAuthClient`, resolving identity from Google's userinfo endpoint with the freshly-issued
-access token rather than verifying the ID token itself) and resolves by
-`(method='GOOGLE', provider_subject=sub)`, never by email; a first-time login mints a Redis-backed
-pending record (`PendingOAuthRegistration`, `concern=application`) and sets `turnbase_oauth_pending`
-rather than a session cookie. `POST /api/auth/oauth/complete-registration` creates the account or
-reports `CHALLENGE_REQUIRED` (`200`, not an error — the same outcome pattern `social-rest-api.md`
-uses) on an FR-AUTH-016 email collision, without creating a duplicate or silently linking;
-`POST /api/auth/oauth/link-challenge` verifies the existing account's password and links the Google
-identity as an additional `user_auth_method` on success, the same generic 401 on failure whether the
-password is wrong or the collision account no longer resolves.
+**IMP-M2-03 — Ownership claim, lease, epoch fence. DONE. 23 of 61 items complete. M2 is under way.**
+`room.RoomOwnershipService`: `claim()` runs `room-lifecycle.md` §1.2's atomic Lua script verbatim
+(result codes `0`=redirect/`1`=already-mine/`2`=adopted, matching the spec and `room-rest-api.md`'s
+table exactly) over `room:{roomId}:pod`/`:epoch`; `adopt()` is §1.4 steps 1–3/7 as one epoch-guarded
+`UPDATE ... WHERE owner_epoch < :epoch RETURNING version` — a guard failure returns `Superseded` and
+self-evicts rather than retrying in place; `release()` is §1.3's compare-and-delete plus the Postgres
+mirror, never resetting `owner_epoch`. `RoomOwnershipSchedulingConfig` renews the liveness lease on
+`turnbase.room.lease.renew-interval` via `SET ... XX`, treating a `false` reply as a proven lease
+*lapse* (never a renewal-failure guess) and triggering whole-instance self-eviction; the same tick
+independently re-verifies `room:{roomId}:pod` per locally-owned room, so a Redis flush that steals one
+room's key evicts only that room. `epochOf()`/`nextVersion()` expose the fence primitives every future
+room-mutating item builds on. `RoomOwnershipLostEvent` has no subscriber yet — `IMP-M2-02`'s STOMP
+registry is the intended one, mirroring `SessionRevokedEvent`'s inversion (`IMP-GATE-28`). §1.4 steps
+4–6/8 (grace periods, connection-count reset, session re-dispatch, suppressed disconnect events) and
+§1.6's socket-closing half of graceful shutdown are recorded as forward sentences on `IMP-M2-02`,
+`IMP-M2-07`/`IMP-M2-08` and `IMP-M2-06`'s own sections, not gates — this item's own Done-when never
+required them.
 
-**One platform-wide gap found and fixed while building this item, not gated because the spec was
-already correct.** `rest-conventions.md`'s Origin check for state-changing requests had never been
-implemented anywhere in the app — six already-`DONE` items (`IMP-M1-04` through `IMP-M1-09`) build
-`POST`/`PATCH`/`DELETE` endpoints with no such enforcement. Fixed with a new
-`common.OriginCheckInterceptor`, registered ahead of every other interceptor in
-`PlatformWebMvcConfig`, covering the whole app at once.
+**Two gates, both opened and closed this session, both on `IMP-M2-01` before any of its code was
+written.** `IMP-GATE-39`: `IMP-M2-01`'s read-list never named `room-lifecycle.md` even though
+`room-rest-api.md` cites it repeatedly for the claim mechanism and the host-leave delegation boundary;
+separately, `room-rest-api.md` builds FR-JOIN-007, FR-XFER-003 and FR-HOST-002 entirely inside
+`IMP-M2-01`'s own REST endpoints, but its *Satisfies* claimed none of them while `IMP-M2-05` and
+`IMP-M2-06` claimed them instead, over read-lists that never touch the REST layer where they're
+actually built. Fixed: read-list and *Satisfies* corrected on all three items. `IMP-GATE-40`: found
+immediately after, while reading the corrected read-list — `IMP-M2-01`'s Done-when needs the
+ownership-claim mechanism `IMP-M2-03` builds, but `IMP-M2-03` depended on `IMP-M2-02`, which depended
+on `IMP-M2-01` — a cycle in substance. Fixed: `IMP-M2-03`'s dependency moved to `IMP-M1-06`;
+`IMP-M2-01` and `IMP-M2-02` now both depend on it. **This made `IMP-M2-03` the item to build this
+session instead of `IMP-M2-01`**, which is back to `READY` — its dependency (`IMP-M1-06`, `IMP-M2-03`)
+is now fully satisfied and it is the natural next pick.
 
-**Two gates, both opened and closed this session.** `IMP-GATE-37`: no document named the
-JSON/redirect REST surface this item builds, and the item's read-list never named
-`rest-conventions.md`. Same shape as `IMP-GATE-31`/`33`/`35`. Fixed: new
-`docs/specs/api-design/oauth-rest-api.md` — five endpoints, the `turnbase_oauth_pending` cookie, two
-new `local-environment.md` §7.4 TTL properties (plus three Google-endpoint properties added while
-implementing, for test stubbing); `rate-limiting.md` Tier 1 gained the link-challenge route, Tier 4
-gained the two redirects, and Tier 5's OAuth accounting moved to `complete-registration`'s actual
-success path rather than the callback, which never creates the row. `IMP-GATE-38`: `user-accounts.md`
-NFR-SEC-006 never named this item's five endpoints as session-exempt (same shape as `IMP-GATE-29`).
-Fixed: NFR-SEC-006 now names all five.
-
-**Verified end to end.** `GoogleOAuthClientTest`/`OAuthStateServiceTest`/`PendingOAuthRegistrationTest`
-(unit) prove the pure mechanics directly, Google stubbed with a plain JDK `HttpServer` — no mock-HTTP
-library is a project dependency. `OAuthServiceTest` (unit, Mockito) covers every orchestration branch.
-`OAuthControllerIT` (Testcontainers Postgres + Redis, real HTTP) drives the full round trip: initiate
-→ callback → complete-registration for a first-time login, a returning login skipping the pending
-cookie entirely, and the email-collision challenge-and-link path including a wrong-password
-rejection. `./mvnw verify -Pintegration` green locally (211 tests). CI green on `turnbase-platform`
-`master` (`build`, 12m27s) — the `e2e` job's "Check out turnbase-game-host" step fails for an
-unrelated, pre-existing reason also present in `IMP-M1-02`'s accepted run.
+**Verified.** `RoomOwnershipServiceIT` (9 tests, two full `TurnBaseApplication` contexts sharing one
+Postgres/Redis — `PodIdentity` is a random-per-boot singleton, so two contexts naturally get two
+distinct `podId`s): adoption stamps the room row; re-claiming is idempotent and does not bump the
+epoch; a second instance is redirected while the incumbent is live; a second instance adopts once the
+incumbent's lease is deleted, with the epoch advancing monotonically; self-eviction on lease lapse
+drops every owned room and never recreates the liveness key; a per-room ownership mismatch evicts only
+that room; a forged higher `owner_epoch` makes adoption's own guard fail; release never resets the
+epoch; `nextVersion()` never goes backwards. `./mvnw verify -Pintegration` green locally (99 tests,
+JaCoCo merged gate met); CI green on `turnbase-platform` `master` (`build`, 11m4s — `e2e` stays blocked
+on the un-provisioned `TURNBASE_GAME_HOST_PAT`, the same pre-existing gap every prior session's run
+also shows).
 
 ---
 ## Next Priorities
@@ -66,7 +66,8 @@ them while `IMP-M2-05` and `IMP-M2-06` each claimed one anyway, over a STOMP-lay
 never touches the REST handlers that actually build them. Fixed: `IMP-M2-01`'s read-list gained
 `room-lifecycle.md` §1.2–§1.4, §1.7 and part of §4; its *Satisfies* gained FR-JOIN-007, FR-XFER-003,
 FR-HOST-002; `IMP-M2-05`'s *Satisfies*/*Done when* dropped FR-JOIN-007; `IMP-M2-06`'s *Satisfies*
-dropped FR-HOST-002 and FR-XFER-003. `IMP-M2-01` is back to `WIP (session 37)` and code is next.
+dropped FR-HOST-002 and FR-XFER-003. Superseded by `IMP-GATE-40` before any `IMP-M2-01` code was
+written — see above.
 
 **IMP-GATE-37** (`IMP-M1-10`, opened and closed 2026-09-08, session 36) — no document named the
 JSON/redirect REST surface this item builds (the OAuth-initiate route, the pending-registration JSON
@@ -81,10 +82,13 @@ is back to `WIP` and code is next.
 NFR-SEC-006 never named this item's five endpoints as session-exempt (same shape as IMP-GATE-29).
 Fixed: NFR-SEC-006 now names all five; read-list corrected.
 
-**M1 is now fully DONE.** Next up: `IMP-M2-01` (room CRUD and listing) is `READY` off `IMP-M1-06` —
-its listing predicate needs a `friendship` join for `FRIENDS_ONLY` rooms, which `IMP-M1-09` now
-supplies. `IMP-M2-12` (room invitations) is `READY` off `IMP-M2-01, IMP-M1-09`,
-now unblocked on its second dependency. `IMP-M5-03` (notifications and the SSE stream) is `READY` off
+**M1 is fully DONE, and `IMP-M2-03` now too — 23 of 61.** `IMP-M2-01` (room CRUD and listing) is
+`READY` off `IMP-M1-06, IMP-M2-03` (`IMP-GATE-40` corrected the second dependency) — this is the next
+pick. Its listing predicate needs a `friendship` join for `FRIENDS_ONLY` rooms, which `IMP-M1-09`
+supplies; its Done-when clause 5's `503`/redirect/affinity-header behaviour now has
+`room.RoomOwnershipService.claim()` to call. `IMP-M2-02` (STOMP endpoint) is `READY` off
+`IMP-M2-01, IMP-M2-03` once `IMP-M2-01` lands. `IMP-M2-12` (room invitations) is `READY` off
+`IMP-M2-01, IMP-M1-09`. `IMP-M5-03` (notifications and the SSE stream) is `READY` off
 `IMP-M1-06, IMP-M1-07` — it now delivers the `notification` rows this item writes over SSE, rather
 than writing any of its own for friend requests (`IMP-GATE-34`).
 
@@ -201,7 +205,7 @@ endpoint itself and was missing.
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
-**Progress: 22 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 23 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
 `turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), `IMP-M0-05`
 (Frontend skeleton, `turnbase-frontend`), `IMP-M0-06` (Flyway baseline, `turnbase-platform`),
@@ -216,17 +220,20 @@ lifecycle and displacement, `turnbase-platform`), `IMP-M1-05` (guest minting and
 `turnbase-platform`), `IMP-M1-07` (profiles and privacy settings, `turnbase-platform`),
 `IMP-M1-08` (account deletion and erasure, `turnbase-platform`), `IMP-M1-09` (social graph —
 friendships and requests, `turnbase-platform`), `IMP-M1-02` (rate limiter, Tiers 1-5,
-`turnbase-platform`) and `IMP-M1-10` (Google OAuth registration and login, `turnbase-platform`), all
-pushed and green in CI. **M1 is complete.**
+`turnbase-platform`), `IMP-M1-10` (Google OAuth registration and login, `turnbase-platform`) and
+`IMP-M2-03` (ownership claim, lease, epoch fence, `turnbase-platform`), all pushed and green in CI.
+**M1 is complete; M2 is under way.**
 **No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
 whatever its own dependencies imply.
 
-**M1 is now fully DONE.** `IMP-M2-01` (room CRUD and listing) is `READY` off `IMP-M1-06`, the first M2
-item on the board — its `FRIENDS_ONLY` listing predicate now has `IMP-M1-09`'s `friendship` table to
-join against. `IMP-M2-12` (room invitations) is now `READY` off both `IMP-M2-01` and `IMP-M1-09`.
-`IMP-M5-03` (notifications and the SSE stream) is `READY` off `IMP-M1-06` and `IMP-M1-07`, and now
-delivers `IMP-M1-09`'s `notification` rows over SSE rather than writing any of the friend-request
-types itself (`IMP-GATE-34`).
+**M1 is fully DONE, and `IMP-M2-03` too.** `IMP-M2-01` (room CRUD and listing) is `READY` off
+`IMP-M1-06, IMP-M2-03` — both now satisfied — and is the next pick. Its `FRIENDS_ONLY` listing
+predicate has `IMP-M1-09`'s `friendship` table to join against, and its ownership-claim/`503`-retry
+Done-when clause has `room.RoomOwnershipService` to call. `IMP-M2-02` (STOMP endpoint) is `READY` off
+`IMP-M2-01, IMP-M2-03` once `IMP-M2-01` lands. `IMP-M2-12` (room invitations) is `READY` off both
+`IMP-M2-01` and `IMP-M1-09`. `IMP-M5-03` (notifications and the SSE stream) is `READY` off `IMP-M1-06`
+and `IMP-M1-07`, and now delivers `IMP-M1-09`'s `notification` rows over SSE rather than writing any of
+the friend-request types itself (`IMP-GATE-34`).
 
 **IMP-GATE-25** (`IMP-M0-11`, opened and closed 2026-09-05) — `game-development-experience.md`
 CON-003 and ADR-0012's Release Strategy commit `turnbase-sdk` to Maven Central + npm, but no document

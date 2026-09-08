@@ -54,7 +54,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M2 — Rooms and realtime** ||||
 | IMP-M2-01 | Room CRUD and listing | platform | M1-06, M2-03 | READY |
 | IMP-M2-02 | STOMP endpoint, auth, subscriptions | platform | M2-01, M2-03 | READY |
-| IMP-M2-03 | Ownership claim, lease, epoch fence | platform | M1-06 | WIP (session 37) |
+| IMP-M2-03 | Ownership claim, lease, epoch fence | platform | M1-06 | DONE |
 | IMP-M2-04 | Room event versioning and fan-out | platform | M2-03 | READY |
 | IMP-M2-05 | Join, teams, readiness | platform | M2-04 | READY |
 | IMP-M2-06 | Host management and transfer | platform | M2-05 | READY |
@@ -1979,7 +1979,10 @@ not own the room is redirected using the affinity hint rather than served across
 subscribes to `IMP-M1-06`'s `SessionRevokedEvent`: on receipt, every connection registered under that
 `sessionId` is sent a STOMP `ERROR` frame naming `revoked_reason` and then closed — this is
 `FR-SESS-010`'s actual duty (`IMP-GATE-28`), narrowed out of `IMP-M1-06` because no registry existed
-there to close.
+there to close. **It also subscribes to `IMP-M2-03`'s `RoomOwnershipLostEvent`** the same way, to sever
+a room's sockets on self-eviction or a per-room ownership mismatch and mark those closures
+instance-initiated — `room-lifecycle.md` §1.5 layer 3/§1.6's socket-closing half, which `IMP-M2-03`
+could not build itself since no STOMP registry existed there either.
 
 ---
 
@@ -1988,6 +1991,46 @@ there to close.
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-06 (`IMP-GATE-40`: moved off `IMP-M2-02` —
 nothing in this item's own read-list needs REST or STOMP to exist first, and both `IMP-M2-01` and
 `IMP-M2-02` need this item's claim component, not the other way round)
+
+**Done 2026-09-08 (session 37).** `room.RoomOwnershipService` — `claim()` runs §1.2's script verbatim
+(`REDIRECT`=0, `ALREADY_MINE`=1, `ADOPTED`=2, matching the spec and `room-rest-api.md`'s own table
+exactly, not a locally-renumbered equivalent) over `room:{roomId}:pod`/`:epoch`; `adopt()` is §1.4
+steps 1–3 and 7 in one fenced `UPDATE ... WHERE owner_epoch < :epoch RETURNING version` — a guard
+failure returns `Superseded` and self-evicts that room without retrying in place, matching §1.4 step
+3's "abandon the adoption" instruction literally. `release()` is §1.3's compare-and-delete plus the
+Postgres mirror, never resetting `owner_epoch`. `renewAndRecheck()` (`room.RoomOwnershipSchedulingConfig`,
+`turnbase.room.lease.renew-interval`, no `@SchedulerLock` — every instance renews its own key, this is
+not a cluster-wide job) renews via `SET ... XX` and treats a `false` reply as a proven lease lapse
+(§1.5 layer 2/3), never a renewal-failure guess; it also independently re-verifies `room:{roomId}:pod`
+for every locally-owned room on the same tick, so a Redis flush that steals one room's key evicts only
+that room, not the whole instance. `epochOf()`/`nextVersion()` expose the two primitives every future
+room-mutating item (`IMP-M2-04` onward) fences its own writes on.
+
+**Steps 4–6 and 8 of §1.4 adoption (grace-period reservations, `connection_count` reset, session
+re-dispatch, suppressed disconnect events), and §1.6's graceful-shutdown socket-closing sequence, are
+not this item's** — they need `room_participant`/session infrastructure and a STOMP session registry
+that do not exist yet. `RoomOwnershipLostEvent` is published on self-eviction and on a per-room
+ownership mismatch with no subscriber yet, the same inversion `IMP-M1-06`'s `SessionRevokedEvent`
+already established (`IMP-GATE-28`) — `IMP-M2-02`'s STOMP registry is the intended subscriber, and its
+own Done-when already expects to build the disconnect-handler-skips-tagged-closes behaviour once it
+exists. `IMP-M2-07`/`IMP-M2-08` own §1.4 steps 4–5 and grace-period semantics generally; Game Host
+session dispatch (step 6) is M3's. Recorded as a sentence per item, not a gate — this item's own
+Done-when never required them; `IMP-GATE-40`'s own text already scoped the dependency reorder to the
+claim/fence mechanism, not full adoption.
+
+**Verified.** `RoomOwnershipServiceIT` (9 tests, two full `TurnBaseApplication` contexts sharing one
+Postgres/Redis, standing in for two pods — `PodIdentity` is a random-per-boot singleton so the two
+naturally get distinct `podId`s): first claim adopts and stamps the room row; re-claiming is
+idempotent and does not bump the epoch; a second instance is redirected while the incumbent's lease is
+live and the room row is untouched; a second instance adopts once the incumbent's lease is deleted
+(simulating lapse), epoch advances monotonically (2, never reset); self-eviction on lease lapse drops
+every owned room and never recreates the liveness key; a per-room ownership mismatch (simulated Redis
+flush) evicts only that room; a forged higher `owner_epoch` makes adoption's own guard fail and return
+`Superseded`; release is graceful and never resets the epoch; `nextVersion()` assigns from the adopted
+value and never goes backwards. `./mvnw verify -Pintegration` green locally (99 tests, JaCoCo merged
+gate met); CI green on `turnbase-platform` `master` (`build`, 11m4s — `e2e`'s "Check out
+turnbase-game-host" step fails on the same un-provisioned `TURNBASE_GAME_HOST_PAT` every prior
+session's accepted run also shows).
 
 **Read first:**
 - `docs/decisions/0008-room-ownership-lifecycle.md` **in full**
@@ -2087,10 +2130,12 @@ FR-XFER-003 (closed-room inaccessibility) belong to `IMP-M2-01`** (`IMP-GATE-39`
 entirely in the REST layer: invite-code minting/exposure/resolution and the `state <> 'CLOSED'`
 predicate respectively.
 
-**Done when:** `migration_window_expires_at` is persisted and a sweep duty closes it. Without it a
-host who does not return leaves the room permanently headless — adoption never routes through the
-individual-disconnect path that would otherwise end the window. FR-HOST-003 (add AI player) returns
-`AI_NOT_SUPPORTED` per IR-12. FR-HOST-008 retains game parameters across the return to Lobby.
+**Done when:** `migration_window_expires_at` is persisted and a sweep duty closes it — the persist half
+is already `IMP-M2-03`'s adoption `UPDATE` (§1.4 step 7); this item's own duty is the sweep that closes
+it and performs the deferred transfer. Without it a host who does not return leaves the room
+permanently headless — adoption never routes through the individual-disconnect path that would
+otherwise end the window. FR-HOST-003 (add AI player) returns `AI_NOT_SUPPORTED` per IR-12. FR-HOST-008
+retains game parameters across the return to Lobby.
 
 ---
 
