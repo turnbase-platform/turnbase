@@ -49,7 +49,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M1-06 | Session lifecycle and displacement | platform | M1-04 | DONE |
 | IMP-M1-07 | Profiles and privacy settings | platform | M1-04 | DONE |
 | IMP-M1-08 | Account deletion and erasure | platform | M1-07 | DONE |
-| IMP-M1-09 | Social graph — friendships and requests | platform | M1-07 | WIP (session 34) |
+| IMP-M1-09 | Social graph — friendships and requests | platform | M1-07 | BLOCKED |
 | IMP-M1-10 | Google OAuth registration and login | platform | M1-04 | READY |
 | **M2 — Rooms and realtime** ||||
 | IMP-M2-01 | Room CRUD and listing | platform | M1-06 | READY |
@@ -1566,6 +1566,12 @@ may not own, which is precisely the write ADR-0008's epoch fence exists to rejec
 ### IMP-M1-09 — Social graph, friendships and requests
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-07
+
+**Gate:** IMP-GATE-34 — this item's *Satisfies* claims `notifications-invitations.md` FR-FREQ-001…006
+in full, and `IMP-M5-03` independently claims the identical full range in its own *Satisfies*, but
+neither item's *Done when* clause tests the other's overlap: this item's never mentions notifications
+at all, and `IMP-M5-03`'s tests only the generic retention/alert mechanics, none of it
+friend-request-specific. Opened 2026-09-08. Fix belongs in `docs/implementation/registry.md`.
 
 **Read first:**
 - `docs/requirements/social-friends.md` FR-SOC-001…021
