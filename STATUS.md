@@ -49,6 +49,18 @@ writes against) — missing from the original list, no gate needed for that clas
 ---
 ## Next Priorities
 
+**IMP-GATE-34** (`IMP-M1-09`, opened and closed 2026-09-08, session 34) — the item's *Satisfies*
+claimed `notifications-invitations.md` FR-FREQ-001…006 in full, and `IMP-M5-03` independently claimed
+the identical full range, but neither item's *Done when* clause tested the other's overlap — this
+item's never mentioned notifications, and `IMP-M5-03`'s tested only the generic retention/alert
+mechanics. `data-model-notifications.md` §3's type table settles it: the four
+`FRIEND_REQUEST*`/`FRIEND_ADDED` rows are written at the moment a `friend_request` is created,
+accepted, or declined — this item's own transactions. Same shape as `IMP-GATE-28`, in reverse: there
+the generic item over-claimed; here it does too, but in the opposite direction (the specific producer
+is `IMP-M1-09`, not the infrastructure item `IMP-M5-03`). Fixed: `IMP-M5-03`'s *Satisfies* narrowed to
+drop FR-FREQ-001…006; `IMP-M1-09` keeps the claim, its *Done when* gained explicit notification-write
+clauses for send/accept/decline/cancel, and its read-list gained `data-model-notifications.md` §1/§3.
+
 **IMP-GATE-33** (`IMP-M1-08`, opened and closed 2026-09-08, session 33) — no document named a route
 for FR-ACCT-004 itself (the deletion trigger); `rest-conventions.md`'s self-scoped account routes
 named the identity, password and privacy mutations but nothing that deletes the account, and

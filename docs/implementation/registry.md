@@ -49,7 +49,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M1-06 | Session lifecycle and displacement | platform | M1-04 | DONE |
 | IMP-M1-07 | Profiles and privacy settings | platform | M1-04 | DONE |
 | IMP-M1-08 | Account deletion and erasure | platform | M1-07 | DONE |
-| IMP-M1-09 | Social graph — friendships and requests | platform | M1-07 | BLOCKED |
+| IMP-M1-09 | Social graph — friendships and requests | platform | M1-07 | WIP (session 34) |
 | IMP-M1-10 | Google OAuth registration and login | platform | M1-04 | READY |
 | **M2 — Rooms and realtime** ||||
 | IMP-M2-01 | Room CRUD and listing | platform | M1-06 | READY |
@@ -1567,11 +1567,21 @@ may not own, which is precisely the write ADR-0008's epoch fence exists to rejec
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-07
 
-**Gate:** IMP-GATE-34 — this item's *Satisfies* claims `notifications-invitations.md` FR-FREQ-001…006
-in full, and `IMP-M5-03` independently claims the identical full range in its own *Satisfies*, but
-neither item's *Done when* clause tests the other's overlap: this item's never mentions notifications
-at all, and `IMP-M5-03`'s tests only the generic retention/alert mechanics, none of it
-friend-request-specific. Opened 2026-09-08. Fix belongs in `docs/implementation/registry.md`.
+**Closed:** IMP-GATE-34 (opened and closed 2026-09-08, session 34) — this item's *Satisfies* claimed
+`notifications-invitations.md` FR-FREQ-001…006 in full, and `IMP-M5-03` independently claimed the
+identical full range in its own *Satisfies*, but neither item's *Done when* clause tested the other's
+overlap: this item's never mentioned notifications at all, and `IMP-M5-03`'s tested only the generic
+retention/alert mechanics (the partial purge index, the SSE alert/notification class split), none of
+it friend-request-specific. `data-model-notifications.md` §3's type table settles which item actually
+writes the rows: `FRIEND_REQUEST`/`FRIEND_REQUEST_ACCEPTED`/`FRIEND_REQUEST_DECLINED`/`FRIEND_ADDED`
+are all written at the moment a `friend_request` row is created, accepted, or declined — this item's
+own transactions, not `IMP-M5-03`'s (which never mutates `friend_request`). Same shape as
+`IMP-GATE-28`, in reverse: there the generic infrastructure item over-claimed a requirement the
+specific producer had to build; here the generic item (`IMP-M5-03`) over-claimed a requirement the
+specific producer (this item) actually builds. Fixed: `IMP-M5-03`'s *Satisfies* narrowed to drop
+FR-FREQ-001…006 (its section below); this item keeps the claim, its *Done when* gained the notification
+clauses below, and its read-list gained `data-model-notifications.md` §1/§3 — the column names and
+type strings the original list never named.
 
 **Read first:**
 - `docs/requirements/social-friends.md` FR-SOC-001…021
@@ -1579,6 +1589,9 @@ friend-request-specific. Opened 2026-09-08. Fix belongs in `docs/implementation/
   interaction with `block_friend_requests`
 - `docs/requirements/notifications-invitations.md` FR-FREQ-001…006
 - `docs/requirements/user-accounts.md` FR-GUEST-007
+- `docs/specs/platform/data-model-notifications.md` §1 (`notification` — the subject foreign keys and
+  the actionable/informational split), §3 (the four `FRIEND_REQUEST*`/`FRIEND_ADDED` type rows this
+  item writes)
 
 **Satisfies:** `social-friends.md` FR-SOC-001…021; `notifications-invitations.md`
 FR-FREQ-001…006; `user-accounts.md` FR-GUEST-007
@@ -1587,12 +1600,22 @@ FR-FREQ-001…006; `user-accounts.md` FR-GUEST-007
 `app_user (user_id, kind)` with a local `CHECK kind = 'REGISTERED'` — so `social-friends.md`
 FR-SOC-020 cannot be violated from any code path; friendship rows are stored in the canonical
 ordering `data-model-social.md` §1 defines, so the pair `(a,b)` and `(b,a)` cannot both exist; a
-blocked user's request is rejected without disclosing that a block exists.
+blocked user's request is rejected without disclosing that a block exists; sending a request inserts a
+`FRIEND_REQUEST` notification for the recipient with `friend_request_id` set (FR-FREQ-001), in the same
+transaction as the `friend_request` insert; accepting deletes the request, inserts the friendship, and
+writes two subject-less notifications in the same transaction — `FRIEND_REQUEST_ACCEPTED` to the
+sender and `FRIEND_ADDED` to the accepter (FR-FREQ-003); declining deletes the request and writes one
+subject-less `FRIEND_REQUEST_DECLINED` notification to the sender only, none to the decliner
+(FR-FREQ-004); cancelling deletes the request and, because the notification carries
+`friend_request_id` with `ON DELETE CASCADE`, needs no separate delete statement for the recipient's
+notification to disappear (FR-FREQ-006); `friend_request.expires_at` is written absolutely at insert as
+`now() + :window`, from the same configuration key `NFR-SOC-SCALE-001` requires, never derived at read
+time (the mechanical half of FR-FREQ-005 — the expiry purge job itself is `IMP-M5-04`'s).
 
 **Obligation left by `IMP-M1-07`:** `account.ProfileService.visibleSectionsFor` resolves the friends
 section's `FRIENDS_ONLY` value (FR-SOC-017) as hidden for every non-owner viewer, since the
 confirmed-friendship check it needs is this item's, not `IMP-M1-07`'s. This item's Done-when gains a
-fourth clause: replace that conservative resolution with an actual friendship check (a direct query
+fifth clause: replace that conservative resolution with an actual friendship check (a direct query
 against `friendship`, canonically ordered, is enough — no new public API is needed since
 `ProfileService` and this item's code both live in `turnbase-platform`).
 
@@ -2454,6 +2477,12 @@ other player's aggregates unchanged (FR-ACCT-008).
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-06, IMP-M1-07
 
+**`IMP-GATE-34` narrowed this item's *Satisfies*** (closed 2026-09-08, session 34, on `IMP-M1-09`):
+FR-FREQ-001…006 dropped — this item delivers whatever rows land in `notification` over SSE and
+enforces the generic retention/alert rules, but never writes a `friend_request`-linked row itself;
+`IMP-M1-09` does, and now carries the claim. FR-FREQ-001…006 stays in this item's read-list: the type
+table (`data-model-notifications.md` §3) is still the wire contract the SSE stream serves.
+
 **Read first:**
 - `docs/requirements/notifications-invitations.md` FR-NOTIF-001…009, FR-ALERT-001…005, FR-ALERT-010,
   FR-FREQ-001…006
@@ -2463,7 +2492,7 @@ other player's aggregates unchanged (FR-ACCT-008).
 - `docs/requirements/platform-operations.md` FR-JOB-013, FR-RET-001…006
 
 **Satisfies:** `notifications-invitations.md` FR-NOTIF-001…009, FR-ALERT-001…005, FR-ALERT-010,
-FR-FREQ-001…006, FR-LINK-001…002, NFR-PERF-001, NFR-SCALE-001, NFR-SEC-001; `user-accounts.md`
+FR-LINK-001…002, NFR-PERF-001, NFR-SCALE-001, NFR-SEC-001; `user-accounts.md`
 FR-SESS-010; `platform-views.md` VW-NOTIF-001…004
 
 **Done when:** the retention purge is indexed **partially on having no subject**, so it can never
