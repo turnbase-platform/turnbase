@@ -66,6 +66,15 @@ Fixed: `IMP-M1-04` retitled *Credential registration and login* and narrowed to 
 email-collision challenge-and-link path) is new item **`IMP-M1-10`**, `READY` off `IMP-M1-04`, which
 is now `DONE` (see *Last Session Summary*).
 
+**IMP-GATE-28** (`IMP-M1-06`, opened and closed 2026-09-08, session 30) — `IMP-M1-06`'s *Satisfies*
+claimed `FR-SESS-010` in full, but its actual duty (closing a session's live WebSocket/SSE connections
+on revocation) needs a connection registry that doesn't exist yet — `IMP-M2-02` and `IMP-M5-03` are
+both still `READY`, and `IMP-M5-03` didn't claim `FR-SESS-010` at all despite SSE being one of the two
+connection types the requirement names. Fixed: `IMP-M1-06` narrowed to `FR-SESS-001…004, FR-SESS-011`
+plus publishing a `SessionRevokedEvent`; `IMP-M2-02` and `IMP-M5-03` each gained the corresponding
+close-on-revocation `Done when` clause (`IMP-M5-03` also gained `FR-SESS-010` in *Satisfies* and
+`IMP-M1-06` as a dependency, for the event type).
+
 **IMP-GATE-27** (`IMP-M1-04`, opened and closed 2026-09-06, session 29) — no document in the corpus
 named the session cookie itself, only its `httpOnly`/`Secure`/`SameSite=Strict` properties
 (`user-accounts.md` CON-004); `rest-conventions.md`'s Authentication section, the natural home, was

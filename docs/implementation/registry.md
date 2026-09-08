@@ -86,7 +86,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M5 — History, statistics, notifications** ||||
 | IMP-M5-01 | Game history recording | platform | M3-09 | READY |
 | IMP-M5-02 | Per-game statistics | platform | M5-01 | READY |
-| IMP-M5-03 | Notifications and the SSE stream | platform | M1-07 | READY |
+| IMP-M5-03 | Notifications and the SSE stream | platform | M1-06, M1-07 | READY |
 | IMP-M5-04 | Retention purge jobs | platform | M5-01, M5-03 | READY |
 | **M6 — Platform frontend** ||||
 | IMP-M6-01 | Astryx integration and the `ui/` boundary | frontend | M0-05 | READY |
@@ -1271,6 +1271,21 @@ literal 24-hour delete fails permanently on `room_participant`'s FK, and the cas
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-04
 
+**Closed:** IMP-GATE-28 (opened and closed 2026-09-08, session 30) — this item's *Satisfies* claimed
+`FR-SESS-010` in full, but the requirement's actual duty — closing a session's live WebSocket/SSE
+connections on revocation, "after emitting a frame stating the reason" — needs a connection registry
+to close, and none exists yet: `IMP-M2-02` (STOMP) and `IMP-M5-03` (SSE) are both still `READY`, and
+this item has neither as a dependency. Worse, `IMP-M5-03`'s own *Satisfies* didn't claim `FR-SESS-010`
+at all, despite SSE being one of the two connection types the requirement names — so no item's
+*Done when* actually required the close-on-revocation behaviour anywhere in the registry. Same shape
+as `IMP-GATE-08`/`IMP-GATE-18`: a *Done when* clause reaching past infrastructure that doesn't exist
+yet. Fixed: this item's *Satisfies* narrows to `FR-SESS-001…004, FR-SESS-011` — what it actually
+builds is the revocation write and a `SessionRevokedEvent` a connection registry can subscribe to, not
+the close itself. `IMP-M2-02`'s *Done when* gains the STOMP-side close-on-revocation clause (it already
+claimed `FR-SESS-010`). `IMP-M5-03`'s *Satisfies* now also claims `FR-SESS-010`, its *Done when* gains
+the SSE-side close-on-revocation clause, and `IMP-M1-06` is added to its *Depends on* — it needs the
+event type this item publishes.
+
 **Read first:**
 - `docs/requirements/user-accounts.md` FR-SESS-001…004, FR-SESS-010…011
 - `docs/specs/platform/data-model-accounts.md` §3 (`user_session`)
@@ -1278,12 +1293,16 @@ literal 24-hour delete fails permanently on `room_participant`'s FK, and the cas
 - `docs/specs/api-design/websocket.md` § *Authentication*; `docs/specs/api-design/sse-notifications.md`
   § *Endpoint*
 
-**Satisfies:** `user-accounts.md` FR-SESS-001…004, FR-SESS-010…011
+**Satisfies:** `user-accounts.md` FR-SESS-001…004, FR-SESS-011
 
 **Done when:** at most one active session per account holds as a **database** invariant, not as a
 service-layer check (FR-SESS-002); a new login revokes the previous session and writes
 `user_session.revoked_reason` (FR-SESS-003); a request bearing an invalidated token receives the
-`error-handling.md` 401 shape (FR-SESS-004); logout revokes (FR-SESS-011).
+`error-handling.md` 401 shape (FR-SESS-004); logout revokes (FR-SESS-011); every path that revokes a
+session (displacement, logout) publishes a `SessionRevokedEvent(sessionId, userId, reason)` after its
+own transaction commits — the mechanism `IMP-M2-02`'s STOMP registry and `IMP-M5-03`'s SSE registry
+subscribe to once they exist. This item has no live connection to close, so FR-SESS-010's actual duty
+is proved there, not here.
 
 **FR-SESS-010 authenticates a WebSocket or SSE connection once, at handshake — and that is the
 trap.** A long-lived connection is not re-checked per frame, so revoking a session does nothing to a
@@ -1489,7 +1508,11 @@ trip per inbound frame is the cost the limiter exists to avoid; a client connect
 not own the room is redirected using the affinity hint rather than served across instances (ADR-0002:
 **there is no cross-instance fan-out**). The STOMP session registry this item creates exposes
 `turnbase_websocket_connections_active` as a `Gauge` (`observability.md` §2 names the metric;
-`platform-operations.md` FR-MET-002 defines it, deferred here by `IMP-M0-10`).
+`platform-operations.md` FR-MET-002 defines it, deferred here by `IMP-M0-10`). The registry also
+subscribes to `IMP-M1-06`'s `SessionRevokedEvent`: on receipt, every connection registered under that
+`sessionId` is sent a STOMP `ERROR` frame naming `revoked_reason` and then closed — this is
+`FR-SESS-010`'s actual duty (`IMP-GATE-28`), narrowed out of `IMP-M1-06` because no registry existed
+there to close.
 
 ---
 
@@ -2220,7 +2243,7 @@ other player's aggregates unchanged (FR-ACCT-008).
 
 ### IMP-M5-03 — Notifications and the SSE stream
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M1-07
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M1-06, IMP-M1-07
 
 **Read first:**
 - `docs/requirements/notifications-invitations.md` FR-NOTIF-001…009, FR-ALERT-001…005, FR-ALERT-010,
@@ -2231,12 +2254,15 @@ other player's aggregates unchanged (FR-ACCT-008).
 - `docs/requirements/platform-operations.md` FR-JOB-013, FR-RET-001…006
 
 **Satisfies:** `notifications-invitations.md` FR-NOTIF-001…009, FR-ALERT-001…005, FR-ALERT-010,
-FR-FREQ-001…006, FR-LINK-001…002, NFR-PERF-001, NFR-SCALE-001, NFR-SEC-001; `platform-views.md`
-VW-NOTIF-001…004
+FR-FREQ-001…006, FR-LINK-001…002, NFR-PERF-001, NFR-SCALE-001, NFR-SEC-001; `user-accounts.md`
+FR-SESS-010; `platform-views.md` VW-NOTIF-001…004
 
 **Done when:** the retention purge is indexed **partially on having no subject**, so it can never
 remove an actionable message out from under a live object; and no notification is permanently
-unpurgeable because its subject never expires.
+unpurgeable because its subject never expires. The SSE connection registry subscribes to
+`IMP-M1-06`'s `SessionRevokedEvent`: on receipt, the matching session's stream sends a final `event:
+alert` naming `revoked_reason` and then closes — the SSE half of `FR-SESS-010`'s duty (`IMP-GATE-28`),
+narrowed out of `IMP-M1-06` because no stream registry existed there to close.
 
 **Persisted notifications and transient alerts are two classes, not one with a flag** (§4). Three
 things the requirements call notifications are alerts and must never get a table row — writing them
