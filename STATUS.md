@@ -1,71 +1,60 @@
 ## Last Session Summary
 
-**Date:** 2026-09-08 (session 34)
+**Date:** 2026-09-08 (session 35)
 
-**IMP-M1-09 — Social graph, friendships and requests. DONE. 20 of 61 items complete.**
-`social.SocialController`/`SocialService`/`SocialRepository` add the seven `social-rest-api.md`
-endpoints: `POST`/`GET /api/friend-requests`, `POST /api/friend-requests/{id}/accept`, `DELETE
-/api/friend-requests/{id}` (cancel or decline, discriminated by which side the caller is on), `GET
-/api/users/{username}/friends`, `DELETE /api/users/me/friends/{userId}`, and `GET /api/users?search=`.
-Friendship rows insert in `data-model-social.md` §1's canonical `(user_id_low, user_id_high)` order,
-reusing `IMP-M1-08`'s canonical-string-form `UUID` comparison rather than `UUID#compareTo` (session
-33's Postgres-byte-order fix). Send/accept/decline/cancel each write or cascade-delete the matching
-`FRIEND_REQUEST`/`FRIEND_REQUEST_ACCEPTED`/`FRIEND_REQUEST_DECLINED`/`FRIEND_ADDED` notification in
-the same transaction (FR-FREQ-001/003/004/006). The friend cap (FR-SOC-009) and the
-block-friend-requests toggle (FR-SOC-021) are enforced without disclosing which reason applies, both
-in the direct send response and in search's `canSendRequest` flag. `account.ProfileResponse` gained
-`relationshipState` (FR-SOC-016), and the `FRIENDS_ONLY` friends-section check `IMP-M1-07` left
-conservative now resolves against a real friendship, via the new public `social.RelationshipQueries`
-— `account` depends on `social`, never the reverse, so `ApplicationModules.verify()` stays a DAG.
-Cross-feature reads (`app_user`, `user_privacy_settings`, `notification`) go through raw `JdbcClient`
-SQL, the same pattern `account.AccountErasureRepository` established, rather than a second Java
-dependency in the other direction. The confusable-skeleton algorithm moved from
-`account.UsernamePolicy` into `common.UsernameSkeleton` so this item's exact-username resolution
-can't drift from registration's.
+**IMP-M1-02 — Rate limiter, Tiers 1–5. DONE. 21 of 61 items complete.**
+One `common.RateLimitInterceptor` covers all five HTTP tiers from `rate-limiting.md`. Tiers 2–4
+share a plain Bucket4j capacity/window bucket (`Bandwidth.simple`) resolved through a
+`ProxyManager<byte[]>` built from a raw Lettuce `RedisClient` (`common.RedisRateLimiterConfig`) —
+independent of `spring-boot-starter-data-redis`'s own `LettuceConnectionFactory`, which Bucket4j's
+proxy manager cannot use directly. Tier 2 alone emits `X-RateLimit-Limit/Remaining/Reset`. Tier 5
+(account minting) pre-consumes a token in `preHandle` and refunds it in `afterCompletion` on a
+non-2xx response — the mechanism that makes it success-only without a check-then-consume race — and
+runs independently of Tier 1 (a hand-rolled `StringRedisTemplate` failure counter plus a doubling
+lockout key) even though both apply to `POST /api/auth/register` at once. `common.ClientIpResolver`
+implements the two-sided trusted-proxy policy (`X-Forwarded-For` honoured only from a peer inside
+`turnbase.security.trusted-proxies`) and IPv6 /64 keying, with a dependency-free CIDR matcher.
+Endpoint classification is exact-match against routes that exist today, the same convention
+`session.SessionAuthenticationInterceptor` already uses — Tier 3's upload-version-create route
+(`IMP-M4-03`), Tier 1's auth-method add/remove and Tier 5's OAuth callback (`IMP-M1-10`) aren't built
+yet, and each item extends the matching set when it lands.
 
-**Verified end to end.** `SocialControllerIT` (17 tests, real Postgres): the notification coupling on
-all four terminal actions, the FR-SOC-004 reverse-request auto-accept with no leftover
-`friend_request` row, the sender cap and the blocked-recipient rejection (with the Problem Detail
-`detail` text checked to never mention "block"), search's `canSendRequest` hiding the same reason,
-idempotent delete on an already-resolved request and idempotent/mutual unfriend, a third party
-forbidden from resolving someone else's request, `FRIENDS_ONLY` visibility and `relationshipState`
-resolved against a real friendship, guests forbidden on every endpoint, and a ten-random-pair loop
-guarding the canonical-ordering fix. `./mvnw verify -Pintegration` green locally, run twice. CI green
-on `turnbase-platform` `master` (`build`, 10m17s — `e2e` stays blocked on the same un-provisioned
-`TURNBASE_GAME_HOST_PAT` every prior session's run also shows).
+**This is the first Redis consumer in `turnbase-platform`**, which is what opened `IMP-GATE-36`
+before any code could be written: nothing named the Spring property carrying the compose stack's
+already-`requirepass`'d Redis password into a running service. Closed the same session (see below).
+`docker-compose.yml`'s `platform` service and the Helm chart's configmap/secret now carry
+`SPRING_DATA_REDIS_URL`/`SPRING_DATA_REDIS_PASSWORD`. `conventions.md` §7's `concern=application` tag
+is applied via `common.RateLimitMetrics`, wrapping every Redis call this item makes.
 
-**The first CI run on this commit stalled for 55 minutes on the `Verify` step, then was cancelled and
-re-run.** No evidence pointed to a defect in this item's code: two clean local `verify -Pintegration`
-runs beforehand, no parallel test execution configured in this repo (failsafe runs one fork,
-sequentially), and no self-deadlock in `SocialRepository`'s `@Transactional` methods on review. The
-re-run completed in the ordinary 6–10 minute range with no changes, which is the signature of a
-runner-side flake rather than a hang this item's tests caused — recorded here in case a future stall
-on this class of test (many `SpringApplication.run` boots per IT class) turns out to be a pattern
-rather than a one-off.
+**Verified end to end.** `ClientIpResolverTest` (unit) proves the trusted-proxy/XFF policy and IPv6
+/64 masking directly. `RateLimitInterceptorIT` (Testcontainers Postgres + Redis, real HTTP) boots its
+own tiny-limit context per test — every number on the spec's page is a property — and proves: Tier 5
+rejects over-cap minting with `Retry-After` and refunds a validation failure rather than counting it;
+Tier 1 locks out after the configured failure count and recovers once the lockout elapses; Tier 2
+emits the three headers and 429s on the third request; Tier 4 caps an unauthenticated profile read;
+the `enabled=false` escape hatch is honoured under the `test` profile. `PostgresIntegrationTest`
+gained a shared Redis Testcontainer (`@ServiceConnection(name = "redis")` on a plain
+`GenericContainer` — no official Testcontainers Redis module exists) so every full-boot `*IT` can
+reach one; four pre-existing classes that drive `/register` or `/guest` repeatedly across many test
+methods (`AuthControllerIT`, `ProfileControllerIT`, `SocialControllerIT`,
+`AccountDeletionControllerIT`) needed generous Tier 1/5 overrides to keep passing once real budgets
+were enforced against them. `./mvnw verify -Pintegration` green locally (85 integration tests). CI
+green on `turnbase-platform` `master` (`build`, 11m10s).
 
-**Two gates, both opened and closed this session.** `IMP-GATE-34`: the item's *Satisfies* claimed
-`notifications-invitations.md` FR-FREQ-001…006 in full, and `IMP-M5-03` independently claimed the
-identical range, but only this item's code actually writes a `friend_request`-linked notification —
-`IMP-M5-03`'s *Satisfies* narrowed to drop the range. `IMP-GATE-35`: no document defined this item's
-REST surface at all (`rest-conventions.md`'s `/api/friend-requests/{id}` ownership predicate had
-existed with nothing behind it since it was written); fixed by adding
-`docs/specs/api-design/social-rest-api.md`, registered in that directory's `INDEX.md`.
+**One gate, opened and closed this session.** `IMP-GATE-36`: `secrets-and-configuration.md` required
+a shared Redis `requirepass` but never named the Spring property carrying it into a running service
+(unlike the PostgreSQL section right above it), and `local-environment.md` §7.9's Redis URL row
+showed no credentials. Fixed: `secrets-and-configuration.md` § Redis now names
+`spring.data.redis.password` (`SPRING_DATA_REDIS_PASSWORD`), kept separate from the URL the same way
+the datasource password is; `local-environment.md` §7.9 gained the row.
 
 ---
 ## Next Priorities
 
-**IMP-GATE-36** (`IMP-M1-02`, opened and closed 2026-09-08, session 35) — `secrets-and-configuration.md`
-required a shared Redis `requirepass` but never named the Spring property carrying it into a running
-service (unlike the PostgreSQL section right above it), and `local-environment.md` §7.9's Redis URL row
-showed no credentials. Fixed: `secrets-and-configuration.md` § Redis now names
-`spring.data.redis.password` (`SPRING_DATA_REDIS_PASSWORD`), kept separate from the URL the same way
-the datasource password is; `local-environment.md` §7.9 gained the row. `IMP-M1-02` (rate limiter) is
-`WIP` again, session 35.
-
-**Next up in M1**: `IMP-M1-10` (Google OAuth) remains `READY` off `IMP-M1-04`. `IMP-M1-02` (rate
-limiter) remains independently `READY` off `IMP-M1-01`. `IMP-M2-01` (room CRUD and listing) is
-`READY` off `IMP-M1-06` — its listing predicate needs a `friendship` join for `FRIENDS_ONLY` rooms,
-which `IMP-M1-09` now supplies. `IMP-M2-12` (room invitations) is `READY` off `IMP-M2-01, IMP-M1-09`,
+**Next up in M1**: `IMP-M1-10` (Google OAuth) remains `READY` off `IMP-M1-04` — the only item still
+pickable in M1 proper. `IMP-M2-01` (room CRUD and listing) is `READY` off `IMP-M1-06` — its listing
+predicate needs a `friendship` join for `FRIENDS_ONLY` rooms, which `IMP-M1-09` now supplies.
+`IMP-M2-12` (room invitations) is `READY` off `IMP-M2-01, IMP-M1-09`,
 now unblocked on its second dependency. `IMP-M5-03` (notifications and the SSE stream) is `READY` off
 `IMP-M1-06, IMP-M1-07` — it now delivers the `notification` rows this item writes over SSE, rather
 than writing any of its own for friend requests (`IMP-GATE-34`).
@@ -183,7 +172,7 @@ endpoint itself and was missing.
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
-**Progress: 20 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 21 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
 `turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), `IMP-M0-05`
 (Frontend skeleton, `turnbase-frontend`), `IMP-M0-06` (Flyway baseline, `turnbase-platform`),
@@ -196,18 +185,19 @@ client, `turnbase-sdk`), `IMP-M1-01` (error model, REST conventions, validation 
 `IMP-M1-04` (credential registration and login, `turnbase-platform`), `IMP-M1-06` (session
 lifecycle and displacement, `turnbase-platform`), `IMP-M1-05` (guest minting and purge,
 `turnbase-platform`), `IMP-M1-07` (profiles and privacy settings, `turnbase-platform`),
-`IMP-M1-08` (account deletion and erasure, `turnbase-platform`) and `IMP-M1-09` (social graph —
-friendships and requests, `turnbase-platform`), all pushed and green in CI.
+`IMP-M1-08` (account deletion and erasure, `turnbase-platform`), `IMP-M1-09` (social graph —
+friendships and requests, `turnbase-platform`) and `IMP-M1-02` (rate limiter, Tiers 1-5,
+`turnbase-platform`), all pushed and green in CI.
 **No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
 whatever its own dependencies imply.
 
-**Next up in M1**: `IMP-M1-10` (Google OAuth) remains `READY` off `IMP-M1-04`. `IMP-M1-02` (rate
-limiter) remains independently `READY` off `IMP-M1-01`. `IMP-M2-01` (room CRUD and listing) is
-`READY` off `IMP-M1-06`, the first M2 item on the board — its `FRIENDS_ONLY` listing predicate now
-has `IMP-M1-09`'s `friendship` table to join against. `IMP-M2-12` (room invitations) is now `READY`
-off both `IMP-M2-01` and `IMP-M1-09`. `IMP-M5-03` (notifications and the SSE stream) is `READY` off
-`IMP-M1-06` and `IMP-M1-07`, and now delivers `IMP-M1-09`'s `notification` rows over SSE rather than
-writing any of the friend-request types itself (`IMP-GATE-34`).
+**Next up in M1**: `IMP-M1-10` (Google OAuth) remains `READY` off `IMP-M1-04` — the only item still
+pickable in M1 proper. `IMP-M2-01` (room CRUD and listing) is `READY` off `IMP-M1-06`, the first M2
+item on the board — its `FRIENDS_ONLY` listing predicate now has `IMP-M1-09`'s `friendship` table to
+join against. `IMP-M2-12` (room invitations) is now `READY` off both `IMP-M2-01` and `IMP-M1-09`.
+`IMP-M5-03` (notifications and the SSE stream) is `READY` off `IMP-M1-06` and `IMP-M1-07`, and now
+delivers `IMP-M1-09`'s `notification` rows over SSE rather than writing any of the friend-request
+types itself (`IMP-GATE-34`).
 
 **IMP-GATE-25** (`IMP-M0-11`, opened and closed 2026-09-05) — `game-development-experience.md`
 CON-003 and ADR-0012's Release Strategy commit `turnbase-sdk` to Maven Central + npm, but no document

@@ -42,7 +42,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M0-12 | Seed data | platform | M0-06, M4-03 | READY |
 | **M1 — Accounts and sessions** ||||
 | IMP-M1-01 | Error model, REST conventions, validation harness | platform | M0-03 | DONE |
-| IMP-M1-02 | Rate limiter (Tiers 1–5) | platform | M1-01 | WIP (session 35) |
+| IMP-M1-02 | Rate limiter (Tiers 1–5) | platform | M1-01 | DONE |
 | IMP-M1-03 | JWT key set, issuance, rotation | platform | M0-09 | DONE |
 | IMP-M1-04 | Credential registration and login | platform | M1-01, M1-03 | DONE |
 | IMP-M1-05 | Guest minting and purge | platform | M1-04 | DONE |
@@ -1104,6 +1104,50 @@ both is this item's own implementation work, not a further spec fix.
 **Tier 5 counts successes, not attempts.** Account minting is limited by how many accounts an IP
 actually created; counting attempts lets a failing client exhaust its own budget and lets a
 successful one mint freely.
+
+**Done 2026-09-08 (session 35).** One `common.RateLimitInterceptor` covers all five HTTP tiers.
+Tiers 2-4 share a plain Bucket4j capacity/window bucket (`Bandwidth.simple`) resolved through a
+`ProxyManager<byte[]>` built directly from a raw Lettuce `RedisClient`
+(`common.RedisRateLimiterConfig`) — independent of `spring-boot-starter-data-redis`'s own
+`LettuceConnectionFactory`, which Bucket4j's proxy manager cannot use directly. Tier 2 alone emits
+`X-RateLimit-Limit/Remaining/Reset`. Tier 5 (account minting) pre-consumes a token in `preHandle` and
+refunds it in `afterCompletion` when the response is non-2xx, which is what makes it success-only
+without a check-then-consume race. Tier 1 (auth failures) is a hand-rolled `StringRedisTemplate`
+counter plus a separate lockout key with the doubling duration, entirely independent of Tier 5's
+counter even though both apply to `POST /api/auth/register` simultaneously. `common.ClientIpResolver`
+implements the two-sided trusted-proxy policy (`X-Forwarded-For` honoured only from a peer inside
+`turnbase.security.trusted-proxies`) and IPv6 /64 keying, with a dependency-free CIDR matcher.
+Endpoint classification is exact-match against routes that exist today (the same convention
+`session.SessionAuthenticationInterceptor` uses) — Tier 3's upload-version-create route
+(`IMP-M4-03`), Tier 1's auth-method add/remove and Tier 5's OAuth callback (`IMP-M1-10`) are none of
+them built yet, and each item extends the matching set when it lands.
+
+**First Redis consumer in `turnbase-platform`, which is what opened and closed `IMP-GATE-36`** (see
+above) before any code could be written. `local-environment.md` §7.9 and `secrets-and-configuration.md`
+§ Redis are fixed; `docker-compose.yml`'s `platform` service and the Helm chart's
+configmap/secret both now carry `SPRING_DATA_REDIS_URL`/`SPRING_DATA_REDIS_PASSWORD`.
+`conventions.md` §7's `concern=application` tag is applied via `common.RateLimitMetrics`, wrapping
+every Redis call this item makes (`turnbase_redis_operation_seconds`/`_errors_total`).
+
+**Verified end to end.** `ClientIpResolverTest` (unit) proves the trusted-proxy/XFF policy and the
+IPv6 /64 masking directly. `RateLimitInterceptorIT` (Testcontainers Postgres + Redis, real HTTP)
+boots its own tiny-limit context per test: Tier 5 rejects over-cap minting with `Retry-After` and
+refunds a validation failure rather than counting it; Tier 1 locks out after the configured failure
+count and recovers once the lockout elapses; Tier 2 emits the three headers and 429s on the third
+request; Tier 4 caps an unauthenticated profile read; disabling the switch under the `test` profile
+is honoured. `PostgresIntegrationTest` gained a shared Redis Testcontainer
+(`@ServiceConnection(name = "redis")`, no official Testcontainers Redis module exists) so every
+full-boot `*IT` can reach one; the four existing classes that drive `/register`/`/guest` repeatedly
+(`AuthControllerIT`, `ProfileControllerIT`, `SocialControllerIT`, `AccountDeletionControllerIT`)
+needed generous Tier 1/5 overrides to keep passing once real budgets were enforced — the same
+per-property escape hatch `local-environment.md` §8 describes for e2e, applied per test class instead
+of wholesale. `./mvnw verify -Pintegration` green locally (85 integration tests). **CI green on
+`turnbase-platform` `master`** (`build`, 11m10s).
+
+**No specification defect found beyond IMP-GATE-36.** `rate-limiting.md` settled every tier's
+bucket/key/limit/window precisely enough to implement without a further gap; which Redis client
+library (Lettuce, matching `spring-data-redis`'s own choice) and which Bucket4j module
+(`com.bucket4j:bucket4j_jdk17-lettuce`) are implementation detail no document claims to settle.
 
 ---
 
