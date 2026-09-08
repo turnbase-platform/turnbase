@@ -441,6 +441,8 @@ Game history has no entry here. FR-RET-003 retains it indefinitely; it is the on
 | `turnbase.social.friend-cap` | `50` | `TURNBASE_SOCIAL_FRIEND_CAP` | FR-SOC-009, NFR-SOC-SCALE-001 |
 | `turnbase.pagination.default-page-size` | `25` | `TURNBASE_PAGINATION_DEFAULT_PAGE_SIZE` | FR-CAT-004, FR-HIST-026 |
 | `turnbase.pagination.max-page-size` | `100` | `TURNBASE_PAGINATION_MAX_PAGE_SIZE` | pagination-filtering-sorting.md |
+| `turnbase.auth.oauth.state-ttl` | `5m` | `TURNBASE_AUTH_OAUTH_STATE_TTL` | `oauth-rest-api.md` §3 |
+| `turnbase.auth.oauth.pending-registration-ttl` | `10m` | `TURNBASE_AUTH_OAUTH_PENDING_REGISTRATION_TTL` | `oauth-rest-api.md` §2 |
 
 `session-ttl` governs both registered and guest tokens (FR-GUEST-003 defines the guest lifetime as
 "the same platform-configurable value"), which is why there is one key and not two — and why

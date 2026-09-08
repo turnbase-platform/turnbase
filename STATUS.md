@@ -51,10 +51,14 @@ the datasource password is; `local-environment.md` §7.9 gained the row.
 ---
 ## Next Priorities
 
-**IMP-GATE-37** (`IMP-M1-10`, opened 2026-09-08, session 36) — no document names the JSON/redirect
-REST surface this item builds (the OAuth-initiate route, the pending-registration JSON endpoints, the
-FR-AUTH-016 challenge-and-link endpoint), and the item's read-list never named `rest-conventions.md`
-either. Fix in progress: new `docs/specs/api-design/oauth-rest-api.md`.
+**IMP-GATE-37** (`IMP-M1-10`, opened and closed 2026-09-08, session 36) — no document named the
+JSON/redirect REST surface this item builds (the OAuth-initiate route, the pending-registration JSON
+endpoints, the FR-AUTH-016 challenge-and-link endpoint), and the item's read-list never named
+`rest-conventions.md` either. Same shape as IMP-GATE-31/33/35. Fixed: new
+`docs/specs/api-design/oauth-rest-api.md` — five endpoints, the `turnbase_oauth_pending` cookie, two
+new `local-environment.md` §7.4 TTL properties; `rate-limiting.md` Tier 1 gained the link-challenge
+route and Tier 5's OAuth row now names its exact enforcement point; read-list corrected. `IMP-M1-10`
+is back to `WIP` and code is next.
 
 **Next up in M1**: `IMP-M1-10` (Google OAuth) remains `READY` off `IMP-M1-04` — the only item still
 pickable in M1 proper. `IMP-M2-01` (room CRUD and listing) is `READY` off `IMP-M1-06` — its listing

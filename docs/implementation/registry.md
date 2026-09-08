@@ -50,7 +50,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M1-07 | Profiles and privacy settings | platform | M1-04 | DONE |
 | IMP-M1-08 | Account deletion and erasure | platform | M1-07 | DONE |
 | IMP-M1-09 | Social graph — friendships and requests | platform | M1-07 | DONE |
-| IMP-M1-10 | Google OAuth registration and login | platform | M1-04 | BLOCKED |
+| IMP-M1-10 | Google OAuth registration and login | platform | M1-04 | WIP (session 36) |
 | **M2 — Rooms and realtime** ||||
 | IMP-M2-01 | Room CRUD and listing | platform | M1-06 | READY |
 | IMP-M2-02 | STOMP endpoint, auth, subscriptions | platform | M2-01 | READY |
@@ -1743,15 +1743,18 @@ against `friendship`, canonically ordered, is enough — no new public API is ne
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-04
 
-**Gate:** IMP-GATE-37 — no document in the corpus names the JSON/redirect REST surface this item
-builds. `secrets-and-configuration.md` §5 and `flows/01-arrival-and-account.md` §E name two
-browser-navigated paths (`/auth/callback`, `/auth/complete-registration`) but not the endpoint the
-"Continue with Google" button hits, not the JSON endpoint the complete-registration page calls to
-learn the pending email or submit the username, and not any endpoint for FR-AUTH-016's
-credential-challenge-and-link step. `rest-conventions.md`'s Authentication section — the document that
-names every other auth endpoint (`login`, `guest`, `logout`, `session`) — is missing from this item's
-own read-list despite being the natural home. Same shape as IMP-GATE-31/33/35. Opened 2026-09-08. Fix
-belongs in a new `docs/specs/api-design/oauth-rest-api.md`.
+**Closed:** IMP-GATE-37 (opened and closed 2026-09-08, session 36) — no document in the corpus named
+the JSON/redirect REST surface this item builds: `secrets-and-configuration.md` §5 and
+`flows/01-arrival-and-account.md` §E name two browser-navigated paths (`/auth/callback`,
+`/auth/complete-registration`) but not the endpoint the "Continue with Google" button hits, not the
+JSON endpoint the complete-registration page calls to learn the pending email or submit the username,
+and not any endpoint for FR-AUTH-016's credential-challenge-and-link step; `rest-conventions.md`'s
+Authentication section — the document naming every other auth endpoint — was missing from this item's
+own read-list. Same shape as IMP-GATE-31/33/35. Fixed: new `docs/specs/api-design/oauth-rest-api.md` —
+five endpoints (initiate, callback, read-pending, complete-registration, link-challenge), the
+`turnbase_oauth_pending` cookie, and two new `local-environment.md` §7.4 TTL properties; `rate-limiting.md`
+Tier 1's endpoint list gained the link-challenge route and Tier 5's OAuth row now names the exact
+success path it counts; read-list corrected.
 
 **Added 2026-09-06 (session 29), closing IMP-GATE-26** — see `IMP-M1-04`'s *Closed* note. Split out
 because credential auth (`FR-AUTH-006`) is complete without it (`secrets-and-configuration.md` §1
@@ -1766,21 +1769,29 @@ the FR-AUTH-016 email-collision challenge-and-link path — none of which the cr
 - `docs/specs/deployment/secrets-and-configuration.md` §1 (the OAuth client secret's absent-by-default
   behaviour), §5 (`TURNBASE_OAUTH_GOOGLE_CLIENT_SECRET`, the redirect URI, the signed `state`)
 - `docs/specs/flows/01-arrival-and-account.md` §E
-- `docs/requirements/platform-views.md` VW-LOGIN-002, VW-REG-002, VW-OAUTHCOMP-001…002
+- `docs/requirements/platform-views.md` VW-LOGIN-002, VW-REG-002, VW-OAUTHCOMP-001…002, VW-REDIR-004…006
+- `docs/specs/api-design/rest-conventions.md` § Authentication, § Origin Policy and CSRF
+- `docs/specs/api-design/oauth-rest-api.md` **in full** — the REST surface this item builds
+- `docs/specs/api-design/rate-limiting.md` § Tier 1, § Tier 5
+- `docs/specs/api-design/error-handling.md`
+- `docs/specs/deployment/local-environment.md` §7.4 (the two new OAuth TTL properties)
 
 **Satisfies:** `user-accounts.md` FR-AUTH-007…012, FR-AUTH-016; `platform-views.md` VW-LOGIN-002,
 VW-REG-002, VW-OAUTHCOMP-001…002
 
-**Done when:** `/auth/callback` verifies the signed `state`, exchanges the code server-side (client
-secret never reaches the browser), and resolves the identity by `(method='GOOGLE',
-provider_subject=sub)` — never by email; a first-time login mints a short-lived pending token (Redis,
-no table) and redirects to `/auth/complete-registration`, which creates `app_user`
-(`email_source='OAUTH'`), `user_auth_method` and default privacy settings and issues a session; an
-email already held by an active credential account (FR-AUTH-016) is neither silently linked nor
-duplicated — it challenges for the existing account's credential, links the Google identity as an
-additional `user_auth_method` on success, and returns the same generic failure message on failure
-that reveals nothing about which account exists; the login/registration pages hide the Google button
-when `TURNBASE_OAUTH_GOOGLE_CLIENT_SECRET` is absent rather than offering a button that fails.
+**Done when:** `GET /auth/google` redirects to Google with a signed, short-lived `state` carrying a
+validated internal destination; `GET /auth/callback` verifies `state`, exchanges the code server-side
+(client secret never reaches the browser), and resolves the identity by `(method='GOOGLE',
+provider_subject=sub)` — never by email; a first-time login mints the `oauth-rest-api.md` §2 pending
+record and cookie and redirects to `/auth/complete-registration`; `POST
+/api/auth/oauth/complete-registration` creates `app_user` (`email_source='OAUTH'`), `user_auth_method`
+and default privacy settings and issues a session, or responds `CHALLENGE_REQUIRED` when the email
+collides with an active account (FR-AUTH-016) rather than creating a duplicate or silently linking;
+`POST /api/auth/oauth/link-challenge` verifies the existing account's password, links the Google
+identity as an additional `user_auth_method` on success, and returns the same generic failure message
+on failure that reveals nothing about which account exists; the login/registration pages hide the
+Google button when `TURNBASE_OAUTH_GOOGLE_CLIENT_SECRET` is absent rather than offering a button that
+fails.
 
 **The redirect URI is `http://turnbase.localhost:8080/auth/callback`, not `localhost`** —
 `secrets-and-configuration.md` §5 flags this explicitly: they are different URIs to Google, and the

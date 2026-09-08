@@ -59,7 +59,9 @@ IP-based tier trivially bypassable and is a common, silent failure. IPv4 keys on
 
 ## Tier 1 — Auth failures (IP-based, strict)
 
-Applies to: login, registration, password change, auth-method addition/removal.
+Applies to: login, registration, password change, auth-method addition/removal —
+including `POST /api/auth/oauth/link-challenge` ([oauth-rest-api.md](oauth-rest-api.md) §7), the one
+auth-method-addition endpoint built so far.
 
 Implements `user-accounts.md` NFR-SEC-003 exactly:
 
@@ -122,7 +124,7 @@ Applies to the endpoints that **create an account and issue a session token**:
 |---|---|---|
 | `POST /api/auth/guest` — "Play as Guest" (FR-GUEST-001) | **5 per IP per hour** | `rate:mint:guest:{ip}` |
 | `POST /api/auth/register` — credential registration (FR-AUTH-001) | **3 per IP per hour** | `rate:mint:register:{ip}` |
-| First-time account creation via an OAuth callback | counts against the registration bucket | `rate:mint:register:{ip}` |
+| `POST /api/auth/oauth/complete-registration` success path — first-time Google account creation ([oauth-rest-api.md](oauth-rest-api.md) §6) | counts against the registration bucket | `rate:mint:register:{ip}` |
 
 **This tier counts successes.** That is the whole point, and it is what distinguishes it from Tier 1.
 "Play as Guest" is an unauthenticated `POST` that always succeeds, writes a DB row, and hands back a
