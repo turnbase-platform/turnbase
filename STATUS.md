@@ -1,53 +1,50 @@
 ## Last Session Summary
 
-**Date:** 2026-09-06 (session 29)
+**Date:** 2026-09-08 (session 30)
 
-**IMP-M1-04 — Credential registration and login. DONE. 15 of 61 items complete** (the registry grew
-by one this session — see the gate below). `POST /api/auth/register` and `POST /api/auth/login`
-(`AuthController`, new `account` package). `UsernamePolicy` runs `input-validation.md`'s
-canonicalization pipeline plus ICU4J `SpoofChecker` at `MODERATELY_RESTRICTIVE` for FR-AUTH-015's
-single-script rule, computes the `getSkeleton(caseFold(NFC(username)))` uniqueness key, and rejects
-the `guest-` prefix on that same skeleton (FR-AUTH-013). `CredentialPolicy` validates email
-(FR-AUTH-002) and password (FR-AUTH-005) shape. Registration is one transaction inserting
-`app_user`/`user_auth_method`/`user_privacy_settings`; a unique-index violation is mapped to the right
-409 message (username vs. email) by matching the constraint name in Postgres's own error text, keeping
-the driver's exception type at `runtime` scope. Passwords are Argon2id via
-`Argon2PasswordEncoder(16, 32, 1, 19456, 2)`, `input-validation.md`'s explicit cost parameters.
+**IMP-M1-06 — Session lifecycle and displacement. DONE. 16 of 61 items complete.**
+`session.SessionAuthenticationFilter` resolves the `turnbase_session` cookie against `user_session`
+on every request (JWT verify, then the row's `revoked_at`/`expires_at`) and wraps the request with a
+new `common.AuthenticatedUser` principal on success, or records why not on a request attribute —
+never rejecting anything itself. `session.SessionAuthenticationInterceptor` is the actual
+enforcement, a `HandlerInterceptor` in `IMP-M1-01`'s `RequestSizeInterceptor` shape so a rejection
+reaches `GlobalExceptionHandler` the normal way: a protected path with no principal throws
+`UnauthenticatedException`, with FR-SESS-004's own wording ("...because you logged in from another
+device") when the reason is `DISPLACED`.
 
-**New `session.SessionService`** is the public API a principal-resolving flow calls to get a session —
-`data-model-accounts.md` §3's atomic displace-then-insert (FR-SESS-001/002/003), retrying (bounded) on
-the unique-index race between two concurrent logins. Both registration and login call it *after* their
-own transaction commits, per this repo's commit-before-publish rule. The session cookie is
-`turnbase_session` (new `IMP-GATE-27`, below), `HttpOnly; Secure; SameSite=Strict; Path=/`.
+**`GET /api/auth/session` and `POST /api/auth/logout`** complete `rest-conventions.md`'s
+four-endpoint session lifecycle table. `SessionService` gained `revoke(sessionId, userId, reason)`
+for logout, symmetric with `issueSession`'s displacement path; both now publish
+`session.SessionRevokedEvent` **after** their own transaction has committed — the mechanism
+`IMP-M2-02`'s STOMP registry and `IMP-M5-03`'s SSE registry will subscribe to once they exist, to
+satisfy FR-SESS-010's actual duty (closing a live connection on revocation).
 
-**Verified end-to-end.** `UsernamePolicyTest`/`CredentialPolicyTest` (unit) prove the validation and
-skeleton rules directly. `AuthControllerIT` boots the real application against Testcontainers Postgres
-and drives both endpoints over real HTTP: the three rows land correctly, duplicate username/email each
-produce their own 409, the reserved prefix and a mismatched password confirmation both produce 400,
-login succeeds by username or by email, a wrong password and an unknown identifier produce the
-identical generic 401, and a second login revokes the first session (`revoked_reason = 'DISPLACED'`)
-while exactly one session stays active — the FR-SESS-003 clause itself, checked against the database.
-`./mvnw verify` and `-Pintegration` both green locally; CI green on `turnbase-platform` `master`
-(build, 7m59s).
+**Verified end to end.** `SessionAuthenticationFilterTest`/`SessionAuthenticationInterceptorTest`
+(unit, Mockito) prove the filter's per-outcome attribute and the interceptor's per-reason message
+directly. `AuthControllerIT` gained four tests: a second login publishing a `DISPLACED` event for
+the first session; `GET /session` returning the principal when authenticated and a generic 401 with
+no cookie; `POST /logout` revoking the row, clearing the cookie, and publishing the `LOGOUT` event;
+and a request bearing the *first* session's cookie after a second login receiving exactly
+FR-SESS-004's wording. `./mvnw verify -Pintegration` green locally (71 unit + 40 integration tests);
+CI green on `turnbase-platform` `master` (`build`, 9m0s — `e2e` stays blocked on the un-provisioned
+`TURNBASE_GAME_HOST_PAT`, the same pre-existing gap `IMP-M1-04`'s run also shows).
 
-**Two gates, both opened and closed this session, before any code was written for either.**
-`IMP-GATE-26`: the item's *Satisfies* claimed all of `FR-AUTH-001…016`, including six OAuth
-requirements, but its *Done when* clause never mentioned OAuth and its read-list didn't carry the
-document naming the OAuth client secret's config key. Fixed by retitling this item *Credential
-registration and login*, narrowing it to `FR-AUTH-001…006, 011, 013…015`, and adding **`IMP-M1-10`**
-(Google OAuth registration and login, `READY` off this item) to own `FR-AUTH-007…012/016` and
-`VW-OAUTHCOMP-001…002` — pushing the registry to **61 live items**. `IMP-GATE-27`: no document in the
-corpus named the session cookie itself, only its `httpOnly`/`Secure`/`SameSite=Strict` properties, and
-this item's read-list was also missing `rest-conventions.md`'s Authentication section entirely. Fixed
-by naming it there — `turnbase_session`, `Path=/` — as a fixed protocol constant every future reader
-(the `IMP-M2-02` STOMP handshake, the `IMP-M5-03` SSE endpoint, any auth filter) must agree on.
+**One gate, opened and closed this session, before any code was written.** `IMP-GATE-28`: this
+item's *Satisfies* claimed `FR-SESS-010` in full, but the requirement's actual duty — closing a
+session's live WebSocket/SSE connections on revocation — needs a connection registry that doesn't
+exist yet (`IMP-M2-02`, `IMP-M5-03` are both still `READY`, and neither was a dependency here); worse,
+`IMP-M5-03`'s own *Satisfies* didn't claim `FR-SESS-010` at all despite SSE being one of the two
+connection types the requirement names, so no item's *Done when* anywhere in the registry actually
+required the close-on-revocation behaviour. Same shape as `IMP-GATE-08`/`IMP-GATE-18`. Fixed:
+`IMP-M1-06` narrowed to `FR-SESS-001…004, FR-SESS-011` plus publishing `SessionRevokedEvent`;
+`IMP-M2-02` and `IMP-M5-03` each gained the corresponding close-on-revocation `Done when` clause
+(`IMP-M5-03` also gained `FR-SESS-010` in *Satisfies* and `IMP-M1-06` as a dependency).
 
-**Two runtime dependencies neither `input-validation.md` nor `conventions.md` named, both transitive
-gaps in libraries the documents do name rather than choices made here.** `Argon2PasswordEncoder`
-delegates to Bouncy Castle's Argon2 implementation at runtime — `spring-security-crypto` keeps
-`bcprov-jdk18on` optional — so registration threw `NoClassDefFoundError` until it was added explicitly
-(pinned `1.85.2`, `runtime` scope). ICU4J's `SpoofChecker` API shape (`failsChecks`, `getSkeleton`,
-`Builder.setChecks`/`setRestrictionLevel`) had to be read from the real `78.3` jar rather than assumed.
+**One unrelated interaction found and fixed while verifying green.** Enforcing NFR-SEC-006
+by default broke `IMP-M1-01`'s own `GlobalExceptionHandlerIT` — its test-only `ErrorHarnessController`
+(`/test/errors/**`, never shipped) started receiving 401s instead of exercising the exception
+mapping it exists to test. Not a spec defect — `/test/**` isn't a platform endpoint NFR-SEC-006
+governs — fixed by exempting the prefix in `SessionAuthenticationInterceptor` directly.
 
 ---
 ## Next Priorities
@@ -86,7 +83,7 @@ handshake, SSE endpoint, and any authenticated-route filter) must agree on; read
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
-**Progress: 15 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 16 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
 `turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), `IMP-M0-05`
 (Frontend skeleton, `turnbase-frontend`), `IMP-M0-06` (Flyway baseline, `turnbase-platform`),
@@ -95,18 +92,19 @@ build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleto
 `turnbase-game-host`), `IMP-M0-10` (observability baseline, `turnbase-platform` +
 `turnbase-game-host`), `IMP-M0-11` (CI/CD workflows, all five repos), `IMP-M3-12` (FE GDK
 client, `turnbase-sdk`), `IMP-M1-01` (error model, REST conventions, validation harness,
-`turnbase-platform`), `IMP-M1-03` (JWT key set, issuance, rotation, `turnbase-platform`) and
-`IMP-M1-04` (credential registration and login, `turnbase-platform`), all pushed and green in CI.
+`turnbase-platform`), `IMP-M1-03` (JWT key set, issuance, rotation, `turnbase-platform`),
+`IMP-M1-04` (credential registration and login, `turnbase-platform`) and `IMP-M1-06` (session
+lifecycle and displacement, `turnbase-platform`), all pushed and green in CI.
 **No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
 whatever its own dependencies imply.
 
-**Next up in M1**: `IMP-M1-05` (guest minting and purge), `IMP-M1-06` (session lifecycle and
-displacement), `IMP-M1-07` (profiles and privacy settings) and `IMP-M1-10` (Google OAuth) are all
-`READY` off `IMP-M1-04`. `IMP-M1-02` (rate limiter) remains independently `READY` off `IMP-M1-01`.
-`IMP-M1-06` is the one that actually closes the loop `IMP-M1-04` opened — FR-SESS-004's 401 shape for
-a displaced request, FR-SESS-010's live-connection close, and FR-SESS-011 logout are still unbuilt;
-`IMP-M1-04` only proved the displacement write itself, at the database, per its own narrowed
-Done-when.
+**Next up in M1**: `IMP-M1-05` (guest minting and purge), `IMP-M1-07` (profiles and privacy
+settings) and `IMP-M1-10` (Google OAuth) are `READY` off `IMP-M1-04`. `IMP-M1-02` (rate limiter)
+remains independently `READY` off `IMP-M1-01`. `IMP-M2-01` (room CRUD and listing) is now `READY`
+off `IMP-M1-06`, the first M2 item on the board. `IMP-M1-06` closed the loop `IMP-M1-04` opened —
+FR-SESS-004's 401 shape for a displaced request and FR-SESS-011 logout are both built; FR-SESS-010's
+live-connection close is now split onto `IMP-M2-02`/`IMP-M5-03` (`IMP-GATE-28`), which don't exist
+to build against yet.
 
 **IMP-GATE-25** (`IMP-M0-11`, opened and closed 2026-09-05) — `game-development-experience.md`
 CON-003 and ADR-0012's Release Strategy commit `turnbase-sdk` to Maven Central + npm, but no document

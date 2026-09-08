@@ -46,7 +46,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M1-03 | JWT key set, issuance, rotation | platform | M0-09 | DONE |
 | IMP-M1-04 | Credential registration and login | platform | M1-01, M1-03 | DONE |
 | IMP-M1-05 | Guest minting and purge | platform | M1-04 | READY |
-| IMP-M1-06 | Session lifecycle and displacement | platform | M1-04 | WIP (session 30) |
+| IMP-M1-06 | Session lifecycle and displacement | platform | M1-04 | DONE |
 | IMP-M1-07 | Profiles and privacy settings | platform | M1-04 | READY |
 | IMP-M1-08 | Account deletion and erasure | platform | M1-07 | READY |
 | IMP-M1-09 | Social graph — friendships and requests | platform | M1-07 | READY |
@@ -1270,6 +1270,41 @@ literal 24-hour delete fails permanently on `room_participant`'s FK, and the cas
 ### IMP-M1-06 — Session lifecycle and displacement
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-04
+
+**Done 2026-09-08 (session 30).** `session.SessionAuthenticationFilter` resolves the
+`turnbase_session` cookie against `user_session` on every request — JWT verify, then the DB row's
+`revoked_at`/`expires_at` — and wraps the request with a `common.AuthenticatedUser` principal on
+success, or records why not (`invalid`, `expired`, or the row's own `revoked_reason`) on a request
+attribute. It never rejects anything itself; ordered ahead of `CorrelationIdFilter` so the latter's
+`userId` MDC value sees a resolved principal rather than running before one exists.
+`session.SessionAuthenticationInterceptor` is the actual enforcement — a `HandlerInterceptor`
+(the `RequestSizeInterceptor` pattern, so a rejection reaches `GlobalExceptionHandler` through the
+same path as every other domain failure): a protected path with no principal throws
+`UnauthenticatedException`, with FR-SESS-004's own wording when the reason is `DISPLACED`
+("...because you logged in from another device"). NFR-SEC-006's exempt list, `PUBLIC_PATHS`, holds
+exactly what has a server-side route today (`register`, `login`); `/test/` is separately exempt for
+`IMP-M1-01`'s `GlobalExceptionHandlerIT` harness, which isn't a platform endpoint at all.
+
+`GET /api/auth/session` and `POST /api/auth/logout` complete `rest-conventions.md`'s four-endpoint
+session lifecycle table — the third and fourth existing only from this item on. `SessionService`
+gained `revoke(sessionId, userId, reason)` for logout, symmetric with `issueSession`'s displacement:
+both now publish `session.SessionRevokedEvent(sessionId, userId, reason)` **after** their own
+transaction has committed (a plain post-commit call, not a `@TransactionalEventListener` — the
+transaction is already committed by the time `issueSession`/`revoke` return, so there was no reason
+to reach for the annotation). The event is the mechanism `IMP-M2-02` and `IMP-M5-03` subscribe to
+once their connection registries exist (`IMP-GATE-28`).
+
+**Verified end to end.** `SessionAuthenticationFilterTest`/`SessionAuthenticationInterceptorTest`
+(unit, Mockito + `spring-test`'s `MockHttpServletRequest`) prove the filter's per-outcome attribute
+and the interceptor's per-reason message directly. `AuthControllerIT` gained: a second login
+publishing a `DISPLACED` `SessionRevokedEvent` for the first session; `GET /session` returning the
+principal when authenticated and the generic 401 with no cookie; `POST /logout` revoking the row
+(`revoked_reason = 'LOGOUT'`), clearing the cookie, and publishing the `LOGOUT` event; and a request
+bearing the *first* session's cookie after a second login receiving exactly FR-SESS-004's wording.
+`./mvnw verify -Pintegration` green locally (71 unit + 40 integration tests, JaCoCo merged gate
+met); CI green on `master` (`build`, 9m0s — `e2e` remains blocked on the un-provisioned
+`TURNBASE_GAME_HOST_PAT`, the same pre-existing gap `IMP-M1-04`'s run also shows, `conventions.md`
+§3).
 
 **Closed:** IMP-GATE-28 (opened and closed 2026-09-08, session 30) — this item's *Satisfies* claimed
 `FR-SESS-010` in full, but the requirement's actual duty — closing a session's live WebSocket/SSE
