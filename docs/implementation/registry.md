@@ -1633,7 +1633,7 @@ endpoint in `social-rest-api.md` §1 exists with the exact method, path and stat
 specifies, including the idempotent `204` on `DELETE /api/friend-requests/{id}` and `DELETE
 /api/users/me/friends/{userId}` for an already-resolved id (§5, §7) and the `canSendRequest`/
 `relationshipState` fields that carry FR-SOC-021's non-disclosure and FR-SOC-016's button state
-respectively (§2, §8).
+respectively (§2, §9).
 
 **Obligation left by `IMP-M1-07`:** `account.ProfileService.visibleSectionsFor` resolves the friends
 section's `FRIENDS_ONLY` value (FR-SOC-017) as hidden for every non-owner viewer, since the

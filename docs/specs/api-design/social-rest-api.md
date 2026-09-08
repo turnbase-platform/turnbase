@@ -38,7 +38,7 @@ defined the endpoints themselves.
 | `DELETE` | `/api/users/me/friends/{userId}` | Session, registered | `204` | FR-SOC-011 |
 
 Seven endpoints, none of them WebSocket. `POST /api/friend-requests/{id}/accept` is the one
-non-noun path in the API — see §4's note.
+non-noun path in the API — see §5's note.
 
 **"Session, registered" throughout** means the guest check of `account.ProfileService`'s
 `requireRegistered` (FR-SOC-020, FR-GUEST-007): a guest principal gets `403`, the same shape every
@@ -133,12 +133,37 @@ Location: /api/friend-requests/9c1e…
 ```
 
 The `FRIENDS` outcome carries no `Location` — there is no addressable resource at that address; the
-friendship is reached through §6, keyed by the other party's id, not a request id that no longer
+friendship is reached through §7, keyed by the other party's id, not a request id that no longer
 exists.
 
 ---
 
-## 4. `POST /api/friend-requests/{id}/accept` — accept
+## 4. `GET /api/friend-requests` — list pending
+
+FR-SOC-013…015. Every pending request naming the caller as either party, sender or recipient — one
+endpoint, not two, because a request row already carries both parties and the Pending tab's two
+sub-lists (FR-SOC-014 incoming, FR-SOC-015 outgoing) are a client-side split of one collection, not
+two independently paginated ones.
+
+Standard list envelope; default sort `createdAt,desc`.
+
+```json
+{
+  "content": [
+    { "requestId": "9c1e…", "direction": "OUTGOING", "counterpartUsername": "alice", "createdAt": "…", "expiresAt": "…" },
+    { "requestId": "4d8a…", "direction": "INCOMING", "counterpartUsername": "bob", "createdAt": "…", "expiresAt": "…" }
+  ],
+  "pagination": { "page": 1, "size": 25, "totalElements": 2, "totalPages": 1 }
+}
+```
+
+`counterpartUsername` is the sender's username for an `INCOMING` row and the recipient's for an
+`OUTGOING` one — the party that is not the caller, which is the only one the Pending tab ever shows
+(FR-SOC-016 covers the profile button separately, §9).
+
+---
+
+## 5. `POST /api/friend-requests/{id}/accept` — accept
 
 FR-SOC-006. Recipient only. Deletes the request, inserts `friendship` in canonical order, writes
 `FRIEND_REQUEST_ACCEPTED` to the sender and `FRIEND_ADDED` to the caller — the same three writes as
@@ -157,7 +182,7 @@ the sender was under cap when they sent it.
 
 ### Response
 
-`200`, not `201` — the friendship is not newly reachable at this URL, it has no URL of its own (§6).
+`200`, not `201` — the friendship is not newly reachable at this URL, it has no URL of its own (§7).
 
 ```json
 { "friend": { "userId": "f3a1…", "username": "bob" } }
@@ -170,7 +195,7 @@ Unknown `id` → `404`. `principal` is the sender, not the recipient (`rest-conv
 
 ---
 
-## 5. `DELETE /api/friend-requests/{id}` — cancel or decline
+## 6. `DELETE /api/friend-requests/{id}` — cancel or decline
 
 One endpoint, two FRs, discriminated entirely by which side of the request the caller is on —
 `rest-conventions.md`'s ownership predicate already states this: "`principal ∈ {sender, recipient}`,
@@ -197,7 +222,7 @@ the one case this endpoint can still get wrong — acting on someone else's requ
 
 ---
 
-## 6. `GET /api/users/{username}/friends` — friend list content
+## 7. `GET /api/users/{username}/friends` — friend list content
 
 The Friends section's content (FR-SOC-013 "Friends" tab), served under the profile it belongs to,
 the same way `GET /api/users/{username}` (`user-accounts.md`, `IMP-M1-07`) is.
@@ -205,7 +230,7 @@ the same way `GET /api/users/{username}` (`user-accounts.md`, `IMP-M1-07`) is.
 **Privacy resolution is identical to the profile endpoint's, not a second copy of it.** The profile
 response's `visibleSections` already says whether `"friends"` is in the set for this
 `(username, viewer)` pair (FR-SOC-017…019, with FR-SOC-017's `FRIENDS_ONLY` third value resolved by
-this item — see §8). This endpoint re-runs the identical check rather than trusting the client to
+this item — see §9). This endpoint re-runs the identical check rather than trusting the client to
 have read the other response first — a direct call here is exactly as answerable as one that reads
 the profile first. When the section is not visible, the response is `200` with an empty `content`
 array, not `403`/`404` — a distinguishable error here would only repeat what `visibleSections`
@@ -226,18 +251,18 @@ Unknown username → `404`, matching the profile endpoint.
 
 ---
 
-## 7. `DELETE /api/users/me/friends/{userId}` — unfriend
+## 8. `DELETE /api/users/me/friends/{userId}` — unfriend
 
 FR-SOC-011. `204`, idempotent — deleting a friendship that does not exist (never existed, or the
-other party already removed it) also returns `204`, for the same reason as §5.
+other party already removed it) also returns `204`, for the same reason as §6.
 
 `{userId}`, not `{username}` — the only place in this surface addressed by id rather than username,
-because the friend list content (§6) already hands the client the id, and a second lookup by name
+because the friend list content (§7) already hands the client the id, and a second lookup by name
 would be a wasted round trip for an action the client can only reach from that list.
 
 ---
 
-## 8. Extends `GET /api/users/{username}` — `relationshipState`
+## 9. Extends `GET /api/users/{username}` — `relationshipState`
 
 `user-accounts.md`/`IMP-M1-07` defined the profile envelope without a field for "how does the caller
 relate to this profile" because nothing before this item could answer it. FR-SOC-016 needs it — the
@@ -255,7 +280,7 @@ apply, both computed from the same canonically-ordered `friendship` lookup in th
 
 ---
 
-## 9. Errors
+## 10. Errors
 
 `rest-conventions.md`'s status codes with `error-handling.md`'s Problem Details shape.
 
@@ -282,14 +307,14 @@ hasn't already given away.
 
 ---
 
-## 10. What is deliberately absent
+## 11. What is deliberately absent
 
 - **No `GET /api/friend-requests/{id}`.** Nothing reads a single pending request in isolation; the
-  Pending tab is the list (§1), and accept/decline act on an id the list already supplied.
-- **No `PATCH /api/friend-requests/{id}`.** §4 explains why accept is a verb rather than a status
+  Pending tab is the list (§4), and accept/decline act on an id the list already supplied.
+- **No `PATCH /api/friend-requests/{id}`.** §5 explains why accept is a verb rather than a status
   field.
 - **No friendship resource or id.** A friendship is the unordered pair; it is reached by the other
-  party's `userId` (§6, §7), never by an id of its own — there is nothing else it would need to be
+  party's `userId` (§7, §8), never by an id of its own — there is nothing else it would need to be
   addressed by.
 - **No block/unblock endpoint.** FR-SOC-021's toggle is `user_privacy_settings.block_friend_requests`,
   already reachable through `PATCH /api/users/me/privacy` (`IMP-M1-07`). Adding a second route here
@@ -297,26 +322,26 @@ hasn't already given away.
 
 ---
 
-## 11. Requirements traceability
+## 12. Requirements traceability
 
 | Requirement | Realized by |
 |---|---|
 | FR-SOC-001/002 | §3 — one endpoint for both entry points |
 | FR-SOC-003 | §3 steps 2–3; `friend_request_pair_key` |
 | FR-SOC-004 | §3 step 4 |
-| FR-SOC-005 | §5, sender side |
-| FR-SOC-006 | §4 |
-| FR-SOC-007 | §5, recipient side |
+| FR-SOC-005 | §6, sender side |
+| FR-SOC-006 | §5 |
+| FR-SOC-007 | §6, recipient side |
 | FR-SOC-008 | No endpoint — taking no action needs none |
-| FR-SOC-009 | §3 step 5, §4 |
-| FR-SOC-010 | §6 default sort |
-| FR-SOC-011 | §7 |
-| FR-SOC-013…015 | §1 `GET /api/friend-requests`, §6 |
-| FR-SOC-016 | §8 `relationshipState` |
-| FR-SOC-017…019 | §6, §8 |
+| FR-SOC-009 | §3 step 5, §5 |
+| FR-SOC-010 | §7 default sort |
+| FR-SOC-011 | §8 |
+| FR-SOC-013…015 | §4, §7 |
+| FR-SOC-016 | §9 `relationshipState` |
+| FR-SOC-017…019 | §7, §9 |
 | FR-SOC-020 | §1 "Session, registered" |
 | FR-SOC-021 | §2 `canSendRequest`, §3 step 6 |
 | FR-FREQ-001 | §3 step 7 |
-| FR-FREQ-003 | §3 step 4, §4 |
-| FR-FREQ-004 | §5 |
-| FR-FREQ-006 | §5 same-transaction delete; FK cascade for cancel |
+| FR-FREQ-003 | §3 step 4, §5 |
+| FR-FREQ-004 | §6 |
+| FR-FREQ-006 | §6 same-transaction delete; FK cascade for cancel |
