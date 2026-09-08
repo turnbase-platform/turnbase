@@ -49,6 +49,15 @@ writes against) — missing from the original list, no gate needed for that clas
 ---
 ## Next Priorities
 
+**IMP-GATE-35** (`IMP-M1-09`, opened and closed 2026-09-08, session 34) — no document in the corpus
+ever defined this item's REST surface. `rest-conventions.md`'s Authorization table has named the
+`/api/friend-requests/{id}` ownership predicate since it was written, but nothing supplied the
+endpoints it governs, and this item's read-list never named `rest-conventions.md` either. Same shape
+as `IMP-GATE-31`/`33`, at the scale of a whole feature rather than one route. Fixed: new
+`docs/specs/api-design/social-rest-api.md` — seven endpoints (username search, send, list, accept,
+cancel/decline, friend list, unfriend) plus a `relationshipState` extension to `GET
+/api/users/{username}` for FR-SOC-016; registered in that directory's `INDEX.md`; read-list corrected.
+
 **IMP-GATE-34** (`IMP-M1-09`, opened and closed 2026-09-08, session 34) — the item's *Satisfies*
 claimed `notifications-invitations.md` FR-FREQ-001…006 in full, and `IMP-M5-03` independently claimed
 the identical full range, but neither item's *Done when* clause tested the other's overlap — this

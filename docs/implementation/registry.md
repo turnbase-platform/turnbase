@@ -1583,6 +1583,19 @@ FR-FREQ-001…006 (its section below); this item keeps the claim, its *Done when
 clauses below, and its read-list gained `data-model-notifications.md` §1/§3 — the column names and
 type strings the original list never named.
 
+**Closed:** IMP-GATE-35 (opened and closed 2026-09-08, session 34) — no document in the corpus ever
+defined this item's REST surface. `rest-conventions.md`'s Authorization table has named the
+`/api/friend-requests/{id}` ownership predicate ("`principal ∈ {sender, recipient}`, and the action
+must match the side") since it was written, but nothing supplied the endpoints that predicate
+governs — the same shape as `IMP-GATE-31`/`33`, except there the route was one missing row in an
+existing table and here the entire feature's HTTP surface was unwritten, closer in size to
+`room-rest-api.md`'s gap before `IMP-GATE-13`'s era. This item's own read-list never named
+`rest-conventions.md` either, so nothing would have surfaced the gap short of writing the controller.
+Fixed: new `docs/specs/api-design/social-rest-api.md` (registered in that directory's `INDEX.md`) —
+seven endpoints (username search, send, list, accept, cancel/decline, friend list, unfriend) plus a
+`relationshipState` extension to `GET /api/users/{username}` for FR-SOC-016, which is also how this
+item's `IMP-M1-07` obligation (below) is discharged. Read-list corrected to include it.
+
 **Read first:**
 - `docs/requirements/social-friends.md` FR-SOC-001…021
 - `docs/specs/platform/data-model-social.md` §§1–3 — `friendship`, `friend_request`, and the
@@ -1592,6 +1605,11 @@ type strings the original list never named.
 - `docs/specs/platform/data-model-notifications.md` §1 (`notification` — the subject foreign keys and
   the actionable/informational split), §3 (the four `FRIEND_REQUEST*`/`FRIEND_ADDED` type rows this
   item writes)
+- `docs/specs/api-design/social-rest-api.md` **in full** — the seven endpoints, the evaluation orders,
+  the error table
+- `docs/specs/api-design/rest-conventions.md` § Authorization and Ownership (the
+  `/api/friend-requests/{id}` predicate) and § *Four further self-scoped account routes* (the pattern
+  §7's `/api/users/me/friends/{userId}` follows)
 
 **Satisfies:** `social-friends.md` FR-SOC-001…021; `notifications-invitations.md`
 FR-FREQ-001…006; `user-accounts.md` FR-GUEST-007
@@ -1610,7 +1628,12 @@ subject-less `FRIEND_REQUEST_DECLINED` notification to the sender only, none to 
 `friend_request_id` with `ON DELETE CASCADE`, needs no separate delete statement for the recipient's
 notification to disappear (FR-FREQ-006); `friend_request.expires_at` is written absolutely at insert as
 `now() + :window`, from the same configuration key `NFR-SOC-SCALE-001` requires, never derived at read
-time (the mechanical half of FR-FREQ-005 — the expiry purge job itself is `IMP-M5-04`'s).
+time (the mechanical half of FR-FREQ-005 — the expiry purge job itself is `IMP-M5-04`'s); every
+endpoint in `social-rest-api.md` §1 exists with the exact method, path and status codes that document
+specifies, including the idempotent `204` on `DELETE /api/friend-requests/{id}` and `DELETE
+/api/users/me/friends/{userId}` for an already-resolved id (§5, §7) and the `canSendRequest`/
+`relationshipState` fields that carry FR-SOC-021's non-disclosure and FR-SOC-016's button state
+respectively (§2, §8).
 
 **Obligation left by `IMP-M1-07`:** `account.ProfileService.visibleSectionsFor` resolves the friends
 section's `FRIENDS_ONLY` value (FR-SOC-017) as hidden for every non-owner viewer, since the
