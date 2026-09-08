@@ -49,6 +49,15 @@ governs — fixed by exempting the prefix in `SessionAuthenticationInterceptor` 
 ---
 ## Next Priorities
 
+**IMP-GATE-29** (`IMP-M1-05`, opened and closed 2026-09-08, session 31) — `user-accounts.md`
+NFR-SEC-006's exempt list named the login and registration endpoints but not guest creation, even
+though `rest-conventions.md`'s Authentication section derives its own "except" set from that exact
+list and separately states `POST /api/auth/guest` is unauthenticated outright, matching
+`rate-limiting.md`'s Tier 5 text — and a caller minting a guest account has no session yet by
+definition. Fixed: NFR-SEC-006 now names the guest-creation endpoint, with the reason inline.
+`IMP-M1-05`'s read-list also gained `rest-conventions.md` § Authentication, which named the endpoint
+itself and was missing.
+
 **Phase 1 is under way. Work from [`docs/implementation/INDEX.md`](docs/implementation/INDEX.md), not
 from this file.** The registry holds **61 live work items** (IMP-M6-07 is cancelled), each with a
 read-list, dependencies, the requirement IDs it satisfies and a done-when clause; this section only

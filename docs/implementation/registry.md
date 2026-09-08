@@ -1251,11 +1251,25 @@ at write time is bypassed by every later rename path.
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-04
 
+**Closed:** IMP-GATE-29 (opened and closed 2026-09-08, session 31) — `user-accounts.md` NFR-SEC-006
+enumerated the endpoints exempt from session authentication ("the landing page, the login endpoint,
+the registration endpoint, user profile pages, the game catalog, game detail pages") and omitted guest
+creation, but `docs/specs/api-design/rest-conventions.md`'s Authentication section derives its own
+"except" set from that exact list, and its idempotency section separately states `POST /api/auth/guest`
+is "an unauthenticated `POST`" outright, matching `rate-limiting.md`'s Tier 5 text. A caller minting a
+guest account has by definition no session yet, so the endpoint cannot require one — the omission was
+not a defensible narrower reading, since satisfying NFR-SEC-006 literally would make FR-GUEST-001
+unreachable. Fixed: NFR-SEC-006 now names the guest-creation endpoint alongside login and
+registration, with the reason (no session exists yet to require) inline so the next reader doesn't
+re-derive it.
+
 **Read first:**
-- `docs/requirements/user-accounts.md` FR-GUEST-001…010
+- `docs/requirements/user-accounts.md` FR-GUEST-001…010, NFR-SEC-006
 - `docs/specs/platform/data-model-accounts.md` §1 (the `kind` discriminator)
 - `docs/requirements/platform-operations.md` FR-RET-002 (the guest purge window)
 - `docs/specs/deployment/local-environment.md` §7.3
+- `docs/specs/api-design/rest-conventions.md` § Authentication (`POST /api/auth/guest`'s route,
+  status code and response shape — the read-list omitted the one document naming the endpoint itself)
 
 **Satisfies:** `user-accounts.md` FR-GUEST-001…010; `platform-operations.md` FR-RET-002
 
