@@ -1,50 +1,46 @@
 ## Last Session Summary
 
-**Date:** 2026-09-08 (session 30)
+**Date:** 2026-09-08 (session 31)
 
-**IMP-M1-06 — Session lifecycle and displacement. DONE. 16 of 61 items complete.**
-`session.SessionAuthenticationFilter` resolves the `turnbase_session` cookie against `user_session`
-on every request (JWT verify, then the row's `revoked_at`/`expires_at`) and wraps the request with a
-new `common.AuthenticatedUser` principal on success, or records why not on a request attribute —
-never rejecting anything itself. `session.SessionAuthenticationInterceptor` is the actual
-enforcement, a `HandlerInterceptor` in `IMP-M1-01`'s `RequestSizeInterceptor` shape so a rejection
-reaches `GlobalExceptionHandler` the normal way: a protected path with no principal throws
-`UnauthenticatedException`, with FR-SESS-004's own wording ("...because you logged in from another
-device") when the reason is `DISPLACED`.
+**IMP-M1-05 — Guest minting and purge. DONE. 17 of 61 items complete.**
+`POST /api/auth/guest` (`account.AuthController`) mints a credential-free guest —
+`account.GuestService.mint` inserts `kind='GUEST'`, a `guest-<serial>` username drawn from
+`guest_serial_seq` (`account.AccountRepository.insertGuestUser`), no `user_auth_method` row and no
+`user_privacy_settings` row — then issues a session through the same `SessionService.issueSession`
+registration and login already use, so the response is a `201` with the session cookie set. Exempt
+from NFR-SEC-006 per `IMP-GATE-29` (below).
 
-**`GET /api/auth/session` and `POST /api/auth/logout`** complete `rest-conventions.md`'s
-four-endpoint session lifecycle table. `SessionService` gained `revoke(sessionId, userId, reason)`
-for logout, symmetric with `issueSession`'s displacement path; both now publish
-`session.SessionRevokedEvent` **after** their own transaction has committed — the mechanism
-`IMP-M2-02`'s STOMP registry and `IMP-M5-03`'s SSE registry will subscribe to once they exist, to
-satisfy FR-SESS-010's actual duty (closing a live connection on revocation).
+**`account.GuestPurgeJob`** runs the two-phase purge on `turnbase.jobs.guest-cleanup.interval`, under
+`net.javacrumbs.shedlock`'s `@SchedulerLock` over the baseline's `shedlock` table (FR-JOB-005 — the
+first scheduled job in this repo, so also the first to need it; `SchedulerLock` was a new dependency
+this session). Revoke phase: `session.SessionService.revokeAllForUser` (new, public) revokes sessions
+first — the actual inaccessibility mechanism, since `SessionAuthenticationFilter` never consults
+`app_user` — then `deleted_at`/`deletion_reason='GUEST_EXPIRED'`/`purgeable_after` are set. Purge phase
+hard-deletes anything purgeable with no `room_participant` or `room.host_user_id` reference, in the
+same run — `purgeable_after` is the revoke instant, not a future deadline
+(`data-model-accounts.md` §1's "not on a timer").
 
-**Verified end to end.** `SessionAuthenticationFilterTest`/`SessionAuthenticationInterceptorTest`
-(unit, Mockito) prove the filter's per-outcome attribute and the interceptor's per-reason message
-directly. `AuthControllerIT` gained four tests: a second login publishing a `DISPLACED` event for
-the first session; `GET /session` returning the principal when authenticated and a generic 401 with
-no cookie; `POST /logout` revoking the row, clearing the cookie, and publishing the `LOGOUT` event;
-and a request bearing the *first* session's cookie after a second login receiving exactly
-FR-SESS-004's wording. `./mvnw verify -Pintegration` green locally (71 unit + 40 integration tests);
-CI green on `turnbase-platform` `master` (`build`, 9m0s — `e2e` stays blocked on the un-provisioned
-`TURNBASE_GAME_HOST_PAT`, the same pre-existing gap `IMP-M1-04`'s run also shows).
+**Verified end to end.** `UsernamePolicyTest` covers the new guest-skeleton method.
+`AuthControllerIT` gained two tests proving guest mint issues a working, credential-free,
+immediately-authenticated session with a unique serial. `GuestPurgeJobIT` proves all three
+`Done when` clauses against a real Postgres: revoke phase (checked against a room-seated guest so
+the same-run purge phase doesn't remove the row first), the unreferenced case hard-deleted in the
+same run, and the load-bearing guarantee — a guest seated in a live room is never removed.
+`./mvnw verify -Pintegration` green locally (73 unit + 45 integration tests); CI green on
+`turnbase-platform` `master` (`build`, 8m3s — `e2e` stays blocked on the un-provisioned
+`TURNBASE_GAME_HOST_PAT`, the same pre-existing gap every prior session's run also shows).
 
-**One gate, opened and closed this session, before any code was written.** `IMP-GATE-28`: this
-item's *Satisfies* claimed `FR-SESS-010` in full, but the requirement's actual duty — closing a
-session's live WebSocket/SSE connections on revocation — needs a connection registry that doesn't
-exist yet (`IMP-M2-02`, `IMP-M5-03` are both still `READY`, and neither was a dependency here); worse,
-`IMP-M5-03`'s own *Satisfies* didn't claim `FR-SESS-010` at all despite SSE being one of the two
-connection types the requirement names, so no item's *Done when* anywhere in the registry actually
-required the close-on-revocation behaviour. Same shape as `IMP-GATE-08`/`IMP-GATE-18`. Fixed:
-`IMP-M1-06` narrowed to `FR-SESS-001…004, FR-SESS-011` plus publishing `SessionRevokedEvent`;
-`IMP-M2-02` and `IMP-M5-03` each gained the corresponding close-on-revocation `Done when` clause
-(`IMP-M5-03` also gained `FR-SESS-010` in *Satisfies* and `IMP-M1-06` as a dependency).
-
-**One unrelated interaction found and fixed while verifying green.** Enforcing NFR-SEC-006
-by default broke `IMP-M1-01`'s own `GlobalExceptionHandlerIT` — its test-only `ErrorHarnessController`
-(`/test/errors/**`, never shipped) started receiving 401s instead of exercising the exception
-mapping it exists to test. Not a spec defect — `/test/**` isn't a platform endpoint NFR-SEC-006
-governs — fixed by exempting the prefix in `SessionAuthenticationInterceptor` directly.
+**Two gates, both opened and closed this session.** `IMP-GATE-29`: `user-accounts.md` NFR-SEC-006's
+exempt list named login and registration but not guest creation, though `rest-conventions.md`'s
+Authentication section derives its own "except" set from that exact list and separately calls
+`POST /api/auth/guest` unauthenticated outright — and a caller minting a guest has no session yet by
+definition, so the endpoint cannot require one. Fixed: NFR-SEC-006 now names it, with the reason
+inline. `IMP-GATE-30`: this item's *Satisfies* claimed the full `FR-GUEST-001…010` range, but
+FR-GUEST-010 (guest profile display) needs a `GET /api/users/{username}` endpoint that doesn't exist
+until `IMP-M1-07`, which was never a dependency here — and `user-accounts.md` FR-PROF-002 states the
+identical duty under a different ID in the same document. Same shape as
+`IMP-GATE-08`/`IMP-GATE-18`/`IMP-GATE-28`. Fixed: `IMP-M1-05` narrowed to `FR-GUEST-001…009`;
+`IMP-M1-07`'s *Satisfies* gained `FR-GUEST-010` alongside its existing `FR-PROF-002`.
 
 ---
 ## Next Priorities
@@ -97,11 +93,30 @@ also missing from `IMP-M1-04`'s read-list. Fixed: `rest-conventions.md` now name
 `turnbase_session`, `Path=/` — as a fixed constant every server-side reader (the future STOMP
 handshake, SSE endpoint, and any authenticated-route filter) must agree on; read-list corrected.
 
+**IMP-GATE-30** (`IMP-M1-05`, opened and closed 2026-09-08, session 31) — `IMP-M1-05`'s *Satisfies*
+claimed the full `FR-GUEST-001…010` range, but FR-GUEST-010 (guest profile display) needs a
+`GET /api/users/{username}` endpoint that doesn't exist until `IMP-M1-07`, which was never a
+dependency here — and `user-accounts.md` FR-PROF-002 states the identical duty under a different ID
+in the same document, a duplicate `docs/requirements/INDEX.md` doesn't track since it only lists
+cross-document prefix collisions. Same shape as `IMP-GATE-08`/`IMP-GATE-18`/`IMP-GATE-28`. Fixed:
+`IMP-M1-05` narrowed to `FR-GUEST-001…009`; `IMP-M1-07`'s *Satisfies* gained `FR-GUEST-010` alongside
+its existing `FR-PROF-002`.
+
+**IMP-GATE-29** (`IMP-M1-05`, opened and closed 2026-09-08, session 31) — `user-accounts.md`
+NFR-SEC-006 enumerated the endpoints exempt from session authentication ("the landing page, the login
+endpoint, the registration endpoint, user profile pages, the game catalog, game detail pages") and
+omitted guest creation, but `rest-conventions.md`'s Authentication section derives its own "except"
+set from that exact list, and separately states `POST /api/auth/guest` is "an unauthenticated `POST`"
+outright, matching `rate-limiting.md`'s Tier 5 text. A caller minting a guest account has by
+definition no session yet. Fixed: NFR-SEC-006 now names the guest-creation endpoint, with the reason
+inline. `IMP-M1-05`'s read-list also gained `rest-conventions.md` § Authentication, which named the
+endpoint itself and was missing.
+
 **Before starting any of them: no pull requests** (ADR-0012, amended 2026-09-05). Branch, build,
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
-**Progress: 16 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 17 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
 `turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), `IMP-M0-05`
 (Frontend skeleton, `turnbase-frontend`), `IMP-M0-06` (Flyway baseline, `turnbase-platform`),
@@ -111,12 +126,13 @@ build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleto
 `turnbase-game-host`), `IMP-M0-11` (CI/CD workflows, all five repos), `IMP-M3-12` (FE GDK
 client, `turnbase-sdk`), `IMP-M1-01` (error model, REST conventions, validation harness,
 `turnbase-platform`), `IMP-M1-03` (JWT key set, issuance, rotation, `turnbase-platform`),
-`IMP-M1-04` (credential registration and login, `turnbase-platform`) and `IMP-M1-06` (session
-lifecycle and displacement, `turnbase-platform`), all pushed and green in CI.
+`IMP-M1-04` (credential registration and login, `turnbase-platform`), `IMP-M1-06` (session
+lifecycle and displacement, `turnbase-platform`) and `IMP-M1-05` (guest minting and purge,
+`turnbase-platform`), all pushed and green in CI.
 **No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
 whatever its own dependencies imply.
 
-**Next up in M1**: `IMP-M1-05` (guest minting and purge), `IMP-M1-07` (profiles and privacy
+**Next up in M1**: `IMP-M1-07` (profiles and privacy
 settings) and `IMP-M1-10` (Google OAuth) are `READY` off `IMP-M1-04`. `IMP-M1-02` (rate limiter)
 remains independently `READY` off `IMP-M1-01`. `IMP-M2-01` (room CRUD and listing) is now `READY`
 off `IMP-M1-06`, the first M2 item on the board. `IMP-M1-06` closed the loop `IMP-M1-04` opened —

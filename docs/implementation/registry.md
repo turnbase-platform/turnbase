@@ -45,7 +45,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M1-02 | Rate limiter (Tiers 1–5) | platform | M1-01 | READY |
 | IMP-M1-03 | JWT key set, issuance, rotation | platform | M0-09 | DONE |
 | IMP-M1-04 | Credential registration and login | platform | M1-01, M1-03 | DONE |
-| IMP-M1-05 | Guest minting and purge | platform | M1-04 | WIP (session 31) |
+| IMP-M1-05 | Guest minting and purge | platform | M1-04 | DONE |
 | IMP-M1-06 | Session lifecycle and displacement | platform | M1-04 | DONE |
 | IMP-M1-07 | Profiles and privacy settings | platform | M1-04 | READY |
 | IMP-M1-08 | Account deletion and erasure | platform | M1-07 | READY |
@@ -1250,6 +1250,33 @@ at write time is bypassed by every later rename path.
 ### IMP-M1-05 — Guest minting and purge
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-04
+
+**Done 2026-09-08 (session 31).** `POST /api/auth/guest` (`account.AuthController`) mints a
+credential-free guest — `account.GuestService.mint` inserts `kind='GUEST'`, a
+`guest-<serial>` username drawn from `guest_serial_seq` (`account.AccountRepository.insertGuestUser`),
+no `user_auth_method` row and no `user_privacy_settings` row — then issues a session through the same
+`SessionService.issueSession` registration and login already use, so the response is a `201` with the
+session cookie set, identical in shape to registration's. Exempt from NFR-SEC-006 per `IMP-GATE-29`.
+
+`account.GuestPurgeJob` runs the two-phase purge on `turnbase.jobs.guest-cleanup.interval`, under
+`net.javacrumbs.shedlock`'s `@SchedulerLock` over the baseline's `shedlock` table (FR-JOB-005 — the
+first scheduled job in this repo, so also the first to need it). Revoke phase:
+`session.SessionService.revokeAllForUser` first (the actual inaccessibility mechanism —
+`SessionAuthenticationFilter` never consults `app_user`), then `account.GuestPurgeRepository.markExpired`
+sets `deleted_at`/`deletion_reason='GUEST_EXPIRED'`/`purgeable_after`. Purge phase
+(`purgeUnreferencedGuests`) hard-deletes anything purgeable with no `room_participant` or
+`room.host_user_id` reference, in the same run — `purgeable_after` is set to the revoke instant, not a
+future deadline, per `data-model-accounts.md` §1's "not on a timer".
+
+**Verified end to end.** `UsernamePolicyTest` covers the guest-skeleton method directly.
+`AuthControllerIT` gained two tests: guest mint issues a working, credential-free, immediately
+authenticated session with a unique serial. `GuestPurgeJobIT` proves all three `Done when` clauses
+against a real Postgres: revoke phase (session revoked, event published, `app_user` marked — checked
+against a room-seated guest so the purge phase in the same run doesn't remove the row first), the
+unreferenced case (hard-deleted in the same run), and the load-bearing case — a guest seated in a live
+room survives the purge phase indefinitely. `./mvnw verify -Pintegration` green locally (73 unit + 45
+integration tests); CI green on `turnbase-platform` `master` (`build`, 8m3s — `e2e` stays blocked on
+the same un-provisioned `TURNBASE_GAME_HOST_PAT` prior sessions' runs also show).
 
 **Closed:** IMP-GATE-29 (opened and closed 2026-09-08, session 31) — `user-accounts.md` NFR-SEC-006
 enumerated the endpoints exempt from session authentication ("the landing page, the login endpoint,
