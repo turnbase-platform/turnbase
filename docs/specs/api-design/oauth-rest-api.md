@@ -192,10 +192,13 @@ One transaction:
    { "outcome": "CHALLENGE_REQUIRED" }
    ```
 
-   `409`. This does not disclose anything the caller does not already know: the email is the caller's
-   own (it came from the Google account they just authenticated with), so telling them it already has
-   a TurnBase account is not the disclosure FR-AUTH-016 forbids — that disclosure is about *other*
-   people's accounts, which is exactly what §7's failure response protects.
+   `200`, not `409` — this is not a failure, the same way `POST /api/friend-requests`'s `FRIENDS`
+   outcome (`social-rest-api.md` §3) is a `201` rather than a `409` for the pending request it didn't
+   create: the caller asked "finish my registration" and got a valid next step, not a rejected
+   request. It does not disclose anything the caller does not already know either way: the email is
+   the caller's own (it came from the Google account they just authenticated with), so telling them it
+   already has a TurnBase account is not the disclosure FR-AUTH-016 forbids — that disclosure is about
+   *other* people's accounts, which is exactly what §7's failure response protects.
 
 **Why the collision is discovered here, not at `/auth/callback`.** Checking at the callback would
 mean the pending record's shape depends on a fact the frontend never asked for and cannot act on
@@ -277,7 +280,6 @@ silently move the other.
 | Malformed body / missing `username` or `password` | `400` | `validation-failed` | — |
 | Username fails `input-validation.md`'s pipeline | `400` | `validation-failed` | FR-AUTH-013…015 |
 | Username skeleton already taken | `409` | — | FR-AUTH-003 |
-| Email already held by an active account (`complete-registration`) | `409` | — | FR-AUTH-016 |
 | Wrong password, or no such collision account (`link-challenge`) | `401` | `unauthenticated` | FR-AUTH-016 |
 | `Origin` present and not the platform origin, on either `POST` | `403` | `forbidden` | `rest-conventions.md` |
 | Rate limit (Tier 1 on `link-challenge`, Tier 5 on `complete-registration`'s success path) | `429` | `rate-limit-exceeded` | `rate-limiting.md` |
