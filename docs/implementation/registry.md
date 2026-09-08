@@ -1763,8 +1763,15 @@ because the OAuth round trip is a comparable amount of work to `IMP-M1-04` in it
 redirect, server-side code exchange, signed `state`, a Redis-backed pending-registration token, and
 the FR-AUTH-016 email-collision challenge-and-link path — none of which the credential flow touches.
 
+**Closed:** IMP-GATE-38 (opened and closed 2026-09-08, session 36) — `user-accounts.md` NFR-SEC-006
+enumerates every endpoint exempt from session authentication and did not name this item's five: the
+Google OAuth entry point and callback (never had a session to require) and the three
+pending-registration JSON endpoints (gated by `oauth-rest-api.md` §2's pending token instead, a
+different mechanism entirely). Same shape as IMP-GATE-29. Fixed: NFR-SEC-006 now names all five;
+read-list gained the citation.
+
 **Read first:**
-- `docs/requirements/user-accounts.md` FR-AUTH-007…012, FR-AUTH-016
+- `docs/requirements/user-accounts.md` FR-AUTH-007…012, FR-AUTH-016, NFR-SEC-006
 - `docs/specs/platform/data-model-accounts.md` §1 (`email_source`), §2 (`user_auth_method`)
 - `docs/specs/deployment/secrets-and-configuration.md` §1 (the OAuth client secret's absent-by-default
   behaviour), §5 (`TURNBASE_OAUTH_GOOGLE_CLIENT_SECRET`, the redirect URI, the signed `state`)

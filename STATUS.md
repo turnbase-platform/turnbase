@@ -60,6 +60,10 @@ new `local-environment.md` §7.4 TTL properties; `rate-limiting.md` Tier 1 gaine
 route and Tier 5's OAuth row now names its exact enforcement point; read-list corrected. `IMP-M1-10`
 is back to `WIP` and code is next.
 
+**IMP-GATE-38** (`IMP-M1-10`, opened and closed 2026-09-08, session 36) — `user-accounts.md`
+NFR-SEC-006 never named this item's five endpoints as session-exempt (same shape as IMP-GATE-29).
+Fixed: NFR-SEC-006 now names all five; read-list corrected.
+
 **Next up in M1**: `IMP-M1-10` (Google OAuth) remains `READY` off `IMP-M1-04` — the only item still
 pickable in M1 proper. `IMP-M2-01` (room CRUD and listing) is `READY` off `IMP-M1-06` — its listing
 predicate needs a `friendship` join for `FRIENDS_ONLY` rooms, which `IMP-M1-09` now supplies.

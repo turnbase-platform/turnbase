@@ -250,7 +250,7 @@ duplicate Tier 1's job with a different key.
   alongside the credential endpoints it already names. `rate-limiting.md` itself already documents
   that this list grows as the endpoints it covers are built (`STATUS.md` session 35's note on Tier 1's
   auth-method add/remove routes); this is the first one to land.
-- **`local-environment.md` §7.4** gains two properties (§9 below).
+- **`local-environment.md` §7.4** gains five properties (§9 below).
 
 ---
 
@@ -260,12 +260,20 @@ duplicate Tier 1's job with a different key.
 |---|---|---|---|
 | `turnbase.auth.oauth.state-ttl` | `5m` | `TURNBASE_AUTH_OAUTH_STATE_TTL` | §3 |
 | `turnbase.auth.oauth.pending-registration-ttl` | `10m` | `TURNBASE_AUTH_OAUTH_PENDING_REGISTRATION_TTL` | §2 |
+| `turnbase.oauth.google.authorization-endpoint` | `https://accounts.google.com/o/oauth2/v2/auth` | `TURNBASE_OAUTH_GOOGLE_AUTHORIZATION_ENDPOINT` | §3 |
+| `turnbase.oauth.google.token-endpoint` | `https://oauth2.googleapis.com/token` | `TURNBASE_OAUTH_GOOGLE_TOKEN_ENDPOINT` | §4 |
+| `turnbase.oauth.google.userinfo-endpoint` | `https://openidconnect.googleapis.com/v1/userinfo` | `TURNBASE_OAUTH_GOOGLE_USERINFO_ENDPOINT` | §4 |
 
 `state-ttl` bounds only the round trip to Google's consent screen and back; `pending-registration-ttl`
 bounds the time a user has to fill in `VW-OAUTHCOMP-001`'s form (or resolve a collision) afterward.
 They are separate properties, not one, because the two windows are subject to different pressures — a
 slow consent screen versus a user who walks away from the tab — and a future change to one must not
 silently move the other.
+
+**The three Google endpoints are fixed URLs, not per-environment configuration** — they are bound
+properties purely so a test can point `GoogleOAuthClient` at a local stub instead of the real Google,
+the same reason `artifact-store.endpoint` (`local-environment.md` §7.9) can point at a Testcontainers
+MinIO instead of a real one.
 
 ---
 

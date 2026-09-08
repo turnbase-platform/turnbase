@@ -443,6 +443,9 @@ Game history has no entry here. FR-RET-003 retains it indefinitely; it is the on
 | `turnbase.pagination.max-page-size` | `100` | `TURNBASE_PAGINATION_MAX_PAGE_SIZE` | pagination-filtering-sorting.md |
 | `turnbase.auth.oauth.state-ttl` | `5m` | `TURNBASE_AUTH_OAUTH_STATE_TTL` | `oauth-rest-api.md` §3 |
 | `turnbase.auth.oauth.pending-registration-ttl` | `10m` | `TURNBASE_AUTH_OAUTH_PENDING_REGISTRATION_TTL` | `oauth-rest-api.md` §2 |
+| `turnbase.oauth.google.authorization-endpoint` | `https://accounts.google.com/o/oauth2/v2/auth` | `TURNBASE_OAUTH_GOOGLE_AUTHORIZATION_ENDPOINT` | Google's own URL; overridden only by tests |
+| `turnbase.oauth.google.token-endpoint` | `https://oauth2.googleapis.com/token` | `TURNBASE_OAUTH_GOOGLE_TOKEN_ENDPOINT` | Google's own URL; overridden only by tests |
+| `turnbase.oauth.google.userinfo-endpoint` | `https://openidconnect.googleapis.com/v1/userinfo` | `TURNBASE_OAUTH_GOOGLE_USERINFO_ENDPOINT` | Google's own URL; overridden only by tests |
 
 `session-ttl` governs both registered and guest tokens (FR-GUEST-003 defines the guest lifetime as
 "the same platform-configurable value"), which is why there is one key and not two — and why
