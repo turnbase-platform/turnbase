@@ -48,7 +48,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M1-05 | Guest minting and purge | platform | M1-04 | DONE |
 | IMP-M1-06 | Session lifecycle and displacement | platform | M1-04 | DONE |
 | IMP-M1-07 | Profiles and privacy settings | platform | M1-04 | DONE |
-| IMP-M1-08 | Account deletion and erasure | platform | M1-07 | WIP (session 33) |
+| IMP-M1-08 | Account deletion and erasure | platform | M1-07 | DONE |
 | IMP-M1-09 | Social graph — friendships and requests | platform | M1-07 | READY |
 | IMP-M1-10 | Google OAuth registration and login | platform | M1-04 | READY |
 | **M2 — Rooms and realtime** ||||
@@ -1477,6 +1477,41 @@ FR-ACCT-009 placeholder rather than a 404; a guest profile returns the username 
 ### IMP-M1-08 — Account deletion and erasure
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-07
+
+**Done 2026-09-08 (session 33).** `account.AccountDeletionService`/`AccountErasureRepository` add
+`DELETE /api/users/me`. One `@Transactional` JDBC method disposes of every row in
+`data-model-accounts.md` §5's table, in the order the spec states — `user_session` revoked
+(`ACCOUNT_DELETED`), `user_auth_method` and `user_privacy_settings` deleted, `friendship` and
+`friend_request` deleted both directions, `room_invitation` deleted both legs (cascading the
+recipient's/inviter's `notification`), the caller's own `notification` rows deleted, any open
+`game_review` on an owned game withdrawn (`decided_by = 'system'`), owned `game` rows archived,
+`game_history_entry` pseudonymized with a fresh `UUID.randomUUID()` subject token (not derived —
+ADR-0004 forbids a reversible construction), `app_user` soft-deleted (`deletion_reason =
+'SELF_SERVICE'`, email released, username/skeleton retained per FR-ACCT-006), and
+`room_participant` departures last. Room closure/host-transfer is deliberately not attempted here —
+`room-lifecycle.md` §5.1 duty 2 on the owning instance discharges it within one sweep interval, since
+this REST-triggered transaction holds no room claim. `user_session` is written directly rather than
+through `session.SessionService` (which manages its own transaction boundary) precisely so the whole
+disposition table is one physical transaction; `SessionRevokedEvent` is published for each revoked
+session only after that transaction commits, closing live connections per FR-SESS-010. Guests get
+`403`, matching every other `/me/**` mutation this repo builds.
+
+**Verified end to end.** `AccountDeletionControllerIT`: every disposition-table object seeded and
+checked after a real `DELETE` call against real Postgres — session revoked and the event published,
+auth method and privacy settings gone, friendship/friend-request/room-invitation gone, the deleted
+user's own notification gone, the open review withdrawn as `system`, the owned game archived, the
+history entry pseudonymized with `user_id` nulled, the room-participant row showing a `LEFT`
+departure with `lost_announced_at` still null, username retained and email released on the `app_user`
+row. A second `DELETE` call gets `401` (no session left to authenticate with — the idempotent-retry
+case `rest-conventions.md`'s general `DELETE` rule describes never arises here). A guest gets `403`.
+`./mvnw verify -Pintegration` green locally, run five times to confirm no flakiness. CI green on
+`turnbase-platform` `master` (`build`; `e2e` stays blocked on the same un-provisioned
+`TURNBASE_GAME_HOST_PAT` every prior session's run also shows) — the first CI push caught a real bug
+the local run hadn't: `UUID.compareTo` orders by signed-long comparison of the two halves, while
+Postgres's `uuid` type orders by unsigned byte value, so a test fixture ordering a `friendship` pair
+by `UUID.compareTo` violates `friendship_order_ck` for roughly half of random UUID pairs — passed
+locally by chance, failed in CI on a different random draw. Fixed by comparing the canonical string
+form instead, which matches Postgres's byte ordering exactly.
 
 **Closed:** IMP-GATE-32 (opened and closed 2026-09-08, session 33) — this item's *Satisfies* claimed
 the full `FR-ACCT-004…010` range, but `FR-ACCT-009` (deleted-profile placeholder) and `FR-ACCT-010`

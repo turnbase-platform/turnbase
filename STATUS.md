@@ -1,44 +1,50 @@
 ## Last Session Summary
 
-**Date:** 2026-09-08 (session 32)
+**Date:** 2026-09-08 (session 33)
 
-**IMP-M1-07 — Profiles and privacy settings. DONE. 18 of 61 items complete.**
-`account.ProfileController` (`/api/users`) adds `GET /{username}`, `PATCH /me`,
-`POST /me/password` and `PATCH /me/privacy`. The profile read (`ProfileService.view`, exempt from
-session auth via a new path-pattern match in `SessionAuthenticationInterceptor`, since the route
-carries a variable segment) resolves privacy **server-side**: FR-ACCT-009's deleted placeholder
-(checked first, so a purged-but-not-yet-hard-deleted guest gets it too), FR-GUEST-010's
-username-only guest view, FR-PROF-007's owner exemption (every section, regardless of settings), and
-otherwise a `visibleSections` array naming only the non-`HIDDEN` sections — `@JsonInclude(NON_NULL)`
-plus a named set, not a boolean map, is what makes "omits hidden sections" literal. `PATCH /me`
-(FR-ACCT-002/003) updates username and/or email in one call, each against its own rolling 30-day
-window (`AccountProperties.renameWindow`), rejecting an OAuth-sourced email outright. Password change
-(FR-ACCT-010) and the privacy toggles (FR-PROF-004/006/008) round out the surface; all three `/me/**`
-mutations `403` for a guest principal, which has neither an auth-method row nor a privacy-settings
-row to act on.
+**IMP-M1-08 — Account deletion and erasure. DONE. 19 of 61 items complete.**
+`account.AccountDeletionService`/`AccountErasureRepository` add `DELETE /api/users/me`. One
+`@Transactional` JDBC method disposes of every row in `data-model-accounts.md` §5's table, in the
+order the spec states: `user_session` revoked (`ACCOUNT_DELETED`), `user_auth_method` and
+`user_privacy_settings` deleted, `friendship` and `friend_request` deleted both directions,
+`room_invitation` deleted both legs (cascading the counterpart's `notification`), the caller's own
+`notification` rows deleted, any open `game_review` on an owned game withdrawn (`decided_by =
+'system'`), owned `game` rows archived, `game_history_entry` pseudonymized with a fresh
+`UUID.randomUUID()` subject token (not derived — ADR-0004 forbids a reversible construction),
+`app_user` soft-deleted (`deletion_reason = 'SELF_SERVICE'`, email released, username/skeleton
+retained per FR-ACCT-006), and `room_participant` departures last. Room closure/host-transfer is
+deliberately not attempted here — `room-lifecycle.md` §5.1 duty 2 on the owning instance discharges
+it within one sweep interval, since this REST-triggered transaction holds no room claim.
+`user_session` is written directly rather than through `session.SessionService` (which manages its
+own transaction boundary) precisely so the whole disposition table is one physical transaction;
+`SessionRevokedEvent` is published for each revoked session only after that transaction commits,
+closing live connections per FR-SESS-010. Guests get `403`, matching every other `/me/**` mutation.
 
-**The friends section's `FRIENDS_ONLY` value (FR-SOC-017) resolves as hidden for every non-owner
-viewer for now** — the confirmed-friendship check it needs is `IMP-M1-09`'s (depends on this item)
-and doesn't exist yet. Recorded as an obligation on `IMP-M1-09`'s own Done-when rather than a gate,
-same pattern as `IMP-M0-10`'s forward obligations — it doesn't make this item's own Done-when
-unsatisfiable as written.
+**Verified end to end.** `AccountDeletionControllerIT`: every disposition-table object seeded and
+checked after a real `DELETE` call against real Postgres — session revoked and the event published,
+auth method and privacy settings gone, friendship/friend-request/room-invitation gone, the deleted
+user's own notification gone, the open review withdrawn as `system`, the owned game archived, the
+history entry pseudonymized with `user_id` nulled, the room-participant row showing a `LEFT`
+departure, username retained and email released on the `app_user` row. A second `DELETE` call gets
+`401` (no session left to authenticate with). A guest gets `403`. `./mvnw verify -Pintegration`
+green locally, run five times to rule out flakiness. CI green on `turnbase-platform` `master`
+(`build`; `e2e` stays blocked on the same un-provisioned `TURNBASE_GAME_HOST_PAT` every prior
+session's run also shows).
 
-**Verified end to end.** `ProfileControllerIT` (13 tests, real Postgres): owner-sees-everything while
-private, zero sections for a non-owner on a private profile, a public profile hiding only its
-`HIDDEN` sections, an unauthenticated public read, the guest-only shape, the deleted placeholder (not
-a 404), an unknown username *is* a 404, the username window (success, then a same-window `422`, then
-a duplicate `409`), password change (`422` on a wrong current password, `204` and a working new
-password on success), and a guest `403` on the privacy route. `./mvnw verify -Pintegration` green
-locally (91 unit + 58 integration tests, full suite); CI green on `turnbase-platform` `master`
-(`build`, 6m34s — `e2e` stays blocked on the un-provisioned `TURNBASE_GAME_HOST_PAT`, the same
-pre-existing gap every prior session's run also shows).
+**The first CI push caught a real bug the local run hadn't.** `UUID.compareTo` orders by
+signed-long comparison of the two halves; Postgres's `uuid` type orders by unsigned byte value — a
+test fixture ordering a `friendship` pair by `UUID.compareTo` violates `friendship_order_ck` for
+roughly half of random UUID pairs, so it passed locally by chance and failed in CI on a different
+random draw. Fixed by comparing the canonical string form instead, which matches Postgres's byte
+ordering exactly.
 
-**One gate, opened and closed this session.** `IMP-GATE-31`: no document in the corpus named a route
-for FR-ACCT-002 (username update) or FR-ACCT-003 (email update); `rest-conventions.md`'s self-scoped
-account routes named the password and privacy endpoints but nothing for these two, and this item's
-own read-list never named `rest-conventions.md` at all despite it supplying every route/status code
-the item builds. Fixed: `rest-conventions.md` gained `PATCH /api/users/me` — one endpoint for both
-fields, each independently windowed, email rejected outright when OAuth-sourced; read-list corrected.
+**Two gates, both opened and closed this session.** `IMP-GATE-32`: the item's *Satisfies* claimed
+the full `FR-ACCT-004…010` range, but `FR-ACCT-009`/`FR-ACCT-010` are already implemented and
+claimed by `IMP-M1-07`, and neither appears in this item's own *Done when* clause. Narrowed to
+`FR-ACCT-004…008`. `IMP-GATE-33`: no document named a route for FR-ACCT-004 itself; fixed by adding
+`DELETE /api/users/me` to `rest-conventions.md`. Also repaired this item's read-list to add
+`data-model-social.md` §§1–2 (the `friendship`/`friend_request` schema the erasure transaction
+writes against) — missing from the original list, no gate needed for that class of gap.
 
 ---
 ## Next Priorities
@@ -135,7 +141,7 @@ endpoint itself and was missing.
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
-**Progress: 18 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 19 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
 `turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), `IMP-M0-05`
 (Frontend skeleton, `turnbase-frontend`), `IMP-M0-06` (Flyway baseline, `turnbase-platform`),
@@ -147,15 +153,15 @@ client, `turnbase-sdk`), `IMP-M1-01` (error model, REST conventions, validation 
 `turnbase-platform`), `IMP-M1-03` (JWT key set, issuance, rotation, `turnbase-platform`),
 `IMP-M1-04` (credential registration and login, `turnbase-platform`), `IMP-M1-06` (session
 lifecycle and displacement, `turnbase-platform`), `IMP-M1-05` (guest minting and purge,
-`turnbase-platform`) and `IMP-M1-07` (profiles and privacy settings, `turnbase-platform`), all
-pushed and green in CI.
+`turnbase-platform`), `IMP-M1-07` (profiles and privacy settings, `turnbase-platform`) and
+`IMP-M1-08` (account deletion and erasure, `turnbase-platform`), all pushed and green in CI.
 **No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
 whatever its own dependencies imply.
 
-**Next up in M1**: `IMP-M1-08` (account deletion and erasure) and `IMP-M1-09` (social graph —
-friendships and requests, which now also owes the real `FRIENDS_ONLY` check `IMP-M1-07` left
-conservative) are `READY` off `IMP-M1-07`. `IMP-M1-10` (Google OAuth) remains `READY` off
-`IMP-M1-04`. `IMP-M1-02` (rate limiter) remains independently `READY` off `IMP-M1-01`. `IMP-M2-01`
+**Next up in M1**: `IMP-M1-09` (social graph — friendships and requests, which now also owes the
+real `FRIENDS_ONLY` check `IMP-M1-07` left conservative) is `READY` off `IMP-M1-07`. `IMP-M1-10`
+(Google OAuth) remains `READY` off `IMP-M1-04`. `IMP-M1-02` (rate limiter) remains independently
+`READY` off `IMP-M1-01`. `IMP-M2-01`
 (room CRUD and listing) is `READY` off `IMP-M1-06`, the first M2 item on the board. `IMP-M5-03`
 (notifications and the SSE stream) is now also `READY`, off both `IMP-M1-06` and `IMP-M1-07`.
 
