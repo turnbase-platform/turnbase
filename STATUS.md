@@ -54,6 +54,14 @@ existed with nothing behind it since it was written); fixed by adding
 ---
 ## Next Priorities
 
+**IMP-GATE-36** (`IMP-M1-02`, opened and closed 2026-09-08, session 35) — `secrets-and-configuration.md`
+required a shared Redis `requirepass` but never named the Spring property carrying it into a running
+service (unlike the PostgreSQL section right above it), and `local-environment.md` §7.9's Redis URL row
+showed no credentials. Fixed: `secrets-and-configuration.md` § Redis now names
+`spring.data.redis.password` (`SPRING_DATA_REDIS_PASSWORD`), kept separate from the URL the same way
+the datasource password is; `local-environment.md` §7.9 gained the row. `IMP-M1-02` (rate limiter) is
+`WIP` again, session 35.
+
 **Next up in M1**: `IMP-M1-10` (Google OAuth) remains `READY` off `IMP-M1-04`. `IMP-M1-02` (rate
 limiter) remains independently `READY` off `IMP-M1-01`. `IMP-M2-01` (room CRUD and listing) is
 `READY` off `IMP-M1-06` — its listing predicate needs a `friendship` join for `FRIENDS_ONLY` rooms,

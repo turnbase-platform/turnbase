@@ -522,6 +522,7 @@ TLS, per §2's "one network, flat."
 | `spring.datasource.username` | `turnbase_app` | `SPRING_DATASOURCE_USERNAME` |
 | `spring.datasource.hikari.maximum-pool-size` | `20` | `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE` |
 | `spring.data.redis.url` | `redis://redis:6379` | `SPRING_DATA_REDIS_URL` |
+| `spring.data.redis.password` | **no default** — secret, `secrets-and-configuration.md` § Redis (`TURNBASE_REDIS_PASSWORD`) | `SPRING_DATA_REDIS_PASSWORD` |
 | `turnbase.artifact-store.endpoint` | `http://minio:9000` | `TURNBASE_ARTIFACT_STORE_ENDPOINT` |
 | `turnbase.artifact-store.bucket` | `turnbase-bundles` | `TURNBASE_ARTIFACT_STORE_BUCKET` |
 | `management.server.port` | `8081` | `MANAGEMENT_SERVER_PORT` |

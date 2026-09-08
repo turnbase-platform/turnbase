@@ -42,7 +42,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M0-12 | Seed data | platform | M0-06, M4-03 | READY |
 | **M1 — Accounts and sessions** ||||
 | IMP-M1-01 | Error model, REST conventions, validation harness | platform | M0-03 | DONE |
-| IMP-M1-02 | Rate limiter (Tiers 1–5) | platform | M1-01 | READY |
+| IMP-M1-02 | Rate limiter (Tiers 1–5) | platform | M1-01 | WIP (session 35) |
 | IMP-M1-03 | JWT key set, issuance, rotation | platform | M0-09 | DONE |
 | IMP-M1-04 | Credential registration and login | platform | M1-01, M1-03 | DONE |
 | IMP-M1-05 | Guest minting and purge | platform | M1-04 | DONE |
@@ -1075,6 +1075,20 @@ branch nobody wrote.
 ### IMP-M1-02 — Rate limiter, Tiers 1–5
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-01
+
+**Closed:** IMP-GATE-36 (opened and closed 2026-09-08, session 35) — `secrets-and-configuration.md`'s
+inventory (§1) and its own "### Redis" section (§4) required `requirepass`, one password shared by
+the monolith and the Game Host, and `docker-compose.yml`'s `redis` service already enforced it
+(`TURNBASE_REDIS_PASSWORD`) — but no document named the Spring property that carries it into a
+running service (unlike the PostgreSQL section two headings above, which names
+`TURNBASE_DB_APP_PASSWORD` → `SPRING_DATASOURCE_PASSWORD` explicitly), `local-environment.md` §7.9's
+`spring.data.redis.url` row showed a bare `redis://redis:6379` default with no credentials, and the
+`platform` service's own environment block in `docker-compose.yml` set no Redis-related variable at
+all. Fixed: `secrets-and-configuration.md` § Redis now names `spring.data.redis.password`
+(`SPRING_DATA_REDIS_PASSWORD`) as the carrier, kept separate from the URL the same way
+`spring.datasource.password` is kept separate from `spring.datasource.url`; `local-environment.md`
+§7.9 gained the corresponding row. Wiring `docker-compose.yml`'s `platform` service to actually pass
+both is this item's own implementation work, not a further spec fix.
 
 **Read first:**
 - `docs/specs/api-design/rate-limiting.md` — Tiers 1–5, *Client identity: deriving the IP*, the 429

@@ -257,6 +257,14 @@ services hold different credentials with different key-prefix permissions, which
 the two are separately trusted; they are both first-party services on an internal network, and the
 Game Host already has broader capabilities than key access through the gRPC seam.
 
+**Where the split is actually made**, mirroring the PostgreSQL section above: `TURNBASE_REDIS_PASSWORD`
+is the `.env`/compose secret — it already sets the `redis` service's own `requirepass` via its
+`command:` args (`local-environment.md` §7.9's compose file). Each consuming service reaches it as
+`spring.data.redis.password` (`SPRING_DATA_REDIS_PASSWORD`), the standard Spring Data Redis property,
+kept separate from `spring.data.redis.url` the same way `spring.datasource.password` is kept separate
+from `spring.datasource.url` — a connection string is not a secret-bearing value in this corpus. The
+Game Host's Redis client applies the same two properties under its own configuration surface.
+
 **No TLS between services.** `platform-operations.md` puts service mesh and internal TLS out of
 scope; NFR-SEC-002's "TLS 1.2+ on all endpoints" is a client-facing requirement, and its extension
 inward is a production concern (§7).
