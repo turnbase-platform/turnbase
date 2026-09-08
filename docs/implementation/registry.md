@@ -1864,6 +1864,32 @@ bite:
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-06, IMP-M2-03
 
+**Closed:** IMP-GATE-41 (opened and closed 2026-09-08, session 38) — this item's read-list never named
+[`data-model-catalog.md`](../specs/platform/data-model-catalog.md), although the endpoints it
+determines cannot be built without it. Three separate needs land in that document and were nowhere in
+the read-list: (1) `room-rest-api.md` §3's `canJoin`/`canSpectate` predicate and §3's row shape
+(FR-LIST-002, FR-LIST-003a) need `game_version.min_players`, `.max_players`, `.supports_ai`,
+`.supports_spectators`, `.supports_mid_game_join` — the actual queryable columns, joined via
+`room.game_id`/`room.game_version` → `game_version(game_id, version)`; (2) `room-rest-api.md` §2's
+create transaction said only "a game with an ACTIVE version the caller may see", but
+`data-model-catalog.md` §1 *Where the write-side rules are enforced* names this as three concrete,
+separately-checked preconditions on `INSERT INTO room` — `game.deleted_at IS NULL AND
+game.archived_at IS NULL` (FR-GAME-013), `game.listed OR :creator = game.owner_user_id` (FR-GAME-007),
+`game.badge <> 'UNVERIFIED' OR :creator = game.owner_user_id` (FR-PRV-002) — none of which
+`room-rest-api.md` stated; (3) `gameName`/`hostUsername` in the list row and detail resource resolve
+through `game.title` and `app_user.username` via `room.host_user_id`, both defined outside the
+original read-list.
+
+Also fixed a naming defect in the document that **was** read: `room-rest-api.md` §3 wrote
+`game.capabilities.midGameJoin` and `game.capabilities.spectating` as if `game` carried a
+`capabilities` object directly. It does not — `manifest-schema.md` §`capabilities` names the JSON
+field `spectators`, not `spectating`, and `data-model-catalog.md` §2 projects it onto
+`game_version.supports_spectators`/`.supports_mid_game_join`, not a nested object on `game` at all.
+Fixed: `room-rest-api.md` §3's predicate (and §5 step 3's `IN_PROGRESS` mid-game-join check) now name
+`gameVersion.supports_mid_game_join`/`.supports_spectators` and cite `data-model-catalog.md` §2; §2's
+`gameId` field description now states the three room-creation preconditions explicitly; the *Related*
+table gained `data-model-catalog.md`. This item's read-list gained `data-model-catalog.md` §1–§2.
+
 **Closed:** IMP-GATE-40 (opened and closed 2026-09-08, session 37) — this item's own Done-when clause
 5 requires the room-ownership claim/redirect/`503` mechanism, which `room-lifecycle.md` §1 documents
 in full and which `IMP-M2-03` ("Ownership claim, lease, epoch fence") is the item that builds — but
@@ -1914,11 +1940,16 @@ FR-XFER-003 are this item's, not the host-transfer STOMP layer's.
 - `docs/specs/api-design/room-rest-api.md` **in full** — the five endpoints, §3's inclusion
   predicate, §5's join contract, §7's error table
 - `docs/specs/platform/data-model.md` §1 (`room`), §2 (`room_participant`), §3 (`room_team`)
+- `docs/specs/platform/data-model-catalog.md` §1 (`game`), §2 (`game_version`) — the room-creation
+  preconditions (FR-GAME-013, FR-GAME-007, FR-PRV-002) and the `min_players`/`max_players`/
+  `supports_ai`/`supports_spectators`/`supports_mid_game_join` columns behind §3's `canJoin`/
+  `canSpectate` predicate and row shape (`IMP-GATE-41`)
 - `docs/requirements/game-rooms.md` FR-CREATE-001…004, FR-LIST-001…007, FR-JOIN-001…006
 - `docs/specs/api-design/pagination-filtering-sorting.md`, `rest-conventions.md`
-- `docs/specs/manifest/manifest-schema.md` § `capabilities`, § `teamTemplates` — the JSON shape behind
-  `game.capabilities.midGameJoin`/`.spectating` and FR-TEAM-012's team instantiation; no other
-  read-list document defines it (repaired, no gate — a plain missing citation)
+- `docs/specs/manifest/manifest-schema.md` § `capabilities`, § `teamTemplates` — the manifest JSON
+  shape `data-model-catalog.md` §2 projects onto `game_version`'s capability columns, and FR-TEAM-012's
+  team instantiation; no other read-list document defines it (repaired, no gate — a plain missing
+  citation)
 
 **Satisfies:** `game-rooms.md` FR-CREATE-001…004, FR-LIST-001…007, FR-JOIN-001…007, FR-XFER-003,
 FR-HOST-002, FR-LIFE-004, NFR-PERF-001, NFR-SEC-001…002, NFR-USAB-001, NFR-SPEC-001;

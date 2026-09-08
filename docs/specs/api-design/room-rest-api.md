@@ -17,6 +17,7 @@ FR-LIST-001…007, FR-LIFE-004, FR-XFER-003 and FR-HOST-002. Closes review block
 | [room-websocket.md](room-websocket.md) | Everything a client does after it has joined |
 | [../platform/room-lifecycle.md](../platform/room-lifecycle.md) | The ownership claim these endpoints run (§1.2) and the affinity hint they return (§1.7) |
 | [../platform/data-model.md](../platform/data-model.md) | `room`, `room_participant`, `room_team` — the column names used below |
+| [../platform/data-model-catalog.md](../platform/data-model-catalog.md) | `game`, `game_version` — the room-creation preconditions of §2, and the capability/count columns behind §3's predicate |
 | [../../requirements/game-rooms.md](../../requirements/game-rooms.md) | The requirements this realizes |
 
 ---
@@ -97,7 +98,7 @@ Content-Type: application/json
 
 | Field | Rules |
 |---|---|
-| `gameId` | Required. Must name a game with an `ACTIVE` version the caller may see (`game-catalog.md` NFR-SEC-002 — an unlisted game is `404`, never `403`) |
+| `gameId` | Required. Must name a game with an `ACTIVE` version the caller may see (`game-catalog.md` NFR-SEC-002 — an unlisted game is `404`, never `403`) — precisely, all three of `data-model-catalog.md` §1's room-creation preconditions: `game.deleted_at IS NULL AND game.archived_at IS NULL` (FR-GAME-013), `game.listed OR :creator = game.owner_user_id` (FR-GAME-007), and `game.badge <> 'UNVERIFIED' OR :creator = game.owner_user_id` (FR-PRV-002). Any failing predicate is `404`, matching the caller-visibility test above — the three are one "can this caller see this game" question, not three different failures |
 | `visibility` | Required. `PUBLIC` \| `FRIENDS_ONLY` \| `INVITE_ONLY` (FR-CREATE-002) |
 | `spectatingEnabled` | Optional, default `false`. Rejected with `422` if the game's manifest does not declare spectator support — FR-CREATE-001 makes the choice conditional on the game supporting it, so accepting it silently would let a host promise something the game cannot do |
 
@@ -175,13 +176,19 @@ visible(room, viewer) :=
 ```
 canJoin(room, viewer) :=
       a non-blocked player slot is free
-  AND ( room.state = 'LOBBY' OR game.capabilities.midGameJoin )
+  AND ( room.state = 'LOBBY' OR gameVersion.supports_mid_game_join )
 
 canSpectate(room, viewer) :=
       room.spectating_enabled
-  AND game.capabilities.spectating
+  AND gameVersion.supports_spectators
   AND spectatorCount < spectatorCapacity                                            -- NFR-SPEC-001
 ```
+
+`gameVersion` is the `game_version` row named by `room.game_id`/`room.game_version`
+(`data-model-catalog.md` §2 — not the *active* version, since a room pins the version it was created
+against). `supports_mid_game_join` and `supports_spectators` are that document's projections of the
+manifest's `capabilities.midGameJoin`/`capabilities.spectators`, computed once at validation; a room's
+capabilities never change after creation because `game_version` rows are immutable once activated.
 
 `spectatorCapacity` is the platform property `turnbase.room.spectator-capacity` (default `8`,
 [`../deployment/local-environment.md`](../deployment/local-environment.md) §7.1), not a per-room or
@@ -364,7 +371,8 @@ Inside one transaction, against the room row locked `FOR UPDATE`:
    error (`201` with the current resource). A double-submitted join is a client retrying, not a
    conflict.
 3. **State** — `CLOSED` is `404` (FR-XFER-003). `IN_PROGRESS` with `role: PLAYER` additionally
-   requires `game.capabilities.midGameJoin` (FR-JOIN-006).
+   requires `gameVersion.supports_mid_game_join` (§3's `gameVersion`, `data-model-catalog.md` §2;
+   FR-JOIN-006).
 4. **Capacity.** For `PLAYER`: a free, **non-blocked** slot must exist. A slot is blocked when it is
    occupied by an AI player or held by a live grace-period reservation (`game-rooms.md` Definitions);
    a reservation that has expired is not blocked, which is what makes FR-JOIN-006's

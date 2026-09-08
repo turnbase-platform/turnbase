@@ -49,6 +49,21 @@ also shows).
 ---
 ## Next Priorities
 
+**IMP-GATE-41** (`IMP-M2-01`, opened and closed 2026-09-08, session 38) — this item's read-list never
+named `docs/specs/platform/data-model-catalog.md`, though `room-rest-api.md`'s create transaction and
+its §3 listing predicate both depend on it: the three room-creation preconditions (FR-GAME-013,
+FR-GAME-007, FR-PRV-002 — deleted/archived/listed/badge on `game`) were never stated, and the
+`canJoin`/`canSpectate` predicate and row shape (FR-LIST-002, FR-LIST-003a) need
+`game_version.min_players`/`.max_players`/`.supports_ai`/`.supports_spectators`/
+`.supports_mid_game_join` — columns that document alone supplies. Also fixed a naming defect this
+exposed: `room-rest-api.md` wrote `game.capabilities.midGameJoin`/`.spectating`, matching neither
+`manifest-schema.md`'s real field (`capabilities.spectators`, not `.spectating`) nor the persisted
+column (`game_version.supports_spectators`). Fixed: `room-rest-api.md` §2/§3/§5 now name
+`gameVersion.supports_mid_game_join`/`.supports_spectators` and cite `data-model-catalog.md` §2; §2's
+`gameId` row states the three preconditions explicitly; *Related* gained the citation; `IMP-M2-01`'s
+read-list gained `data-model-catalog.md` §1–§2. **`IMP-M2-01` is `WIP` (session 38) and code is
+next.**
+
 **IMP-GATE-40** (`IMP-M2-01`, opened and closed 2026-09-08, session 37) — this item's Done-when clause
 5 needs the room-ownership claim/redirect/`503` mechanism that `IMP-M2-03` builds, but `IMP-M2-03`
 depended on `IMP-M2-02`, which depended on `IMP-M2-01` — a cycle in substance. `IMP-M2-04`, `IMP-M2-07`
