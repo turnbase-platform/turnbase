@@ -47,7 +47,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M1-04 | Credential registration and login | platform | M1-01, M1-03 | DONE |
 | IMP-M1-05 | Guest minting and purge | platform | M1-04 | DONE |
 | IMP-M1-06 | Session lifecycle and displacement | platform | M1-04 | DONE |
-| IMP-M1-07 | Profiles and privacy settings | platform | M1-04 | WIP (session 32) |
+| IMP-M1-07 | Profiles and privacy settings | platform | M1-04 | DONE |
 | IMP-M1-08 | Account deletion and erasure | platform | M1-07 | READY |
 | IMP-M1-09 | Social graph — friendships and requests | platform | M1-07 | READY |
 | IMP-M1-10 | Google OAuth registration and login | platform | M1-04 | READY |
@@ -1407,6 +1407,40 @@ else. `user-accounts.md` is the one that governs here.
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-04
 
+**Done 2026-09-08 (session 32).** `account.ProfileController` (`/api/users`) adds four endpoints
+alongside `AuthController`'s. `GET /{username}` (`ProfileService.view`, exempt from
+`SessionAuthenticationInterceptor` via the new `isPublicProfileRead` path match, since the route
+carries a variable segment `PUBLIC_PATHS`'s literal set can't match) resolves privacy **server-side**
+against `ProfileRepository.findBySkeleton`'s single query: a soft-deleted row returns the FR-ACCT-009
+placeholder (`{"username","deleted":true}`, checked before kind so a purged guest gets it too), a
+`GUEST` row returns username-only (FR-GUEST-010), the owner (viewer id equals the row's) always gets
+every section regardless of settings (FR-PROF-007), a private non-owner view gets none, and otherwise
+`visibleSections` names only the sections not `HIDDEN` — `@JsonInclude(NON_NULL)` plus a *named*
+(not boolean) section set is what makes "omits hidden sections" literal rather than a client-trust
+convention. `PATCH /me` (FR-ACCT-002/003) updates username and/or email in one call, each against its
+own `username_changed_at`/`email_changed_at` window (`AccountProperties.renameWindow`, already wired
+by `IMP-M0-09`), rejecting an OAuth-sourced email outright. `POST /me/password` (FR-ACCT-010) and
+`PATCH /me/privacy` (FR-PROF-004/006/008) round out the surface; all three `/me/**` mutations 403 for
+a `GUEST` principal, which has no `user_auth_method` row to change a password against and no
+`user_privacy_settings` row to patch (`data-model-accounts.md` §4: "a row exists only for registered
+users").
+
+**The friends section's third value, `FRIENDS_ONLY` (`social-friends.md` FR-SOC-017), resolves as
+hidden for every non-owner viewer for now** — the confirmed-friendship check it needs is
+`IMP-M1-09`'s, which depends on this item and does not exist yet. Recorded as a sentence on
+`IMP-M1-09`'s own section below (same pattern as `IMP-M0-10`'s forward obligations) rather than a
+gate, since it does not make this item's own Done-when unsatisfiable as written.
+
+**Verified end to end.** `ProfileControllerIT` (13 tests, real Postgres): owner-sees-everything while
+private, a private profile showing zero sections to another viewer, a public profile hiding only its
+`HIDDEN` sections, an unauthenticated read of a public profile, the guest-only shape, the deleted
+placeholder (not a 404), an unknown username *is* a 404, the username-window enforcement (success,
+then a same-window rejection as `422`, then a duplicate as `409`), password change (wrong current
+password `422`, correct one `204` and the new password logs in), and a guest `403` on the privacy
+route. `./mvnw verify -Pintegration` green locally (91 unit + 58 integration tests, full suite); CI
+green on `turnbase-platform` `master` (`build`, 6m34s — `e2e` stays blocked on the un-provisioned
+`TURNBASE_GAME_HOST_PAT`, the same pre-existing gap every prior session's run also shows).
+
 **Closed:** IMP-GATE-31 (opened and closed 2026-09-08, session 32) — no document in the corpus named a
 route for FR-ACCT-002 (username update) or FR-ACCT-003 (email update); `rest-conventions.md`'s
 "self-scoped account routes" named `POST /api/users/me/password` and `PATCH /api/users/me/privacy`
@@ -1488,6 +1522,13 @@ FR-FREQ-001…006; `user-accounts.md` FR-GUEST-007
 FR-SOC-020 cannot be violated from any code path; friendship rows are stored in the canonical
 ordering `data-model-social.md` §1 defines, so the pair `(a,b)` and `(b,a)` cannot both exist; a
 blocked user's request is rejected without disclosing that a block exists.
+
+**Obligation left by `IMP-M1-07`:** `account.ProfileService.visibleSectionsFor` resolves the friends
+section's `FRIENDS_ONLY` value (FR-SOC-017) as hidden for every non-owner viewer, since the
+confirmed-friendship check it needs is this item's, not `IMP-M1-07`'s. This item's Done-when gains a
+fourth clause: replace that conservative resolution with an actual friendship check (a direct query
+against `friendship`, canonically ordered, is enough — no new public API is needed since
+`ProfileService` and this item's code both live in `turnbase-platform`).
 
 ---
 

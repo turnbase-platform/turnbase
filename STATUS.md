@@ -1,46 +1,44 @@
 ## Last Session Summary
 
-**Date:** 2026-09-08 (session 31)
+**Date:** 2026-09-08 (session 32)
 
-**IMP-M1-05 — Guest minting and purge. DONE. 17 of 61 items complete.**
-`POST /api/auth/guest` (`account.AuthController`) mints a credential-free guest —
-`account.GuestService.mint` inserts `kind='GUEST'`, a `guest-<serial>` username drawn from
-`guest_serial_seq` (`account.AccountRepository.insertGuestUser`), no `user_auth_method` row and no
-`user_privacy_settings` row — then issues a session through the same `SessionService.issueSession`
-registration and login already use, so the response is a `201` with the session cookie set. Exempt
-from NFR-SEC-006 per `IMP-GATE-29` (below).
+**IMP-M1-07 — Profiles and privacy settings. DONE. 18 of 61 items complete.**
+`account.ProfileController` (`/api/users`) adds `GET /{username}`, `PATCH /me`,
+`POST /me/password` and `PATCH /me/privacy`. The profile read (`ProfileService.view`, exempt from
+session auth via a new path-pattern match in `SessionAuthenticationInterceptor`, since the route
+carries a variable segment) resolves privacy **server-side**: FR-ACCT-009's deleted placeholder
+(checked first, so a purged-but-not-yet-hard-deleted guest gets it too), FR-GUEST-010's
+username-only guest view, FR-PROF-007's owner exemption (every section, regardless of settings), and
+otherwise a `visibleSections` array naming only the non-`HIDDEN` sections — `@JsonInclude(NON_NULL)`
+plus a named set, not a boolean map, is what makes "omits hidden sections" literal. `PATCH /me`
+(FR-ACCT-002/003) updates username and/or email in one call, each against its own rolling 30-day
+window (`AccountProperties.renameWindow`), rejecting an OAuth-sourced email outright. Password change
+(FR-ACCT-010) and the privacy toggles (FR-PROF-004/006/008) round out the surface; all three `/me/**`
+mutations `403` for a guest principal, which has neither an auth-method row nor a privacy-settings
+row to act on.
 
-**`account.GuestPurgeJob`** runs the two-phase purge on `turnbase.jobs.guest-cleanup.interval`, under
-`net.javacrumbs.shedlock`'s `@SchedulerLock` over the baseline's `shedlock` table (FR-JOB-005 — the
-first scheduled job in this repo, so also the first to need it; `SchedulerLock` was a new dependency
-this session). Revoke phase: `session.SessionService.revokeAllForUser` (new, public) revokes sessions
-first — the actual inaccessibility mechanism, since `SessionAuthenticationFilter` never consults
-`app_user` — then `deleted_at`/`deletion_reason='GUEST_EXPIRED'`/`purgeable_after` are set. Purge phase
-hard-deletes anything purgeable with no `room_participant` or `room.host_user_id` reference, in the
-same run — `purgeable_after` is the revoke instant, not a future deadline
-(`data-model-accounts.md` §1's "not on a timer").
+**The friends section's `FRIENDS_ONLY` value (FR-SOC-017) resolves as hidden for every non-owner
+viewer for now** — the confirmed-friendship check it needs is `IMP-M1-09`'s (depends on this item)
+and doesn't exist yet. Recorded as an obligation on `IMP-M1-09`'s own Done-when rather than a gate,
+same pattern as `IMP-M0-10`'s forward obligations — it doesn't make this item's own Done-when
+unsatisfiable as written.
 
-**Verified end to end.** `UsernamePolicyTest` covers the new guest-skeleton method.
-`AuthControllerIT` gained two tests proving guest mint issues a working, credential-free,
-immediately-authenticated session with a unique serial. `GuestPurgeJobIT` proves all three
-`Done when` clauses against a real Postgres: revoke phase (checked against a room-seated guest so
-the same-run purge phase doesn't remove the row first), the unreferenced case hard-deleted in the
-same run, and the load-bearing guarantee — a guest seated in a live room is never removed.
-`./mvnw verify -Pintegration` green locally (73 unit + 45 integration tests); CI green on
-`turnbase-platform` `master` (`build`, 8m3s — `e2e` stays blocked on the un-provisioned
-`TURNBASE_GAME_HOST_PAT`, the same pre-existing gap every prior session's run also shows).
+**Verified end to end.** `ProfileControllerIT` (13 tests, real Postgres): owner-sees-everything while
+private, zero sections for a non-owner on a private profile, a public profile hiding only its
+`HIDDEN` sections, an unauthenticated public read, the guest-only shape, the deleted placeholder (not
+a 404), an unknown username *is* a 404, the username window (success, then a same-window `422`, then
+a duplicate `409`), password change (`422` on a wrong current password, `204` and a working new
+password on success), and a guest `403` on the privacy route. `./mvnw verify -Pintegration` green
+locally (91 unit + 58 integration tests, full suite); CI green on `turnbase-platform` `master`
+(`build`, 6m34s — `e2e` stays blocked on the un-provisioned `TURNBASE_GAME_HOST_PAT`, the same
+pre-existing gap every prior session's run also shows).
 
-**Two gates, both opened and closed this session.** `IMP-GATE-29`: `user-accounts.md` NFR-SEC-006's
-exempt list named login and registration but not guest creation, though `rest-conventions.md`'s
-Authentication section derives its own "except" set from that exact list and separately calls
-`POST /api/auth/guest` unauthenticated outright — and a caller minting a guest has no session yet by
-definition, so the endpoint cannot require one. Fixed: NFR-SEC-006 now names it, with the reason
-inline. `IMP-GATE-30`: this item's *Satisfies* claimed the full `FR-GUEST-001…010` range, but
-FR-GUEST-010 (guest profile display) needs a `GET /api/users/{username}` endpoint that doesn't exist
-until `IMP-M1-07`, which was never a dependency here — and `user-accounts.md` FR-PROF-002 states the
-identical duty under a different ID in the same document. Same shape as
-`IMP-GATE-08`/`IMP-GATE-18`/`IMP-GATE-28`. Fixed: `IMP-M1-05` narrowed to `FR-GUEST-001…009`;
-`IMP-M1-07`'s *Satisfies* gained `FR-GUEST-010` alongside its existing `FR-PROF-002`.
+**One gate, opened and closed this session.** `IMP-GATE-31`: no document in the corpus named a route
+for FR-ACCT-002 (username update) or FR-ACCT-003 (email update); `rest-conventions.md`'s self-scoped
+account routes named the password and privacy endpoints but nothing for these two, and this item's
+own read-list never named `rest-conventions.md` at all despite it supplying every route/status code
+the item builds. Fixed: `rest-conventions.md` gained `PATCH /api/users/me` — one endpoint for both
+fields, each independently windowed, email rejected outright when OAuth-sourced; read-list corrected.
 
 ---
 ## Next Priorities
@@ -124,7 +122,7 @@ endpoint itself and was missing.
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
-**Progress: 17 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 18 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
 `turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), `IMP-M0-05`
 (Frontend skeleton, `turnbase-frontend`), `IMP-M0-06` (Flyway baseline, `turnbase-platform`),
@@ -135,18 +133,18 @@ build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleto
 client, `turnbase-sdk`), `IMP-M1-01` (error model, REST conventions, validation harness,
 `turnbase-platform`), `IMP-M1-03` (JWT key set, issuance, rotation, `turnbase-platform`),
 `IMP-M1-04` (credential registration and login, `turnbase-platform`), `IMP-M1-06` (session
-lifecycle and displacement, `turnbase-platform`) and `IMP-M1-05` (guest minting and purge,
-`turnbase-platform`), all pushed and green in CI.
+lifecycle and displacement, `turnbase-platform`), `IMP-M1-05` (guest minting and purge,
+`turnbase-platform`) and `IMP-M1-07` (profiles and privacy settings, `turnbase-platform`), all
+pushed and green in CI.
 **No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
 whatever its own dependencies imply.
 
-**Next up in M1**: `IMP-M1-07` (profiles and privacy
-settings) and `IMP-M1-10` (Google OAuth) are `READY` off `IMP-M1-04`. `IMP-M1-02` (rate limiter)
-remains independently `READY` off `IMP-M1-01`. `IMP-M2-01` (room CRUD and listing) is now `READY`
-off `IMP-M1-06`, the first M2 item on the board. `IMP-M1-06` closed the loop `IMP-M1-04` opened —
-FR-SESS-004's 401 shape for a displaced request and FR-SESS-011 logout are both built; FR-SESS-010's
-live-connection close is now split onto `IMP-M2-02`/`IMP-M5-03` (`IMP-GATE-28`), which don't exist
-to build against yet.
+**Next up in M1**: `IMP-M1-08` (account deletion and erasure) and `IMP-M1-09` (social graph —
+friendships and requests, which now also owes the real `FRIENDS_ONLY` check `IMP-M1-07` left
+conservative) are `READY` off `IMP-M1-07`. `IMP-M1-10` (Google OAuth) remains `READY` off
+`IMP-M1-04`. `IMP-M1-02` (rate limiter) remains independently `READY` off `IMP-M1-01`. `IMP-M2-01`
+(room CRUD and listing) is `READY` off `IMP-M1-06`, the first M2 item on the board. `IMP-M5-03`
+(notifications and the SSE stream) is now also `READY`, off both `IMP-M1-06` and `IMP-M1-07`.
 
 **IMP-GATE-25** (`IMP-M0-11`, opened and closed 2026-09-05) — `game-development-experience.md`
 CON-003 and ADR-0012's Release Strategy commit `turnbase-sdk` to Maven Central + npm, but no document
