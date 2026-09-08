@@ -1263,15 +1263,27 @@ unreachable. Fixed: NFR-SEC-006 now names the guest-creation endpoint alongside 
 registration, with the reason (no session exists yet to require) inline so the next reader doesn't
 re-derive it.
 
+**Closed:** IMP-GATE-30 (opened and closed 2026-09-08, session 31) — this item's *Satisfies* claimed
+the full `FR-GUEST-001…010` range, but FR-GUEST-010 ("Guest profile display... only the username")
+needs a `GET /api/users/{username}` profile-read endpoint that does not exist yet — that build is
+`IMP-M1-07`'s (`FR-PROF-001…008`), which was never a dependency here. `user-accounts.md` FR-PROF-002
+("Guest profile display") states the identical duty ("displays only the username... all other
+profile fields... are not shown") under a different ID in the same document — a duplicate
+`docs/requirements/INDEX.md` doesn't track, since it only lists prefix collisions *across*
+documents — not a second requirement to satisfy separately. Same shape as
+`IMP-GATE-08`/`IMP-GATE-18`/`IMP-GATE-28`. Fixed: this item's
+*Satisfies* narrowed to `FR-GUEST-001…009`; `IMP-M1-07`'s *Satisfies* below gained `FR-GUEST-010`
+alongside its existing `FR-PROF-002`, recording that the one endpoint discharges both IDs.
+
 **Read first:**
-- `docs/requirements/user-accounts.md` FR-GUEST-001…010, NFR-SEC-006
+- `docs/requirements/user-accounts.md` FR-GUEST-001…009, NFR-SEC-006
 - `docs/specs/platform/data-model-accounts.md` §1 (the `kind` discriminator)
 - `docs/requirements/platform-operations.md` FR-RET-002 (the guest purge window)
 - `docs/specs/deployment/local-environment.md` §7.3
 - `docs/specs/api-design/rest-conventions.md` § Authentication (`POST /api/auth/guest`'s route,
   status code and response shape — the read-list omitted the one document naming the endpoint itself)
 
-**Satisfies:** `user-accounts.md` FR-GUEST-001…010; `platform-operations.md` FR-RET-002
+**Satisfies:** `user-accounts.md` FR-GUEST-001…009; `platform-operations.md` FR-RET-002
 
 **Done when:** a guest principal can be minted without registration; guest serials are unique
 (FR-GUEST-002); guests have no auth method, no friends, no statistics and no uploads (FR-GUEST-004,
@@ -1374,7 +1386,9 @@ else. `user-accounts.md` is the one that governs here.
 - `docs/requirements/platform-views.md` VW-PROF-001…008, VW-SET-001…007 — the rendering contract the
   API must be able to satisfy
 
-**Satisfies:** `user-accounts.md` FR-PROF-001…008, FR-ACCT-002…003, FR-ACCT-009…010
+**Satisfies:** `user-accounts.md` FR-PROF-001…008, FR-ACCT-002…003, FR-ACCT-009…010, FR-GUEST-010
+(`IMP-GATE-30`: FR-PROF-002 and FR-GUEST-010 are the same "guest profile shows only the username"
+duty under two IDs — the `GET /api/users/{username}` endpoint built here discharges both)
 
 **Done when:** privacy is evaluated **server-side on every read** and the response omits hidden
 sections rather than returning them for the client to hide; **the owner is exempt from every one of

@@ -49,6 +49,15 @@ governs — fixed by exempting the prefix in `SessionAuthenticationInterceptor` 
 ---
 ## Next Priorities
 
+**IMP-GATE-30** (`IMP-M1-05`, opened and closed 2026-09-08, session 31) — `IMP-M1-05`'s *Satisfies*
+claimed the full `FR-GUEST-001…010` range, but FR-GUEST-010 (guest profile display) needs a
+`GET /api/users/{username}` endpoint that doesn't exist until `IMP-M1-07`, which was never a
+dependency here — and `user-accounts.md` FR-PROF-002 states the identical duty under a different ID
+in the same document, a duplicate `docs/requirements/INDEX.md` doesn't track since it only lists
+cross-document prefix collisions. Same shape as `IMP-GATE-08`/`IMP-GATE-18`/`IMP-GATE-28`. Fixed:
+`IMP-M1-05` narrowed to `FR-GUEST-001…009`; `IMP-M1-07`'s *Satisfies* gained `FR-GUEST-010` alongside
+its existing `FR-PROF-002`.
+
 **IMP-GATE-29** (`IMP-M1-05`, opened and closed 2026-09-08, session 31) — `user-accounts.md`
 NFR-SEC-006's exempt list named the login and registration endpoints but not guest creation, even
 though `rest-conventions.md`'s Authentication section derives its own "except" set from that exact
