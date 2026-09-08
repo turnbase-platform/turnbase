@@ -1478,16 +1478,26 @@ FR-ACCT-009 placeholder rather than a 404; a guest profile returns the username 
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-07
 
+**Closed:** IMP-GATE-32 (opened and closed 2026-09-08, session 33) — this item's *Satisfies* claimed
+the full `FR-ACCT-004…010` range, but `FR-ACCT-009` (deleted-profile placeholder) and `FR-ACCT-010`
+(password change) are already implemented and claimed by `IMP-M1-07` — `ProfileService.view`'s
+deleted-placeholder branch and `POST /me/password`, both verified in `ProfileControllerIT` — and
+neither appears in this item's own *Done when* clause, which only ever tested the erasure-transaction
+disposition table. Same shape as `IMP-GATE-08`/`18`/`28`/`30`. Fixed: narrowed to `FR-ACCT-004…008`
+below, which is what this item actually builds — the deletion endpoint sets `deleted_at`, so
+`FR-ACCT-009`'s already-built display renders correctly once this item runs, with no new code owed to
+it here.
+
 **Read first:**
 - `docs/decisions/0004-account-erasure-pseudonymization.md`
 - `docs/specs/platform/data-model-accounts.md` §5 in full — *Erasure: what account deletion actually
   writes*. §5 enumerates every object and its disposition; that enumeration is the specification.
-- `docs/requirements/user-accounts.md` FR-ACCT-004…010
+- `docs/requirements/user-accounts.md` FR-ACCT-004…008
 - `docs/specs/platform/data-model-catalog.md` §5, `data-model-history.md` §4,
   `data-model-notifications.md` §2 — the three documents that own the non-account objects §5 disposes of
 - `docs/specs/platform/room-lifecycle.md` §4, §5.1 duty 2 — how an owed room closure is discharged
 
-**Satisfies:** `user-accounts.md` FR-ACCT-004…010; `platform-operations.md` FR-RET-001, FR-RET-005
+**Satisfies:** `user-accounts.md` FR-ACCT-004…008; `platform-operations.md` FR-RET-001, FR-RET-005
 
 **Done when:** erasure is non-reversible — **a random token, not an HMAC**; `HMAC(user_id, pepper)`
 is reversible by enumeration over a small id space given the key, which ADR-0004 forbids. Every

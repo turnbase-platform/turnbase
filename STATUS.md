@@ -43,6 +43,12 @@ fields, each independently windowed, email rejected outright when OAuth-sourced;
 ---
 ## Next Priorities
 
+**IMP-GATE-32** (`IMP-M1-08`, opened and closed 2026-09-08, session 33) — the item's *Satisfies*
+claimed the full `FR-ACCT-004…010` range, but `FR-ACCT-009` (deleted-profile placeholder) and
+`FR-ACCT-010` (password change) are already implemented and claimed by `IMP-M1-07`, and neither
+appears in `IMP-M1-08`'s own *Done when* clause. Same shape as `IMP-GATE-08`/`18`/`28`/`30`. Fixed:
+narrowed to `FR-ACCT-004…008`, the erasure duties this item actually builds.
+
 **IMP-GATE-31** (`IMP-M1-07`, opened and closed 2026-09-08, session 32) — no document in the corpus
 named a route for FR-ACCT-002 (username update) or FR-ACCT-003 (email update); `rest-conventions.md`'s
 self-scoped account routes named the password and privacy endpoints but nothing for these two, and
