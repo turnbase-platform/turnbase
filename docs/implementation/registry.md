@@ -52,7 +52,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M1-09 | Social graph — friendships and requests | platform | M1-07 | DONE |
 | IMP-M1-10 | Google OAuth registration and login | platform | M1-04 | DONE |
 | **M2 — Rooms and realtime** ||||
-| IMP-M2-01 | Room CRUD and listing | platform | M1-06 | READY |
+| IMP-M2-01 | Room CRUD and listing | platform | M1-06 | WIP (session 37) |
 | IMP-M2-02 | STOMP endpoint, auth, subscriptions | platform | M2-01 | READY |
 | IMP-M2-03 | Ownership claim, lease, epoch fence | platform | M2-02 | READY |
 | IMP-M2-04 | Room event versioning and fan-out | platform | M2-03 | READY |
