@@ -50,7 +50,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M1-07 | Profiles and privacy settings | platform | M1-04 | DONE |
 | IMP-M1-08 | Account deletion and erasure | platform | M1-07 | DONE |
 | IMP-M1-09 | Social graph — friendships and requests | platform | M1-07 | DONE |
-| IMP-M1-10 | Google OAuth registration and login | platform | M1-04 | WIP (session 36) |
+| IMP-M1-10 | Google OAuth registration and login | platform | M1-04 | BLOCKED |
 | **M2 — Rooms and realtime** ||||
 | IMP-M2-01 | Room CRUD and listing | platform | M1-06 | READY |
 | IMP-M2-02 | STOMP endpoint, auth, subscriptions | platform | M2-01 | READY |
@@ -1742,6 +1742,16 @@ against `friendship`, canonically ordered, is enough — no new public API is ne
 ### IMP-M1-10 — Google OAuth registration and login
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-04
+
+**Gate:** IMP-GATE-37 — no document in the corpus names the JSON/redirect REST surface this item
+builds. `secrets-and-configuration.md` §5 and `flows/01-arrival-and-account.md` §E name two
+browser-navigated paths (`/auth/callback`, `/auth/complete-registration`) but not the endpoint the
+"Continue with Google" button hits, not the JSON endpoint the complete-registration page calls to
+learn the pending email or submit the username, and not any endpoint for FR-AUTH-016's
+credential-challenge-and-link step. `rest-conventions.md`'s Authentication section — the document that
+names every other auth endpoint (`login`, `guest`, `logout`, `session`) — is missing from this item's
+own read-list despite being the natural home. Same shape as IMP-GATE-31/33/35. Opened 2026-09-08. Fix
+belongs in a new `docs/specs/api-design/oauth-rest-api.md`.
 
 **Added 2026-09-06 (session 29), closing IMP-GATE-26** — see `IMP-M1-04`'s *Closed* note. Split out
 because credential auth (`FR-AUTH-006`) is complete without it (`secrets-and-configuration.md` §1

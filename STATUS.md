@@ -51,6 +51,11 @@ the datasource password is; `local-environment.md` §7.9 gained the row.
 ---
 ## Next Priorities
 
+**IMP-GATE-37** (`IMP-M1-10`, opened 2026-09-08, session 36) — no document names the JSON/redirect
+REST surface this item builds (the OAuth-initiate route, the pending-registration JSON endpoints, the
+FR-AUTH-016 challenge-and-link endpoint), and the item's read-list never named `rest-conventions.md`
+either. Fix in progress: new `docs/specs/api-design/oauth-rest-api.md`.
+
 **Next up in M1**: `IMP-M1-10` (Google OAuth) remains `READY` off `IMP-M1-04` — the only item still
 pickable in M1 proper. `IMP-M2-01` (room CRUD and listing) is `READY` off `IMP-M1-06` — its listing
 predicate needs a `friendship` join for `FRIENDS_ONLY` rooms, which `IMP-M1-09` now supplies.
