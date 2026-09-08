@@ -46,7 +46,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M1-03 | JWT key set, issuance, rotation | platform | M0-09 | DONE |
 | IMP-M1-04 | Credential registration and login | platform | M1-01, M1-03 | DONE |
 | IMP-M1-05 | Guest minting and purge | platform | M1-04 | READY |
-| IMP-M1-06 | Session lifecycle and displacement | platform | M1-04 | READY |
+| IMP-M1-06 | Session lifecycle and displacement | platform | M1-04 | WIP (session 30) |
 | IMP-M1-07 | Profiles and privacy settings | platform | M1-04 | READY |
 | IMP-M1-08 | Account deletion and erasure | platform | M1-07 | READY |
 | IMP-M1-09 | Social graph — friendships and requests | platform | M1-07 | READY |
