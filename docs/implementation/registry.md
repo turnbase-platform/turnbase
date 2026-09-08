@@ -1864,16 +1864,42 @@ bite:
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-06
 
+**Closed:** IMP-GATE-39 (opened and closed 2026-09-08, session 37) — this item's read-list never named
+`docs/specs/platform/room-lifecycle.md`, although `room-rest-api.md` (this item's own read-list
+document, in full) cites it repeatedly as the mechanism behind Done-when clause 5 (the room-ownership
+claim behind the `503`/`Retry-After` and `X-TurnBase-Room-Instance` behaviour, §1.2/§1.7) and behind
+the delegation boundary in §6 (host-leave consequences run under `room-lifecycle.md` §4, not this
+item). Separately, `room-rest-api.md` §5, §3, §3.1 and §4 build FR-JOIN-007 (the single-room
+constraint, entirely inside the REST join transaction), FR-XFER-003 (closed-room invisibility/404) and
+FR-HOST-002 (invite-code minting, host-only exposure, resolution) in full — all three inside this
+item's own endpoints — yet this item's *Satisfies* claimed none of them, while `IMP-M2-05`'s
+*Satisfies*/*Done when* explicitly claimed FR-JOIN-007 ("FR-JOIN-007's one-room-at-a-time rule is
+enforced server-side") and `IMP-M2-06`'s *Satisfies* claimed FR-XFER-003 and FR-HOST-002 via its
+`FR-XFER-001…005`/`FR-HOST-001…003` ranges, even though neither of those items' STOMP-layer read-lists
+or done-when clauses touch the REST handlers that actually build them. Fixed: this item's read-list
+gains `room-lifecycle.md` §1.2 (claim), §1.3 (release), §1.4 (adoption), and §1.7 (affinity hint) —
+the mechanism Done-when clause 5 requires — plus enough of §4 to know where the delegation boundary to
+`IMP-M2-06` sits. This item's *Satisfies* gains FR-JOIN-007, FR-XFER-003 and FR-HOST-002, which
+`room-rest-api.md` builds here in full. `IMP-M2-05`'s *Satisfies* narrows its FR-JOIN range to
+`FR-JOIN-001…006, FR-JOIN-008…011` (007 moves here) and its *Done when* drops the FR-JOIN-007 clause —
+the STOMP command layer never touches the single-room constraint, which the REST join transaction
+enforces before any STOMP command is reachable. `IMP-M2-06`'s *Satisfies* narrows to
+`FR-HOST-001, FR-HOST-003, FR-HOST-006…009, FR-XFER-001…002, FR-XFER-004…005` — FR-HOST-002 and
+FR-XFER-003 are this item's, not the host-transfer STOMP layer's.
+
 **Read first:**
+- `docs/specs/platform/room-lifecycle.md` §1.2 (*Claim*), §1.3 (*Release*), §1.4 (*Adoption*), §1.7
+  (*Affinity Hint*) — the ownership mechanism behind Done-when clause 5, and enough of §4 to know the
+  host-leave delegation boundary in `room-rest-api.md` §6
 - `docs/specs/api-design/room-rest-api.md` **in full** — the five endpoints, §3's inclusion
   predicate, §5's join contract, §7's error table
 - `docs/specs/platform/data-model.md` §1 (`room`), §2 (`room_participant`), §3 (`room_team`)
 - `docs/requirements/game-rooms.md` FR-CREATE-001…004, FR-LIST-001…007, FR-JOIN-001…006
 - `docs/specs/api-design/pagination-filtering-sorting.md`, `rest-conventions.md`
 
-**Satisfies:** `game-rooms.md` FR-CREATE-001…004, FR-LIST-001…007, FR-JOIN-001…006, FR-LIFE-004,
-NFR-PERF-001, NFR-SEC-001…002, NFR-USAB-001, NFR-SPEC-001; `platform-views.md` VW-ROOMS-001…005,
-VW-JOIN-001…003
+**Satisfies:** `game-rooms.md` FR-CREATE-001…004, FR-LIST-001…007, FR-JOIN-001…007, FR-XFER-003,
+FR-HOST-002, FR-LIFE-004, NFR-PERF-001, NFR-SEC-001…002, NFR-USAB-001, NFR-SPEC-001;
+`platform-views.md` VW-ROOMS-001…005, VW-JOIN-001…003
 
 **Done when:**
 
@@ -2000,14 +2026,16 @@ gap. Chat is excluded from the counter entirely (`version: null`, IMP-M2-11).
 - `docs/specs/platform/data-model.md` §2, §3
 - `docs/specs/flows/02-room-to-game-start.md`
 
-**Satisfies:** `game-rooms.md` FR-JOIN-001…011, FR-TEAM-001…012, FR-READY-001…004, FR-LIFE-005…006,
-NFR-SPEC-001; `platform-views.md` VW-RLOBBY-001…007, VW-RLOBBY-009…017
+**Satisfies:** `game-rooms.md` FR-JOIN-001…006, FR-JOIN-008…011, FR-TEAM-001…012, FR-READY-001…004,
+FR-LIFE-005…006, NFR-SPEC-001; `platform-views.md` VW-RLOBBY-001…007, VW-RLOBBY-009…017
 
 **Done when:** auto-assignment follows FR-TEAM-005, and FR-TEAM-012's team instantiation happens
 **before** the host is seated on room creation — a host assigned first has nowhere to go;
 FR-TEAM-010's capacity floor is checked on **every** operation that could reduce total capacity, not
 only on explicit slot removal (moving a player and removing a team both can); readiness resets on
-the return to Lobby (FR-READY-004); FR-JOIN-007's one-room-at-a-time rule is enforced server-side.
+the return to Lobby (FR-READY-004). **FR-JOIN-007 (the single-room constraint) belongs to
+`IMP-M2-01`'s REST join transaction, not here** (`IMP-GATE-39`) — by the time a STOMP command is
+reachable the caller already holds exactly one room's slot.
 
 **AI is wire-present and behaviour-absent in v1** (IR-12). `ADD_AI_PLAYER` always returns
 `AI_NOT_SUPPORTED`, the room snapshot's `aiPlayers` is always empty, and FR-READY-002 ("AI players are
@@ -2027,8 +2055,11 @@ branch, and do not build an AI seat to make it reachable.
 - `docs/specs/platform/data-model.md` §1 — `migration_window_expires_at`
 - `docs/specs/api-design/room-websocket.md` — the host command set
 
-**Satisfies:** `game-rooms.md` FR-HOST-001…003, FR-HOST-006…009, FR-XFER-001…005; `reconnection-flow.md`
-FR-HDISC-001…004
+**Satisfies:** `game-rooms.md` FR-HOST-001, FR-HOST-003, FR-HOST-006…009, FR-XFER-001…002,
+FR-XFER-004…005; `reconnection-flow.md` FR-HDISC-001…004. **FR-HOST-002 (the invite link) and
+FR-XFER-003 (closed-room inaccessibility) belong to `IMP-M2-01`** (`IMP-GATE-39`) — both are built
+entirely in the REST layer: invite-code minting/exposure/resolution and the `state <> 'CLOSED'`
+predicate respectively.
 
 **Done when:** `migration_window_expires_at` is persisted and a sweep duty closes it. Without it a
 host who does not return leaves the room permanently headless — adoption never routes through the

@@ -49,6 +49,17 @@ unrelated, pre-existing reason also present in `IMP-M1-02`'s accepted run.
 ---
 ## Next Priorities
 
+**IMP-GATE-39** (`IMP-M2-01`, opened and closed 2026-09-08, session 37) — this item's read-list never
+named `docs/specs/platform/room-lifecycle.md`, though `room-rest-api.md` (its own read-list document)
+cites it repeatedly for the ownership-claim mechanism behind Done-when clause 5 and the host-leave
+delegation boundary in §6. Separately, `room-rest-api.md` builds FR-JOIN-007, FR-XFER-003 and
+FR-HOST-002 entirely in this item's own REST endpoints, but this item's *Satisfies* claimed none of
+them while `IMP-M2-05` and `IMP-M2-06` each claimed one anyway, over a STOMP-layer read-list that
+never touches the REST handlers that actually build them. Fixed: `IMP-M2-01`'s read-list gained
+`room-lifecycle.md` §1.2–§1.4, §1.7 and part of §4; its *Satisfies* gained FR-JOIN-007, FR-XFER-003,
+FR-HOST-002; `IMP-M2-05`'s *Satisfies*/*Done when* dropped FR-JOIN-007; `IMP-M2-06`'s *Satisfies*
+dropped FR-HOST-002 and FR-XFER-003. `IMP-M2-01` is back to `WIP (session 37)` and code is next.
+
 **IMP-GATE-37** (`IMP-M1-10`, opened and closed 2026-09-08, session 36) — no document named the
 JSON/redirect REST surface this item builds (the OAuth-initiate route, the pending-registration JSON
 endpoints, the FR-AUTH-016 challenge-and-link endpoint), and the item's read-list never named
