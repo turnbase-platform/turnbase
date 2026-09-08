@@ -1,53 +1,66 @@
 ## Last Session Summary
 
-**Date:** 2026-09-08 (session 33)
+**Date:** 2026-09-08 (session 34)
 
-**IMP-M1-08 — Account deletion and erasure. DONE. 19 of 61 items complete.**
-`account.AccountDeletionService`/`AccountErasureRepository` add `DELETE /api/users/me`. One
-`@Transactional` JDBC method disposes of every row in `data-model-accounts.md` §5's table, in the
-order the spec states: `user_session` revoked (`ACCOUNT_DELETED`), `user_auth_method` and
-`user_privacy_settings` deleted, `friendship` and `friend_request` deleted both directions,
-`room_invitation` deleted both legs (cascading the counterpart's `notification`), the caller's own
-`notification` rows deleted, any open `game_review` on an owned game withdrawn (`decided_by =
-'system'`), owned `game` rows archived, `game_history_entry` pseudonymized with a fresh
-`UUID.randomUUID()` subject token (not derived — ADR-0004 forbids a reversible construction),
-`app_user` soft-deleted (`deletion_reason = 'SELF_SERVICE'`, email released, username/skeleton
-retained per FR-ACCT-006), and `room_participant` departures last. Room closure/host-transfer is
-deliberately not attempted here — `room-lifecycle.md` §5.1 duty 2 on the owning instance discharges
-it within one sweep interval, since this REST-triggered transaction holds no room claim.
-`user_session` is written directly rather than through `session.SessionService` (which manages its
-own transaction boundary) precisely so the whole disposition table is one physical transaction;
-`SessionRevokedEvent` is published for each revoked session only after that transaction commits,
-closing live connections per FR-SESS-010. Guests get `403`, matching every other `/me/**` mutation.
+**IMP-M1-09 — Social graph, friendships and requests. DONE. 20 of 61 items complete.**
+`social.SocialController`/`SocialService`/`SocialRepository` add the seven `social-rest-api.md`
+endpoints: `POST`/`GET /api/friend-requests`, `POST /api/friend-requests/{id}/accept`, `DELETE
+/api/friend-requests/{id}` (cancel or decline, discriminated by which side the caller is on), `GET
+/api/users/{username}/friends`, `DELETE /api/users/me/friends/{userId}`, and `GET /api/users?search=`.
+Friendship rows insert in `data-model-social.md` §1's canonical `(user_id_low, user_id_high)` order,
+reusing `IMP-M1-08`'s canonical-string-form `UUID` comparison rather than `UUID#compareTo` (session
+33's Postgres-byte-order fix). Send/accept/decline/cancel each write or cascade-delete the matching
+`FRIEND_REQUEST`/`FRIEND_REQUEST_ACCEPTED`/`FRIEND_REQUEST_DECLINED`/`FRIEND_ADDED` notification in
+the same transaction (FR-FREQ-001/003/004/006). The friend cap (FR-SOC-009) and the
+block-friend-requests toggle (FR-SOC-021) are enforced without disclosing which reason applies, both
+in the direct send response and in search's `canSendRequest` flag. `account.ProfileResponse` gained
+`relationshipState` (FR-SOC-016), and the `FRIENDS_ONLY` friends-section check `IMP-M1-07` left
+conservative now resolves against a real friendship, via the new public `social.RelationshipQueries`
+— `account` depends on `social`, never the reverse, so `ApplicationModules.verify()` stays a DAG.
+Cross-feature reads (`app_user`, `user_privacy_settings`, `notification`) go through raw `JdbcClient`
+SQL, the same pattern `account.AccountErasureRepository` established, rather than a second Java
+dependency in the other direction. The confusable-skeleton algorithm moved from
+`account.UsernamePolicy` into `common.UsernameSkeleton` so this item's exact-username resolution
+can't drift from registration's.
 
-**Verified end to end.** `AccountDeletionControllerIT`: every disposition-table object seeded and
-checked after a real `DELETE` call against real Postgres — session revoked and the event published,
-auth method and privacy settings gone, friendship/friend-request/room-invitation gone, the deleted
-user's own notification gone, the open review withdrawn as `system`, the owned game archived, the
-history entry pseudonymized with `user_id` nulled, the room-participant row showing a `LEFT`
-departure, username retained and email released on the `app_user` row. A second `DELETE` call gets
-`401` (no session left to authenticate with). A guest gets `403`. `./mvnw verify -Pintegration`
-green locally, run five times to rule out flakiness. CI green on `turnbase-platform` `master`
-(`build`; `e2e` stays blocked on the same un-provisioned `TURNBASE_GAME_HOST_PAT` every prior
-session's run also shows).
+**Verified end to end.** `SocialControllerIT` (17 tests, real Postgres): the notification coupling on
+all four terminal actions, the FR-SOC-004 reverse-request auto-accept with no leftover
+`friend_request` row, the sender cap and the blocked-recipient rejection (with the Problem Detail
+`detail` text checked to never mention "block"), search's `canSendRequest` hiding the same reason,
+idempotent delete on an already-resolved request and idempotent/mutual unfriend, a third party
+forbidden from resolving someone else's request, `FRIENDS_ONLY` visibility and `relationshipState`
+resolved against a real friendship, guests forbidden on every endpoint, and a ten-random-pair loop
+guarding the canonical-ordering fix. `./mvnw verify -Pintegration` green locally, run twice. CI green
+on `turnbase-platform` `master` (`build`, 10m17s — `e2e` stays blocked on the same un-provisioned
+`TURNBASE_GAME_HOST_PAT` every prior session's run also shows).
 
-**The first CI push caught a real bug the local run hadn't.** `UUID.compareTo` orders by
-signed-long comparison of the two halves; Postgres's `uuid` type orders by unsigned byte value — a
-test fixture ordering a `friendship` pair by `UUID.compareTo` violates `friendship_order_ck` for
-roughly half of random UUID pairs, so it passed locally by chance and failed in CI on a different
-random draw. Fixed by comparing the canonical string form instead, which matches Postgres's byte
-ordering exactly.
+**The first CI run on this commit stalled for 55 minutes on the `Verify` step, then was cancelled and
+re-run.** No evidence pointed to a defect in this item's code: two clean local `verify -Pintegration`
+runs beforehand, no parallel test execution configured in this repo (failsafe runs one fork,
+sequentially), and no self-deadlock in `SocialRepository`'s `@Transactional` methods on review. The
+re-run completed in the ordinary 6–10 minute range with no changes, which is the signature of a
+runner-side flake rather than a hang this item's tests caused — recorded here in case a future stall
+on this class of test (many `SpringApplication.run` boots per IT class) turns out to be a pattern
+rather than a one-off.
 
-**Two gates, both opened and closed this session.** `IMP-GATE-32`: the item's *Satisfies* claimed
-the full `FR-ACCT-004…010` range, but `FR-ACCT-009`/`FR-ACCT-010` are already implemented and
-claimed by `IMP-M1-07`, and neither appears in this item's own *Done when* clause. Narrowed to
-`FR-ACCT-004…008`. `IMP-GATE-33`: no document named a route for FR-ACCT-004 itself; fixed by adding
-`DELETE /api/users/me` to `rest-conventions.md`. Also repaired this item's read-list to add
-`data-model-social.md` §§1–2 (the `friendship`/`friend_request` schema the erasure transaction
-writes against) — missing from the original list, no gate needed for that class of gap.
+**Two gates, both opened and closed this session.** `IMP-GATE-34`: the item's *Satisfies* claimed
+`notifications-invitations.md` FR-FREQ-001…006 in full, and `IMP-M5-03` independently claimed the
+identical range, but only this item's code actually writes a `friend_request`-linked notification —
+`IMP-M5-03`'s *Satisfies* narrowed to drop the range. `IMP-GATE-35`: no document defined this item's
+REST surface at all (`rest-conventions.md`'s `/api/friend-requests/{id}` ownership predicate had
+existed with nothing behind it since it was written); fixed by adding
+`docs/specs/api-design/social-rest-api.md`, registered in that directory's `INDEX.md`.
 
 ---
 ## Next Priorities
+
+**Next up in M1**: `IMP-M1-10` (Google OAuth) remains `READY` off `IMP-M1-04`. `IMP-M1-02` (rate
+limiter) remains independently `READY` off `IMP-M1-01`. `IMP-M2-01` (room CRUD and listing) is
+`READY` off `IMP-M1-06` — its listing predicate needs a `friendship` join for `FRIENDS_ONLY` rooms,
+which `IMP-M1-09` now supplies. `IMP-M2-12` (room invitations) is `READY` off `IMP-M2-01, IMP-M1-09`,
+now unblocked on its second dependency. `IMP-M5-03` (notifications and the SSE stream) is `READY` off
+`IMP-M1-06, IMP-M1-07` — it now delivers the `notification` rows this item writes over SSE, rather
+than writing any of its own for friend requests (`IMP-GATE-34`).
 
 **IMP-GATE-35** (`IMP-M1-09`, opened and closed 2026-09-08, session 34) — no document in the corpus
 ever defined this item's REST surface. `rest-conventions.md`'s Authorization table has named the
@@ -162,7 +175,7 @@ endpoint itself and was missing.
 merge to `master`, delete the branch — all within one session. Dependabot is frozen, so nothing
 arrives on its own any more; a dependency bump is now an ordinary change on an ordinary branch.
 
-**Progress: 19 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
+**Progress: 20 of 61 done** — `IMP-M0-01` (gRPC stubs, `turnbase-common`), `IMP-M0-02` (SDK
 build-and-publish floor, `turnbase-sdk`), `IMP-M0-03` (Platform Monolith skeleton,
 `turnbase-platform`), `IMP-M0-04` (Game Host skeleton, `turnbase-game-host`), `IMP-M0-05`
 (Frontend skeleton, `turnbase-frontend`), `IMP-M0-06` (Flyway baseline, `turnbase-platform`),
@@ -174,17 +187,19 @@ client, `turnbase-sdk`), `IMP-M1-01` (error model, REST conventions, validation 
 `turnbase-platform`), `IMP-M1-03` (JWT key set, issuance, rotation, `turnbase-platform`),
 `IMP-M1-04` (credential registration and login, `turnbase-platform`), `IMP-M1-06` (session
 lifecycle and displacement, `turnbase-platform`), `IMP-M1-05` (guest minting and purge,
-`turnbase-platform`), `IMP-M1-07` (profiles and privacy settings, `turnbase-platform`) and
-`IMP-M1-08` (account deletion and erasure, `turnbase-platform`), all pushed and green in CI.
+`turnbase-platform`), `IMP-M1-07` (profiles and privacy settings, `turnbase-platform`),
+`IMP-M1-08` (account deletion and erasure, `turnbase-platform`) and `IMP-M1-09` (social graph —
+friendships and requests, `turnbase-platform`), all pushed and green in CI.
 **No work item is gated**, and all 23 readiness blockers remain closed, so an item's status is
 whatever its own dependencies imply.
 
-**Next up in M1**: `IMP-M1-09` (social graph — friendships and requests, which now also owes the
-real `FRIENDS_ONLY` check `IMP-M1-07` left conservative) is `READY` off `IMP-M1-07`. `IMP-M1-10`
-(Google OAuth) remains `READY` off `IMP-M1-04`. `IMP-M1-02` (rate limiter) remains independently
-`READY` off `IMP-M1-01`. `IMP-M2-01`
-(room CRUD and listing) is `READY` off `IMP-M1-06`, the first M2 item on the board. `IMP-M5-03`
-(notifications and the SSE stream) is now also `READY`, off both `IMP-M1-06` and `IMP-M1-07`.
+**Next up in M1**: `IMP-M1-10` (Google OAuth) remains `READY` off `IMP-M1-04`. `IMP-M1-02` (rate
+limiter) remains independently `READY` off `IMP-M1-01`. `IMP-M2-01` (room CRUD and listing) is
+`READY` off `IMP-M1-06`, the first M2 item on the board — its `FRIENDS_ONLY` listing predicate now
+has `IMP-M1-09`'s `friendship` table to join against. `IMP-M2-12` (room invitations) is now `READY`
+off both `IMP-M2-01` and `IMP-M1-09`. `IMP-M5-03` (notifications and the SSE stream) is `READY` off
+`IMP-M1-06` and `IMP-M1-07`, and now delivers `IMP-M1-09`'s `notification` rows over SSE rather than
+writing any of the friend-request types itself (`IMP-GATE-34`).
 
 **IMP-GATE-25** (`IMP-M0-11`, opened and closed 2026-09-05) — `game-development-experience.md`
 CON-003 and ADR-0012's Release Strategy commit `turnbase-sdk` to Maven Central + npm, but no document

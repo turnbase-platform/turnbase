@@ -49,7 +49,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M1-06 | Session lifecycle and displacement | platform | M1-04 | DONE |
 | IMP-M1-07 | Profiles and privacy settings | platform | M1-04 | DONE |
 | IMP-M1-08 | Account deletion and erasure | platform | M1-07 | DONE |
-| IMP-M1-09 | Social graph — friendships and requests | platform | M1-07 | WIP (session 34) |
+| IMP-M1-09 | Social graph — friendships and requests | platform | M1-07 | DONE |
 | IMP-M1-10 | Google OAuth registration and login | platform | M1-04 | READY |
 | **M2 — Rooms and realtime** ||||
 | IMP-M2-01 | Room CRUD and listing | platform | M1-06 | READY |
@@ -1566,6 +1566,43 @@ may not own, which is precisely the write ADR-0008's epoch fence exists to rejec
 ### IMP-M1-09 — Social graph, friendships and requests
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-07
+
+**Done 2026-09-08 (session 34).** `social.SocialController`/`SocialService`/`SocialRepository` add
+the seven `social-rest-api.md` endpoints: `POST`/`GET /api/friend-requests`, `POST
+/api/friend-requests/{id}/accept`, `DELETE /api/friend-requests/{id}` (cancel or decline,
+discriminated by which side the caller is on), `GET /api/users/{username}/friends`, `DELETE
+/api/users/me/friends/{userId}`, and `GET /api/users?search=`. Friendship rows insert in
+`data-model-social.md` §1's canonical `(user_id_low, user_id_high)` order, using the same
+canonical-string-form `UUID` comparison `IMP-M1-08` verified matches Postgres's unsigned-byte `uuid`
+ordering (session 33) rather than `UUID#compareTo`. Send/accept/decline/cancel each write or
+cascade-delete the matching `FRIEND_REQUEST`/`FRIEND_REQUEST_ACCEPTED`/`FRIEND_REQUEST_DECLINED`/
+`FRIEND_ADDED` notification in the same transaction (FR-FREQ-001/003/004/006). The friend cap
+(FR-SOC-009) and the block-friend-requests toggle (FR-SOC-021) are enforced without disclosing which
+reason applies, both in the direct send response and in search's `canSendRequest` flag. Cross-feature
+reads (`app_user`, `user_privacy_settings`, `notification`) go through raw `JdbcClient` SQL rather
+than another module's Java API — the same pattern `account.AccountErasureRepository` established —
+so `social` and `account` stay a one-way Modulith dependency: `account.ProfileService` calls the new
+public `social.RelationshipQueries`; `social` never imports `account`. `account.ProfileResponse`
+gained `relationshipState` (`social-rest-api.md` §9, FR-SOC-016), and the `FRIENDS_ONLY` friends-section
+check `IMP-M1-07` left conservative now resolves against a real friendship. The confusable-skeleton
+algorithm moved from `account.UsernamePolicy` into `common.UsernameSkeleton` so this item's
+exact-username resolution can't drift from registration's.
+
+**Verified end to end.** `SocialControllerIT` (17 tests, real Postgres): the notification coupling
+on all four terminal actions (send/accept/decline/cancel), the FR-SOC-004 reverse-request auto-accept
+with no leftover `friend_request` row, the sender cap and the blocked-recipient rejection (with the
+Problem Detail `detail` text checked to never mention "block"), search's `canSendRequest` hiding the
+same reason, idempotent delete on an already-resolved request and idempotent/mutual unfriend, a
+third party forbidden from resolving someone else's request, `FRIENDS_ONLY` visibility and
+`relationshipState` resolved against a real friendship (stranger vs. friend, `NONE`/`FRIENDS`/
+`REQUEST_SENT`/`REQUEST_RECEIVED`), guests forbidden on every endpoint, and a ten-random-pair loop
+guarding the canonical-ordering fix. `./mvnw verify -Pintegration` green locally, run twice. CI green
+on `turnbase-platform` `master` (`build`, 10m17s — `e2e` stays blocked on the same un-provisioned
+`TURNBASE_GAME_HOST_PAT` every prior session's run also shows). The first CI attempt on this commit
+stalled for 55 minutes on the `Verify` step with no evidence of a code defect (two clean local runs,
+no parallel test execution configured, no self-deadlock found in `SocialRepository`'s transactional
+methods) and was cancelled and re-run; the re-run completed in the normal 6–10 minute range, pointing
+to a one-off runner flake rather than a hang in this item's code.
 
 **Closed:** IMP-GATE-34 (opened and closed 2026-09-08, session 34) — this item's *Satisfies* claimed
 `notifications-invitations.md` FR-FREQ-001…006 in full, and `IMP-M5-03` independently claimed the
