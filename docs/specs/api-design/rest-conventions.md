@@ -75,12 +75,19 @@ credential in a URL. `POST` to an action endpoint is the honest shape, and it ke
 Revoking the row does nothing to a socket already open, and for a guest this is irreversible —
 `FR-SESS-011` requires a confirmation before the platform destroys the only key to the account.
 
-Two further self-scoped account routes, both under `/api/users/me` so the principal is the resource:
+Three further self-scoped account routes, all under `/api/users/me` so the principal is the resource:
 
 | Endpoint | Effect |
 |---|---|
+| `PATCH /api/users/me` | Updates username and/or email, either or both in one body. Each field enforces its own rolling 30-day window against `username_changed_at`/`email_changed_at` (`user-accounts.md` FR-ACCT-002/003) independently of the other. `200` with the updated resource; `409` on a duplicate username/email; `422` if the field's window hasn't elapsed; email is rejected outright (`422`) when `email_source = 'OAUTH'` (FR-AUTH-008/012 — an OAuth-derived email is immutable, not merely rate-limited) |
 | `POST /api/users/me/password` | Changes the password. Body carries the current password and the new one (`user-accounts.md` FR-ACCT-010). `204` on success, `422` on current-password mismatch |
 | `PATCH /api/users/me/privacy` | Profile visibility and the four per-section toggles (`user-accounts.md` FR-PROF-004, FR-PROF-006; `platform-views.md` VW-SET-006, VW-SET-006a). Body is a partial `user_privacy_settings` representation |
+
+**Username and email share one endpoint, not two.** Both are single mutable identity fields on
+`app_user` with the identical rolling-window shape (`data-model-accounts.md` §1's "one timestamp, not
+a history"), and a client's account-settings form edits them on the same screen. Two endpoints would
+let one succeed and the other fail with no shared transaction telling the client which; one `PATCH`
+with independent per-field validation reports both outcomes in a single response.
 
 **Password change is a `POST`, not a `PATCH`.** `PATCH` sends a subset of a resource's
 representation, and the password is not part of any representation — it cannot be read back, and the

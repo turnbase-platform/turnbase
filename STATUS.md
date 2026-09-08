@@ -45,6 +45,14 @@ identical duty under a different ID in the same document. Same shape as
 ---
 ## Next Priorities
 
+**IMP-GATE-31** (`IMP-M1-07`, opened and closed 2026-09-08, session 32) — no document in the corpus
+named a route for FR-ACCT-002 (username update) or FR-ACCT-003 (email update); `rest-conventions.md`'s
+self-scoped account routes named the password and privacy endpoints but nothing for these two, and
+`IMP-M1-07`'s own read-list never named `rest-conventions.md` at all despite it supplying the
+routes/status codes for every endpoint the item builds. Fixed: `rest-conventions.md` gained
+`PATCH /api/users/me` — one endpoint for both fields, each enforcing its own rolling 30-day window
+independently, email rejected outright when OAuth-sourced (FR-AUTH-008/012); read-list corrected.
+
 **IMP-GATE-30** (`IMP-M1-05`, opened and closed 2026-09-08, session 31) — `IMP-M1-05`'s *Satisfies*
 claimed the full `FR-GUEST-001…010` range, but FR-GUEST-010 (guest profile display) needs a
 `GET /api/users/{username}` endpoint that doesn't exist until `IMP-M1-07`, which was never a

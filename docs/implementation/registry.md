@@ -1407,11 +1407,23 @@ else. `user-accounts.md` is the one that governs here.
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-04
 
+**Closed:** IMP-GATE-31 (opened and closed 2026-09-08, session 32) — no document in the corpus named a
+route for FR-ACCT-002 (username update) or FR-ACCT-003 (email update); `rest-conventions.md`'s
+"self-scoped account routes" named `POST /api/users/me/password` and `PATCH /api/users/me/privacy`
+but nothing for the two other FR-ACCT mutations this item must satisfy. This item's own read-list
+also never named `rest-conventions.md` at all, despite it being the document that supplies the
+routes/status codes for every endpoint this item builds (`GET /api/users/{username}`, the password and
+privacy routes above). Fixed: `rest-conventions.md` gained `PATCH /api/users/me` — one endpoint for
+both username and email, each enforcing its own rolling 30-day window independently, email rejected
+outright when OAuth-sourced (FR-AUTH-008/012); read-list corrected to include it.
+
 **Read first:**
 - `docs/requirements/user-accounts.md` FR-PROF-001…008, FR-ACCT-002…003, FR-ACCT-009…010
 - `docs/specs/platform/data-model-accounts.md` §1, §4 (`user_privacy_settings`)
 - `docs/requirements/platform-views.md` VW-PROF-001…008, VW-SET-001…007 — the rendering contract the
   API must be able to satisfy
+- `docs/specs/api-design/rest-conventions.md` § Authentication (the self-scoped account routes) and
+  § Authorization and Ownership (the `/api/users/**` predicates) — omitted from the original read-list
 
 **Satisfies:** `user-accounts.md` FR-PROF-001…008, FR-ACCT-002…003, FR-ACCT-009…010, FR-GUEST-010
 (`IMP-GATE-30`: FR-PROF-002 and FR-GUEST-010 are the same "guest profile shows only the username"
