@@ -130,8 +130,9 @@ Browser-navigated, sent by Google. In order:
    decides it lazily, at §7, rather than here — see that section's note on why), set
    `turnbase_oauth_pending`, `302` to `/auth/complete-registration`.
 
-No response body on either branch — both are redirects. This endpoint carries no Tier 5 accounting
-itself; `rate-limiting.md`'s "First-time account creation via an OAuth callback" is read as "the
+No response body on either branch — both are redirects. Tier 4 (unauthenticated, lenient) applies,
+the same as §3 — this endpoint mutates nothing itself. It carries no Tier 5 accounting of its own;
+`rate-limiting.md`'s "First-time account creation via an OAuth callback" is read as "the
 account creation this callback eventually causes", and the counter increments where the row is
 actually written (§7's success path), not on a callback that only reaches step 5 and is then
 abandoned. Applying it here would let one aborted registration cost real budget from
@@ -250,6 +251,7 @@ duplicate Tier 1's job with a different key.
   alongside the credential endpoints it already names. `rate-limiting.md` itself already documents
   that this list grows as the endpoints it covers are built (`STATUS.md` session 35's note on Tier 1's
   auth-method add/remove routes); this is the first one to land.
+- **`rate-limiting.md` § Tier 4** — "Applies to" gains `GET /auth/google` and `GET /auth/callback`.
 - **`local-environment.md` §7.4** gains five properties (§9 below).
 
 ---
@@ -290,7 +292,7 @@ MinIO instead of a real one.
 | Username skeleton already taken | `409` | — | FR-AUTH-003 |
 | Wrong password, or no such collision account (`link-challenge`) | `401` | `unauthenticated` | FR-AUTH-016 |
 | `Origin` present and not the platform origin, on either `POST` | `403` | `forbidden` | `rest-conventions.md` |
-| Rate limit (Tier 1 on `link-challenge`, Tier 5 on `complete-registration`'s success path) | `429` | `rate-limit-exceeded` | `rate-limiting.md` |
+| Rate limit (Tier 4 on the two redirects, Tier 1 on `link-challenge`, Tier 5 on `complete-registration`'s success path) | `429` | `rate-limit-exceeded` | `rate-limiting.md` |
 
 ---
 

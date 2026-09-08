@@ -107,8 +107,9 @@ Applies to: `POST /api/games/{gameId}/versions` (Step 1 of the pre-signed upload
 
 ## Tier 4 — Unauthenticated reads (IP-based, lenient)
 
-Applies to: game catalog, game detail pages, public user profiles — the read endpoints that require no
-session token (`user-accounts.md` NFR-SEC-006).
+Applies to: game catalog, game detail pages, public user profiles, and the two Google OAuth redirects
+(`GET /auth/google`, `GET /auth/callback` — [oauth-rest-api.md](oauth-rest-api.md) §3/§4) — the read
+endpoints that require no session token (`user-accounts.md` NFR-SEC-006).
 
 - 200 requests per minute per IP
 - Covers normal browsing; blocks scrapers and abusive crawlers
