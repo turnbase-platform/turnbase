@@ -75,13 +75,14 @@ credential in a URL. `POST` to an action endpoint is the honest shape, and it ke
 Revoking the row does nothing to a socket already open, and for a guest this is irreversible —
 `FR-SESS-011` requires a confirmation before the platform destroys the only key to the account.
 
-Three further self-scoped account routes, all under `/api/users/me` so the principal is the resource:
+Four further self-scoped account routes, all under `/api/users/me` so the principal is the resource:
 
 | Endpoint | Effect |
 |---|---|
 | `PATCH /api/users/me` | Updates username and/or email, either or both in one body. Each field enforces its own rolling 30-day window against `username_changed_at`/`email_changed_at` (`user-accounts.md` FR-ACCT-002/003) independently of the other. `200` with the updated resource; `409` on a duplicate username/email; `422` if the field's window hasn't elapsed; email is rejected outright (`422`) when `email_source = 'OAUTH'` (FR-AUTH-008/012 — an OAuth-derived email is immutable, not merely rate-limited) |
 | `POST /api/users/me/password` | Changes the password. Body carries the current password and the new one (`user-accounts.md` FR-ACCT-010). `204` on success, `422` on current-password mismatch |
 | `PATCH /api/users/me/privacy` | Profile visibility and the four per-section toggles (`user-accounts.md` FR-PROF-004, FR-PROF-006; `platform-views.md` VW-SET-006, VW-SET-006a). Body is a partial `user_privacy_settings` representation |
+| `DELETE /api/users/me` | Permanently deletes the caller's account (`user-accounts.md` FR-ACCT-004…008). `204` on success; clears the session cookie and closes the caller's live connections, same as logout (`FR-SESS-010`). No request body and no confirmation step at this layer — `platform-views.md` VW-SET-007's confirmation is a frontend affordance, not a server-side proof requirement |
 
 **Username and email share one endpoint, not two.** Both are single mutable identity fields on
 `app_user` with the identical rolling-window shape (`data-model-accounts.md` §1's "one timestamp, not
@@ -98,6 +99,13 @@ change, which would make one field's failure roll back the other.
 **Privacy toggles are a `PATCH`, and are the worked example** the *HTTP Methods* section above uses.
 One endpoint rather than five: the toggles are edited together on one settings screen, and five
 endpoints turn one save into five requests with no transaction across them.
+
+**Account deletion is a `DELETE`, unlike logout.** Logout is a `POST` because the caller cannot name
+the session as an addressable resource. Here the resource *is* named — `/api/users/me` is exactly the
+account the caller is deleting — so `DELETE` is the honest verb. The idempotent-retry case the general
+`DELETE` rule above describes (a second call against an already-deleted resource returning `204`) does
+not arise here: deletion revokes the caller's session in the same transaction, so a retry has no
+session cookie left to authenticate with and gets `401` before reaching the resource at all.
 
 Both are `404`-free — the principal is always the resource, so there is nothing to fail to find.
 

@@ -1488,13 +1488,28 @@ below, which is what this item actually builds — the deletion endpoint sets `d
 `FR-ACCT-009`'s already-built display renders correctly once this item runs, with no new code owed to
 it here.
 
+**Closed:** IMP-GATE-33 (opened and closed 2026-09-08, session 33) — no document in the corpus named a
+route, method or status code for FR-ACCT-004 itself (the deletion trigger). `rest-conventions.md`'s
+"self-scoped account routes" named `PATCH /api/users/me`, `POST /api/users/me/password` and
+`PATCH /api/users/me/privacy` but nothing that triggers deletion, and this item's own read-list never
+named `rest-conventions.md` at all despite it being the document that supplies the route for every
+other `/api/users/me` mutation. Same shape as `IMP-GATE-31`. Fixed: `rest-conventions.md` gained
+`DELETE /api/users/me` as a fourth self-scoped route — `DELETE` is the correct verb here, unlike
+logout, because the account *is* the addressable resource named by `/me`. `204` on success, clears the
+session cookie and closes live connections per `FR-SESS-010`, same as logout. No confirmation step at
+the API layer — `VW-SET-007`'s confirmation is a frontend-only affordance. Read-list corrected to
+include it.
+
 **Read first:**
+- `docs/specs/api-design/rest-conventions.md` § Authentication — the self-scoped account routes,
+  including the deletion trigger added by `IMP-GATE-33`
 - `docs/decisions/0004-account-erasure-pseudonymization.md`
 - `docs/specs/platform/data-model-accounts.md` §5 in full — *Erasure: what account deletion actually
   writes*. §5 enumerates every object and its disposition; that enumeration is the specification.
 - `docs/requirements/user-accounts.md` FR-ACCT-004…008
 - `docs/specs/platform/data-model-catalog.md` §5, `data-model-history.md` §4,
-  `data-model-notifications.md` §2 — the three documents that own the non-account objects §5 disposes of
+  `data-model-notifications.md` §2, `data-model-social.md` §§1–2 — the documents that own the
+  non-account objects §5 disposes of
 - `docs/specs/platform/room-lifecycle.md` §4, §5.1 duty 2 — how an owed room closure is discharged
 
 **Satisfies:** `user-accounts.md` FR-ACCT-004…008; `platform-operations.md` FR-RET-001, FR-RET-005

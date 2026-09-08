@@ -43,6 +43,13 @@ fields, each independently windowed, email rejected outright when OAuth-sourced;
 ---
 ## Next Priorities
 
+**IMP-GATE-33** (`IMP-M1-08`, opened and closed 2026-09-08, session 33) — no document named a route
+for FR-ACCT-004 itself (the deletion trigger); `rest-conventions.md`'s self-scoped account routes
+named the identity, password and privacy mutations but nothing that deletes the account, and
+`IMP-M1-08`'s read-list never named `rest-conventions.md`. Same shape as `IMP-GATE-31`. Fixed:
+`rest-conventions.md` gained `DELETE /api/users/me` — `204`, clears the session cookie and closes live
+connections per `FR-SESS-010`, no confirmation step at the API layer; read-list corrected.
+
 **IMP-GATE-32** (`IMP-M1-08`, opened and closed 2026-09-08, session 33) — the item's *Satisfies*
 claimed the full `FR-ACCT-004…010` range, but `FR-ACCT-009` (deleted-profile placeholder) and
 `FR-ACCT-010` (password change) are already implemented and claimed by `IMP-M1-07`, and neither
