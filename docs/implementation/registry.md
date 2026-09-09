@@ -56,7 +56,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-02 | STOMP endpoint, auth, subscriptions | platform | M2-01, M2-03 | DONE |
 | IMP-M2-03 | Ownership claim, lease, epoch fence | platform | M1-06 | DONE |
 | IMP-M2-04 | Room event versioning and fan-out | platform | M2-01, M2-03 | DONE |
-| IMP-M2-05 | Join, teams, readiness | platform | M2-04 | WIP (session 40) |
+| IMP-M2-05 | Join, teams, readiness | platform | M2-04 | DONE |
 | IMP-M2-06 | Host management and transfer | platform | M2-05 | READY |
 | IMP-M2-07 | Disconnect, grace deadlines, sweeps | platform | M2-03 | READY |
 | IMP-M2-08 | Reconnect and resync | platform | M2-07 | READY |
@@ -2266,6 +2266,46 @@ gap `IMP-M2-01` (`DONE`) left open pending this item's mechanism (`IMP-GATE-43`)
 ### IMP-M2-05 — Join, teams, readiness
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-04
+
+**Done 2026-09-09 (session 40).** Two new STOMP `@Controller`s dispatch on the command envelope's
+`type` field, since STOMP routes by destination rather than by a field inside the frame body:
+`RoomMemberCommandController` (`/app/room.{roomId}.member` — the whole Member Commands table:
+`TOGGLE_READY`, `SWITCH_TO_SPECTATOR`, `SWITCH_TO_PLAYER`, `REQUEST_ROOM_STATE`) and
+`RoomHostCommandController` (`/app/room.{roomId}.host` — this item's own slice: `ADD_TEAM`,
+`REMOVE_TEAM`, `RESIZE_TEAM`, `REASSIGN_PLAYER`, `ADD_AI_PLAYER`; `KICK_PLAYER`/
+`CHANGE_PARAMETERS`/`START_GAME`/`TRANSFER_HOST` are `IMP-M2-06`'s, whose FR-HOST/FR-XFER
+requirements this item's read-list never names). Every mutation runs through `RoomEventExecutor`'s
+lock — the "lock outer → transaction inner → publish after commit" nesting `IMP-M2-04` built —
+with a fresh `RoomCommandException` carrying one of `room-websocket.md`'s closed error codes on
+every precondition failure, caught at the dispatch site (not `@MessageExceptionHandler`) so the
+originating command's `correlationId` can be echoed on `/user/queue/errors`. Authorization is
+handler-level and authoritative: no channel-level fast-fail exists for these destinations
+(`IMP-M2-02` deferred it), so every command re-verifies membership/role/host identity itself, under
+the lock — required regardless for host commands, since host identity is mutable runtime state.
+
+`RoomRepository` gained the readiness/role-switch/team-management mutations and the `ROOM_STATE`
+snapshot assembly (`Snapshot Delivery`); team template parsing now also carries the manifest's
+`name` field (`manifest-schema.md` § `teamTemplates`, defaulting to `"Team"`), needed for
+`TEAM_ADDED`/`ROOM_STATE` payloads and unused until this item. `ROOM_STATE.players[].connected` is
+unconditionally `true`: connection/disconnect tracking is `IMP-M2-07`'s, so no present participant
+can be anything but connected before that item lands — not a shortcut, an honest reflection of what
+the system can track today. `PLAYER_REASSIGNED.readinessReset` is likewise unconditionally `true`:
+no AI seat can ever exist (IR-12), so the human-only branch is the only one reachable.
+
+**FR-READY-004 (readiness resets on the return to Lobby) has no code here** for the same shape of
+reason as `ADD_AI_PLAYER` below: nothing in the build so far can start a game session, so nothing
+can end one and return a room to Lobby. The clause is real but unreachable until `IMP-M3-*`/
+`IMP-M2-06` give a room a session to return from.
+
+**Verified end to end on real STOMP clients** (`RoomCommandControllerIT`): readiness and role-switch
+preconditions and broadcasts (including the host's `ROLE_NOT_ELIGIBLE` on `TOGGLE_READY`/
+`SWITCH_TO_SPECTATOR`, `IMP-GATE-45`); team management preconditions (`TEMPLATE_MAX_TEAMS`,
+`SIZE_OUT_OF_RANGE`, `TEAM_NOT_EMPTY`, `OVER_CAPACITY` via `RESIZE_TEAM`, `TEAM_FULL` via
+`REASSIGN_PLAYER`); `NOT_HOST` for a non-host sender; `AI_NOT_SUPPORTED`; `UNKNOWN_COMMAND`; and a
+unicast, version-stamped `ROOM_STATE` snapshot. `./mvnw verify -Pintegration` green locally (141
+unit + 121 integration tests, coverage checks met). **CI green on `turnbase-platform` `master`**
+(`build`, 13m15s); `e2e`'s "Check out turnbase-game-host" step fails on the same un-provisioned
+`TURNBASE_GAME_HOST_PAT` every prior session's accepted run also shows.
 
 **Closed:** IMP-GATE-45 (opened and closed 2026-09-09, session 40) — the Member Commands table's
 *Authorized sender* column states a role precondition for `TOGGLE_READY`/`SWITCH_TO_SPECTATOR`

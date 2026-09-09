@@ -2,59 +2,72 @@
 
 **Date:** 2026-09-09 (session 40)
 
-**IMP-M2-04 — Room event versioning and fan-out. DONE. 26 of 61 items complete.** New
-`room.RoomEventExecutor`: a per-room `ReentrantLock` (keyed in a `ConcurrentHashMap`) wrapping a
-`TransactionTemplate`-scoped mutation plus a fenced conditional `UPDATE room SET version = …` and a
-post-commit `SimpMessagingTemplate.convertAndSend` to `/topic/room.{roomId}` — all before the lock
-releases, the "lock outer → transaction inner → publish after commit" nesting `room-lifecycle.md`
-§2.1 and `room-websocket.md` require. Version assignment reuses `IMP-M2-03`'s existing in-JVM
-`AtomicLong` (`RoomOwnershipService.nextVersion`), never a fresh database read. A fenced-commit
-failure (the CAS affects zero rows) calls a new `RoomOwnershipService.evictAfterFailedCas` rather than
-retrying in place — "a failed CAS leaves the in-memory room state dirty," so the room is dropped from
-this instance's ownership and the next claim re-initializes from the database. A lock-acquisition or
-statement timeout fails the command without evicting, per the same section — a timeout is not proof of
-lost ownership.
+**IMP-M2-05 — Join, teams, readiness. DONE. 27 of 61 items complete.** Two new STOMP
+`@Controller`s in `room`: `RoomMemberCommandController` (`/app/room.{roomId}.member` — the whole
+Member Commands table: `TOGGLE_READY`, `SWITCH_TO_SPECTATOR`, `SWITCH_TO_PLAYER`,
+`REQUEST_ROOM_STATE`) and `RoomHostCommandController` (`/app/room.{roomId}.host` — this item's own
+slice of Host Commands: `ADD_TEAM`, `REMOVE_TEAM`, `RESIZE_TEAM`, `REASSIGN_PLAYER`,
+`ADD_AI_PLAYER`; `KICK_PLAYER`/`CHANGE_PARAMETERS`/`START_GAME`/`TRANSFER_HOST` are `IMP-M2-06`'s).
+Both dispatch on the envelope's `type` field — STOMP routes by destination, not by a body field —
+and run every mutation through `IMP-M2-04`'s `RoomEventExecutor` lock. A new `RoomCommandException`
+carries one of `room-websocket.md`'s closed error codes, caught at the dispatch site (not
+`@MessageExceptionHandler`) so the originating command's `correlationId` can be echoed on
+`/user/queue/errors` — the exception itself doesn't carry it. Authorization is handler-level and
+authoritative throughout: no channel-level fast-fail exists for these destinations (`IMP-M2-02`
+deferred it), so every command re-verifies membership/role/host identity itself, under the lock —
+required for host commands regardless, since a `TRANSFER_HOST` can change `room.hostId` between any
+channel-level check and the handler acquiring the lock.
 
-**Two gates, both opened and closed before the executor was more than a skeleton.** `IMP-GATE-43`:
-this item's own read-list and `IMP-M2-01`'s own read-list both require the REST join/leave
-transactions to broadcast `PLAYER_JOINED`/`PLAYER_LEFT`, but `IMP-M2-01` (`DONE`) shipped without it —
-the mechanism those sentences presuppose didn't exist until this item built it. `IMP-GATE-44`: closing
-the first gate exposed a second, sharper one — `room-rest-api.md` documented the ownership claim
-running *after* the join transaction commits, but the lock-outer-transaction-inner nesting needs the
-claim's epoch *before* the transaction starts. Fixed in `room-rest-api.md`: join's claim moves to step
-0; leave (which never claimed at all before) gained a matching claim/lock/version/broadcast paragraph,
-with one asymmetry — a failed claim fails join's request (as before) but not leave's, which already
-tolerated running on a non-owning instance.
+**`RoomRepository` gained the readiness/role-switch/team-management mutations and the `ROOM_STATE`
+snapshot assembly.** Team template parsing now also carries the manifest's `name` field
+(`manifest-schema.md` § `teamTemplates`, defaulting to `"Team"`), needed for `TEAM_ADDED`/
+`ROOM_STATE` payloads and unused by `IMP-M2-01`'s creation path until now. `version` is returned
+alongside, not inside, the snapshot (`RoomRepository.RoomStateSnapshotWithVersion`) since
+`room-websocket.md`'s envelope carries it at the top level, not inside `payload`.
+`ROOM_STATE.players[].connected` is unconditionally `true` — connection/disconnect tracking is
+`IMP-M2-07`'s, so no present participant can be anything but connected before that item lands, an
+honest reflection of what the system can track today rather than a shortcut.
+`PLAYER_REASSIGNED.readinessReset` is likewise unconditionally `true`: no AI seat can ever exist
+(IR-12), so the human-only branch is the only reachable one. FR-READY-004 (readiness resets on the
+return to Lobby) has no code yet, for the same reason: nothing built so far can start or end a game
+session, so nothing can return a room to Lobby — real but unreachable until `IMP-M3-*`/`IMP-M2-06`.
 
-`RoomService.join` now claims first, then runs its mutation through the executor — a no-op join
-(already a member) produces no event, so no version bump and no broadcast. `RoomService.leave` claims
-opportunistically (a single attempt, not the bounded-retry loop join uses) and falls back to an
-unfenced, unbroadcast update when this instance doesn't own the room; the departure still commits
-(`204`), deferring the announcement to the owning instance's next sweep — the same precedent
-`releaseCallersCurrentRoom` already set for a caller's *other* room.
+**IMP-GATE-45, opened and closed before any handler code was written.** The Member Commands table's
+*Authorized sender* column states a role precondition for `TOGGLE_READY`/`SWITCH_TO_SPECTATOR`
+(non-host human player) and `SWITCH_TO_PLAYER` (spectator), but the error-code registry — which
+claims to be "the registry for every WebSocket error code in the corpus" — had no code for violating
+it: `NOT_HOST` is host-only-command-sent-by-non-host, the opposite direction. Fixed:
+`room-websocket.md` gained `ROLE_NOT_ELIGIBLE`, a note that the *Authorized sender* column is
+server-enforced (unlike FR-JOIN-008–010's client-side-only abandonment prompts), and the error table
+row.
 
-**Verified.** `RoomEventExecutorIT` (mechanism level, against a real Postgres/Redis-backed
-`RoomOwnershipService`): a mutation with an event assigns and commits from the counter, a no-event
-mutation never touches `room.version`, a corrupted `owner_epoch` makes the fenced commit fail and
-evicts the room (`RoomUnavailableRetryException`, `epochOf` empty afterward), and executing against an
-unclaimed room fails without mutating. `RoomEventFanoutIT` (end to end, a real STOMP client subscribed
-to `/topic/room.{roomId}`): a second player's REST join broadcasts a version-1 `PLAYER_JOINED` with the
-correct payload shape, a re-join broadcasts nothing, a REST leave broadcasts a version-2 `PLAYER_LEFT`,
-a second leave broadcasts nothing. `./mvnw verify -Pintegration` green locally, run solitary (134
-tests, merged JaCoCo gate met) — an earlier accidental concurrent double-run of the full suite produced
-one Testcontainers-Postgres `Connection refused` flake in an unrelated class
-(`JwtKeyRotationServiceIT`), confirmed non-reproducing when re-run in isolation, not a regression. CI
-green on `turnbase-platform` `master` (`build`, 12m).
+**Verified end to end on real STOMP clients** (`RoomCommandControllerIT`, three tests): readiness
+and role-switch preconditions and broadcasts, including the host's `ROLE_NOT_ELIGIBLE` on
+`TOGGLE_READY`/`SWITCH_TO_SPECTATOR`; team management preconditions (`TEMPLATE_MAX_TEAMS`,
+`SIZE_OUT_OF_RANGE`, `TEAM_NOT_EMPTY`, `OVER_CAPACITY` via `RESIZE_TEAM`, `TEAM_FULL` via
+`REASSIGN_PLAYER`); `NOT_HOST` for a non-host sender; `AI_NOT_SUPPORTED`; `UNKNOWN_COMMAND`; and a
+unicast, version-stamped `ROOM_STATE` snapshot. `./mvnw verify -Pintegration` green locally (141
+unit + 121 integration tests, coverage checks met). **CI green on `turnbase-platform` `master`**
+(`build`, 13m15s); `e2e`'s "Check out turnbase-game-host" step fails on the same un-provisioned
+`TURNBASE_GAME_HOST_PAT` every prior session's accepted run also shows.
 
 ---
 ## Next Priorities
+
+**`IMP-M2-05` is now `DONE` — 27 of 61.** `IMP-M2-06` (host management and transfer) and
+`IMP-M2-11` (in-room chat), both `READY` off `IMP-M2-05` alone, are unblocked and the natural next
+picks — `IMP-M2-06` extends `RoomHostCommandController`'s same `switch` with `KICK_PLAYER`,
+`CHANGE_PARAMETERS`, `START_GAME`, `TRANSFER_HOST`. `IMP-M2-07` (disconnect, grace deadlines,
+sweeps) and `IMP-M2-10` (adoption and reconciliation jobs) remain `READY` off `IMP-M2-03`
+independently; `IMP-M2-12` (room invitations) remains `READY` off `IMP-M2-01, IMP-M1-09`
+independently.
 
 **IMP-GATE-45** (`IMP-M2-05`, opened and closed 2026-09-09, session 40) — `room-websocket.md`'s
 Member Commands table states a role precondition for `TOGGLE_READY`/`SWITCH_TO_SPECTATOR` (non-host
 human player) and `SWITCH_TO_PLAYER` (spectator), but the error-code registry — which claims to be
 "the registry for every WebSocket error code in the corpus" — had no code for violating it. Fixed:
 `room-websocket.md` gained `ROLE_NOT_ELIGIBLE` and a note that the *Authorized sender* column is
-server-enforced. `IMP-M2-05` is `WIP` (session 40), STOMP command handlers next.
+server-enforced. `IMP-M2-05` is now `DONE`.
 
 **IMP-GATE-43** (`IMP-M2-04`, opened and closed 2026-09-09, session 40) — `IMP-M2-04`'s own read-list
 (`room-websocket.md`'s versioning section) and `IMP-M2-01`'s own read-list (`room-rest-api.md` §5)
