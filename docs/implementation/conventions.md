@@ -29,12 +29,29 @@ The monolith's features:
 
 ```
 io.turnbase.platform
-├── common/          error model, pagination, validation, rate limiter
+├── common/          error model, pagination, validation, rate limiter (HTTP Tiers 1-5)
+├── websocket/       STOMP connection config, CONNECT auth, Tier 6 rate limiter, connection registry
 ├── account/  session/  social/
 ├── room/     chat/     game/
 ├── catalog/  upload/   history/
 ├── notification/      admin/
 ```
+
+**`websocket/`** (`IMP-GATE-42`) holds exactly the STOMP/WebSocket machinery that is genuinely
+cross-feature, the same reasoning that already put HTTP Tiers 1–5 in `common` rather than in the
+features whose endpoints they guard: the `@EnableWebSocketMessageBroker` configuration and heartbeat
+setup ([`websocket.md`](../specs/api-design/websocket.md) § Connection), the `CONNECT`-frame session
+authentication (mirroring `session.SessionAuthenticationFilter`'s HTTP equivalent, but living here
+because it guards the connection, not a feature endpoint), the Tier 6 pod-local rate limiter
+([`rate-limiting.md`](../specs/api-design/rate-limiting.md)), and the principal-keyed connection
+registry that exposes `turnbase_websocket_connections_active` and closes sockets on
+`session.SessionRevokedEvent`. It is used by `room` from `IMP-M2-02` onward and by `game` from `IMP-M3-05`
+onward. **What does not belong here:** per-destination `SUBSCRIBE` authorization and `@MessageMapping`
+command handlers are feature-specific business logic and stay inside the feature they authorize —
+`room.*` subscriptions and commands live in `room` (where `IMP-M2-03`'s `RoomOwnershipService` is
+already package-private), `game.*` will live in `game`. A feature registers its own
+`ChannelInterceptor`/handler beans; `websocket/` exposes the registry and the principal-resolution
+helper on its public API for them to call, per the normal cross-feature rule below.
 
 **Inside a feature**, layer as usual — controller, service, repository, domain. **Across features**,
 go through the target feature's top-level API; anything under `<feature>/internal/` is private to it.

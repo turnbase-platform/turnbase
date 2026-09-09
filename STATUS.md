@@ -48,15 +48,22 @@ landing on an already-owned, still-alive room is `503` after the internal retry 
 ---
 ## Next Priorities
 
+**`IMP-M2-02` (STOMP endpoint, auth, subscriptions) is `WIP` (session 39), off `IMP-M2-01, IMP-M2-03` —
+both `DONE`.** Code is next.
+
+**IMP-GATE-42** (`IMP-M2-02`, opened and closed 2026-09-09, session 39) — `conventions.md` §1's package
+table named no home for the STOMP/WebSocket infrastructure this item builds (connection config, CONNECT
+auth, Tier 6 pod-local rate limiter, connection registry), despite it being cross-feature (`room` here,
+`game` from M3) the same way HTTP Tiers 1–5 already resolved by living in `common`. Fixed:
+`conventions.md` §1 gained a `websocket/` feature package for exactly that cross-cutting machinery;
+per-destination `SUBSCRIBE` authorization and `@MessageMapping` command handlers stay inside the
+feature they authorize (`room`, later `game`), consuming `websocket/`'s public API.
+
 **`IMP-M2-01` is `DONE` — 24 of 61.** Room CRUD and listing, `turnbase-platform`, pushed and green in
-CI. `IMP-M2-02` (STOMP endpoint, auth, subscriptions) is now `READY` off `IMP-M2-01, IMP-M2-03` — both
-satisfied — and is the natural next pick: it re-verifies ownership at subscribe time
-(`room-lifecycle.md` §1.7) using the same `RoomOwnershipService.claim()` this item's REST handlers
-call, and its own Done-when gained a close-on-revocation clause from `IMP-GATE-28`. `IMP-M2-12` (room
-invitations) is `READY` off `IMP-M2-01, IMP-M1-09` independently. `IMP-M2-04` (room event versioning
-and fan-out) is `READY` off `IMP-M2-03` alone and does not need `IMP-M2-01` — it is the mechanism this
-item's own leave/host-transfer gaps (deferred `lost_announced_at` tails, broadcast) are waiting on, not
-a hard blocker of anything already `DONE`.
+CI. `IMP-M2-12` (room invitations) is `READY` off `IMP-M2-01, IMP-M1-09` independently. `IMP-M2-04`
+(room event versioning and fan-out) is `READY` off `IMP-M2-03` alone and does not need `IMP-M2-01` — it
+is the mechanism this item's own leave/host-transfer gaps (deferred `lost_announced_at` tails,
+broadcast) are waiting on, not a hard blocker of anything already `DONE`.
 
 **IMP-GATE-41** (`IMP-M2-01`, opened and closed 2026-09-08, session 38) — this item's read-list never
 named `docs/specs/platform/data-model-catalog.md`, though `room-rest-api.md`'s create transaction and

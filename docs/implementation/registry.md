@@ -1988,6 +1988,18 @@ spectator.
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-01, IMP-M2-03 (`IMP-GATE-40`: subscribe-time
 ownership re-verification, `room-lifecycle.md` §1.7, needs `IMP-M2-03`'s claim component)
 
+**Closed:** IMP-GATE-42 (opened and closed 2026-09-09, session 39) — `conventions.md` §1's package
+table lists the monolith's features exhaustively ("the feature list is the milestone decomposition")
+but named no package for the STOMP/WebSocket infrastructure this item must build — base connection
+config, CONNECT authentication, the Tier 6 pod-local rate limiter, and the connection registry — even
+though `websocket.md` and `room-websocket.md` make clear this infrastructure is cross-feature (it
+already spans `room` here and `game` from M3 onward), the same shape `rate-limiting.md` Tiers 1–5
+already resolved by living in `common`. Fixed: `conventions.md` §1 gained a `websocket/` feature
+package — connection config, CONNECT auth, Tier 6 limiter, connection registry and its
+`turnbase_websocket_connections_active` gauge — with per-destination `SUBSCRIBE` authorization and
+`@MessageMapping` command handlers staying inside the feature they authorize (`room` here, `game`
+from M3), consuming `websocket/`'s public API rather than the reverse.
+
 **Read first:**
 - `docs/specs/api-design/websocket.md` — connection, authentication, envelope, authorization
 - `docs/specs/api-design/room-websocket.md` — *Room Affinity and WebSocket Routing*, *Destinations*,
