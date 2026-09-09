@@ -55,7 +55,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-01 | Room CRUD and listing | platform | M1-06, M2-03 | DONE |
 | IMP-M2-02 | STOMP endpoint, auth, subscriptions | platform | M2-01, M2-03 | DONE |
 | IMP-M2-03 | Ownership claim, lease, epoch fence | platform | M1-06 | DONE |
-| IMP-M2-04 | Room event versioning and fan-out | platform | M2-03 | WIP (session 40) |
+| IMP-M2-04 | Room event versioning and fan-out | platform | M2-01, M2-03 | WIP (session 40) |
 | IMP-M2-05 | Join, teams, readiness | platform | M2-04 | READY |
 | IMP-M2-06 | Host management and transfer | platform | M2-05 | READY |
 | IMP-M2-07 | Disconnect, grace deadlines, sweeps | platform | M2-03 | READY |
@@ -1975,6 +1975,10 @@ FR-HOST-002, FR-LIFE-004, NFR-PERF-001, NFR-SEC-001…002, NFR-USAB-001, NFR-SPE
 (IMP-M2-05, M2-06). Adding a REST route for any of them puts a second writer outside the per-room
 serialization `room-websocket.md` depends on, and the ordering guarantee is gone.
 
+**`PLAYER_JOINED`/`PLAYER_LEFT` broadcast on the join/leave transactions above is `IMP-M2-04`'s duty,
+not this item's** (`IMP-GATE-43`) — both events require the lock-scoped, version-assigning,
+commit-then-publish executor that item builds, which did not exist when this item shipped.
+
 **`canSpectate`'s capacity is `turnbase.room.spectator-capacity`** (default `8`,
 `local-environment.md` §7.1) — a platform property, not a room column and not a create-request field.
 Hosts choose whether a room allows spectating; they do not choose how many (NFR-SPEC-001). The wire
@@ -2169,12 +2173,34 @@ starts grace deadlines for players who never went anywhere.
 
 ### IMP-M2-04 — Room event versioning and fan-out
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M2-03
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M2-01, IMP-M2-03
+
+**Closed:** IMP-GATE-43 (opened and closed 2026-09-09, session 40) — this item's own read-list
+(`room-websocket.md` *Per-Room Serialization and Versioning*) states that every room mutation,
+"whether REST-originated (join, leave, create) or STOMP-originated," acquires the room lock, commits
+the version, and publishes the delta — and `room-rest-api.md` §5 (`IMP-M2-01`'s own read-list) says
+outright that `PLAYER_JOINED` "is broadcast by the owning instance after the commit... not by this
+handler synchronously," while `room-websocket.md`'s own `PLAYER_JOINED` entry says it is "Emitted
+after the REST join call completes." But `IMP-M2-01` (`DONE`) built REST create/join/leave with no
+lock, no version increment beyond the creation-time `0`, and no delta publish — because the
+mechanism those sentences presuppose (a lock-scoped, version-assigning, commit-then-publish
+executor) is exactly what this item builds, and did not exist until now. No item's *Done when*
+clause named the REST retrofit explicitly, so the gap was invisible until this item's read-list was
+checked against `IMP-M2-01`'s already-shipped code. Same shape as `IMP-GATE-08`/`28`: a duty that
+presupposes infrastructure a later item builds. Fixed: this item's *Depends on* gains `IMP-M2-01`
+(the handlers it retrofits); its read-list gains `room-rest-api.md` §5 (join) and §6 (leave); its
+*Done when* gains the two explicit broadcast clauses below. Room **creation** needs no retrofit: at
+insert time no pod has yet claimed the room (the Redis claim and the in-JVM epoch/version state this
+item's executor relies on are both established *after* `createRoom` returns), so there is no lock to
+acquire and no subscriber to publish to — `version = 0` at insert is already correct, not a mutation
+awaiting a delta.
 
 **Read first:**
 - `docs/specs/platform/room-lifecycle.md` §2 (*Versioning*)
 - `docs/specs/api-design/room-websocket.md` — *Per-Room Serialization and Versioning*, *Server→Client
-  Event Catalogue*, *Client Reconciliation*
+  Event Catalogue* (`PLAYER_JOINED`, `PLAYER_LEFT`), *Client Reconciliation*
+- `docs/specs/api-design/room-rest-api.md` §5 (join — the `PLAYER_JOINED` broadcast this item wires
+  up), §6 (leave — `PLAYER_LEFT`)
 - `docs/specs/platform/data-model.md` §1 (`version`)
 - `docs/decisions/0002-websocket-room-affinity.md`
 
@@ -2183,7 +2209,10 @@ starts grace deadlines for players who never went anywhere.
 **Done when:** the version is committed to Postgres **before** the delta is published, and is
 **assigned**, never `max()`-ed. Clients discard `delta.version <= localVersion`, so a pod that
 re-issues a seen version is silently and permanently wrong for every client — strictly worse than a
-gap. Chat is excluded from the counter entirely (`version: null`, IMP-M2-11).
+gap. Chat is excluded from the counter entirely (`version: null`, IMP-M2-11). The REST join
+transaction of `room-rest-api.md` §5 broadcasts `PLAYER_JOINED` and the REST leave transaction of §6
+broadcasts `PLAYER_LEFT`, both through this mechanism and both after their own commit — closing the
+gap `IMP-M2-01` (`DONE`) left open pending this item's mechanism (`IMP-GATE-43`).
 
 ---
 

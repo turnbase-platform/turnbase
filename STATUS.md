@@ -54,6 +54,16 @@ same un-provisioned `TURNBASE_GAME_HOST_PAT` every prior session's accepted run 
 ---
 ## Next Priorities
 
+**IMP-GATE-43** (`IMP-M2-04`, opened and closed 2026-09-09, session 40) — `IMP-M2-04`'s own read-list
+(`room-websocket.md`'s versioning section) and `IMP-M2-01`'s own read-list (`room-rest-api.md` §5)
+both require `PLAYER_JOINED`/`PLAYER_LEFT` to be broadcast, version-stamped, from the REST join/leave
+transactions — but `IMP-M2-01` (`DONE`) shipped without it, because the lock-scoped
+commit-then-publish executor those sentences presuppose is exactly what `IMP-M2-04` builds, and it
+didn't exist yet. Fixed: `IMP-M2-04`'s *Depends on* gains `IMP-M2-01`, its read-list gains
+`room-rest-api.md` §5–§6, and its *Done when* gains the two broadcast clauses; `IMP-M2-01`'s section
+gained a note naming `IMP-M2-04` as the owner. **`IMP-M2-04` is `WIP` (session 40)** — the executor,
+plus this retrofit, is next.
+
 **`IMP-M2-02` is `DONE` — 25 of 61.** STOMP endpoint, auth, subscriptions, `turnbase-platform`,
 pushed and green in CI (see Last Session Summary). Nothing else in the registry names `IMP-M2-02` as
 a dependency, so its completion does not itself move any other item to `READY` — `IMP-M2-04` and
