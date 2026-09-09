@@ -558,6 +558,12 @@ Authorized for any room member (player or spectator). The channel-level guard va
 | `SWITCH_TO_PLAYER` | *(none)* | Spectator | Lobby; at least one player slot available |
 | `REQUEST_ROOM_STATE` | *(none)* | Any member or spectator | Always valid |
 
+**The *Authorized sender* column is server-enforced, not merely a client-side expectation** — unlike
+FR-JOIN-008–010's abandonment prompts (`room-rest-api.md` §5), nothing here states the server accepts
+the command regardless of role. A command sent by a member whose current role does not satisfy its
+*Authorized sender* column (the host sending `TOGGLE_READY` or `SWITCH_TO_SPECTATOR`; a non-spectator
+sending `SWITCH_TO_PLAYER`) fails with `ROLE_NOT_ELIGIBLE` (`IMP-GATE-45`).
+
 **`TOGGLE_READY`:** The host never sends this command — the host's readiness is implicit in `START_GAME` (FR-READY-001). AI players are always ready (FR-READY-002) and have no command.
 
 **`SWITCH_TO_SPECTATOR`:** Vacates the player's team slot and clears their readiness. Broadcasts `PLAYER_ROLE_CHANGED`. The host cannot switch to spectator (FR-XFER-001).
@@ -685,6 +691,7 @@ errors use the envelope above, and REST errors use [error-handling.md](error-han
 | Code | Trigger |
 |---|---|
 | `NOT_HOST` | Host-only command sent by non-host |
+| `ROLE_NOT_ELIGIBLE` | A member command's *Authorized sender* precondition failed for a reason other than host/non-host: the host sending `TOGGLE_READY` or `SWITCH_TO_SPECTATOR`, or a non-spectator sending `SWITCH_TO_PLAYER` |
 | `NOT_MEMBER` | Command sent by a non-member of the room |
 | `ROOM_NOT_LOBBY` | Lobby-only command sent while room is In Progress |
 | `TEAM_NOT_EMPTY` | `REMOVE_TEAM` on a team with current members |

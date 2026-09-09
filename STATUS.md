@@ -49,6 +49,13 @@ green on `turnbase-platform` `master` (`build`, 12m).
 ---
 ## Next Priorities
 
+**IMP-GATE-45** (`IMP-M2-05`, opened and closed 2026-09-09, session 40) — `room-websocket.md`'s
+Member Commands table states a role precondition for `TOGGLE_READY`/`SWITCH_TO_SPECTATOR` (non-host
+human player) and `SWITCH_TO_PLAYER` (spectator), but the error-code registry — which claims to be
+"the registry for every WebSocket error code in the corpus" — had no code for violating it. Fixed:
+`room-websocket.md` gained `ROLE_NOT_ELIGIBLE` and a note that the *Authorized sender* column is
+server-enforced. `IMP-M2-05` is `WIP` (session 40), STOMP command handlers next.
+
 **IMP-GATE-43** (`IMP-M2-04`, opened and closed 2026-09-09, session 40) — `IMP-M2-04`'s own read-list
 (`room-websocket.md`'s versioning section) and `IMP-M2-01`'s own read-list (`room-rest-api.md` §5)
 both require `PLAYER_JOINED`/`PLAYER_LEFT` to be broadcast, version-stamped, from the REST join/leave

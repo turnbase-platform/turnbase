@@ -56,7 +56,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-02 | STOMP endpoint, auth, subscriptions | platform | M2-01, M2-03 | DONE |
 | IMP-M2-03 | Ownership claim, lease, epoch fence | platform | M1-06 | DONE |
 | IMP-M2-04 | Room event versioning and fan-out | platform | M2-01, M2-03 | DONE |
-| IMP-M2-05 | Join, teams, readiness | platform | M2-04 | READY |
+| IMP-M2-05 | Join, teams, readiness | platform | M2-04 | WIP (session 40) |
 | IMP-M2-06 | Host management and transfer | platform | M2-05 | READY |
 | IMP-M2-07 | Disconnect, grace deadlines, sweeps | platform | M2-03 | READY |
 | IMP-M2-08 | Reconnect and resync | platform | M2-07 | READY |
@@ -2266,6 +2266,15 @@ gap `IMP-M2-01` (`DONE`) left open pending this item's mechanism (`IMP-GATE-43`)
 ### IMP-M2-05 — Join, teams, readiness
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-04
+
+**Closed:** IMP-GATE-45 (opened and closed 2026-09-09, session 40) — the Member Commands table's
+*Authorized sender* column states a role precondition for `TOGGLE_READY`/`SWITCH_TO_SPECTATOR`
+(non-host human player) and `SWITCH_TO_PLAYER` (spectator), but the error-code registry — which
+states its own completeness ("the registry for every WebSocket error code in the corpus") — had no
+code for violating it: `NOT_HOST` is host-only-command-sent-by-non-host, the opposite direction. Fixed:
+`room-websocket.md` gained `ROLE_NOT_ELIGIBLE`, a note stating the *Authorized sender* column is
+server-enforced (unlike FR-JOIN-008–010's client-side-only abandonment prompts), and the error table
+row.
 
 **Read first:**
 - `docs/requirements/game-rooms.md` FR-JOIN-001…011, FR-TEAM-001…012, FR-READY-001…004,
