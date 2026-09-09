@@ -61,8 +61,18 @@ transactions — but `IMP-M2-01` (`DONE`) shipped without it, because the lock-s
 commit-then-publish executor those sentences presuppose is exactly what `IMP-M2-04` builds, and it
 didn't exist yet. Fixed: `IMP-M2-04`'s *Depends on* gains `IMP-M2-01`, its read-list gains
 `room-rest-api.md` §5–§6, and its *Done when* gains the two broadcast clauses; `IMP-M2-01`'s section
-gained a note naming `IMP-M2-04` as the owner. **`IMP-M2-04` is `WIP` (session 40)** — the executor,
-plus this retrofit, is next.
+gained a note naming `IMP-M2-04` as the owner.
+
+**IMP-GATE-44** (`IMP-M2-04`, opened and closed 2026-09-09, session 40) — `room-rest-api.md` §5
+documented the Redis claim running *after* the join transaction commits, but `room-lifecycle.md` §2.1
+and `room-websocket.md`'s versioning section require "lock outer → transaction inner → publish after
+commit," and §2.1 says a stalled database blocks REST joins on the *same* lock a STOMP command uses —
+only true if the lock is acquired before the mutation, not after. Fixed: `room-rest-api.md` §5's claim
+moves to step 0, before the transaction; §6 (leave, which never claimed at all before) gained the
+matching claim/lock/version/broadcast paragraph, with a failed claim skipping the broadcast rather
+than failing the request (leave's existing text already accepted running unclaimed).
+
+**`IMP-M2-04` is `WIP` (session 40)** — the executor, plus both retrofits, is next.
 
 **`IMP-M2-02` is `DONE` — 25 of 61.** STOMP endpoint, auth, subscriptions, `turnbase-platform`,
 pushed and green in CI (see Last Session Summary). Nothing else in the registry names `IMP-M2-02` as

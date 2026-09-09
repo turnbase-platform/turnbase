@@ -2195,6 +2195,23 @@ item's executor relies on are both established *after* `createRoom` returns), so
 acquire and no subscriber to publish to — `version = 0` at insert is already correct, not a mutation
 awaiting a delta.
 
+**Closed:** IMP-GATE-44 (opened and closed 2026-09-09, session 40) — `room-rest-api.md` §5 (join)
+documented the Redis claim as running *after* the join transaction commits, but `room-lifecycle.md`
+§2.1 and `room-websocket.md`'s own versioning section — both in this item's read-list — normatively
+require "lock outer → transaction inner → publish after commit," and §2.1 says a stalled database
+"blocks every operation on that room, including REST joins" — which only holds if a REST join
+acquires the *same* lock a STOMP command does, before its mutation, not after. Claim-after-commit and
+lock-before-transaction cannot both be true for the same endpoint. Fixed, in `room-rest-api.md`: §5's
+claim moves to step 0, before the transaction — this does not reintroduce the remote-call-in-a-
+transaction problem `room-lifecycle.md` §4 forbids (the claim is still outside the transaction, only
+earlier), and the one cost (a validation failure after a successful claim leaves this instance owning
+a room it added nobody to) is harmless. §6 (leave) gained the matching claim/lock/version/broadcast
+paragraph — leave never claimed at all before this — with one deliberate asymmetry: leave's own
+existing text already accepts "this handler may be executing on an instance that does not hold
+\[the claim\]," so a failed claim there skips the lock/version/broadcast rather than failing the
+request (`204` still holds; the departure is announced on the owning instance's next sweep instead),
+where join's failed claim still fails the request as before.
+
 **Read first:**
 - `docs/specs/platform/room-lifecycle.md` §2 (*Versioning*)
 - `docs/specs/api-design/room-websocket.md` — *Per-Room Serialization and Versioning*, *Server→Client

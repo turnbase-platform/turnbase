@@ -364,12 +364,25 @@ capacity, state and blocked-slot rule below applies unchanged.
 
 ### Evaluation order
 
-Inside one transaction, against the room row locked `FOR UPDATE`:
+**Claim first, then the locked transaction** (`IMP-GATE-44`). The room's ownership claim
+(`room-lifecycle.md` §1.2) and the `ReentrantLock` it establishes wrap everything below, matching
+`room-lifecycle.md` §2.1's normative "lock outer → transaction inner → publish after commit" nesting
+and `room-websocket.md`'s "every room mutation... whether REST-originated (join, leave, create) or
+STOMP-originated... acquires the room's ReentrantLock." §2.1 says a stalled database "blocks every
+operation on that room, **including REST joins**" — which only holds if a REST join shares the STOMP
+commands' lock, so it must be acquired before, not after, the mutation. Claiming first rather than
+last does not reintroduce the remote-call-inside-a-transaction problem `room-lifecycle.md` §4 forbids
+(the claim is still outside the transaction, only earlier); the one cost is that a join which fails
+validation *after* a successful claim leaves this instance owning a room it added no participant to,
+which is harmless — some other human is already a member, or the claim was a no-op re-confirmation of
+this instance's existing tenure.
 
+0. **Claim** the room (`room-lifecycle.md` §1.2) and acquire its `ReentrantLock`. A claim that fails
+   after retry is `503` with `Retry-After` and the affinity header is not set — nothing below runs.
 1. **Visibility** — `visible(room, caller)` from §3, or a valid `inviteCode`. Failure: `404`.
 2. **Not already a participant** — an existing row with `left_at IS NULL` is a no-op success, not an
    error (`201` with the current resource). A double-submitted join is a client retrying, not a
-   conflict.
+   conflict. Nothing below runs: no version bump, no broadcast, because nothing changed.
 3. **State** — `CLOSED` is `404` (FR-XFER-003). `IN_PROGRESS` with `role: PLAYER` additionally
    requires `gameVersion.supports_mid_game_join` (§3's `gameVersion`, `data-model-catalog.md` §2;
    FR-JOIN-006).
@@ -380,17 +393,14 @@ Inside one transaction, against the room row locked `FOR UPDATE`:
    `spectatorCount < spectatorCapacity`, where the capacity is `turnbase.room.spectator-capacity`
    (NFR-SPEC-001).
 5. **Release the caller's current room** — FR-JOIN-007, below.
-6. **Insert** the `room_participant` row with the next `join_order`, and for `PLAYER` auto-assign a
-   team (FR-TEAM-005 in Lobby, FR-TEAM-011 in progress).
-7. **Claim** the room (`room-lifecycle.md` §1.2) and set the affinity header.
+6. **Insert** the `room_participant` row with the next `join_order`, for `PLAYER` auto-assign a team
+   (FR-TEAM-005 in Lobby, FR-TEAM-011 in progress), and — inside the same transaction, fenced by step
+   0's epoch — assign and commit the room's next `version` (`room-websocket.md` *Per-Room
+   Serialization and Versioning*). Set the affinity header from step 0's claim.
 
-Steps 1–6 are one transaction; step 7 is the Redis claim and runs after it commits. The claim is not
-inside the transaction because it is a remote call and `room-lifecycle.md` §4 forbids remote calls
-inside a database transaction — and because a claim that succeeded against a join that then rolled
-back would leave the instance owning a room it has no participant in.
-
-`PLAYER_JOINED` is broadcast by the owning instance after the commit (`room-websocket.md`), not by
-this handler synchronously — commit before publish, `room-lifecycle.md` §2.1.
+Steps 1–6 are one transaction, run while step 0's lock is still held. `PLAYER_JOINED` is broadcast on
+`/topic/room.{roomId}` after the transaction commits and before the lock is released — commit before
+publish, `room-lifecycle.md` §2.1. A no-op join (step 2) never reaches step 6 and never broadcasts.
 
 ### FR-JOIN-007: the single-room constraint
 
@@ -454,6 +464,20 @@ departure and delegates to [room-lifecycle.md](../platform/room-lifecycle.md) §
 FR-XFER-001's transfer to the next human by join order, or FR-XFER-002's immediate closure when no
 other human remains — including evicting spectators, who do not count toward viability. That code
 runs under the room claim; this handler may be executing on an instance that does not hold it.
+
+**Claimed, locked and versioned the same way as join, when the claim succeeds** (`IMP-GATE-44`). This
+handler attempts the room's ownership claim (`room-lifecycle.md` §1.2) before the update below; on
+success it acquires the `ReentrantLock` the same as §5's step 0, and the update runs inside one
+transaction fenced by that claim's epoch, assigning the room's next `version`
+(`room-websocket.md` *Per-Room Serialization and Versioning*) on an actual departure. `PLAYER_LEFT` is
+broadcast on `/topic/room.{roomId}` after the commit, before the lock is released. A no-op departure
+(the caller held no slot) updates zero rows and skips the version bump and broadcast, the same as
+join's step 2. **Unlike join, a failed claim here does not fail the request**: the note above already
+accepts this handler running without the claim, so a failed claim only skips the lock/version/
+broadcast — the update still runs unfenced and still returns `204` (the caller's desired state holds),
+and `lost_announced_at` stays `null`, deferring the announcement to the owning instance's next sweep
+(`room-lifecycle.md` §5.1 duty 2), the same fallback `releaseCallersCurrentRoom` already relies on for
+a caller's *other* room (§5, FR-JOIN-007).
 
 ---
 
