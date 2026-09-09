@@ -53,7 +53,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M1-10 | Google OAuth registration and login | platform | M1-04 | DONE |
 | **M2 — Rooms and realtime** ||||
 | IMP-M2-01 | Room CRUD and listing | platform | M1-06, M2-03 | DONE |
-| IMP-M2-02 | STOMP endpoint, auth, subscriptions | platform | M2-01, M2-03 | WIP (session 39) |
+| IMP-M2-02 | STOMP endpoint, auth, subscriptions | platform | M2-01, M2-03 | DONE |
 | IMP-M2-03 | Ownership claim, lease, epoch fence | platform | M1-06 | DONE |
 | IMP-M2-04 | Room event versioning and fan-out | platform | M2-03 | READY |
 | IMP-M2-05 | Join, teams, readiness | platform | M2-04 | READY |
@@ -1987,6 +1987,68 @@ spectator.
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-01, IMP-M2-03 (`IMP-GATE-40`: subscribe-time
 ownership re-verification, `room-lifecycle.md` §1.7, needs `IMP-M2-03`'s claim component)
+
+**Done 2026-09-09 (session 39).** New `websocket` feature package (`IMP-GATE-42`):
+`WebSocketConfig` (`@EnableWebSocketMessageBroker`, STOMP at `/ws`, no SockJS, `.`-delimited
+`AntPathMatcher`, 10000/10000ms heartbeats on an explicit `TaskScheduler` bean, simple broker on
+`/topic`/`/queue`, `setPreservePublishOrder(true)`) → `WebSocketChannelInterceptor`, the single
+`clientInboundChannel` interceptor: `CONNECT` reads the session token `SessionCookieHandshakeInterceptor`
+stashed into the handshake attributes during the HTTP upgrade (the httpOnly cookie itself never
+reaches a STOMP frame) and resolves it via `session.SessionService.resolve()` — a new public method
+extracted from `SessionAuthenticationFilter` so the HTTP and WS paths share one token-verify-then-
+session-lookup instead of duplicating it — then checks the `WebSocketRateLimiter` reconnect lockout
+and `WebSocketConnectionRegistry.tryRegister()`'s connection cap (4/user); any failure throws, and
+Spring's own STOMP handling turns that into a `CONNECT`-frame `ERROR` + close (`websocket.md` §
+Authentication), so no bespoke frame-building was needed there. Every later frame is classified by
+`WebSocketRateLimiter` into `rate-limiting.md` Tier 6's six buckets (pod-local Bucket4j `LocalBucket`s,
+no Redis round trip) with the full penalty ladder — drop-and-throttled-notice, then sustained-violation
+force-close via `WebSocketConnectionRegistry.closeSession()` (a manually-built STOMP `ERROR` command
+message sent on `clientOutboundChannel`, which Spring's `StompSubProtocolHandler` closes the session
+after relaying — verified end to end by `RoomSubscriptionAuthorizerIT`, not assumed), writing the
+doubling `rate:ws-lockout:*` Redis key. `WebSocketConnectionRegistry` also exposes
+`turnbase_websocket_connections_active` (`observability.md` §2, `platform-operations.md` FR-MET-002)
+and subscribes to `session.SessionRevokedEvent`, closing every connection under the revoked login
+session with its `revoked_reason` (`FR-SESS-010`, `IMP-GATE-28`).
+
+`SUBSCRIBE` authorization is a pluggable seam (`websocket.SubscriptionAuthorizer`/`SubscriptionDecision`)
+the channel interceptor dispatches by destination, kept out of `websocket` itself per the gate's
+resolution. `room.RoomSubscriptionAuthorizer` is the one implementation today: membership
+(`RoomRepository.isCurrentParticipant`, widened from `private`) gates a silent drop, then subscribe-time
+ownership re-verification calls a new `RoomOwnershipService.claimWithRetry()` (the §1.7 bounded-retry
+loop extracted from `RoomService.claimAndGetInstanceHeader`, now shared by REST and STOMP rather than
+duplicated) — a `Redirect`/`Superseded` outcome after retries rejects with `ROOM_UNAVAILABLE_RETRY` and
+`retryAfterMs` on `/user/queue/errors` (`room-websocket.md` § the "arises at two points" section),
+never silently served. It also tracks which STOMP sessions are subscribed to which room (the only place
+that knows the mapping, since `RoomOwnershipLostEvent` carries no session ids) and severs exactly that
+room's sockets with a `ROOM_OWNERSHIP_LOST` code on `RoomOwnershipLostEvent` (`room-lifecycle.md` §1.5
+layer 3/§1.6) — the subscriber `IMP-M2-03`'s own text named as still missing. Chat/team sub-topics
+(`.chat`, `.team.*`) are deliberately out of `supports()`'s match — `IMP-M2-11`'s.
+
+**Deferred, each to the item that owns it:** the room member/host `@MessageMapping` command handlers
+and `ROOM_STATE` snapshot delivery (`IMP-M2-04`/`M2-05`/`M2-06`/`M2-11`) — this item's Done-when never
+required them, and the Tier 6 `command`/`chat`/`snapshot` buckets already classify their destinations
+so those items need no interceptor change; the game destinations and `action`/`snapshot`-for-game
+classification (`IMP-M3-*`).
+
+**Verified.** Unit: `WebSocketRateLimiterTest` (bucket classification, the drop→notify-throttle→
+force-close ladder, lockout doubling), `WebSocketConnectionRegistryTest` (connection cap,
+`SessionRevokedEvent` closes only matching sessions), `RoomSubscriptionAuthorizerTest` (membership,
+both ownership outcomes, `RoomOwnershipLostEvent` severing, disconnect bookkeeping), `SessionServiceTest`
+(the extracted `resolve()`, all five resolutions). Integration, real STOMP clients over a real port:
+`WebSocketIT` (`CONNECT` with no cookie never completes a session; a valid cookie does; a non-member's
+`SUBSCRIBE` produces no error and no data) and `RoomSubscriptionAuthorizerIT` (a member's `SUBSCRIBE`
+on the owning pod, then a directly-published `RoomOwnershipLostEvent` actually closes that live
+WebSocket with a `ROOM_OWNERSHIP_LOST` `ERROR` frame — the assumption most worth not merely asserting).
+A Modulith circular-dependency trap surfaced and was fixed with two `@Lazy` injection points
+(`WebSocketConfig`'s `WebSocketChannelInterceptor`, `WebSocketConnectionRegistry`'s
+`clientOutboundChannel`) — both are themselves dependents of the broker infrastructure that Spring
+cannot finish assembling until every `WebSocketMessageBrokerConfigurer` (including `WebSocketConfig`)
+is constructed. `./mvnw verify -Pintegration` green locally (113 tests, merged JaCoCo gate met); CI
+green on `turnbase-platform` `master` (`build`, 15m5s) after an unrelated fix landed in the same
+session — a freshly-disclosed CRITICAL CVE (CVE-2026-75595) in `netty-handler`, pulled in transitively
+by `IMP-M0-07`'s AWS SDK client, was blocking every push; pinned the whole `netty-bom` to `4.1.137.Final`.
+`e2e`'s "Check out turnbase-game-host" step fails on the same un-provisioned `TURNBASE_GAME_HOST_PAT`
+every prior session's accepted run also shows.
 
 **Closed:** IMP-GATE-42 (opened and closed 2026-09-09, session 39) — `conventions.md` §1's package
 table lists the monolith's features exhaustively ("the feature list is the milestone decomposition")

@@ -1,69 +1,72 @@
 ## Last Session Summary
 
-**Date:** 2026-09-08 (session 38)
+**Date:** 2026-09-09 (session 39)
 
-**IMP-M2-01 — Room CRUD and listing. DONE. 24 of 61 items complete.** `room.RoomController` (five
-`room-rest-api.md` §1 endpoints, session-authenticated) → `room.RoomService` (orchestration, the
-`X-TurnBase-Room-Instance` claim/retry) → `room.RoomRepository` (`JdbcClient` SQL). Create runs §2's
-transaction in order — insert `room`, instantiate `count.min` teams per declared template at
-`configuredSize = size.max` (FR-TEAM-012), auto-join and auto-assign the host to the deterministic
-first team, release any room the creator already occupies (FR-JOIN-007) — then claims ownership
-*after* commit and mints an invite code for every visibility. Listing implements §3's `included()`
-predicate exactly (`state <> CLOSED`, `visible()`, `canJoin() OR canSpectate()`) with a
-current-participant carve-out added for `GET /api/rooms/{roomId}` only (not listing, so FR-LIST-007's
-"for any player" for `INVITE_ONLY` stays literal) so a client can re-fetch a room it already belongs
-to. Join is one endpoint discriminated by `role`, evaluates §5's order (visibility → no-op-if-already-
-joined → state → capacity → FR-TEAM-005/011 team assignment → FR-JOIN-007 release → claim), and
-reports `releasedRoom`. Leave is `DELETE .../participants/me`, idempotent, immediate release — no
-grace, no host-transfer delegation (that stayed `IMP-M2-06`'s per `IMP-GATE-39`), `lost_announced_at`
-left `null` for the deferred-tail sweep machinery a later item builds. Every success path
-(create/join/get, and invite-code resolution when it returns a room) claims ownership after its own
-transaction commits and returns `X-TurnBase-Room-Instance`; a redirect that survives three internal
-retries (~200ms, `room-lifecycle.md` §1.7's "few hundred milliseconds") is `RoomUnavailableRetryException`
-→ `503` + `Retry-After` (Done-when clause 5) — success therefore always means this pod is the owner, so
-the header is always this pod's own id, never a proxied hint.
+**IMP-M2-02 — STOMP endpoint, auth, subscriptions. DONE. 25 of 61 items complete.** New `websocket`
+feature package (`IMP-GATE-42`, below): `WebSocketConfig` (`@EnableWebSocketMessageBroker`, STOMP at
+`/ws`, no SockJS, `.`-delimited `AntPathMatcher`, 10000/10000ms heartbeats on an explicit
+`TaskScheduler`, simple broker on `/topic`/`/queue`, `setPreservePublishOrder(true)`) →
+`WebSocketChannelInterceptor`, the single `clientInboundChannel` interceptor. `CONNECT` reads the
+session token `SessionCookieHandshakeInterceptor` captured from the HTTP upgrade's cookie (never a
+STOMP frame) and resolves it via a new `session.SessionService.resolve()` — extracted from
+`SessionAuthenticationFilter` so HTTP and WS share one token-verify-then-session-lookup — then checks
+the `WebSocketRateLimiter` reconnect lockout and `WebSocketConnectionRegistry`'s 4-per-user connection
+cap; any failure throws, and Spring's own STOMP handling turns that into a `CONNECT`-frame `ERROR` +
+close with no bespoke frame-building needed. Every later frame is classified into `rate-limiting.md`
+Tier 6's six buckets (pod-local Bucket4j, no Redis round trip) with the full penalty ladder —
+drop-and-throttled-notice, then sustained-violation force-close via
+`WebSocketConnectionRegistry.closeSession()` (a hand-built STOMP `ERROR` command sent on
+`clientOutboundChannel`, which Spring closes the session after relaying), writing a doubling
+`rate:ws-lockout:*` Redis key. The registry also exposes `turnbase_websocket_connections_active` and
+closes every connection under a revoked login session on `session.SessionRevokedEvent`
+(`FR-SESS-010`, `IMP-GATE-28`).
 
-**`IMP-GATE-41`, opened and closed before any code was written.** `IMP-M2-01`'s read-list never named
-`data-model-catalog.md`, though `room-rest-api.md`'s create preconditions and its `canJoin`/
-`canSpectate` predicate both need it: the three room-creation preconditions (FR-GAME-013, FR-GAME-007,
-FR-PRV-002 — `game.deleted_at`/`archived_at`/`listed`/`badge`) were stated nowhere, and the predicate's
-`game.capabilities.midGameJoin`/`.spectating` matched neither the manifest's real field
-(`capabilities.spectators`) nor the persisted column (`game_version.supports_spectators`). Fixed:
-`room-rest-api.md` §2/§3/§5 now name `gameVersion.supports_mid_game_join`/`.supports_spectators` and
-cite `data-model-catalog.md` §2; §2 states the three preconditions explicitly; read-list corrected.
-Catalog reads (`game`/`game_version`) are direct SQL in `RoomRepository`, following
-`social.SocialRepository`'s precedent against `app_user` — no `catalog` feature exists yet to own a
-Java API for these columns, and Spring Modulith's boundary is a Java dependency graph, not a schema
-ownership map.
+`SUBSCRIBE` authorization is a pluggable seam (`websocket.SubscriptionAuthorizer`), kept out of
+`websocket` per the gate below. `room.RoomSubscriptionAuthorizer` governs `/topic/room.{roomId}`:
+membership gates a silent drop, then subscribe-time ownership re-verification
+(`RoomOwnershipService.claimWithRetry()`, the §1.7 bounded-retry loop extracted from `RoomService` so
+REST and STOMP share it) rejects with `ROOM_UNAVAILABLE_RETRY` rather than serving a subscription this
+pod cannot back, and severs a room's sockets with `ROOM_OWNERSHIP_LOST` on `RoomOwnershipLostEvent` —
+the subscriber `IMP-M2-03` left missing. Room member/host command handlers and `ROOM_STATE` delivery
+stay `IMP-M2-04`/`M2-05`/`M2-06`/`M2-11`'s; the game destinations are `IMP-M3-*`'s.
 
-**Verified.** `RoomControllerIT` (8 tests, one/two full `TurnBaseApplication` contexts sharing
-Postgres/Redis): create returns `201` + `Location` + the full resource with a minted invite code;
-`INVITE_ONLY` is absent from the listing but resolves 0-or-1 by code, never `404`; `FRIENDS_ONLY` is
-visible only to the host's friend; join inserts a participant and leave is idempotent; joining a second
-room releases the first (FR-JOIN-007); a full room's further player join is `422`; a second instance
-landing on an already-owned, still-alive room is `503` after the internal retry budget exhausts.
-`./mvnw verify -Pintegration` green locally (107 tests, JaCoCo merged gate met); CI green on
-`turnbase-platform` `master` (`build`, ~11m).
+**IMP-GATE-42, opened and closed before any code was written.** `conventions.md` §1's package table
+named no home for the STOMP/WebSocket infrastructure this item builds, despite it being cross-feature
+(`room` here, `game` from M3) the same way HTTP Tiers 1–5 already resolved by living in `common`.
+Fixed: `conventions.md` §1 gained a `websocket/` feature package for exactly that cross-cutting
+machinery, with per-destination authorization staying inside the feature it governs.
+
+**Verified.** Unit: `WebSocketRateLimiterTest`, `WebSocketConnectionRegistryTest`,
+`RoomSubscriptionAuthorizerTest`, `SessionServiceTest`. Integration, real STOMP clients over a real
+port: `WebSocketIT` (no cookie never completes a session; a valid one does; a non-member's `SUBSCRIBE`
+produces no error and no data) and `RoomSubscriptionAuthorizerIT` — a member's `SUBSCRIBE` on the
+owning pod, then a published `RoomOwnershipLostEvent` actually closes that live WebSocket with a
+`ROOM_OWNERSHIP_LOST` frame, proving the force-close mechanism rather than assuming it. A Modulith
+circular-dependency trap (both new components need beans the broker infrastructure only finishes
+producing after every `WebSocketMessageBrokerConfigurer`, including this item's own, is constructed)
+was fixed with two `@Lazy` injection points. `./mvnw verify -Pintegration` green locally (113 tests,
+merged JaCoCo gate met); CI green on `turnbase-platform` `master` (`build`, 15m) after an unrelated
+fix landed in the same push: a freshly-disclosed CRITICAL CVE (CVE-2026-75595) in `netty-handler`,
+transitively pulled in by `IMP-M0-07`'s AWS SDK client, was blocking every push to the repo — pinned
+the whole `netty-bom` to `4.1.137.Final`. `e2e`'s "Check out turnbase-game-host" step fails on the
+same un-provisioned `TURNBASE_GAME_HOST_PAT` every prior session's accepted run also shows.
 
 ---
 ## Next Priorities
 
-**`IMP-M2-02` (STOMP endpoint, auth, subscriptions) is `WIP` (session 39), off `IMP-M2-01, IMP-M2-03` —
-both `DONE`.** Code is next.
+**`IMP-M2-02` is `DONE` — 25 of 61.** STOMP endpoint, auth, subscriptions, `turnbase-platform`,
+pushed and green in CI (see Last Session Summary). Nothing else in the registry names `IMP-M2-02` as
+a dependency, so its completion does not itself move any other item to `READY` — `IMP-M2-04` and
+`IMP-M2-12` were already `READY` independently of it (below) and remain the natural next picks; the
+room member/host command handlers `IMP-M2-05`/`M2-06`/`M2-11` need `IMP-M2-04`'s event
+versioning/fan-out first, not this item.
 
-**IMP-GATE-42** (`IMP-M2-02`, opened and closed 2026-09-09, session 39) — `conventions.md` §1's package
-table named no home for the STOMP/WebSocket infrastructure this item builds (connection config, CONNECT
-auth, Tier 6 pod-local rate limiter, connection registry), despite it being cross-feature (`room` here,
-`game` from M3) the same way HTTP Tiers 1–5 already resolved by living in `common`. Fixed:
-`conventions.md` §1 gained a `websocket/` feature package for exactly that cross-cutting machinery;
-per-destination `SUBSCRIBE` authorization and `@MessageMapping` command handlers stay inside the
-feature they authorize (`room`, later `game`), consuming `websocket/`'s public API.
-
-**`IMP-M2-01` is `DONE` — 24 of 61.** Room CRUD and listing, `turnbase-platform`, pushed and green in
-CI. `IMP-M2-12` (room invitations) is `READY` off `IMP-M2-01, IMP-M1-09` independently. `IMP-M2-04`
-(room event versioning and fan-out) is `READY` off `IMP-M2-03` alone and does not need `IMP-M2-01` — it
-is the mechanism this item's own leave/host-transfer gaps (deferred `lost_announced_at` tails,
-broadcast) are waiting on, not a hard blocker of anything already `DONE`.
+**`IMP-M2-04`** (room event versioning and fan-out) is `READY` off `IMP-M2-03` alone — it is the
+mechanism `IMP-M2-01`'s own leave/host-transfer gaps (deferred `lost_announced_at` tails, broadcast)
+are waiting on, and the natural next pick: it is what turns `room-websocket.md`'s per-room `version`
+counter and delta-publish-under-lock into a real component, which `IMP-M2-05` (join/teams/readiness)
+then builds its command handlers against. **`IMP-M2-12`** (room invitations) is `READY` off
+`IMP-M2-01, IMP-M1-09` independently.
 
 **IMP-GATE-41** (`IMP-M2-01`, opened and closed 2026-09-08, session 38) — this item's read-list never
 named `docs/specs/platform/data-model-catalog.md`, though `room-rest-api.md`'s create transaction and
