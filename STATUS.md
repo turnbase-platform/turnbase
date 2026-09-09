@@ -1,55 +1,50 @@
 ## Last Session Summary
 
-**Date:** 2026-09-09 (session 39)
+**Date:** 2026-09-09 (session 40)
 
-**IMP-M2-02 — STOMP endpoint, auth, subscriptions. DONE. 25 of 61 items complete.** New `websocket`
-feature package (`IMP-GATE-42`, below): `WebSocketConfig` (`@EnableWebSocketMessageBroker`, STOMP at
-`/ws`, no SockJS, `.`-delimited `AntPathMatcher`, 10000/10000ms heartbeats on an explicit
-`TaskScheduler`, simple broker on `/topic`/`/queue`, `setPreservePublishOrder(true)`) →
-`WebSocketChannelInterceptor`, the single `clientInboundChannel` interceptor. `CONNECT` reads the
-session token `SessionCookieHandshakeInterceptor` captured from the HTTP upgrade's cookie (never a
-STOMP frame) and resolves it via a new `session.SessionService.resolve()` — extracted from
-`SessionAuthenticationFilter` so HTTP and WS share one token-verify-then-session-lookup — then checks
-the `WebSocketRateLimiter` reconnect lockout and `WebSocketConnectionRegistry`'s 4-per-user connection
-cap; any failure throws, and Spring's own STOMP handling turns that into a `CONNECT`-frame `ERROR` +
-close with no bespoke frame-building needed. Every later frame is classified into `rate-limiting.md`
-Tier 6's six buckets (pod-local Bucket4j, no Redis round trip) with the full penalty ladder —
-drop-and-throttled-notice, then sustained-violation force-close via
-`WebSocketConnectionRegistry.closeSession()` (a hand-built STOMP `ERROR` command sent on
-`clientOutboundChannel`, which Spring closes the session after relaying), writing a doubling
-`rate:ws-lockout:*` Redis key. The registry also exposes `turnbase_websocket_connections_active` and
-closes every connection under a revoked login session on `session.SessionRevokedEvent`
-(`FR-SESS-010`, `IMP-GATE-28`).
+**IMP-M2-04 — Room event versioning and fan-out. DONE. 26 of 61 items complete.** New
+`room.RoomEventExecutor`: a per-room `ReentrantLock` (keyed in a `ConcurrentHashMap`) wrapping a
+`TransactionTemplate`-scoped mutation plus a fenced conditional `UPDATE room SET version = …` and a
+post-commit `SimpMessagingTemplate.convertAndSend` to `/topic/room.{roomId}` — all before the lock
+releases, the "lock outer → transaction inner → publish after commit" nesting `room-lifecycle.md`
+§2.1 and `room-websocket.md` require. Version assignment reuses `IMP-M2-03`'s existing in-JVM
+`AtomicLong` (`RoomOwnershipService.nextVersion`), never a fresh database read. A fenced-commit
+failure (the CAS affects zero rows) calls a new `RoomOwnershipService.evictAfterFailedCas` rather than
+retrying in place — "a failed CAS leaves the in-memory room state dirty," so the room is dropped from
+this instance's ownership and the next claim re-initializes from the database. A lock-acquisition or
+statement timeout fails the command without evicting, per the same section — a timeout is not proof of
+lost ownership.
 
-`SUBSCRIBE` authorization is a pluggable seam (`websocket.SubscriptionAuthorizer`), kept out of
-`websocket` per the gate below. `room.RoomSubscriptionAuthorizer` governs `/topic/room.{roomId}`:
-membership gates a silent drop, then subscribe-time ownership re-verification
-(`RoomOwnershipService.claimWithRetry()`, the §1.7 bounded-retry loop extracted from `RoomService` so
-REST and STOMP share it) rejects with `ROOM_UNAVAILABLE_RETRY` rather than serving a subscription this
-pod cannot back, and severs a room's sockets with `ROOM_OWNERSHIP_LOST` on `RoomOwnershipLostEvent` —
-the subscriber `IMP-M2-03` left missing. Room member/host command handlers and `ROOM_STATE` delivery
-stay `IMP-M2-04`/`M2-05`/`M2-06`/`M2-11`'s; the game destinations are `IMP-M3-*`'s.
+**Two gates, both opened and closed before the executor was more than a skeleton.** `IMP-GATE-43`:
+this item's own read-list and `IMP-M2-01`'s own read-list both require the REST join/leave
+transactions to broadcast `PLAYER_JOINED`/`PLAYER_LEFT`, but `IMP-M2-01` (`DONE`) shipped without it —
+the mechanism those sentences presuppose didn't exist until this item built it. `IMP-GATE-44`: closing
+the first gate exposed a second, sharper one — `room-rest-api.md` documented the ownership claim
+running *after* the join transaction commits, but the lock-outer-transaction-inner nesting needs the
+claim's epoch *before* the transaction starts. Fixed in `room-rest-api.md`: join's claim moves to step
+0; leave (which never claimed at all before) gained a matching claim/lock/version/broadcast paragraph,
+with one asymmetry — a failed claim fails join's request (as before) but not leave's, which already
+tolerated running on a non-owning instance.
 
-**IMP-GATE-42, opened and closed before any code was written.** `conventions.md` §1's package table
-named no home for the STOMP/WebSocket infrastructure this item builds, despite it being cross-feature
-(`room` here, `game` from M3) the same way HTTP Tiers 1–5 already resolved by living in `common`.
-Fixed: `conventions.md` §1 gained a `websocket/` feature package for exactly that cross-cutting
-machinery, with per-destination authorization staying inside the feature it governs.
+`RoomService.join` now claims first, then runs its mutation through the executor — a no-op join
+(already a member) produces no event, so no version bump and no broadcast. `RoomService.leave` claims
+opportunistically (a single attempt, not the bounded-retry loop join uses) and falls back to an
+unfenced, unbroadcast update when this instance doesn't own the room; the departure still commits
+(`204`), deferring the announcement to the owning instance's next sweep — the same precedent
+`releaseCallersCurrentRoom` already set for a caller's *other* room.
 
-**Verified.** Unit: `WebSocketRateLimiterTest`, `WebSocketConnectionRegistryTest`,
-`RoomSubscriptionAuthorizerTest`, `SessionServiceTest`. Integration, real STOMP clients over a real
-port: `WebSocketIT` (no cookie never completes a session; a valid one does; a non-member's `SUBSCRIBE`
-produces no error and no data) and `RoomSubscriptionAuthorizerIT` — a member's `SUBSCRIBE` on the
-owning pod, then a published `RoomOwnershipLostEvent` actually closes that live WebSocket with a
-`ROOM_OWNERSHIP_LOST` frame, proving the force-close mechanism rather than assuming it. A Modulith
-circular-dependency trap (both new components need beans the broker infrastructure only finishes
-producing after every `WebSocketMessageBrokerConfigurer`, including this item's own, is constructed)
-was fixed with two `@Lazy` injection points. `./mvnw verify -Pintegration` green locally (113 tests,
-merged JaCoCo gate met); CI green on `turnbase-platform` `master` (`build`, 15m) after an unrelated
-fix landed in the same push: a freshly-disclosed CRITICAL CVE (CVE-2026-75595) in `netty-handler`,
-transitively pulled in by `IMP-M0-07`'s AWS SDK client, was blocking every push to the repo — pinned
-the whole `netty-bom` to `4.1.137.Final`. `e2e`'s "Check out turnbase-game-host" step fails on the
-same un-provisioned `TURNBASE_GAME_HOST_PAT` every prior session's accepted run also shows.
+**Verified.** `RoomEventExecutorIT` (mechanism level, against a real Postgres/Redis-backed
+`RoomOwnershipService`): a mutation with an event assigns and commits from the counter, a no-event
+mutation never touches `room.version`, a corrupted `owner_epoch` makes the fenced commit fail and
+evicts the room (`RoomUnavailableRetryException`, `epochOf` empty afterward), and executing against an
+unclaimed room fails without mutating. `RoomEventFanoutIT` (end to end, a real STOMP client subscribed
+to `/topic/room.{roomId}`): a second player's REST join broadcasts a version-1 `PLAYER_JOINED` with the
+correct payload shape, a re-join broadcasts nothing, a REST leave broadcasts a version-2 `PLAYER_LEFT`,
+a second leave broadcasts nothing. `./mvnw verify -Pintegration` green locally, run solitary (134
+tests, merged JaCoCo gate met) — an earlier accidental concurrent double-run of the full suite produced
+one Testcontainers-Postgres `Connection refused` flake in an unrelated class
+(`JwtKeyRotationServiceIT`), confirmed non-reproducing when re-run in isolation, not a regression. CI
+green on `turnbase-platform` `master` (`build`, 12m).
 
 ---
 ## Next Priorities
@@ -72,7 +67,12 @@ moves to step 0, before the transaction; §6 (leave, which never claimed at all 
 matching claim/lock/version/broadcast paragraph, with a failed claim skipping the broadcast rather
 than failing the request (leave's existing text already accepted running unclaimed).
 
-**`IMP-M2-04` is `WIP` (session 40)** — the executor, plus both retrofits, is next.
+**`IMP-M2-04` is now `DONE` — 26 of 61.** `IMP-M2-05` (join, teams, readiness), `READY` off
+`IMP-M2-04` alone, is now unblocked and the natural next pick — it builds its STOMP command handlers
+against the `RoomEventExecutor` this item just shipped. `IMP-M2-07` (disconnect, grace deadlines,
+sweeps) and `IMP-M2-10` (adoption and reconciliation jobs) are `READY` off `IMP-M2-03` independently;
+`IMP-M2-12` (room invitations) is `READY` off `IMP-M2-01, IMP-M1-09` independently. `IMP-M2-06`
+(host management and transfer) and `IMP-M2-11` (in-room chat) both wait on `IMP-M2-05`.
 
 **`IMP-M2-02` is `DONE` — 25 of 61.** STOMP endpoint, auth, subscriptions, `turnbase-platform`,
 pushed and green in CI (see Last Session Summary). Nothing else in the registry names `IMP-M2-02` as

@@ -55,7 +55,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-01 | Room CRUD and listing | platform | M1-06, M2-03 | DONE |
 | IMP-M2-02 | STOMP endpoint, auth, subscriptions | platform | M2-01, M2-03 | DONE |
 | IMP-M2-03 | Ownership claim, lease, epoch fence | platform | M1-06 | DONE |
-| IMP-M2-04 | Room event versioning and fan-out | platform | M2-01, M2-03 | WIP (session 40) |
+| IMP-M2-04 | Room event versioning and fan-out | platform | M2-01, M2-03 | DONE |
 | IMP-M2-05 | Join, teams, readiness | platform | M2-04 | READY |
 | IMP-M2-06 | Host management and transfer | platform | M2-05 | READY |
 | IMP-M2-07 | Disconnect, grace deadlines, sweeps | platform | M2-03 | READY |
@@ -2174,6 +2174,36 @@ starts grace deadlines for players who never went anywhere.
 ### IMP-M2-04 — Room event versioning and fan-out
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-01, IMP-M2-03
+
+**Done 2026-09-09 (session 40).** `room.RoomEventExecutor` — a per-room `ReentrantLock`, keyed in a
+`ConcurrentHashMap`, wrapping a `TransactionTemplate`-scoped mutation plus the fenced conditional
+`UPDATE room SET version = …` and a post-commit `SimpMessagingTemplate.convertAndSend` to
+`/topic/room.{roomId}`, all before the lock releases. Version assignment is
+`RoomOwnershipService.nextVersion`'s existing in-JVM `AtomicLong` (`IMP-M2-03`), never a fresh read.
+A fenced-commit failure (zero rows updated) calls the new `RoomOwnershipService.evictAfterFailedCas`
+rather than retrying in place, matching `room-lifecycle.md` §2.1's "a failed CAS leaves the in-memory
+room state dirty" — the next claim re-initializes from the database. A lock-acquisition timeout or a
+statement timeout fails the command without evicting, per the same section.
+
+Retrofitted REST join/leave (`IMP-GATE-43`/`44`): join's ownership claim moves before its transaction
+(`RoomService.join`) so the mutation runs fenced and versioned inside the lock; a no-op join
+(already a member) and a no-op leave (not a member) skip the executor's version bump and broadcast
+entirely. Leave claims opportunistically and, when this instance doesn't own the room, falls back to
+an unfenced update with no broadcast — the departure still commits (`204`), deferring the
+announcement to the owning instance's next sweep, matching `releaseCallersCurrentRoom`'s existing
+precedent for a caller's *other* room.
+
+**Verified.** `RoomEventExecutorIT` (mechanism level): a mutation with an event assigns and commits
+the next version from the counter (not a fresh `max()`), a no-event mutation never touches
+`room.version`, a fenced-commit failure evicts the room and fails with `RoomUnavailableRetryException`
+rather than retrying, and executing against an unclaimed room fails without mutating.
+`RoomEventFanoutIT` (end to end, a real STOMP subscriber on `/topic/room.{roomId}`): a second player's
+REST join broadcasts a version-1 `PLAYER_JOINED` with the correct payload, a re-join broadcasts
+nothing, a REST leave broadcasts a version-2 `PLAYER_LEFT`, and a second leave broadcasts nothing.
+`./mvnw verify -Pintegration` green locally (134 tests, merged JaCoCo gate met, run solitary after an
+accidental concurrent double-run produced one Testcontainers-Postgres `Connection refused` flake in an
+unrelated class, `JwtKeyRotationServiceIT` — confirmed non-reproducing in isolation). CI green on
+`turnbase-platform` `master` (`build`, 12m).
 
 **Closed:** IMP-GATE-43 (opened and closed 2026-09-09, session 40) — this item's own read-list
 (`room-websocket.md` *Per-Room Serialization and Versioning*) states that every room mutation,
