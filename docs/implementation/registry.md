@@ -57,7 +57,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-03 | Ownership claim, lease, epoch fence | platform | M1-06 | DONE |
 | IMP-M2-04 | Room event versioning and fan-out | platform | M2-01, M2-03 | DONE |
 | IMP-M2-05 | Join, teams, readiness | platform | M2-04 | DONE |
-| IMP-M2-06 | Host management and transfer | platform | M2-05 | READY |
+| IMP-M2-06 | Host management and transfer | platform | M2-05 | WIP (session 41) |
 | IMP-M2-07 | Disconnect, grace deadlines, sweeps | platform | M2-03 | READY |
 | IMP-M2-08 | Reconnect and resync | platform | M2-07 | READY |
 | IMP-M2-09 | Room closure and the five detach paths | platform | M2-07 | READY |
