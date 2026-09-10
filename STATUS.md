@@ -1,65 +1,78 @@
 ## Last Session Summary
 
-**Date:** 2026-09-10 (session 42)
+**Date:** 2026-09-10/11 (session 43)
 
-**IMP-M2-11 — In-room chat. DONE. 29 of 61 items complete.** New `chat` feature package (ADR-0014's
-own listing, kept separate from `room` despite sharing its `room.*` wire prefix — confirmed by
-`room.RoomSubscriptionAuthorizer`'s own comment naming this item as the owner of the `.chat`/`.team.*`
-sub-topics it deliberately excludes). `ChatController`'s `SEND_CHAT_MESSAGE` on
-`/app/room.{roomId}.chat` resolves the sender's role/team through a new public `room.RoomChatPort` — a
-deliberate cross-feature API (ADR-0014 §3) rather than reaching into `room`'s package-private
-internals. `resolveSenderForSend` runs under a new `RoomEventExecutor.withLock` (lock + fresh ownership
-check only — no transaction, no version bump, no publish; `execute`'s CAS/publish machinery is specific
-to the bare room topic), giving "team assignment re-validated under the room lock" real mutual
-exclusion against a racing `REASSIGN_PLAYER` and a monotonic `serverTimestamp`.
-`ChatSubscriptionAuthorizer` uses the lighter, unlocked `currentMembership` read for the sub-topics
-themselves (mirroring `room`'s own bare-topic check), since the spec's Authorization table names only
-silent-drop for chat subscriptions, never `ROOM_UNAVAILABLE_RETRY`. Text is canonicalized via the
-existing `common.Canonicalizer` before the 1–500-code-point check; chat frames carry `version: null`
-and are published straight to their own topics, never through `RoomEventExecutor#execute` (IR-08: two
-writers on one counter is the mistake this avoids).
+**IMP-M2-07 — Disconnect, grace deadlines, sweeps. DONE. 30 of 61 items complete.**
+`room.RoomSubscriptionAuthorizer` now increments `room_participant.connection_count` on a session's
+first `SUBSCRIBE` (the mirror of the decrement, and the piece that made the refcount design real for
+the first time) and feeds a genuine `SessionDisconnectEvent` into a new `RoomService#onDisconnect` —
+the same membership map doubles as the instance-initiated-close tag (§1.5 layer 3/§1.6):
+`onRoomOwnershipLost` removes a session from it before severing the socket, so the disconnect
+handler correctly sees nothing to process, while a revoked/rate-limited session (which never
+touches that map) is still processed as a genuine involuntary disconnect. `onDisconnect` opens a
+grace reservation for an In-Progress player (§3.1), reuses `leaveRoom` for a Lobby/spectator
+immediate leave (FR-DC-002/003), and applies FR-HDISC-001's immediate host transfer unless the
+migration window is open or nobody else is connected.
 
-**IMP-GATE-47, opened and closed before any handler code was written.** `input-validation.md`'s Size
-limits table assigns the whole per-destination STOMP frame-size ceiling (8 KB
-`/app/room.*.member`/`.host`, 4 KB `/app/room.*.chat`, 256 KB `/app/game.*.action`, 1 KB
-`/app/game.*.sync`) to "the same `ChannelInterceptor` as the Tier 6 rate limits," but no item's
-read-list or Done-when had ever required building it — `IMP-M2-02` built that exact interceptor
-(`DONE`) without `input-validation.md` in its read-list, and `IMP-M2-05`/`M2-06` (also `DONE`) never
-named it either. A registry omission, not a wording conflict between two specs. Fixed: new
-`websocket.WebSocketFrameSizeGuard`, generic like Tier 6's own `classify()`, checked from the frame's
-raw payload byte length before any `@Payload` conversion, ahead of Tier 6 consumption
-(`input-validation.md`'s pipeline: Size precedes Authorize) — covers this item's own 4 KB chat row,
-`IMP-M2-05`/`M2-06`'s already-shipped 8 KB member/host destinations with no code change to either, and
-pre-registers the two 256 KB/1 KB game rows for `IMP-M3-01`/`M3-06` to inherit rather than re-decide.
+`room.GraceDeadlineSweepJob` (`turnbase.jobs.deadline-sweep.interval`, no `@SchedulerLock` —
+ownership-partitioned like lease renewal, not a cluster-wide job) runs all four §5.1 duties in
+order: due expiries (§3.2/§3.3, IR-06's conditional outbox insert), deferred tails (announces a
+foreign instance's resolution, then FR-XFER-001 host disposition), elapsed migration windows
+(FR-HDISC-004), and the outbox drain (not partitioned — a gRPC call needs no room claim).
 
-**Verified end to end on real STOMP clients** (`ChatControllerIT`, four test methods): room-channel
-broadcast reaches every player, excludes a subscribed spectator entirely (silent drop, no error), and
-leaves `room.version` unchanged across the send; every documented validation/business error code
-(`MESSAGE_EMPTY`, `MESSAGE_TOO_LONG`, `VALIDATION_FAILED`, `UNKNOWN_COMMAND`, `SPECTATOR_CANNOT_CHAT`,
-`NOT_MEMBER`) fires from the right sender; a team message reaches only players sharing that team and
-nothing arrives on the off-team topic; a game with no team templates rejects `TEAM_CHAT_NOT_AVAILABLE`;
-a 6 KB frame is rejected `MESSAGE_TOO_LARGE` with no `correlationId` key, at the interceptor, before the
-500-code-point business check ever runs. `./mvnw verify -Pintegration` green locally (full suite: 116
-tests, coverage checks met). **CI green on `turnbase-platform` `master`** (`build`).
+**IMP-GATE-48** (opened and closed same session) — `RoomOwnershipService#adopt`'s §1.4 steps 4-5
+were never assigned a read-list/Done-when owner. Fixed, then corrected again after testing exposed
+a second problem: the mass grace-open must not fire on a room's very first-ever claim (only a
+genuine takeover) — the claim script's `ADOPTED` result conflates "free" and "lease lapsed," but the
+Redis epoch counter still distinguishes them (epoch 1 is always the first claim). Without the fix, a
+fresh room's own creator was handed a grace reservation before their first `SUBSCRIBE` completed.
+
+**IMP-GATE-49** (opened and closed same session) — `IMP-M2-07`'s sweep needs `detachSession` (§4),
+owned by `IMP-M2-09`, which depends on `IMP-M2-07` — circular. Fixed with the same seam already used
+for `START_GAME`/`IMP-M3-05`: a new `room.RoomSessionDetacher` interface, a no-op
+`PendingRoomSessionDetacher` until `IMP-M2-09` supplies the real implementation. The outbox drain's
+Game Host dispatch got the identical treatment (`GameInputDispatcher`/`PendingGameInputDispatcher`),
+without a separate gate — the same already-recorded reasoning applied a third time.
+
+**Two latent bugs in already-shipped code, exposed by finally building the mechanism they
+presuppose:** `RoomRepository#leaveRoom` (`IMP-M2-01`) stamped `lost_announced_at = null`
+unconditionally rather than per `:announceInline`, which would have double-broadcast a spurious
+`PLAYER_LOST` for every ordinary voluntary leave one sweep tick later; `releaseCallersCurrentRoom`
+(`IMP-M2-01`, FR-EXPIRY-004) never inserted the game-backend outbox notification it owes. Both
+fixed. Also found: `UPDATE ... RETURNING team_id` mapped through `.query(UUID.class).optional()`
+cannot distinguish a genuinely-unmatched row from a matched row whose `team_id` is itself `null` —
+both collapse to `Optional.empty()`. Not a spec defect, a JDBC hazard; fixed with a `.list()` check.
+
+**Verified**, `GraceDeadlineSweepJobIT` (10 methods) plus a new `RoomOwnershipServiceIT` adoption
+test: every disconnect branch (still-connected, Lobby, spectator, In-Progress player, host-with/
+without another human), the sweep's four duties including the outbox-insert conditional and the
+Lobby carve-out, and adoption's mass-open including the first-claim exemption. `./mvnw verify
+-Pintegration` green locally (137 tests, merged JaCoCo gate met). **CI green on `turnbase-platform`
+`master`** (`build`, 13m9s — `e2e`'s "Check out turnbase-game-host" step fails on the same
+un-provisioned `TURNBASE_GAME_HOST_PAT` every prior session's accepted run also shows).
 
 ---
 ## Next Priorities
 
-**IMP-GATE-49** (`IMP-M2-07`/`IMP-M2-09`, opened and closed 2026-09-10, session 43) — `IMP-M2-07`'s
-Done-when needs the sweep's closure evaluation (§3.3 step 4, §5.1 duty 2), which calls `detachSession`
-(§4) — but §4 is `IMP-M2-09`'s own item, and `IMP-M2-09` **depends on `IMP-M2-07`**. Circular as
-written. Fixed with the same seam already used for `START_GAME`/`IMP-M3-05`
-(`GameSessionStarter`/`PendingGameSessionStarter`): a new `room.RoomSessionDetacher` interface, a
-no-op `PendingRoomSessionDetacher` bean until `IMP-M2-09` supplies the real `detachSession`. Both
-items' read-lists and Done-when clauses updated.
+**`IMP-M2-07` is now `DONE` — 30 of 61.** `IMP-M2-08` (Reconnect and resync) and `IMP-M2-09` (Room
+closure and the five detach paths — including `detachSession`'s real implementation, replacing the
+`PendingRoomSessionDetacher` stub `IMP-GATE-49` left) are both `READY` off it and are the natural
+next picks. `IMP-M2-10` (Adoption and reconciliation jobs) is `READY` off `IMP-M2-03` independently.
+`IMP-M2-12` (room invitations) remains `READY` off `IMP-M2-01, IMP-M1-09` independently.
 
-**IMP-GATE-48** (`IMP-M2-07`, opened and closed 2026-09-10, session 43) — `room.RoomOwnershipService`
-(`IMP-M2-03`, `DONE`) explicitly defers `room-lifecycle.md` §1.4 adoption steps 4–5 (opening a mass
-grace reservation for every connected participant when a room is adopted after owner-pod loss,
-`COALESCE`-guarded; zeroing their `connection_count`) to "`IMP-M2-07`/`IMP-M2-08`", but neither item's
-read-list or *Done when* ever named §1.4 — the same claim-without-an-owner shape as `IMP-GATE-47`.
-Fixed: `IMP-M2-07`'s read-list gains `room-lifecycle.md` §1.4 steps 4–5 and 7; its *Done when* gains
-the explicit clause. `IMP-M2-07` is `WIP` (session 43) and code is next.
+Two things worth knowing before picking up `IMP-M2-09`: it inherits `IMP-M2-07`'s two call sites
+(duty 1 step 4, duty 2's closure half) rather than writing its own, and `notifications-invitations.md`
+FR-INV-008's invitation deletion belongs inside `detachSession` itself (`data-model.md` §1's Closure
+reasons section — "every one of these five paths owes the same two side effects"), not bolted onto
+each of its three additional callers separately.
+
+A discovered-but-out-of-scope orphan, worth a look before `IMP-M2-08`/`M2-09` land: `game-rooms.md`
+FR-XFER-001 (automatic host transfer on an ordinary voluntary leave, not a disconnect) does not
+appear in any item's current *Satisfies* — `IMP-M2-06` dropped it, `IMP-M2-09` only claims
+FR-XFER-002/005. `RoomService#leave` (the REST/voluntary path) still has no host-transfer logic at
+all. Not gated this session since nothing in `IMP-M2-07`'s own Done-when touches it, but it will
+surface the next time someone builds or tests a host voluntarily leaving a room with other players
+still in it.
 
 **`IMP-M2-11` is now `DONE` — 29 of 61.** `IMP-M3-05` (orchestration client and session registry — the
 item that replaces `PendingGameSessionStarter` with a real implementation and gives `START_GAME` its

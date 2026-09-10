@@ -58,7 +58,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-04 | Room event versioning and fan-out | platform | M2-01, M2-03 | DONE |
 | IMP-M2-05 | Join, teams, readiness | platform | M2-04 | DONE |
 | IMP-M2-06 | Host management and transfer | platform | M2-05 | DONE |
-| IMP-M2-07 | Disconnect, grace deadlines, sweeps | platform | M2-03 | WIP (session 43) |
+| IMP-M2-07 | Disconnect, grace deadlines, sweeps | platform | M2-03 | DONE |
 | IMP-M2-08 | Reconnect and resync | platform | M2-07 | READY |
 | IMP-M2-09 | Room closure and the five detach paths | platform | M2-07 | READY |
 | IMP-M2-10 | Adoption and reconciliation jobs | platform | M2-03 | READY |
@@ -2468,6 +2468,68 @@ rejection path against an in-process stub, the same pattern `IMP-GATE-08` establ
 ### IMP-M2-07 — Disconnect, grace deadlines, sweeps
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-03
+
+**Done 2026-09-10 (session 43).** `room.RoomSubscriptionAuthorizer` increments
+`room_participant.connection_count` on a session's first `SUBSCRIBE` to the bare room topic (the
+mirror of the decrement below, and the missing piece that made the refcount design real for the
+first time) and feeds a genuine `SessionDisconnectEvent` into a new `room.RoomService#onDisconnect`
+— the membership map doubles as the instance-initiated-close tag (§1.5 layer 3/§1.6): `onRoomOwnershipLost`
+removes a session from it *before* severing the socket, so the disconnect handler that fires
+afterward correctly sees nothing to process, while a revoked or rate-limited session (which never
+touches this map) is still processed as a genuine involuntary disconnect. `onDisconnect` runs
+`RoomRepository#registerDisconnect` under `RoomEventExecutor`'s lock: still-connected (another tab)
+is a no-op; Lobby or spectator (any state) is an immediate leave reusing `leaveRoom`; In-Progress
+player opens a grace reservation (§3.1) and, if the disconnecting user was host, a second fenced
+call applies FR-HDISC-001's immediate transfer to the next connected human by join order, unless
+the migration window is open (FR-HDISC-004) or nobody else is connected (FR-HDISC-003, deferred).
+
+`room.GraceDeadlineSweepJob` (`turnbase.jobs.deadline-sweep.interval`, no `@SchedulerLock` —
+ownership-partitioned like `RoomOwnershipService`'s own lease renewal, ***not*** a cluster-wide job)
+runs all four §5.1 duties in order: due expiries (§3.2's resolve statement, `announceInline=true`,
+with §3.3 step 2's outbox insert conditional on `active_session_id IS NOT NULL`, IR-06); deferred
+tails (announces a foreign instance's `EARLY_RELEASE`/`GRACE_EXPIRED`/`LEFT` resolution, then
+applies FR-XFER-001 host disposition — transfer to the next connected human, or leave it for
+closure to decide); elapsed migration windows (FR-HDISC-004, clearing the column and performing the
+deferred transfer); and the outbox drain (not ownership-partitioned — a gRPC call needs no room
+claim — allocating each row's `sequence` once and stamping `dispatched_at` only on ACK). Both
+duty 1's and duty 2's closure evaluation call a new `room.RoomSessionDetacher` seam
+(`IMP-GATE-49`).
+
+**`IMP-GATE-48`'s adoption fix carried a correction found while testing it**: the mass grace-open
+must not run on a room's very first-ever claim, only a genuine takeover — the claim script's own
+`ADOPTED` result conflates "free" and "lease lapsed" (§1.2), but the Redis epoch counter still
+distinguishes them (epoch 1 is always the first claim). Without this, a fresh room's own creator
+was handed a grace reservation before their first `SUBSCRIBE` ever completed, since nothing
+distinguishes "never connected" from "connection_count = 0" otherwise.
+
+**Two latent bugs in already-shipped code, exposed by finally building the mechanism they
+presuppose:** `RoomRepository#leaveRoom` (`IMP-M2-01`) stamped `lost_announced_at = null`
+unconditionally rather than per `:announceInline` (§3.2), which would have made every ordinary
+voluntary leave (already announced correctly at leave time) match duty 2's predicate again and
+double-broadcast a spurious `PLAYER_LOST` one sweep tick later — fixed by adding the parameter
+`RoomService#leave`'s two branches already needed. `releaseCallersCurrentRoom` (`IMP-M2-01`,
+FR-EXPIRY-004's early release) never inserted the `player_left` outbox row game-contracts.md FR-IN-005
+requires from "the acting instance" — fixed, reusing `insertPlayerLeftOutbox`.
+
+**A discovered JDBC hazard, not a spec defect:** `UPDATE ... RETURNING team_id` mapped through
+`.query(UUID.class).optional()` cannot distinguish a genuinely-unmatched row from a matched row
+whose `team_id` is itself `null` — both collapse to `Optional.empty()`. `resolveExpiredReservation`
+now checks `.list()` emptiness instead, the rowcount being what §3.2 actually promises as "the
+entire idempotency story," never the value.
+
+**Verified**, `GraceDeadlineSweepJobIT` (10 methods) plus `RoomOwnershipServiceIT`'s new adoption
+test: Lobby/spectator disconnect is an immediate leave with no reservation; a second open tab stops
+a disconnect from doing anything; an In-Progress player disconnect opens a reservation and bumps
+the version once; a disconnecting host transfers immediately with another human connected and
+defers with none; the sweep resolves a due expiry, inserts the outbox row only when a session is
+attached, and never fires the outbox insert in a Lobby room whose reservation was forced past due;
+a deferred tail announces `PLAYER_LOST` and transfers host to the next connected human; an elapsed
+migration window transfers host and clears the column; adoption opens a mass reservation for every
+connected player (not spectators), never resets one already running, and skips entirely on a first
+claim. `./mvnw verify -Pintegration` green locally (137 tests, merged JaCoCo gate met). **CI green
+on `turnbase-platform` `master`** (`build`, 13m9s — `e2e`'s "Check out turnbase-game-host" step
+fails on the same un-provisioned `TURNBASE_GAME_HOST_PAT` every prior session's accepted run also
+shows).
 
 **Closed:** IMP-GATE-46's second half (`IMP-M2-06`, opened and closed 2026-09-10, session 41) — this
 item's *Satisfies* already claimed `FR-HDISC-001…004` in full, but its *Done when* never tested
