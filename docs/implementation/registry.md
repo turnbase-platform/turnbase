@@ -2491,13 +2491,36 @@ Fixed: `IMP-M2-07`'s read-list gains `room-lifecycle.md` §1.4 (adoption, steps 
 stays Game Host dispatch's, M3's; step 8 needs no code, since neither this item nor `IMP-M2-03` emits
 a per-player event on adoption); its *Done when* gains the explicit clause below.
 
+**Closed:** IMP-GATE-49 (opened and closed 2026-09-10, session 43) — "the sweep tick runs all four
+§5.1 duties" requires duty 1's closure evaluation (§3.3 step 4) and duty 2's closure half, both of
+which call `detachSession` (§4) — but §4 is `IMP-M2-09`'s own item ("Room closure and the five detach
+paths"), which **depends on `IMP-M2-07`**. Requiring it here is circular as written: `IMP-M2-09`
+cannot exist yet to supply it, and this item's own read-list never named §4 either. Same shape as
+`IMP-GATE-40`, one milestone over — a foundational shared primitive assigned to the item that needs it
+*second*. Unlike `IMP-GATE-40`'s fix (reorder the dependency), `detachSession`'s remaining four callers
+(host-leave, game-end, retry-limit-failure, reconciliation) are all `IMP-M2-09`'s or later items' own,
+so moving the whole mechanism here would leave `IMP-M2-09` an empty shell. Fixed with the seam already
+established for the identical shape of problem in `room.GameSessionStarter`/`PendingGameSessionStarter`
+(`START_GAME`'s own downstream dependency on `IMP-M3-05`, which does not exist at `IMP-M2-05`'s build
+time either): a new package-private `room.RoomSessionDetacher` interface
+(`detach(roomId, sessionId, reason, nextState)`, matching §4's own signature), called by duty 1 after a
+won expiry leaves no human and by duty 2 after announcing a deferred tail whose participant was the
+room's last human; `room.PendingRoomSessionDetacher` is a no-op default bean, honest because no room
+can reach a real `IN_PROGRESS` state with a live session before `IMP-M3-05` lands regardless — the
+same reasoning `PendingGameSessionStarter`'s own doc comment already gives. `IMP-M2-09`'s read-list
+gains `room-lifecycle.md` §3.3 step 4 and §5.1 duty 2 (to know it is replacing a live seam, not writing
+new call sites); its *Done when* gains a clause: replace `PendingRoomSessionDetacher` with a real
+`detachSession` implementation wired into the two call sites `IMP-M2-07` already built, rather than
+adding its own.
+
 **Read first:**
 - `docs/decisions/0009-grace-deadline-durability.md`
 - `docs/specs/platform/room-lifecycle.md` §3 **in full** (especially §3.2's resolve statement and
   §3.3's conditional outbox insert), §5.1 **in full** — all four sweep duties, including duty 3
   (elapsed migration windows), are this item's — and §1.4 steps 4–5 and 7 (`IMP-GATE-48`: adoption's
   own mass grace-opening, the `COALESCE`-guarded analogue of §3.1 for every participant left connected
-  when the previous owner was lost)
+  when the previous owner was lost) — and §4's `detachSession`/`terminateAndCleanup` signature only
+  (`IMP-GATE-49`: the seam this item calls into, not the mechanism it builds)
 - `docs/requirements/reconnection-flow.md` FR-DC-001…007, FR-GRACE-001…006, FR-EXPIRY-001…006,
   FR-KICK-001…004, FR-HDISC-001…004
 - `docs/specs/platform/data-model.md` §1 — `migration_window_expires_at`; §2 — `left_at`,
@@ -2537,6 +2560,15 @@ applied to every eligible participant in one pass rather than one row, called fr
 `RoomOwnershipService#adopt` inside the same fenced transaction that already sets `owner_epoch`, not
 from the sweep — the mass disconnect is observed at the moment of adoption, not on the next tick.
 
+**`IMP-GATE-49`: duty 1 and duty 2's closure evaluation go through a `RoomSessionDetacher` seam.**
+Duty 1, after a won expiry (§3.3) leaves no `PLAYER` with `left_at IS NULL`, and duty 2, after
+announcing a deferred tail whose departed participant was the room's last human, both call
+`detacher.detach(roomId, sessionId, reason, "CLOSED")`. `room.PendingRoomSessionDetacher` — the only
+bean until `IMP-M2-09` — is a no-op, matching `GameSessionStarter`/`PendingGameSessionStarter`'s
+precedent: no room can carry a real `active_session_id` before `IMP-M3-05` either, so a stub here
+costs nothing today and the call site is proven to exist and fire under the right condition, which is
+what this item's own tests assert.
+
 ---
 
 ### IMP-M2-08 — Reconnect and resync
@@ -2570,8 +2602,18 @@ item's *Satisfies* named `FR-XFER-003`, which `IMP-GATE-39` already assigned to 
 the same requirement, found while resolving `IMP-M2-06`'s own overlapping claims. Fixed: narrowed
 below to the two requirements this item actually builds.
 
+**Closed:** IMP-GATE-49's other half (`IMP-M2-07`, opened and closed 2026-09-10, session 43) —
+`IMP-M2-07`'s own Done-when needed `detachSession` for its sweep's closure evaluation before this item
+(`detachSession`'s owner) could exist, since this item depends on `IMP-M2-07`. Fixed there with a
+`RoomSessionDetacher` seam (`GameSessionStarter`/`PendingGameSessionStarter`'s precedent); this item's
+own read-list gains `room-lifecycle.md` §3.3 step 4 and §5.1 duty 2, and its *Done when* gains the
+clause below the SQL block: replace the seam, wired into the two call sites already built, rather than
+adding new ones.
+
 **Read first:**
-- `docs/specs/platform/room-lifecycle.md` §4 **in full** — the five paths and the fenced step 3
+- `docs/specs/platform/room-lifecycle.md` §4 **in full** — the five paths and the fenced step 3 — and
+  §3.3 step 4, §5.1 duty 2 (`IMP-GATE-49`: the two call sites this item's real implementation replaces
+  a stub at, not writes fresh)
 - `docs/specs/flows/07-room-closure.md`
 - `docs/decisions/0010-session-teardown-ordering.md`
 - `docs/specs/platform/data-model.md` §1 (`closed_at`, `closed_reason`), §4
@@ -2601,6 +2643,13 @@ the FK cascade that fires seven days later at purge.
 **Step 0 defers rather than closing eagerly.** A closure this instance does not own is left as
 `lost_announced_at IS NULL` for §5.1 duty 2 to discharge — the same deferred tail an account erasure
 uses (IMP-M1-08).
+
+**`IMP-GATE-49`: this item's real `detachSession` replaces `room.PendingRoomSessionDetacher`.**
+`IMP-M2-07`'s sweep duty 1 (§3.3 step 4) and duty 2 (closure half) already call
+`RoomSessionDetacher#detach` at the moment each condition is met; this item swaps the no-op bean for
+one implementing the transaction above, wires its own three remaining callers (host-leave with no
+humans, normal game end, retry-limit permanent failure) into the same method, and adds nothing at
+`IMP-M2-07`'s two call sites.
 
 ---
 

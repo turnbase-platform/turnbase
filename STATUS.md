@@ -45,6 +45,14 @@ tests, coverage checks met). **CI green on `turnbase-platform` `master`** (`buil
 ---
 ## Next Priorities
 
+**IMP-GATE-49** (`IMP-M2-07`/`IMP-M2-09`, opened and closed 2026-09-10, session 43) — `IMP-M2-07`'s
+Done-when needs the sweep's closure evaluation (§3.3 step 4, §5.1 duty 2), which calls `detachSession`
+(§4) — but §4 is `IMP-M2-09`'s own item, and `IMP-M2-09` **depends on `IMP-M2-07`**. Circular as
+written. Fixed with the same seam already used for `START_GAME`/`IMP-M3-05`
+(`GameSessionStarter`/`PendingGameSessionStarter`): a new `room.RoomSessionDetacher` interface, a
+no-op `PendingRoomSessionDetacher` bean until `IMP-M2-09` supplies the real `detachSession`. Both
+items' read-lists and Done-when clauses updated.
+
 **IMP-GATE-48** (`IMP-M2-07`, opened and closed 2026-09-10, session 43) — `room.RoomOwnershipService`
 (`IMP-M2-03`, `DONE`) explicitly defers `room-lifecycle.md` §1.4 adoption steps 4–5 (opening a mass
 grace reservation for every connected participant when a room is adopted after owner-pod loss,
