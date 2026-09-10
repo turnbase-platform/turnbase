@@ -62,7 +62,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-08 | Reconnect and resync | platform | M2-07 | READY |
 | IMP-M2-09 | Room closure and the five detach paths | platform | M2-07 | READY |
 | IMP-M2-10 | Adoption and reconciliation jobs | platform | M2-03 | READY |
-| IMP-M2-11 | In-room chat | platform | M2-05 | READY |
+| IMP-M2-11 | In-room chat | platform | M2-05 | WIP (session 42) |
 | IMP-M2-12 | Room invitations | platform | M2-01, M1-09 | READY |
 | **M3 — Game execution** ||||
 | IMP-M3-01 | GDK backend API surface | sdk | M0-02 | READY |
@@ -2032,7 +2032,13 @@ layer 3/§1.6) — the subscriber `IMP-M2-03`'s own text named as still missing.
 and `ROOM_STATE` snapshot delivery (`IMP-M2-04`/`M2-05`/`M2-06`/`M2-11`) — this item's Done-when never
 required them, and the Tier 6 `command`/`chat`/`snapshot` buckets already classify their destinations
 so those items need no interceptor change; the game destinations and `action`/`snapshot`-for-game
-classification (`IMP-M3-*`).
+classification (`IMP-M3-*`). **IMP-GATE-47** (closed the same session it opened, on `IMP-M2-11`):
+`input-validation.md`'s per-destination STOMP frame-size ceiling was never built here either — this
+item's own read-list never named `input-validation.md`, so `WebSocketChannelInterceptor` shipped Tier
+6 classification with no companion size guard. `IMP-M2-11` adds it to the same interceptor, covering
+this item's own `/app/room.*.member`/`.host` rows retroactively (no code change needed here — the
+guard runs ahead of every feature's handlers) alongside chat's own row and the two game rows M3
+inherits.
 
 **Verified.** Unit: `WebSocketRateLimiterTest` (bucket classification, the drop→notify-throttle→
 force-close ladder, lockout doubling), `WebSocketConnectionRegistryTest` (connection cap,
@@ -2606,6 +2612,19 @@ detected-but-unrepaired for more than 10 minutes.
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-05
 
+**Closed:** IMP-GATE-47 (opened and closed 2026-09-10, session 42) — `input-validation.md`'s Size
+limits table assigns the whole per-destination STOMP frame-size ceiling (8 KB
+`/app/room.*.member`/`.host`, 4 KB `/app/room.*.chat`, 256 KB `/app/game.*.action`, 1 KB
+`/app/game.*.sync`) to "the same `ChannelInterceptor` as the Tier 6 rate limits," but no work item's
+read-list or Done-when ever required building it — `IMP-M2-02` built that exact interceptor
+(`WebSocketChannelInterceptor`, `DONE`) without `input-validation.md` in its read-list, so it shipped
+Tier 6 bucket classification alone; `IMP-M2-05`/`M2-06` (also `DONE`) never named the document either.
+A registry omission, not a wording conflict between two specs. Fixed: this item builds the guard —
+see the size-limit Done-when clause below and the deferral note added to `IMP-M2-02`'s section above.
+The guard is generic (destination → byte ceiling, mirroring Tier 6's own `classify()`), so it covers
+`IMP-M2-05`/`M2-06`'s already-shipped member/host destinations with no code change to either, and
+pre-registers the two game rows for `IMP-M3-01`/`M3-06` to inherit rather than re-decide.
+
 **Read first:**
 - `docs/requirements/in-room-chat.md` in full
 - `docs/specs/api-design/room-chat-websocket.md` in full
@@ -2619,7 +2638,17 @@ FR-SWITCH-001…002, NFR-SEC-001…003, NFR-PERF-001; `game-rooms.md` FR-TEAM-01
 (IR-08); the channel a message lands on is derived from the sender's current team **server-side**,
 never read from the frame; a message missed while disconnected is **lost, not gapped** (FR-MSG-006) —
 there is no chat history, no catch-up and no second sequence number; bodies are escaped at render and
-no HTML string is ever constructed.
+no HTML string is ever constructed; a spectator's send is rejected `SPECTATOR_CANNOT_CHAT`, an empty
+or oversubscript `text` is rejected `MESSAGE_EMPTY`/`MESSAGE_TOO_LONG` at the 500-code-point limit
+measured after NFC, a `TEAM` send with no team assignment is `NO_TEAM_ASSIGNMENT`, and one against a
+game with no team support is `TEAM_CHAT_NOT_AVAILABLE` (FR-MSG-002, NFR-SEC-001…003); `authorId`/
+`authorUsername` are resolved server-side from the authenticated principal, never from the frame
+(NFR-SEC-002); `WebSocketChannelInterceptor` gains a generic per-destination frame-size guard —
+`/app/room.*.chat` at 4 KB, `/app/room.*.member`/`.host` at 8 KB, `/app/game.*.action` at 256 KB,
+`/app/game.*.sync` at 1 KB — checked from the raw frame's byte length before Tier 6 consumption
+(`input-validation.md`'s pipeline: Size precedes Authorize), rejecting with `MESSAGE_TOO_LARGE`
+(`ACTION_TOO_LARGE` for the action row, per the table) on `/user/queue/errors`, interceptor-dropped so
+it carries no `correlationId`.
 
 **Giving chat a version number is the tempting mistake.** Two writers on one counter means a client
 that filters chat sees a permanent gap in the room stream and resyncs forever.
