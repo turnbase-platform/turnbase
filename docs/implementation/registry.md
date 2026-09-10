@@ -57,7 +57,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-03 | Ownership claim, lease, epoch fence | platform | M1-06 | DONE |
 | IMP-M2-04 | Room event versioning and fan-out | platform | M2-01, M2-03 | DONE |
 | IMP-M2-05 | Join, teams, readiness | platform | M2-04 | DONE |
-| IMP-M2-06 | Host management and transfer | platform | M2-05 | WIP (session 41) |
+| IMP-M2-06 | Host management and transfer | platform | M2-05 | DONE |
 | IMP-M2-07 | Disconnect, grace deadlines, sweeps | platform | M2-03 | READY |
 | IMP-M2-08 | Reconnect and resync | platform | M2-07 | READY |
 | IMP-M2-09 | Room closure and the five detach paths | platform | M2-07 | READY |
@@ -2350,6 +2350,33 @@ branch, and do not build an AI seat to make it reachable.
 ### IMP-M2-06 — Host management and transfer
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-05
+
+**Done 2026-09-10 (session 41).** `RoomHostCommandController`'s switch gains `KICK_PLAYER`,
+`CHANGE_PARAMETERS`, `START_GAME`, `TRANSFER_HOST`, each re-verifying host identity under
+`RoomEventExecutor`'s lock like `IMP-M2-05`'s share. `CHANGE_PARAMETERS` validates every key against
+the pinned game version's manifest parameter schema (`input-validation.md`'s whitelist — unknown key,
+type mismatch, or out-of-range value) and persists the full merged set, not just the changed keys.
+`START_GAME` evaluates FR-TEAM-009's three conditions atomically under the lock, collecting every
+unmet condition into `START_CONDITIONS_NOT_MET`'s `details` rather than stopping at the first; on
+success it calls a new `GameSessionStarter` port, whose only implementation
+(`PendingGameSessionStarter`) is a deliberate no-op — no broadcast, no state change — since
+`GAME_STARTED` requires a real `sessionId` that does not exist until `IMP-M3-05`. `KICK_PLAYER`
+unicasts `KICKED` to the removed player (no `correlationId`, per `room-websocket.md`'s exact shape)
+and conditionally enqueues a `player_left` game-backend input when a session is attached — currently
+unreachable, since nothing before `IMP-M3-05` can attach one, the same "real but unreachable" shape
+`IMP-M2-05` left for `FR-READY-004`. `TRANSFER_HOST` moves only `room.host_user_id`; the former host
+keeps their player slot (FR-XFER-004).
+
+**Verified end to end on real STOMP clients** (`RoomCommandControllerIT`, a fourth test method):
+`NOT_HOST` for every command sent by a non-host; `PLAYER_NOT_FOUND` for an unknown kick target;
+`PLAYER_KICKED` broadcast plus the kicked player's own unicast; `UNKNOWN_PARAMETER`/
+`PARAMETER_TYPE_MISMATCH`/`PARAMETER_OUT_OF_RANGE` for each `CHANGE_PARAMETERS` whitelist rule, then
+`PARAMETERS_CHANGED` carrying the full merged set; `START_CONDITIONS_NOT_MET` with a non-empty
+`failedConditions` list while a non-host player is un-ready, then silence (no error, no broadcast, no
+state change) once ready; `TARGET_NOT_PLAYER` for a `TRANSFER_HOST` naming a non-participant, then
+`HOST_TRANSFERRED`, after which the former host's own further host commands get `NOT_HOST`.
+`./mvnw verify -Pintegration` green locally (full suite: 122 tests, coverage checks met). **CI green
+on `turnbase-platform` `master`** (`build`, 15m22s).
 
 **Closed:** IMP-GATE-46 (opened and closed 2026-09-10, session 41) — this item's *Satisfies* and
 *Done when* claimed five things it does not actually build, and were silent on the command surface

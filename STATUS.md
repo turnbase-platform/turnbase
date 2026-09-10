@@ -1,79 +1,63 @@
 ## Last Session Summary
 
-**Date:** 2026-09-09 (session 40)
+**Date:** 2026-09-10 (session 41)
 
-**IMP-M2-05 — Join, teams, readiness. DONE. 27 of 61 items complete.** Two new STOMP
-`@Controller`s in `room`: `RoomMemberCommandController` (`/app/room.{roomId}.member` — the whole
-Member Commands table: `TOGGLE_READY`, `SWITCH_TO_SPECTATOR`, `SWITCH_TO_PLAYER`,
-`REQUEST_ROOM_STATE`) and `RoomHostCommandController` (`/app/room.{roomId}.host` — this item's own
-slice of Host Commands: `ADD_TEAM`, `REMOVE_TEAM`, `RESIZE_TEAM`, `REASSIGN_PLAYER`,
-`ADD_AI_PLAYER`; `KICK_PLAYER`/`CHANGE_PARAMETERS`/`START_GAME`/`TRANSFER_HOST` are `IMP-M2-06`'s).
-Both dispatch on the envelope's `type` field — STOMP routes by destination, not by a body field —
-and run every mutation through `IMP-M2-04`'s `RoomEventExecutor` lock. A new `RoomCommandException`
-carries one of `room-websocket.md`'s closed error codes, caught at the dispatch site (not
-`@MessageExceptionHandler`) so the originating command's `correlationId` can be echoed on
-`/user/queue/errors` — the exception itself doesn't carry it. Authorization is handler-level and
-authoritative throughout: no channel-level fast-fail exists for these destinations (`IMP-M2-02`
-deferred it), so every command re-verifies membership/role/host identity itself, under the lock —
-required for host commands regardless, since a `TRANSFER_HOST` can change `room.hostId` between any
-channel-level check and the handler acquiring the lock.
+**IMP-M2-06 — Host management and transfer. DONE. 28 of 61 items complete.** But the item's own
+*Satisfies*/*Done when* were wrong before any code was written — see `IMP-GATE-46` below, opened and
+closed first. Once narrowed, `RoomHostCommandController`'s switch (`IMP-M2-05`'s) gained `KICK_PLAYER`,
+`CHANGE_PARAMETERS`, `START_GAME`, `TRANSFER_HOST`, each re-verifying host identity under
+`RoomEventExecutor`'s lock. `CHANGE_PARAMETERS` validates every key against the pinned game version's
+manifest parameter schema (`input-validation.md`'s whitelist: `UNKNOWN_PARAMETER`/
+`PARAMETER_TYPE_MISMATCH`/`PARAMETER_OUT_OF_RANGE`) and persists the full merged set — a key omitted
+from the command keeps its stored value, and the whole set broadcasts, not just what changed.
+`START_GAME` evaluates FR-TEAM-009's three conditions atomically under the lock, collecting every
+unmet condition into `START_CONDITIONS_NOT_MET`'s `details` rather than stopping at the first; on
+success it calls a new `GameSessionStarter` port. Its only implementation, `PendingGameSessionStarter`,
+is a deliberate no-op — no broadcast, no state change — because `GAME_STARTED` requires a real
+`sessionId`/`gameFrontendUrl` that don't exist until `IMP-M3-05`'s orchestration client does (same
+"proven against a stub" shape `IMP-M0-04`'s `Register` call used for `IMP-GATE-08`). `KICK_PLAYER`
+unicasts `KICKED` to the removed player (`room-websocket.md`'s exact shape — no `correlationId` key at
+all, not even null) and conditionally enqueues a `player_left` game-backend input when a session is
+attached — currently unreachable, the same "real but unreachable" shape `IMP-M2-05` left for
+`FR-READY-004`, since nothing before `IMP-M3-05` can attach a session. `TRANSFER_HOST` moves only
+`room.host_user_id`; the former host keeps their player slot (FR-XFER-004).
 
-**`RoomRepository` gained the readiness/role-switch/team-management mutations and the `ROOM_STATE`
-snapshot assembly.** Team template parsing now also carries the manifest's `name` field
-(`manifest-schema.md` § `teamTemplates`, defaulting to `"Team"`), needed for `TEAM_ADDED`/
-`ROOM_STATE` payloads and unused by `IMP-M2-01`'s creation path until now. `version` is returned
-alongside, not inside, the snapshot (`RoomRepository.RoomStateSnapshotWithVersion`) since
-`room-websocket.md`'s envelope carries it at the top level, not inside `payload`.
-`ROOM_STATE.players[].connected` is unconditionally `true` — connection/disconnect tracking is
-`IMP-M2-07`'s, so no present participant can be anything but connected before that item lands, an
-honest reflection of what the system can track today rather than a shortcut.
-`PLAYER_REASSIGNED.readinessReset` is likewise unconditionally `true`: no AI seat can ever exist
-(IR-12), so the human-only branch is the only reachable one. FR-READY-004 (readiness resets on the
-return to Lobby) has no code yet, for the same reason: nothing built so far can start or end a game
-session, so nothing can return a room to Lobby — real but unreachable until `IMP-M3-*`/`IMP-M2-06`.
+**IMP-GATE-46, opened and closed before any handler code was written.** `IMP-M2-06`'s *Satisfies*/
+*Done when* claimed five things it doesn't build: `FR-HOST-003` (already shipped by `IMP-M2-05`, which
+never claimed it), `FR-HDISC-001…004` (fully owned by `IMP-M2-07`, whose single ordered sweep tick the
+migration-window duty is inseparable from — no sweep scaffolding existed in the codebase at all, and
+`IMP-M2-07` wasn't even this item's dependency), `FR-XFER-002`/`FR-XFER-005` (owned by `IMP-M2-09`'s
+`detachSession`), `FR-HOST-001` (owned by `IMP-M2-12`'s notification-based invites), and
+`FR-HOST-009`'s happy path (needs `IMP-M3-05`'s orchestration client, not yet built — a real
+`sessionId` is not fabricable). Also found in passing while fixing the `FR-XFER` overlap: `IMP-M2-09`
+separately double-claimed `FR-XFER-003` against `IMP-M2-01` (`IMP-GATE-39` had already assigned it
+there). Fixed: `IMP-M2-06` narrowed to `FR-HOST-006…009, FR-XFER-004` — the four STOMP commands this
+item actually builds; `START_GAME`'s success path deferred to `IMP-M3-05` via the new
+`GameSessionStarter` port (`IMP-M3-05` gains `IMP-M2-06` as a dependency and `FR-HOST-009`'s
+success-path clause); `IMP-M2-07` gained an explicit duty-3 (migration-window sweep) Done-when clause
+for the `FR-HDISC-004` it already claimed but never tested (`IMP-GATE-34`'s shape); `IMP-M2-09` dropped
+`FR-XFER-003`; `IMP-M2-05` (`DONE`, not reopened) gained `FR-HOST-003` in *Satisfies* to match what it
+already shipped.
 
-**IMP-GATE-45, opened and closed before any handler code was written.** The Member Commands table's
-*Authorized sender* column states a role precondition for `TOGGLE_READY`/`SWITCH_TO_SPECTATOR`
-(non-host human player) and `SWITCH_TO_PLAYER` (spectator), but the error-code registry — which
-claims to be "the registry for every WebSocket error code in the corpus" — had no code for violating
-it: `NOT_HOST` is host-only-command-sent-by-non-host, the opposite direction. Fixed:
-`room-websocket.md` gained `ROLE_NOT_ELIGIBLE`, a note that the *Authorized sender* column is
-server-enforced (unlike FR-JOIN-008–010's client-side-only abandonment prompts), and the error table
-row.
-
-**Verified end to end on real STOMP clients** (`RoomCommandControllerIT`, three tests): readiness
-and role-switch preconditions and broadcasts, including the host's `ROLE_NOT_ELIGIBLE` on
-`TOGGLE_READY`/`SWITCH_TO_SPECTATOR`; team management preconditions (`TEMPLATE_MAX_TEAMS`,
-`SIZE_OUT_OF_RANGE`, `TEAM_NOT_EMPTY`, `OVER_CAPACITY` via `RESIZE_TEAM`, `TEAM_FULL` via
-`REASSIGN_PLAYER`); `NOT_HOST` for a non-host sender; `AI_NOT_SUPPORTED`; `UNKNOWN_COMMAND`; and a
-unicast, version-stamped `ROOM_STATE` snapshot. `./mvnw verify -Pintegration` green locally (141
-unit + 121 integration tests, coverage checks met). **CI green on `turnbase-platform` `master`**
-(`build`, 13m15s); `e2e`'s "Check out turnbase-game-host" step fails on the same un-provisioned
-`TURNBASE_GAME_HOST_PAT` every prior session's accepted run also shows.
+**Verified end to end on real STOMP clients** (`RoomCommandControllerIT`, a fourth test method added
+to the three from session 40): `NOT_HOST` for every command from a non-host; `PLAYER_NOT_FOUND` for an
+unknown kick target; `PLAYER_KICKED` broadcast plus the kicked player's own unicast; the three
+`CHANGE_PARAMETERS` whitelist error codes then `PARAMETERS_CHANGED` with the full merged set;
+`START_CONDITIONS_NOT_MET` with a non-empty `failedConditions` list while a non-host player is
+un-ready, then silence (no error, no broadcast, no state change) once ready; `TARGET_NOT_PLAYER` for a
+`TRANSFER_HOST` naming a non-participant, then `HOST_TRANSFERRED`, after which the former host's own
+further host commands get `NOT_HOST`. `./mvnw verify -Pintegration` green locally (full suite: 122
+tests, coverage checks met). **CI green on `turnbase-platform` `master`** (`build`, 15m22s).
 
 ---
 ## Next Priorities
 
-**IMP-GATE-46** (`IMP-M2-06`, opened and closed 2026-09-10, session 41) — `IMP-M2-06`'s *Satisfies*/
-*Done when* claimed five things it doesn't build: `FR-HOST-003` (already shipped by `IMP-M2-05`),
-`FR-HDISC-001…004` (fully owned by `IMP-M2-07`, whose sweep tick the migration-window duty is
-inseparable from), `FR-XFER-002`/`FR-XFER-005` (owned by `IMP-M2-09`'s `detachSession`), `FR-HOST-001`
-(owned by `IMP-M2-12`), and `FR-HOST-009`'s happy path (needs `IMP-M3-05`'s orchestration client,
-not yet built). Also found in passing: `IMP-M2-09` separately double-claimed `FR-XFER-003` against
-`IMP-M2-01` (`IMP-GATE-39`). Fixed: `IMP-M2-06` narrowed to `FR-HOST-006…009, FR-XFER-004` (the four
-STOMP commands `KICK_PLAYER`/`CHANGE_PARAMETERS`/`START_GAME`/`TRANSFER_HOST`), with `START_GAME`'s
-success path deferred to a new `GameSessionStarter` port proved against a stub, the real
-implementation moving to `IMP-M3-05` (which gains `IMP-M2-06` as a dependency and `FR-HOST-009`'s
-success-path clause); `IMP-M2-07` gains an explicit duty-3 (migration-window sweep) Done-when clause
-for the `FR-HDISC-004` it already claimed; `IMP-M2-09` drops `FR-XFER-003`; `IMP-M2-05` (`DONE`, not
-reopened) gains `FR-HOST-003` in *Satisfies* to match what it already shipped. `IMP-M2-06` is `WIP`
-(session 41) and code is next — the read-list and Done-when clause above are what to build against.
-
-**`IMP-M2-05` is now `DONE` — 27 of 61.** `IMP-M2-06` (host management and transfer) and
-`IMP-M2-11` (in-room chat), both `READY` off `IMP-M2-05` alone, are unblocked and the natural next
-picks — `IMP-M2-06` extends `RoomHostCommandController`'s same `switch` with `KICK_PLAYER`,
-`CHANGE_PARAMETERS`, `START_GAME`, `TRANSFER_HOST`. `IMP-M2-07` (disconnect, grace deadlines,
-sweeps) and `IMP-M2-10` (adoption and reconciliation jobs) remain `READY` off `IMP-M2-03`
+**`IMP-M2-06` is now `DONE` — 28 of 61.** `IMP-M2-11` (in-room chat), `READY` off `IMP-M2-05` alone,
+and `IMP-M3-05` (orchestration client and session registry — now the item that replaces
+`PendingGameSessionStarter` with a real implementation and gives `START_GAME` its `GAME_STARTED`
+broadcast), `READY` off `IMP-M3-04, IMP-M2-04, IMP-M2-06`, are the natural next picks. `IMP-M2-07`
+(disconnect, grace deadlines, sweeps) and `IMP-M2-10` (adoption and reconciliation jobs) remain
+`READY` off `IMP-M2-03`
 independently; `IMP-M2-12` (room invitations) remains `READY` off `IMP-M2-01, IMP-M1-09`
 independently.
 
