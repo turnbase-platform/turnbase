@@ -1,65 +1,57 @@
 ## Last Session Summary
 
-**Date:** 2026-09-10 (session 41)
+**Date:** 2026-09-10 (session 42)
 
-**IMP-M2-06 — Host management and transfer. DONE. 28 of 61 items complete.** But the item's own
-*Satisfies*/*Done when* were wrong before any code was written — see `IMP-GATE-46` below, opened and
-closed first. Once narrowed, `RoomHostCommandController`'s switch (`IMP-M2-05`'s) gained `KICK_PLAYER`,
-`CHANGE_PARAMETERS`, `START_GAME`, `TRANSFER_HOST`, each re-verifying host identity under
-`RoomEventExecutor`'s lock. `CHANGE_PARAMETERS` validates every key against the pinned game version's
-manifest parameter schema (`input-validation.md`'s whitelist: `UNKNOWN_PARAMETER`/
-`PARAMETER_TYPE_MISMATCH`/`PARAMETER_OUT_OF_RANGE`) and persists the full merged set — a key omitted
-from the command keeps its stored value, and the whole set broadcasts, not just what changed.
-`START_GAME` evaluates FR-TEAM-009's three conditions atomically under the lock, collecting every
-unmet condition into `START_CONDITIONS_NOT_MET`'s `details` rather than stopping at the first; on
-success it calls a new `GameSessionStarter` port. Its only implementation, `PendingGameSessionStarter`,
-is a deliberate no-op — no broadcast, no state change — because `GAME_STARTED` requires a real
-`sessionId`/`gameFrontendUrl` that don't exist until `IMP-M3-05`'s orchestration client does (same
-"proven against a stub" shape `IMP-M0-04`'s `Register` call used for `IMP-GATE-08`). `KICK_PLAYER`
-unicasts `KICKED` to the removed player (`room-websocket.md`'s exact shape — no `correlationId` key at
-all, not even null) and conditionally enqueues a `player_left` game-backend input when a session is
-attached — currently unreachable, the same "real but unreachable" shape `IMP-M2-05` left for
-`FR-READY-004`, since nothing before `IMP-M3-05` can attach a session. `TRANSFER_HOST` moves only
-`room.host_user_id`; the former host keeps their player slot (FR-XFER-004).
+**IMP-M2-11 — In-room chat. DONE. 29 of 61 items complete.** New `chat` feature package (ADR-0014's
+own listing, kept separate from `room` despite sharing its `room.*` wire prefix — confirmed by
+`room.RoomSubscriptionAuthorizer`'s own comment naming this item as the owner of the `.chat`/`.team.*`
+sub-topics it deliberately excludes). `ChatController`'s `SEND_CHAT_MESSAGE` on
+`/app/room.{roomId}.chat` resolves the sender's role/team through a new public `room.RoomChatPort` — a
+deliberate cross-feature API (ADR-0014 §3) rather than reaching into `room`'s package-private
+internals. `resolveSenderForSend` runs under a new `RoomEventExecutor.withLock` (lock + fresh ownership
+check only — no transaction, no version bump, no publish; `execute`'s CAS/publish machinery is specific
+to the bare room topic), giving "team assignment re-validated under the room lock" real mutual
+exclusion against a racing `REASSIGN_PLAYER` and a monotonic `serverTimestamp`.
+`ChatSubscriptionAuthorizer` uses the lighter, unlocked `currentMembership` read for the sub-topics
+themselves (mirroring `room`'s own bare-topic check), since the spec's Authorization table names only
+silent-drop for chat subscriptions, never `ROOM_UNAVAILABLE_RETRY`. Text is canonicalized via the
+existing `common.Canonicalizer` before the 1–500-code-point check; chat frames carry `version: null`
+and are published straight to their own topics, never through `RoomEventExecutor#execute` (IR-08: two
+writers on one counter is the mistake this avoids).
 
-**IMP-GATE-46, opened and closed before any handler code was written.** `IMP-M2-06`'s *Satisfies*/
-*Done when* claimed five things it doesn't build: `FR-HOST-003` (already shipped by `IMP-M2-05`, which
-never claimed it), `FR-HDISC-001…004` (fully owned by `IMP-M2-07`, whose single ordered sweep tick the
-migration-window duty is inseparable from — no sweep scaffolding existed in the codebase at all, and
-`IMP-M2-07` wasn't even this item's dependency), `FR-XFER-002`/`FR-XFER-005` (owned by `IMP-M2-09`'s
-`detachSession`), `FR-HOST-001` (owned by `IMP-M2-12`'s notification-based invites), and
-`FR-HOST-009`'s happy path (needs `IMP-M3-05`'s orchestration client, not yet built — a real
-`sessionId` is not fabricable). Also found in passing while fixing the `FR-XFER` overlap: `IMP-M2-09`
-separately double-claimed `FR-XFER-003` against `IMP-M2-01` (`IMP-GATE-39` had already assigned it
-there). Fixed: `IMP-M2-06` narrowed to `FR-HOST-006…009, FR-XFER-004` — the four STOMP commands this
-item actually builds; `START_GAME`'s success path deferred to `IMP-M3-05` via the new
-`GameSessionStarter` port (`IMP-M3-05` gains `IMP-M2-06` as a dependency and `FR-HOST-009`'s
-success-path clause); `IMP-M2-07` gained an explicit duty-3 (migration-window sweep) Done-when clause
-for the `FR-HDISC-004` it already claimed but never tested (`IMP-GATE-34`'s shape); `IMP-M2-09` dropped
-`FR-XFER-003`; `IMP-M2-05` (`DONE`, not reopened) gained `FR-HOST-003` in *Satisfies* to match what it
-already shipped.
+**IMP-GATE-47, opened and closed before any handler code was written.** `input-validation.md`'s Size
+limits table assigns the whole per-destination STOMP frame-size ceiling (8 KB
+`/app/room.*.member`/`.host`, 4 KB `/app/room.*.chat`, 256 KB `/app/game.*.action`, 1 KB
+`/app/game.*.sync`) to "the same `ChannelInterceptor` as the Tier 6 rate limits," but no item's
+read-list or Done-when had ever required building it — `IMP-M2-02` built that exact interceptor
+(`DONE`) without `input-validation.md` in its read-list, and `IMP-M2-05`/`M2-06` (also `DONE`) never
+named it either. A registry omission, not a wording conflict between two specs. Fixed: new
+`websocket.WebSocketFrameSizeGuard`, generic like Tier 6's own `classify()`, checked from the frame's
+raw payload byte length before any `@Payload` conversion, ahead of Tier 6 consumption
+(`input-validation.md`'s pipeline: Size precedes Authorize) — covers this item's own 4 KB chat row,
+`IMP-M2-05`/`M2-06`'s already-shipped 8 KB member/host destinations with no code change to either, and
+pre-registers the two 256 KB/1 KB game rows for `IMP-M3-01`/`M3-06` to inherit rather than re-decide.
 
-**Verified end to end on real STOMP clients** (`RoomCommandControllerIT`, a fourth test method added
-to the three from session 40): `NOT_HOST` for every command from a non-host; `PLAYER_NOT_FOUND` for an
-unknown kick target; `PLAYER_KICKED` broadcast plus the kicked player's own unicast; the three
-`CHANGE_PARAMETERS` whitelist error codes then `PARAMETERS_CHANGED` with the full merged set;
-`START_CONDITIONS_NOT_MET` with a non-empty `failedConditions` list while a non-host player is
-un-ready, then silence (no error, no broadcast, no state change) once ready; `TARGET_NOT_PLAYER` for a
-`TRANSFER_HOST` naming a non-participant, then `HOST_TRANSFERRED`, after which the former host's own
-further host commands get `NOT_HOST`. `./mvnw verify -Pintegration` green locally (full suite: 122
-tests, coverage checks met). **CI green on `turnbase-platform` `master`** (`build`, 15m22s).
+**Verified end to end on real STOMP clients** (`ChatControllerIT`, four test methods): room-channel
+broadcast reaches every player, excludes a subscribed spectator entirely (silent drop, no error), and
+leaves `room.version` unchanged across the send; every documented validation/business error code
+(`MESSAGE_EMPTY`, `MESSAGE_TOO_LONG`, `VALIDATION_FAILED`, `UNKNOWN_COMMAND`, `SPECTATOR_CANNOT_CHAT`,
+`NOT_MEMBER`) fires from the right sender; a team message reaches only players sharing that team and
+nothing arrives on the off-team topic; a game with no team templates rejects `TEAM_CHAT_NOT_AVAILABLE`;
+a 6 KB frame is rejected `MESSAGE_TOO_LARGE` with no `correlationId` key, at the interceptor, before the
+500-code-point business check ever runs. `./mvnw verify -Pintegration` green locally (full suite: 116
+tests, coverage checks met). **CI green on `turnbase-platform` `master`** (`build`).
 
 ---
 ## Next Priorities
 
-**`IMP-M2-06` is now `DONE` — 28 of 61.** `IMP-M2-11` (in-room chat), `READY` off `IMP-M2-05` alone,
-and `IMP-M3-05` (orchestration client and session registry — now the item that replaces
-`PendingGameSessionStarter` with a real implementation and gives `START_GAME` its `GAME_STARTED`
-broadcast), `READY` off `IMP-M3-04, IMP-M2-04, IMP-M2-06`, are the natural next picks. `IMP-M2-07`
-(disconnect, grace deadlines, sweeps) and `IMP-M2-10` (adoption and reconciliation jobs) remain
-`READY` off `IMP-M2-03`
-independently; `IMP-M2-12` (room invitations) remains `READY` off `IMP-M2-01, IMP-M1-09`
-independently.
+**`IMP-M2-11` is now `DONE` — 29 of 61.** `IMP-M3-05` (orchestration client and session registry — the
+item that replaces `PendingGameSessionStarter` with a real implementation and gives `START_GAME` its
+`GAME_STARTED` broadcast), `READY` off `IMP-M3-04, IMP-M2-04, IMP-M2-06`, is the natural next pick once
+its own game-host dependency (`IMP-M3-04`) is ready; until then, `IMP-M2-07` (disconnect, grace
+deadlines, sweeps) and `IMP-M2-10` (adoption and reconciliation jobs), both `READY` off `IMP-M2-03`
+independently, and `IMP-M2-12` (room invitations), `READY` off `IMP-M2-01, IMP-M1-09` independently,
+remain the pickable items that need no other repo's work first.
 
 **IMP-GATE-45** (`IMP-M2-05`, opened and closed 2026-09-09, session 40) — `room-websocket.md`'s
 Member Commands table states a role precondition for `TOGGLE_READY`/`SWITCH_TO_SPECTATOR` (non-host

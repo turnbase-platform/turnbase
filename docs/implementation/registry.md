@@ -62,7 +62,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-08 | Reconnect and resync | platform | M2-07 | READY |
 | IMP-M2-09 | Room closure and the five detach paths | platform | M2-07 | READY |
 | IMP-M2-10 | Adoption and reconciliation jobs | platform | M2-03 | READY |
-| IMP-M2-11 | In-room chat | platform | M2-05 | WIP (session 42) |
+| IMP-M2-11 | In-room chat | platform | M2-05 | DONE |
 | IMP-M2-12 | Room invitations | platform | M2-01, M1-09 | READY |
 | **M3 — Game execution** ||||
 | IMP-M3-01 | GDK backend API surface | sdk | M0-02 | READY |
@@ -2612,6 +2612,21 @@ detected-but-unrepaired for more than 10 minutes.
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-05
 
+**Done 2026-09-10 (session 42).** New `chat` feature package (ADR-0014's own listing, kept separate
+from `room` despite sharing its `room.*` wire prefix). `ChatController`'s `SEND_CHAT_MESSAGE` on
+`/app/room.{roomId}.chat` resolves the sender's role/team through a new public `room.RoomChatPort` —
+a deliberate cross-feature API (ADR-0014 §3) rather than reaching into `room`'s package-private
+`RoomRepository`/`RoomEventExecutor`. `resolveSenderForSend` runs under a new `RoomEventExecutor
+.withLock` (lock + fresh ownership check, no transaction, no version bump, no publish — `execute`'s
+CAS/publish machinery is specific to the bare room topic), giving the "team assignment re-validated
+under the room lock" requirement real mutual exclusion against a racing `REASSIGN_PLAYER` and a
+monotonic `serverTimestamp`. `ChatSubscriptionAuthorizer` governs the `.chat`/`.team.{teamId}`
+sub-topics `room.RoomSubscriptionAuthorizer` always excluded, using the lighter unlocked
+`currentMembership` read (mirroring `room`'s own bare-topic check) since the doc's Authorization table
+names only silent-drop, never `ROOM_UNAVAILABLE_RETRY`, for chat subscriptions. Text is canonicalized
+via the existing `common.Canonicalizer` (NFC, forbidden-code-point rejection doubling as chat's "no
+control characters at all") before the 1–500-code-point check.
+
 **Closed:** IMP-GATE-47 (opened and closed 2026-09-10, session 42) — `input-validation.md`'s Size
 limits table assigns the whole per-destination STOMP frame-size ceiling (8 KB
 `/app/room.*.member`/`.host`, 4 KB `/app/room.*.chat`, 256 KB `/app/game.*.action`, 1 KB
@@ -2639,7 +2654,7 @@ FR-SWITCH-001…002, NFR-SEC-001…003, NFR-PERF-001; `game-rooms.md` FR-TEAM-01
 never read from the frame; a message missed while disconnected is **lost, not gapped** (FR-MSG-006) —
 there is no chat history, no catch-up and no second sequence number; bodies are escaped at render and
 no HTML string is ever constructed; a spectator's send is rejected `SPECTATOR_CANNOT_CHAT`, an empty
-or oversubscript `text` is rejected `MESSAGE_EMPTY`/`MESSAGE_TOO_LONG` at the 500-code-point limit
+or oversized `text` is rejected `MESSAGE_EMPTY`/`MESSAGE_TOO_LONG` at the 500-code-point limit
 measured after NFC, a `TEAM` send with no team assignment is `NO_TEAM_ASSIGNMENT`, and one against a
 game with no team support is `TEAM_CHAT_NOT_AVAILABLE` (FR-MSG-002, NFR-SEC-001…003); `authorId`/
 `authorUsername` are resolved server-side from the authenticated principal, never from the frame
@@ -2649,6 +2664,15 @@ game with no team support is `TEAM_CHAT_NOT_AVAILABLE` (FR-MSG-002, NFR-SEC-001�
 (`input-validation.md`'s pipeline: Size precedes Authorize), rejecting with `MESSAGE_TOO_LARGE`
 (`ACTION_TOO_LARGE` for the action row, per the table) on `/user/queue/errors`, interceptor-dropped so
 it carries no `correlationId`.
+
+**Verified end to end on real STOMP clients** (`ChatControllerIT`): room-channel broadcast reaches
+every player, excludes a subscribed spectator entirely (silent drop, no error), and leaves
+`room.version` unchanged across the send; every documented validation/business error code fires from
+the right sender; a team message reaches only players sharing that team and nothing arrives on the
+off-team topic; a game with no team templates rejects `TEAM_CHAT_NOT_AVAILABLE`; a 6 KB frame is
+rejected `MESSAGE_TOO_LARGE` with no `correlationId` key, at the interceptor, before the 500-code-point
+business check ever runs. `./mvnw verify -Pintegration` green locally (116 tests plus this item's 4,
+coverage checks met). **CI green on `turnbase-platform` `master`.**
 
 **Giving chat a version number is the tempting mistake.** Two writers on one counter means a client
 that filters chat sees a permanent gap in the room stream and resyncs forever.
