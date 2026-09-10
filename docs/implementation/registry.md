@@ -2401,6 +2401,9 @@ rejection path against an in-process stub, the same pattern `IMP-GATE-08` establ
   game manifest's declared parameter schema
 - `docs/specs/api-design/room-websocket.md` — the Host Commands table and its four events
   (`PLAYER_KICKED`/`KICKED`, `PARAMETERS_CHANGED`, `GAME_STARTED`, `HOST_TRANSFERRED`)
+- `docs/requirements/game-contracts.md` FR-IN-005 — the `player_left` input's `kicked` payload shape
+  for the conditional `game_input_outbox` insert (no other read-list document defines it; repaired,
+  no gate — a plain missing citation, same shape as `IMP-M2-01`'s manifest-schema.md fix)
 
 **Satisfies:** `game-rooms.md` FR-HOST-006…009, FR-XFER-004.
 
