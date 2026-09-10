@@ -69,7 +69,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | READY |
 | IMP-M3-03 | GDK host bridge and serialization boundary | game-host | M3-01, M3-02 | READY |
 | IMP-M3-04 | gRPC service implementation | game-host | M3-03 | READY |
-| IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04 | READY |
+| IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | READY |
 | IMP-M3-06 | Game input outbox and delivery | platform | M3-05 | READY |
 | IMP-M3-07 | Effect fan-out and spectator filtering | platform | M3-06 | READY |
 | IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05 | READY |
@@ -2326,7 +2326,11 @@ row.
 - `docs/specs/flows/02-room-to-game-start.md`
 
 **Satisfies:** `game-rooms.md` FR-JOIN-001…006, FR-JOIN-008…011, FR-TEAM-001…012, FR-READY-001…004,
-FR-LIFE-005…006, NFR-SPEC-001; `platform-views.md` VW-RLOBBY-001…007, VW-RLOBBY-009…017
+FR-LIFE-005…006, FR-HOST-003, NFR-SPEC-001; `platform-views.md` VW-RLOBBY-001…007, VW-RLOBBY-009…017
+
+**`FR-HOST-003` added retroactively** (`IMP-GATE-46`, session 41, this item not reopened) — the
+`ADD_AI_PLAYER` → `AI_NOT_SUPPORTED` behaviour below already satisfies it in full; `IMP-M2-06`'s
+Done-when clause had duplicated the same check under its own claim.
 
 **Done when:** auto-assignment follows FR-TEAM-005, and FR-TEAM-012's team instantiation happens
 **before** the host is seated on room creation — a host assigned first has nowhere to go;
@@ -2347,25 +2351,81 @@ branch, and do not build an AI seat to make it reachable.
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-05
 
+**Closed:** IMP-GATE-46 (opened and closed 2026-09-10, session 41) — this item's *Satisfies* and
+*Done when* claimed five things it does not actually build, and were silent on the command surface
+its own title names:
+
+1. **FR-HOST-003 was already shipped by `IMP-M2-05`** (`RoomHostCommandController`'s `ADD_AI_PLAYER`
+   returning `AI_NOT_SUPPORTED` unconditionally, verified by `RoomCommandControllerIT`) — this item's
+   Done-when clause repeated a check that already passes and always will, since no dependency of this
+   item changes that behaviour.
+2. **FR-HDISC-001…004 is double-claimed with `IMP-M2-07`**, which already claims the identical range
+   in full and is titled *Disconnect, grace deadlines, sweeps*. Worse, this item's own Done-when
+   assigned itself "the sweep that closes `migration_window_expires_at`" — but `room-lifecycle.md`
+   §5.1 defines that as **duty 3 of one ordered tick** alongside due expiries (duty 1), deferred tails
+   (duty 2) and the outbox drain (duty 4), all squarely `IMP-M2-07`'s, which is not this item's
+   dependency and has no sweep scaffolding in the codebase at all yet. Splitting duty 3 into a
+   separate item is not merely awkward, it is unbuildable: there is no sweep tick for it to be a duty
+   *of*.
+3. **FR-XFER-002 and FR-XFER-005 are double-claimed with `IMP-M2-09`**, which builds the one
+   `detachSession` method (`room-lifecycle.md` §4) that both requirements actually run through; no
+   command in this item's own command set (`KICK_PLAYER`, `CHANGE_PARAMETERS`, `START_GAME`,
+   `TRANSFER_HOST`) closes a room.
+4. **FR-HOST-001 is double-claimed with `IMP-M2-12`** (*Room invitations*), which already owns it —
+   invite-via-notification has nothing to do with a realtime host command.
+5. **FR-HOST-009's happy path is unsatisfiable as written**: `room-websocket.md`'s `GAME_STARTED`
+   event requires a real `sessionId` and `gameFrontendUrl`, which only exist once a game session has
+   actually been created — machinery `IMP-M3-05` (*Orchestration client and session registry*) builds,
+   and which is not this item's dependency. Same shape as `IMP-GATE-08`/`18`/`28`.
+6. Incidentally found while resolving (3): `IMP-M2-09`'s own *Satisfies* also names **FR-XFER-003**,
+   which `IMP-GATE-39` already assigned to `IMP-M2-01` in full (the REST-layer `state <> 'CLOSED'`
+   listing predicate) — a second, unrelated double-claim on the same requirement. Fixed on `IMP-M2-09`
+   below.
+
+Fixed: this item's *Satisfies* narrows to `FR-HOST-006…009, FR-XFER-004` — the four commands
+(`KICK_PLAYER`, `CHANGE_PARAMETERS`, `START_GAME`'s precondition/rejection half, `TRANSFER_HOST`) this
+item actually builds. Its read-list drops `reconnection-flow.md`, `room-lifecycle.md` §3/§5 and
+`data-model.md` §1's `migration_window_expires_at` — none of it is this item's mechanism any more.
+`IMP-M2-07`'s own Done-when gains an explicit duty-3 clause (it already claimed FR-HDISC-004 in full
+but never tested it — same shape as `IMP-GATE-34`). `IMP-M2-09`'s *Satisfies* drops `FR-XFER-003`.
+`IMP-M2-05`'s *Satisfies* (`DONE`, not reopened) gains `FR-HOST-003` to match what it already shipped.
+FR-HOST-009's success path — actually creating a session and broadcasting `GAME_STARTED` with a live
+`sessionId`/`gameFrontendUrl` — is deferred to `IMP-M3-05`, which gains the clause below; this item
+instead defines a narrow `GameSessionStarter` port and proves `START_GAME`'s precondition-check and
+rejection path against an in-process stub, the same pattern `IMP-GATE-08` established for
+`GameHostRegistryService`.
+
 **Read first:**
-- `docs/requirements/game-rooms.md` FR-HOST-001…003, FR-HOST-006…009, FR-XFER-001…005
-- `docs/requirements/reconnection-flow.md` FR-HDISC-001…004
-- `docs/specs/platform/room-lifecycle.md` §3 (grace deadlines), §5 (the sweeps)
-- `docs/specs/platform/data-model.md` §1 — `migration_window_expires_at`
-- `docs/specs/api-design/room-websocket.md` — the host command set
+- `docs/requirements/game-rooms.md` FR-HOST-006…009, FR-TEAM-009, FR-XFER-004
+- `docs/specs/api-design/input-validation.md` — `CHANGE_PARAMETERS`' whitelist validation against the
+  game manifest's declared parameter schema
+- `docs/specs/api-design/room-websocket.md` — the Host Commands table and its four events
+  (`PLAYER_KICKED`/`KICKED`, `PARAMETERS_CHANGED`, `GAME_STARTED`, `HOST_TRANSFERRED`)
 
-**Satisfies:** `game-rooms.md` FR-HOST-001, FR-HOST-003, FR-HOST-006…009, FR-XFER-001…002,
-FR-XFER-004…005; `reconnection-flow.md` FR-HDISC-001…004. **FR-HOST-002 (the invite link) and
-FR-XFER-003 (closed-room inaccessibility) belong to `IMP-M2-01`** (`IMP-GATE-39`) — both are built
-entirely in the REST layer: invite-code minting/exposure/resolution and the `state <> 'CLOSED'`
-predicate respectively.
+**Satisfies:** `game-rooms.md` FR-HOST-006…009, FR-XFER-004.
 
-**Done when:** `migration_window_expires_at` is persisted and a sweep duty closes it — the persist half
-is already `IMP-M2-03`'s adoption `UPDATE` (§1.4 step 7); this item's own duty is the sweep that closes
-it and performs the deferred transfer. Without it a host who does not return leaves the room
-permanently headless — adoption never routes through the individual-disconnect path that would
-otherwise end the window. FR-HOST-003 (add AI player) returns `AI_NOT_SUPPORTED` per IR-12. FR-HOST-008
-retains game parameters across the return to Lobby.
+**Done when:**
+
+- `KICK_PLAYER` removes a human, AI, or spectator member in any room state; in In Progress it voids
+  any active grace period on the target and enqueues a `player_left` game-backend input with
+  `reason: kicked` (deferred to `IMP-M3-06`'s outbox — this item writes the row, it does not drain
+  it); the kicked party receives a unicast `KICKED` error on `/user/queue/errors`.
+- `CHANGE_PARAMETERS` is Lobby-only and whitelist-validated against the pinned game version's manifest
+  parameter schema (`input-validation.md`): an undeclared key is `UNKNOWN_PARAMETER`, a type mismatch
+  is `PARAMETER_TYPE_MISMATCH`, an out-of-range value is `PARAMETER_OUT_OF_RANGE`. Accepted changes
+  broadcast and are retained verbatim across the room's return to Lobby (FR-HOST-008) — nothing here
+  yet resets them, since nothing yet ends a game.
+- `START_GAME` evaluates FR-TEAM-009's three conditions atomically under the room lock; any unmet
+  condition rejects with `START_CONDITIONS_NOT_MET` and lists every failed condition, not just the
+  first. On success it calls a new `GameSessionStarter` port; this item proves the call against an
+  in-process stub implementation only — the real implementation, a live `sessionId`/`gameFrontendUrl`
+  and the `GAME_STARTED` broadcast are `IMP-M3-05`'s clause, added there.
+- `TRANSFER_HOST` requires the target to be a current human player (not spectator, not AI):
+  `TARGET_NOT_PLAYER` otherwise. The former host retains their player slot and becomes a regular
+  player (FR-XFER-004); valid in both Lobby and In Progress.
+- Every handler re-verifies `principal.id == room.hostId` inside the lock, not just at the channel
+  guard, since a `TRANSFER_HOST` command — including one racing this one — can change
+  `room.hostId` between the two.
 
 ---
 
@@ -2373,13 +2433,21 @@ retains game parameters across the return to Lobby.
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-03
 
+**Closed:** IMP-GATE-46's second half (`IMP-M2-06`, opened and closed 2026-09-10, session 41) — this
+item's *Satisfies* already claimed `FR-HDISC-001…004` in full, but its *Done when* never tested
+FR-HDISC-004 (the migration-window sweep) — the same claim-without-a-clause shape as `IMP-GATE-34`.
+Fixed: the clause below gains duty 3 explicitly, and `data-model.md` §1's `migration_window_expires_at`
+joins the read-list (moved here from `IMP-M2-06`, which never had a mechanism to attach it to).
+
 **Read first:**
 - `docs/decisions/0009-grace-deadline-durability.md`
 - `docs/specs/platform/room-lifecycle.md` §3 **in full** (especially §3.2's resolve statement and
-  §3.3's conditional outbox insert) and §5.1
+  §3.3's conditional outbox insert) and §5.1 **in full** — all four sweep duties, including duty 3
+  (elapsed migration windows), are this item's
 - `docs/requirements/reconnection-flow.md` FR-DC-001…007, FR-GRACE-001…006, FR-EXPIRY-001…006,
-  FR-KICK-001…004
-- `docs/specs/platform/data-model.md` §2 — `left_at`, `leave_reason`, `lost_announced_at`
+  FR-KICK-001…004, FR-HDISC-001…004
+- `docs/specs/platform/data-model.md` §1 — `migration_window_expires_at`; §2 — `left_at`,
+  `leave_reason`, `lost_announced_at`
 - `docs/specs/deployment/local-environment.md` §7.1
 - `docs/specs/flows/04-disconnect-and-return.md`
 
@@ -2398,6 +2466,13 @@ conditional on `room.active_session_id IS NOT NULL` — a departure from a Lobby
 notify, and the unconditional insert wrote outbox rows nothing would ever drain. And §3.2's resolve
 statement stamps `lost_announced_at = CASE WHEN :announceInline THEN now() ELSE NULL END`: a NULL
 marks a departure that a *foreign* instance resolved and the owner still owes an announcement for.
+
+**The single sweep tick runs all four §5.1 duties, in order, on one schedule.** Duty 3 — elapsed
+migration windows (FR-HDISC-004) — clears `migration_window_expires_at` and, if the host is
+disconnected or released while another human is connected, performs the FR-HDISC-001 transfer that
+§3.1's own opening deliberately skipped while the window was open. `IMP-M2-03`'s adoption `UPDATE`
+already persists the deadline (§1.4 step 7); this item is what closes it. Proving duty 3 requires no
+mechanism from any other item — the deadline is a plain column already written.
 
 ---
 
@@ -2426,6 +2501,12 @@ expiry is an ordinary join and is subject to every capacity rule.
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-07
 
+**Closed:** IMP-GATE-46's third half (`IMP-M2-06`, opened and closed 2026-09-10, session 41) — this
+item's *Satisfies* named `FR-XFER-003`, which `IMP-GATE-39` already assigned to `IMP-M2-01` in full
+(the REST-layer `state <> 'CLOSED'` listing/lookup predicate) — a second, independent double-claim on
+the same requirement, found while resolving `IMP-M2-06`'s own overlapping claims. Fixed: narrowed
+below to the two requirements this item actually builds.
+
 **Read first:**
 - `docs/specs/platform/room-lifecycle.md` §4 **in full** — the five paths and the fenced step 3
 - `docs/specs/flows/07-room-closure.md`
@@ -2433,7 +2514,7 @@ expiry is an ordinary join and is subject to every capacity rule.
 - `docs/specs/platform/data-model.md` §1 (`closed_at`, `closed_reason`), §4
 - `docs/requirements/notifications-invitations.md` FR-INV-008
 
-**Satisfies:** `game-rooms.md` FR-LIFE-007, FR-XFER-002…003, FR-XFER-005;
+**Satisfies:** `game-rooms.md` FR-LIFE-007, FR-XFER-002, FR-XFER-005;
 `notifications-invitations.md` FR-INV-008
 
 **Done when:** `detachSession` step 3 is a single fenced, version-bumping `UPDATE`:
@@ -2629,7 +2710,11 @@ a seen sequence, the ordinary next sequence, and a forward gap — are stated at
 
 ### IMP-M3-05 — Orchestration client and session registry
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M3-04, IMP-M2-04
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M3-04, IMP-M2-04, IMP-M2-06
+
+**`IMP-M2-06` added to *Depends on*** (`IMP-GATE-46`, session 41) — this item's own clause below
+replaces `IMP-M2-06`'s in-process-stub `GameSessionStarter` with a real implementation, so the port
+and the `START_GAME` handler calling it must exist first.
 
 **Read first:**
 - `docs/specs/internal-grpc/orchestration-gamehost-protocol.md` — *Addressing the Game Host pods*,
@@ -2637,13 +2722,21 @@ a seen sequence, the ordinary next sequence, and a forward gap — are stated at
 - `docs/specs/game-host/game-host-internals.md` §6, §9, §13 (the Redis data model)
 - `docs/specs/flows/02-room-to-game-start.md` — **step 6 names exactly which keys Orchestration writes**
 - `docs/specs/platform/data-model.md` §1 (`active_session_id`), §4
+- `docs/specs/api-design/room-websocket.md` — `GAME_STARTED`'s exact payload shape
 
-**Satisfies:** `platform-architecture.md` FR-ORCH-001…007, FR-REG-001…004, FR-SESS-001…006
+**Satisfies:** `platform-architecture.md` FR-ORCH-001…007, FR-REG-001…004, FR-SESS-001…006;
+`game-rooms.md` FR-HOST-009 (success path only — the precondition/rejection half is `IMP-M2-06`'s)
 
 **Done when:** `session:{id}` has **exactly one writer, the Game Host** (IR-14). Orchestration writes
 only the keys flow 02 step 6 names and reads the rest. The platform's own record of a live session is
 `room.active_session_id` — a durable Postgres fact — not a Redis key, so a Redis flush loses cached
 state and not the knowledge that a session exists.
+
+**The real `GameSessionStarter` implementation replaces `IMP-M2-06`'s stub**: on a successful
+`START_GAME`, it creates the session via the orchestration client, persists `room.active_session_id`,
+and broadcasts `GAME_STARTED` with the live `sessionId` and the server-composed `gameFrontendUrl`
+(`room-websocket.md`) — not before, since a failed session creation must never advance the room to
+In Progress.
 
 **Closes IMP-GATE-08's cross-repo half:** this item gives `GameHostRegistryService` its real server
 implementation, so it also carries the end-to-end check `IMP-M0-04` could not — a `turnbase-game-host`

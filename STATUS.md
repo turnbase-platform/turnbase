@@ -54,6 +54,21 @@ unit + 121 integration tests, coverage checks met). **CI green on `turnbase-plat
 ---
 ## Next Priorities
 
+**IMP-GATE-46** (`IMP-M2-06`, opened and closed 2026-09-10, session 41) — `IMP-M2-06`'s *Satisfies*/
+*Done when* claimed five things it doesn't build: `FR-HOST-003` (already shipped by `IMP-M2-05`),
+`FR-HDISC-001…004` (fully owned by `IMP-M2-07`, whose sweep tick the migration-window duty is
+inseparable from), `FR-XFER-002`/`FR-XFER-005` (owned by `IMP-M2-09`'s `detachSession`), `FR-HOST-001`
+(owned by `IMP-M2-12`), and `FR-HOST-009`'s happy path (needs `IMP-M3-05`'s orchestration client,
+not yet built). Also found in passing: `IMP-M2-09` separately double-claimed `FR-XFER-003` against
+`IMP-M2-01` (`IMP-GATE-39`). Fixed: `IMP-M2-06` narrowed to `FR-HOST-006…009, FR-XFER-004` (the four
+STOMP commands `KICK_PLAYER`/`CHANGE_PARAMETERS`/`START_GAME`/`TRANSFER_HOST`), with `START_GAME`'s
+success path deferred to a new `GameSessionStarter` port proved against a stub, the real
+implementation moving to `IMP-M3-05` (which gains `IMP-M2-06` as a dependency and `FR-HOST-009`'s
+success-path clause); `IMP-M2-07` gains an explicit duty-3 (migration-window sweep) Done-when clause
+for the `FR-HDISC-004` it already claimed; `IMP-M2-09` drops `FR-XFER-003`; `IMP-M2-05` (`DONE`, not
+reopened) gains `FR-HOST-003` in *Satisfies* to match what it already shipped. `IMP-M2-06` is `WIP`
+(session 41) and code is next — the read-list and Done-when clause above are what to build against.
+
 **`IMP-M2-05` is now `DONE` — 27 of 61.** `IMP-M2-06` (host management and transfer) and
 `IMP-M2-11` (in-room chat), both `READY` off `IMP-M2-05` alone, are unblocked and the natural next
 picks — `IMP-M2-06` extends `RoomHostCommandController`'s same `switch` with `KICK_PLAYER`,
