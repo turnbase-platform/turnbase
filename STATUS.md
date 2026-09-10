@@ -45,6 +45,14 @@ tests, coverage checks met). **CI green on `turnbase-platform` `master`** (`buil
 ---
 ## Next Priorities
 
+**IMP-GATE-48** (`IMP-M2-07`, opened and closed 2026-09-10, session 43) — `room.RoomOwnershipService`
+(`IMP-M2-03`, `DONE`) explicitly defers `room-lifecycle.md` §1.4 adoption steps 4–5 (opening a mass
+grace reservation for every connected participant when a room is adopted after owner-pod loss,
+`COALESCE`-guarded; zeroing their `connection_count`) to "`IMP-M2-07`/`IMP-M2-08`", but neither item's
+read-list or *Done when* ever named §1.4 — the same claim-without-an-owner shape as `IMP-GATE-47`.
+Fixed: `IMP-M2-07`'s read-list gains `room-lifecycle.md` §1.4 steps 4–5 and 7; its *Done when* gains
+the explicit clause. `IMP-M2-07` is `WIP` (session 43) and code is next.
+
 **`IMP-M2-11` is now `DONE` — 29 of 61.** `IMP-M3-05` (orchestration client and session registry — the
 item that replaces `PendingGameSessionStarter` with a real implementation and gives `START_GAME` its
 `GAME_STARTED` broadcast), `READY` off `IMP-M3-04, IMP-M2-04, IMP-M2-06`, is the natural next pick once

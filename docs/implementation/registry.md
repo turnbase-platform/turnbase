@@ -2475,11 +2475,29 @@ FR-HDISC-004 (the migration-window sweep) — the same claim-without-a-clause sh
 Fixed: the clause below gains duty 3 explicitly, and `data-model.md` §1's `migration_window_expires_at`
 joins the read-list (moved here from `IMP-M2-06`, which never had a mechanism to attach it to).
 
+**Closed:** IMP-GATE-48 (opened and closed 2026-09-10, session 43) — `room.RoomOwnershipService`
+(`IMP-M2-03`, `DONE`) explicitly defers `room-lifecycle.md` §1.4 adoption steps 4–5 (opening a grace
+reservation for every participant with `connection_count > 0` and no reservation already outstanding,
+`COALESCE`-guarded; zeroing their `connection_count`) to "`IMP-M2-07`/`IMP-M2-08`", but neither item's
+read-list named §1.4 and neither item's *Done when* tested it — the same claim-without-an-owner shape
+as `IMP-GATE-47`. Without it, a mass owner-pod-loss disconnect (FR-DC-006) that this item's own
+`reconnection-flow.md` FR-DC-006/007 Satisfies-range covers had no mechanism opening the reservations
+it is enforcing: adoption's own comment already says "steps 4–6 and 8 ... need `room_participant`
+... infrastructure" — infrastructure this item is the one to build, since it owns §3.1's
+individual-disconnect grace-opening statement that step 4/5 is the mass-adoption analogue of.
+`IMP-M2-08` ("Reconnect and resync") is about a client's return, not about opening reservations for
+participants who were connected when the room's previous owner died — the wrong item for this duty.
+Fixed: `IMP-M2-07`'s read-list gains `room-lifecycle.md` §1.4 (adoption, steps 4–5 and 7 only — step 6
+stays Game Host dispatch's, M3's; step 8 needs no code, since neither this item nor `IMP-M2-03` emits
+a per-player event on adoption); its *Done when* gains the explicit clause below.
+
 **Read first:**
 - `docs/decisions/0009-grace-deadline-durability.md`
 - `docs/specs/platform/room-lifecycle.md` §3 **in full** (especially §3.2's resolve statement and
-  §3.3's conditional outbox insert) and §5.1 **in full** — all four sweep duties, including duty 3
-  (elapsed migration windows), are this item's
+  §3.3's conditional outbox insert), §5.1 **in full** — all four sweep duties, including duty 3
+  (elapsed migration windows), are this item's — and §1.4 steps 4–5 and 7 (`IMP-GATE-48`: adoption's
+  own mass grace-opening, the `COALESCE`-guarded analogue of §3.1 for every participant left connected
+  when the previous owner was lost)
 - `docs/requirements/reconnection-flow.md` FR-DC-001…007, FR-GRACE-001…006, FR-EXPIRY-001…006,
   FR-KICK-001…004, FR-HDISC-001…004
 - `docs/specs/platform/data-model.md` §1 — `migration_window_expires_at`; §2 — `left_at`,
@@ -2509,6 +2527,15 @@ disconnected or released while another human is connected, performs the FR-HDISC
 §3.1's own opening deliberately skipped while the window was open. `IMP-M2-03`'s adoption `UPDATE`
 already persists the deadline (§1.4 step 7); this item is what closes it. Proving duty 3 requires no
 mechanism from any other item — the deadline is a plain column already written.
+
+**`IMP-GATE-48`: adoption itself (§1.4 steps 4–5) opens the mass grace reservation.** When a room is
+adopted after owner-pod loss, every participant with `connection_count > 0` and no reservation already
+outstanding gets a grace period at `now() + graceSeconds`, `COALESCE`-guarded so a reservation already
+running from an earlier individual disconnect is never reset; their `connection_count` is zeroed in the
+same step, since their connections died with the previous owner (FR-DC-006). This is `§3.1`'s statement
+applied to every eligible participant in one pass rather than one row, called from
+`RoomOwnershipService#adopt` inside the same fenced transaction that already sets `owner_epoch`, not
+from the sweep — the mass disconnect is observed at the moment of adoption, not on the next tick.
 
 ---
 
