@@ -1953,7 +1953,10 @@ FR-XFER-003 are this item's, not the host-transfer STOMP layer's.
 
 **Satisfies:** `game-rooms.md` FR-CREATE-001…004, FR-LIST-001…007, FR-JOIN-001…007, FR-XFER-003,
 FR-HOST-002, FR-LIFE-004, NFR-PERF-001, NFR-SEC-001…002, NFR-USAB-001, NFR-SPEC-001;
-`platform-views.md` VW-ROOMS-001…005, VW-JOIN-001…003
+`notifications-invitations.md` FR-LINK-001…002 (`IMP-GATE-58` — this item's own §3.1 invite-code
+mint/resolve mechanism is the entire behaviour either requirement describes; neither `IMP-M2-12` nor
+`IMP-M5-03`, which both claimed it, builds anything toward it); `platform-views.md` VW-ROOMS-001…005,
+VW-JOIN-001…003
 
 **Done when:**
 
@@ -3018,32 +3021,70 @@ that filters chat sees a permanent gap in the room stream and resyncs forever.
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-01, IMP-M1-09
 
+**Closed:** IMP-GATE-57 (opened and closed 2026-09-13, session 50) — superseded by `IMP-GATE-58`
+below, whose own fix removes the clause this one corrected: the invite-*link* Done-when clause turned
+out not to belong to this item at all. Kept for the record — the correction it made
+(`room-rest-api.md` §3.1's no-way-in case returns a room resource, not "not found") is still true, it
+now just lives entirely in `IMP-M2-01`'s own section instead.
+
+**Closed:** IMP-GATE-58 (opened and closed 2026-09-13, session 50) — three findings from reading this
+item's own read-list before writing code, all the same root cause: the item was scoped before
+`IMP-M2-01`/`IMP-M2-05` existed and was never revisited once they shipped.
+
+1. **Double-claim, `game-rooms.md`.** `FR-HOST-002`, `FR-JOIN-003…004`, `NFR-SEC-002` are `IMP-M2-01`'s
+   (its own *Satisfies*, `IMP-GATE-39`) — the invite **link** (mint, host-only exposure, `GET
+   /api/rooms?inviteCode=…` resolution) is fully built and shipped there, verified by reading
+   `RoomController`/`RoomService`/`RoomRepository` directly rather than assuming. `FR-JOIN-006` and
+   `FR-JOIN-008` are `IMP-M2-05`'s (its own *Satisfies*), also shipped. Same shape as
+   `IMP-GATE-08`/`18`/`28`/`30`/`32`/`34`. This item built none of the five and should never have
+   claimed them.
+2. **Double-claim, `FR-LINK-001…002`.** Claimed by *both* this item and `IMP-M5-03`, and neither
+   builds anything for it — it describes exactly the invite-link mechanism `IMP-M2-01` already ships
+   (`data-model-notifications.md` §2: "**this is not the invite link** ... the shareable join link is
+   `room.invite_code`... unrelated objects"). Reassigned to `IMP-M2-01`, whose section gains it.
+3. **No document defined this item's actual REST surface** — same shape as `IMP-GATE-31`/`33`/`35`/`37`.
+   `room-rest-api.md` §8 explicitly defers FR-HOST-001's notification invites elsewhere ("belong to
+   `notifications-invitations.md`, not here"), but that document is requirements prose with no
+   endpoints, and nothing else supplied them. Also undefined: whether "accept" is its own endpoint or
+   resolves through the existing join call, and what happens to a pending invitation when that join
+   *fails* (FR-INV-005) — `data-model-notifications.md` §2 says accepting deletes the row but not at
+   what moment. Fixed: new
+   [`docs/specs/api-design/room-invitation-rest-api.md`](../specs/api-design/room-invitation-rest-api.md)
+   — `POST /api/rooms/{roomId}/invitations` (send) and `DELETE …/invitations/me` (decline); acceptance
+   is `room-rest-api.md` §5's existing join endpoint, which gains one clause (step 7): a *successful*
+   join deletes the caller's pending invitation to that room and alerts its inviter; a *failed* join
+   leaves it untouched, so a rejected join doesn't cost the player their invitation. `rest-conventions.md`'s
+   Authorization table gains both predicates; `room-rest-api.md` §8's cross-reference and Related table
+   updated to point at the new document instead of the requirements doc.
+
+This item's *Satisfies* narrows to what it actually builds: `notifications-invitations.md`
+FR-INV-001…009 and `game-rooms.md` FR-HOST-001. `IMP-M2-01`'s *Satisfies* gains `FR-LINK-001…002`;
+`IMP-M5-03`'s drops them.
+
 **Read first:**
-- `docs/requirements/notifications-invitations.md` FR-INV-001…009, FR-LINK-001…002
-- `docs/specs/platform/data-model-notifications.md` §2 (`room_invitation`)
-- `docs/specs/api-design/room-rest-api.md` §3 — invite-code resolution
-- `docs/requirements/game-rooms.md` FR-HOST-001…002, FR-JOIN-003…004, NFR-SEC-002
+- `docs/requirements/notifications-invitations.md` FR-INV-001…009 (FR-LINK-001…002 is `IMP-M2-01`'s
+  now — read there if the invite-link mechanism itself is in question, not here)
+- `docs/specs/platform/data-model-notifications.md` §1 (`notification`), §2 (`room_invitation`)
+- `docs/specs/api-design/room-invitation-rest-api.md` **in full** — the two endpoints this item builds
+  and the join-endpoint clause it adds to `IMP-M2-01`'s shipped code
+- `docs/specs/api-design/sse-notifications.md` § *Notification types*, § *Alert types* — the
+  `ROOM_INVITATION` notification and `INVITATION_ACCEPTED`/`INVITATION_DECLINED` alert payload shapes
+  this item writes/publishes
+- `docs/requirements/game-rooms.md` FR-HOST-001
 
-**Satisfies:** `notifications-invitations.md` FR-INV-001…009, FR-LINK-001…002; `game-rooms.md`
-FR-HOST-001…002, FR-JOIN-003…004, FR-JOIN-006…008, NFR-SEC-002
+**Satisfies:** `notifications-invitations.md` FR-INV-001…009; `game-rooms.md` FR-HOST-001
 
-**Closed:** IMP-GATE-57 (opened and closed 2026-09-13, session 50) — this item's own Done-when clause
-claimed all of FR-JOIN-004's invalidity conditions resolve to an empty list, but `room-rest-api.md`
-§3.1 (this item's own read-list) already specifies otherwise: the no-slot/no-spectate case returns one
-element with `canJoin: false, canSpectate: false` — the room resource itself, not "not found" — so the
-client can present the FR-JOIN-004 spectate-only offer where it applies. Only the
-room-does-not-exist/closed case is an empty list. Fixed by rewriting the Done-when clause below to
-match `room-rest-api.md` §3.1's actual two-shape design instead of asserting a single "not found"
-shape for all cases; the API spec itself needed no change.
-
-**Done when:** the invite identifier is cryptographically random and non-sequential (NFR-SEC-002);
-resolution goes through `GET /api/rooms?inviteCode=…` and, per `room-rest-api.md` §3.1, returns an
-empty list (never a `404`) for a code matching no open room, and a full room resource with
-`canJoin`/`canSpectate` for a code matching an open room the caller cannot enter — the two response
-shapes are indistinguishable *within* the "room does not exist or is closed" bucket, but the no-way-in
-case is deliberately distinguishable from that bucket so the client can offer the spectate-only choice
-FR-JOIN-004 requires; the link is single and reusable per room (FR-HOST-002); invitations are removed
-**at closure** by IMP-M2-09, not by the purge cascade (FR-INV-008).
+**Done when:** `POST /api/rooms/{roomId}/invitations` is host-only, friends-only (FR-INV-002, via
+`social.RelationshipQueries.areFriends`), and writes a `ROOM_INVITATION` notification
+(`room-invitation-rest-api.md` §2); `DELETE …/invitations/me` deletes the caller's own pending row
+idempotently and alerts the inviter only when a row actually existed (§3); a successful join at
+`IMP-M2-01`'s join endpoint deletes the caller's pending invitation to that room and alerts its
+inviter, while a failed join leaves it pending (§4); invitations are removed **at closure** by
+`IMP-M2-09`'s `detachSession`, not by this item and not by the purge cascade (FR-INV-008); no alert
+delivery mechanism exists yet (`IMP-M5-03` is not a dependency and is not `DONE`) — this item defines
+an `AlertPublisher`-shaped seam with a no-op implementation for now, matching the
+`SessionTerminator`/`PendingSessionTerminator` precedent (`IMP-M2-09`), swapped for a real one when
+`IMP-M5-03` lands.
 
 ---
 
@@ -3552,8 +3593,12 @@ table (`data-model-notifications.md` §3) is still the wire contract the SSE str
 - `docs/specs/api-design/sse-notifications.md` **in full**
 - `docs/requirements/platform-operations.md` FR-JOB-013, FR-RET-001…006
 
+**`IMP-GATE-58` narrowed this item's *Satisfies*** (closed 2026-09-13, session 50, on `IMP-M2-12`):
+`FR-LINK-001…002` dropped — double-claimed with `IMP-M2-12`, and neither item builds anything for it;
+`IMP-M2-01`'s already-shipped invite-code mechanism is the entire behaviour, and now carries the claim.
+
 **Satisfies:** `notifications-invitations.md` FR-NOTIF-001…009, FR-ALERT-001…005, FR-ALERT-010,
-FR-LINK-001…002, NFR-PERF-001, NFR-SCALE-001, NFR-SEC-001; `user-accounts.md`
+NFR-PERF-001, NFR-SCALE-001, NFR-SEC-001; `user-accounts.md`
 FR-SESS-010; `platform-views.md` VW-NOTIF-001…004
 
 **Done when:** the retention purge is indexed **partially on having no subject**, so it can never

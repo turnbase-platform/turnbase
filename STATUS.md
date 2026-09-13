@@ -2,14 +2,33 @@
 
 **Date:** 2026-09-13 (session 50)
 
-**`IMP-M2-12` (room invitations) is `WIP`** — `IMP-GATE-57` opened and closed this session:
-`docs/implementation/registry.md`'s own Done-when clause for this item claimed FR-JOIN-004's
-invalidity conditions all resolve to an empty list, but `room-rest-api.md` §3.1 (already in this
-item's read-list) specifies that the no-slot/no-spectate case returns a full room resource with
-`canJoin: false, canSpectate: false`, not "not found" — needed so the client can offer the
-spectate-only choice. Fixed by rewriting the registry's Done-when clause to match the API spec's
-actual two-shape design; no other document changed. Read-list fully read; code is next. Also deleted
-this session: attempted to remove `turnbase-platform`'s stale merged remote branch
+**`IMP-M2-12` (room invitations) is `WIP`** — two gates opened and closed while reading this item's
+own read-list, the second superseding the first.
+
+`IMP-GATE-57`: the item's Done-when clause claimed all of FR-JOIN-004's invalidity conditions resolve
+to an empty list, but `room-rest-api.md` §3.1 already specifies the no-slot/no-spectate case returns a
+full room resource with `canJoin: false, canSpectate: false`, not "not found."
+
+`IMP-GATE-58` (supersedes `IMP-GATE-57` — that clause turned out not to belong to this item at all):
+verifying prior art before writing code found the invite-*link* mechanism `IMP-GATE-57` was correcting
+is entirely `IMP-M2-01`'s, already shipped (`RoomController`/`RoomService`/`RoomRepository`, read
+directly, not assumed) — `FR-HOST-002`, `FR-JOIN-003…004`, `NFR-SEC-002` were double-claimed with
+`IMP-M2-01`'s own *Satisfies*, and `FR-JOIN-006`/`008` with `IMP-M2-05`'s, both `DONE` items. Separate
+double-claim: `FR-LINK-001…002` was claimed by both this item and `IMP-M5-03`, neither building
+anything for it — reassigned to `IMP-M2-01`. Separately, no document anywhere defined this item's
+actual REST surface (`room-rest-api.md` §8 explicitly defers FR-HOST-001's notification invites
+elsewhere, but "elsewhere" was a requirements document with no endpoints) — same shape as
+`IMP-GATE-35`/`37`. Fixed: new `docs/specs/api-design/room-invitation-rest-api.md` (send, decline;
+acceptance is `IMP-M2-01`'s existing join endpoint, which gains one clause: a successful join resolves
+the caller's pending invitation and alerts its inviter, a failed join leaves it pending so FR-INV-005
+doesn't cost the player their invitation); `rest-conventions.md`'s Authorization table and
+`room-rest-api.md` §5/§8/Related updated to match; `IMP-M2-12`'s *Satisfies* narrowed to
+`FR-INV-001…009, FR-HOST-001`; `IMP-M2-01` gains `FR-LINK-001…002`; `IMP-M5-03` drops them.
+
+`IMP-M2-12`'s Done-when now also names an `AlertPublisher`-shaped seam with a no-op implementation for
+FR-INV-006's alerts, since `IMP-M5-03` (the SSE dispatch mechanism) is not built and not a dependency —
+same precedent as `SessionTerminator`/`PendingSessionTerminator`. Code is next session's actual work;
+none written this session. Also attempted: removing `turnbase-platform`'s stale merged remote branch
 `feat/imp-m2-10-reconciliation` (left over from session 49) — sandbox again denied remote-push
 permission, so it is still there for the user to remove.
 
@@ -232,11 +251,21 @@ continue into them.
 ---
 ## Next Priorities
 
-**`IMP-M2-10` is now `DONE` (session 49) — see *Last Session Summary*.** `IMP-M2-12` (room
-invitations) is next: `READY` off `IMP-M2-01, IMP-M1-09`, both `DONE`, needing no other repo's work
-first. Before starting it, delete `turnbase-platform`'s stale remote branch
-`feat/imp-m2-10-reconciliation` (already ff-merged into `master`, just never removed) — this
-session's sandbox could not push the delete.
+**`IMP-M2-12` (room invitations) is `WIP` (session 50) — see *Last Session Summary*.** Read-list fully
+read, both gates closed, the new `room-invitation-rest-api.md` spec is in place; code is next
+session's actual work. Build in `turnbase-platform`'s `room` package: a `RoomInvitationRepository`
+(direct SQL against `room_invitation` and `notification`, same cross-feature precedent as
+`social.SocialRepository`), `POST /api/rooms/{roomId}/invitations` and `DELETE …/invitations/me` on
+`RoomController` (or a new `RoomInvitationController`), FR-INV-002's friends check via the existing
+`social.RelationshipQueries.areFriends` (already public, already used for `FR-LIST-006`), and the one
+new clause on `IMP-M2-01`'s join transaction (`RoomService`/`RoomRepository`, `room-rest-api.md` §5
+step 7). Define the `AlertPublisher` seam and its no-op implementation before wiring `INVITATION_ACCEPTED`/
+`INVITATION_DECLINED` — `IMP-M5-03` is not built yet. `docs/implementation/registry.md`'s `IMP-M2-12`
+section has the full read-list and Done-when.
+
+Before starting: delete `turnbase-platform`'s stale remote branch `feat/imp-m2-10-reconciliation`
+(already ff-merged into `master`, just never removed) — two sessions' sandboxes in a row could not
+push the delete; needs a human or a session with remote-push permission.
 
 **`IMP-M2-08` is now `DONE` — 31 of 61.** `IMP-M2-09` (Room closure and the five detach paths —
 including `detachSession`'s real implementation, replacing the `PendingRoomSessionDetacher` stub

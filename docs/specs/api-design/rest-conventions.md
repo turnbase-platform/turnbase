@@ -132,6 +132,8 @@ inside the same transaction as the mutation.
 | `/api/rooms/{id}` (mutate) | `principal` is a participant; host commands additionally `room.host_user_id = principal`, re-checked under the room lock | `403` |
 | `/api/notifications/{id}` | `notification.user_id = principal` | `404` |
 | `/api/friend-requests/{id}` | `principal ∈ {sender, recipient}`, and the action must match the side | `403` |
+| `/api/rooms/{roomId}/invitations` (send) | `room.host_user_id = principal` | `403` |
+| `/api/rooms/{roomId}/invitations/me` | Implicit — the invitee is the caller (`room-invitation-rest-api.md` §1) | — |
 | `/api/users/{username}` (read) | Public, subject to the profile privacy resolution in `user-accounts.md` FR-PROF-003…007 | — |
 | `/admin/**` | Basic auth on the management port; never reachable from the public listener (`admin-tooling.md` FR-ADM-001) | `401` |
 

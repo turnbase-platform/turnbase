@@ -19,6 +19,7 @@ FR-LIST-001…007, FR-LIFE-004, FR-XFER-003 and FR-HOST-002. Closes review block
 | [../platform/data-model.md](../platform/data-model.md) | `room`, `room_participant`, `room_team` — the column names used below |
 | [../platform/data-model-catalog.md](../platform/data-model-catalog.md) | `game`, `game_version` — the room-creation preconditions of §2, and the capability/count columns behind §3's predicate |
 | [../../requirements/game-rooms.md](../../requirements/game-rooms.md) | The requirements this realizes |
+| [room-invitation-rest-api.md](room-invitation-rest-api.md) | Adds one clause (§5 step 7) to this document's join endpoint — invitation resolution on acceptance |
 
 ---
 
@@ -401,10 +402,16 @@ this instance's existing tenure.
    for a caller with no row here at all. Either way, inside the same transaction, fenced by step 0's
    epoch, assign and commit the room's next `version` (`room-websocket.md` *Per-Room Serialization and
    Versioning*). Set the affinity header from step 0's claim.
+7. **Resolve the caller's pending invitation to this room, if any** — delete it, and if one was
+   deleted, publish an `INVITATION_ACCEPTED` alert to its inviter. No-op when the caller has none
+   (joined via the link, the room list, or an invitation to a different room). Full detail —
+   including why a *failed* join (steps 1–4) must leave the invitation untouched instead — is
+   [`room-invitation-rest-api.md`](room-invitation-rest-api.md) §4, which owns FR-INV-004…006.
 
-Steps 1–6 are one transaction, run while step 0's lock is still held. `PLAYER_JOINED` is broadcast on
+Steps 1–7 are one transaction, run while step 0's lock is still held. `PLAYER_JOINED` is broadcast on
 `/topic/room.{roomId}` after the transaction commits and before the lock is released — commit before
-publish, `room-lifecycle.md` §2.1. A no-op join (step 2) never reaches step 6 and never broadcasts.
+publish, `room-lifecycle.md` §2.1. A no-op join (step 2) never reaches step 6 or 7 and never
+broadcasts.
 
 ### FR-JOIN-007: the single-room constraint
 
@@ -559,9 +566,9 @@ is what `503` means, and `rest-conventions.md` already lists it for transient up
 - **No readiness, team, kick, parameter or start routes.** Scope, above.
 - **No invite-*resource*.** FR-HOST-002's link is `{platformOrigin}/join/{inviteCode}`, a frontend
   route that resolves through `GET /api/rooms?inviteCode=` (§3.1). FR-HOST-001's *notification*
-  invites are a different mechanism and belong to
-  [`../../requirements/notifications-invitations.md`](../../requirements/notifications-invitations.md),
-  not here — accepting one resolves to an ordinary join.
+  invites are a different mechanism, specified in
+  [`room-invitation-rest-api.md`](room-invitation-rest-api.md) — accepting one resolves to an ordinary
+  join at this endpoint (§5), which that document adds one clause to.
 - **No rejoin endpoint.** Re-entering a room the caller still holds a slot in is `POST
   …/participants`, which returns `201` and the current resource for an existing participant (§5 step
   2). FR-JOIN-011's reconnection alert is a client-side affordance over that same call.

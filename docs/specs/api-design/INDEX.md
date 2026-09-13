@@ -13,6 +13,7 @@ These specifications cover the HTTP REST API, WebSocket protocol, and SSE channe
 | [rest-conventions.md](rest-conventions.md) | URL structure, HTTP methods, status codes, versioning and deprecation strategy, CORS/Origin policy and CSRF |
 | [room-rest-api.md](room-rest-api.md) | Room membership REST surface: create, list, get, join, leave, invite-code resolution. In-room mutations are STOMP — see `room-websocket.md` |
 | [social-rest-api.md](social-rest-api.md) | Friend graph REST surface: username search, send/accept/cancel/decline a friend request, friend list, unfriend, the `relationshipState` extension to the profile response |
+| [room-invitation-rest-api.md](room-invitation-rest-api.md) | Friends-only platform room invitation REST surface: send, decline — acceptance is the ordinary room-join endpoint, not a route of its own |
 | [oauth-rest-api.md](oauth-rest-api.md) | Google OAuth REST surface: the consent-redirect and callback routes, the pending-registration cookie and JSON endpoints, the FR-AUTH-016 collision-challenge-and-link endpoint |
 | [pagination-filtering-sorting.md](pagination-filtering-sorting.md) | List endpoint conventions: pagination, filtering, sorting |
 | [error-handling.md](error-handling.md) | RFC 9457 Problem Details, `@ControllerAdvice`, error taxonomy |
