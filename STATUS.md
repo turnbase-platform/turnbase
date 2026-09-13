@@ -1,58 +1,75 @@
 ## Last Session Summary
 
-**Date:** 2026-09-10/11 (session 43)
+**Date:** 2026-09-13 (session 44)
 
-**IMP-M2-07 — Disconnect, grace deadlines, sweeps. DONE. 30 of 61 items complete.**
-`room.RoomSubscriptionAuthorizer` now increments `room_participant.connection_count` on a session's
-first `SUBSCRIBE` (the mirror of the decrement, and the piece that made the refcount design real for
-the first time) and feeds a genuine `SessionDisconnectEvent` into a new `RoomService#onDisconnect` —
-the same membership map doubles as the instance-initiated-close tag (§1.5 layer 3/§1.6):
-`onRoomOwnershipLost` removes a session from it before severing the socket, so the disconnect
-handler correctly sees nothing to process, while a revoked/rate-limited session (which never
-touches that map) is still processed as a genuine involuntary disconnect. `onDisconnect` opens a
-grace reservation for an In-Progress player (§3.1), reuses `leaveRoom` for a Lobby/spectator
-immediate leave (FR-DC-002/003), and applies FR-HDISC-001's immediate host transfer unless the
-migration window is open or nobody else is connected.
+**IMP-M2-08 — Reconnect and resync. DONE. 31 of 61 items complete.** `turnbase-platform master` now
+has the snapshot-then-delta reconnect path at `7948aea`: a reconnecting client's `SUBSCRIBE` gets a
+version-stamped snapshot and only deltas from that version forward (no merge path), a rejoin inside
+the grace window restores the caller's existing seat/team via the reused-row upsert below rather than
+re-seating them, and a rejoin after expiry falls through to the ordinary join path and its capacity
+checks.
 
-`room.GraceDeadlineSweepJob` (`turnbase.jobs.deadline-sweep.interval`, no `@SchedulerLock` —
-ownership-partitioned like lease renewal, not a cluster-wide job) runs all four §5.1 duties in
-order: due expiries (§3.2/§3.3, IR-06's conditional outbox insert), deferred tails (announces a
-foreign instance's resolution, then FR-XFER-001 host disposition), elapsed migration windows
-(FR-HDISC-004), and the outbox drain (not partitioned — a gRPC call needs no room claim).
+**IMP-GATE-50** (opened and closed same session) — `data-model.md` §2 says `room_participant` keeps
+one row per `(room_id, user_id)` for a user's whole history in a room (never deleted, `left_at` marks
+release), but `room-rest-api.md` §5 step 6 said "Insert" unconditionally — impossible to satisfy the
+moment someone who previously left (voluntary, kicked, or grace-expired) rejoins, since the row
+already exists. Fixed: both documents now specify `INSERT ... ON CONFLICT (room_id, user_id) DO
+UPDATE`, reinitializing the departed row.
 
-**IMP-GATE-48** (opened and closed same session) — `RoomOwnershipService#adopt`'s §1.4 steps 4-5
-were never assigned a read-list/Done-when owner. Fixed, then corrected again after testing exposed
-a second problem: the mass grace-open must not fire on a room's very first-ever claim (only a
-genuine takeover) — the claim script's `ADOPTED` result conflates "free" and "lease lapsed," but the
-Redis epoch counter still distinguishes them (epoch 1 is always the first claim). Without the fix, a
-fresh room's own creator was handed a grace reservation before their first `SUBSCRIBE` completed.
+**IMP-GATE-51** (opened and closed same session) — `IMP-M2-08`'s *Satisfies* claimed
+`reconnection-flow.md` FR-REJOIN-001…008 in full, but no *Done when* clause tested FR-REJOIN-007 (a
+reconnect that loses the race to its own grace expiry must be told plainly, not dropped silently), and
+no document named the call path or predicate for the already-registered `SLOT_RELEASED` error code.
+Fixed, building on `IMP-GATE-50`'s row reuse: `room-websocket.md`'s Authorization Model now specifies
+the predicate (`left_at IS NOT NULL AND leave_reason = 'GRACE_EXPIRED'` on the caller's own row) and
+the call site (`SUBSCRIBE`, rejecting with `SLOT_RELEASED`); `IMP-M2-08`'s *Done when* gained the
+clause.
 
-**IMP-GATE-49** (opened and closed same session) — `IMP-M2-07`'s sweep needs `detachSession` (§4),
-owned by `IMP-M2-09`, which depends on `IMP-M2-07` — circular. Fixed with the same seam already used
-for `START_GAME`/`IMP-M3-05`: a new `room.RoomSessionDetacher` interface, a no-op
-`PendingRoomSessionDetacher` until `IMP-M2-09` supplies the real implementation. The outbox drain's
-Game Host dispatch got the identical treatment (`GameInputDispatcher`/`PendingGameInputDispatcher`),
-without a separate gate — the same already-recorded reasoning applied a third time.
+**IMP-GATE-52** (opened and closed same session, found verifying this item's CI run) — MinIO stopped
+publishing to Docker Hub some time after `IMP-M0-07`/`M0-08` pinned `minio/minio`/`minio/mc` there
+with no registry host; every consumer (`docker-compose.yml`, the Helm chart's `values.yaml`, and both
+Testcontainers pins in `PostgresIntegrationTest`/`ArtifactBucketReadinessCheckIT`) resolved to the now
+-dead `docker.io/minio/…` and failed `pull access denied ... repository does not exist` — CI's `build`
+job failed identically three times on this before the cause was found, across all ~22 IT classes
+extending `PostgresIntegrationTest`, regardless of which item was being worked. Not a code defect in
+`IMP-M2-08`, and not fixable by retrying. Fixed: every pin (`local-environment.md` §1,
+`docker-compose.yml`, `values.yaml`, both Testcontainers `DockerImageName.parse(...)` calls, each also
+gaining `.asCompatibleSubstituteFor("minio/minio")` — Testcontainers validates the bare repo name
+regardless of host) now points at `quay.io/minio/minio`/`quay.io/minio/mc`, confirmed byte-identical
+by digest to the dead Docker Hub references. Committed on top of `IMP-M2-08`'s own merge at
+`417ecf9`. **CI green** on `turnbase-platform master`'s `build` job (run `34749048422`, 18m23s).
 
-**Two latent bugs in already-shipped code, exposed by finally building the mechanism they
-presuppose:** `RoomRepository#leaveRoom` (`IMP-M2-01`) stamped `lost_announced_at = null`
-unconditionally rather than per `:announceInline`, which would have double-broadcast a spurious
-`PLAYER_LOST` for every ordinary voluntary leave one sweep tick later; `releaseCallersCurrentRoom`
-(`IMP-M2-01`, FR-EXPIRY-004) never inserted the game-backend outbox notification it owes. Both
-fixed. Also found: `UPDATE ... RETURNING team_id` mapped through `.query(UUID.class).optional()`
-cannot distinguish a genuinely-unmatched row from a matched row whose `team_id` is itself `null` —
-both collapse to `Optional.empty()`. Not a spec defect, a JDBC hazard; fixed with a `.list()` check.
+**`e2e` still fails, but on a new defect, not the old one** — worth knowing before anyone next looks
+at it: MinIO itself now pulls and starts fine in the real compose stack (confirming `IMP-GATE-52`
+fixes more than just Testcontainers), and the job gets past `turnbase-game-host` checkout and build
+for the first time — then dies on `lstat /target: no such file or directory` inside the e2e smoke
+test's own Docker build context. Every prior session's accepted `e2e` failure was the unprovisioned
+`TURNBASE_GAME_HOST_PAT` failing at checkout, before the pipeline ever reached this point. Not
+investigated or gated this session (out of `IMP-M2-08`'s scope) — expect this failure mode, not the
+PAT one, next time `e2e` comes up.
 
-**Verified**, `GraceDeadlineSweepJobIT` (10 methods) plus a new `RoomOwnershipServiceIT` adoption
-test: every disconnect branch (still-connected, Lobby, spectator, In-Progress player, host-with/
-without another human), the sweep's four duties including the outbox-insert conditional and the
-Lobby carve-out, and adoption's mass-open including the first-claim exemption. `./mvnw verify
--Pintegration` green locally (137 tests, merged JaCoCo gate met). **CI green on `turnbase-platform`
-`master`** (`build`, 13m9s — `e2e`'s "Check out turnbase-game-host" step fails on the same
-un-provisioned `TURNBASE_GAME_HOST_PAT` every prior session's accepted run also shows).
+**Also this session:** committed a leftover `turnbase-platform` submodule ref bump
+(`d94db38`, `35b1aff` — a CI-only fix from session 43, verified green, never pushed to the parent
+repo) that had been sitting uncommitted since the prior session ended.
+
+**Two agents worked this item concurrently for part of the session** (the main session and a forked
+subagent), both editing the same working trees before noticing — caught before anything was committed
+and reconciled into the single account above, but worth a beat of caution for any future session that
+delegates to a background fork while continuing to work the same checkout directly.
+
+**The autonomous work-item loop that picked up `IMP-M2-08` was stopped by user request once this item
+was finished** — `IMP-M2-09`, `IMP-M2-10` and `IMP-M2-12` remain `READY` and unpicked; the loop did not
+continue into them.
 
 ---
 ## Next Priorities
+
+**`IMP-M2-08` is now `DONE` — 31 of 61.** `IMP-M2-09` (Room closure and the five detach paths —
+including `detachSession`'s real implementation, replacing the `PendingRoomSessionDetacher` stub
+`IMP-GATE-49` left) is `READY` off it and the natural next pick. `IMP-M2-10` (Adoption and
+reconciliation jobs) is `READY` off `IMP-M2-03` independently; `IMP-M2-12` (room invitations) is
+`READY` off `IMP-M2-01, IMP-M1-09` independently. The `minio` pull failure (`IMP-GATE-52`) is fixed —
+no infra blocker remains for any of them.
 
 **`IMP-M2-07` is now `DONE` — 30 of 61.** `IMP-M2-08` (Reconnect and resync) and `IMP-M2-09` (Room
 closure and the five detach paths — including `detachSession`'s real implementation, replacing the

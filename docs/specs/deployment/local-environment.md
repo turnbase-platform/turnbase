@@ -24,8 +24,8 @@ operating it is a stated learning goal. The observability set is wired in
 | **Game Host** | `turnbase/game-host` | `9090` gRPC, `8081` management | Redis, MinIO, Platform Monolith (to register) |
 | **PostgreSQL 16** | `postgres:16-alpine` | `5432` | — |
 | **Redis 7** | `redis:7-alpine` | `6379` | — |
-| **MinIO** | `minio/minio` | `9000` S3 API, `9001` console | — |
-| MinIO init (`minio-init`) | `minio/mc` | — | MinIO. Runs to completion, then exits |
+| **MinIO** | `quay.io/minio/minio` (`IMP-GATE-52`) | `9000` S3 API, `9001` console | — |
+| MinIO init (`minio-init`) | `quay.io/minio/mc` (`IMP-GATE-52`) | — | MinIO. Runs to completion, then exits |
 | Prometheus | `prom/prometheus` | `9090` | — |
 | Grafana | `grafana/grafana` | `3000` | Prometheus, Loki, Tempo |
 | Loki | `grafana/loki` | `3100` | — |
@@ -295,11 +295,12 @@ from the IDE against them, which is what the `local` Spring profile's defaults i
 
 `turnbase.artifact-store.bucket` (§7.9) must exist before the monolith issues its first pre-signed
 URL. It is created by a one-shot `minio/mc` init container that runs to completion before the
-monolith starts:
+monolith starts — pulled from `quay.io`, not Docker Hub, where MinIO no longer publishes
+(`IMP-GATE-52`):
 
 ```yaml
 minio-init:
-  image: minio/mc
+  image: quay.io/minio/mc
   depends_on: { minio: { condition: service_healthy } }
   entrypoint: >
     /bin/sh -c "

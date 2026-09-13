@@ -59,7 +59,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-05 | Join, teams, readiness | platform | M2-04 | DONE |
 | IMP-M2-06 | Host management and transfer | platform | M2-05 | DONE |
 | IMP-M2-07 | Disconnect, grace deadlines, sweeps | platform | M2-03 | DONE |
-| IMP-M2-08 | Reconnect and resync | platform | M2-07 | WIP (session 44) |
+| IMP-M2-08 | Reconnect and resync | platform | M2-07 | DONE |
 | IMP-M2-09 | Room closure and the five detach paths | platform | M2-07 | READY |
 | IMP-M2-10 | Adoption and reconciliation jobs | platform | M2-03 | READY |
 | IMP-M2-11 | In-room chat | platform | M2-05 | DONE |
@@ -2637,6 +2637,28 @@ what this item's own tests assert.
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-07
 
+**Closed:** IMP-GATE-52 (opened and closed 2026-09-13, session 44, found verifying this item's CI
+run, fixed in `local-environment.md` §1 — an `IMP-M0-07`/`M0-08` document — and in
+`turnbase-platform`'s compose file, Helm chart and Testcontainers pins, none of which this item
+otherwise touches) — `local-environment.md` §1 pins `minio/minio` and `minio/mc` with no registry
+host, which every consumer (this repo's `docker-compose.yml`, its Helm chart's `values.yaml`, and
+`PostgresIntegrationTest`/`ArtifactBucketReadinessCheckIT`'s Testcontainers pins) resolved as
+`docker.io/minio/…` — correct when written, but MinIO stopped publishing to Docker Hub some time
+after IR-01/IR-13 were verified, so every one of those pulls now fails
+`pull access denied ... repository does not exist`, hard-failing `./mvnw verify -Pintegration` (and,
+by the same mechanism, `make e2e` and a fresh `docker compose up`) regardless of which item is being
+worked. Confirmed byte-identical on MinIO's current registry before touching anything:
+`quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z` and `quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z`
+both resolve to the exact digests already cached locally under the old, now-dead Docker Hub
+reference. Fixed: `local-environment.md` §1's table and its `minio-init` YAML snippet, both
+`docker-compose.yml` image lines, both `values.yaml` image lines, and both Testcontainers
+`DockerImageName.parse(...)` calls now pin `quay.io/minio/minio`/`quay.io/minio/mc` — same tags, same
+digests, new host. Testcontainers' `MinIOContainer` validates the image name against the bare
+`minio/minio` repository regardless of host, so both Java pins also add
+`.asCompatibleSubstituteFor("minio/minio")` — found only by actually running the fix, not by reading.
+No `dependabot.yml` entry named the old host (Docker ecosystem entries key on the bare image name,
+`conventions.md` §6), so none needed updating.
+
 **Closed:** IMP-GATE-50 (opened and closed 2026-09-13, session 44) — `data-model.md` §2 states
 `room_participant` keeps one row per `(room_id, user_id)` for a user's entire history in a room (never
 deleted, `left_at` marks release), but `room-rest-api.md` §5 step 6 said "Insert" unconditionally —
@@ -2675,6 +2697,21 @@ participant's seat and team rather than re-seating them (FR-REJOIN-*, FR-JOIN-01
 expiry is an ordinary join and is subject to every capacity rule; a rejoin that loses the race to its
 own grace expiry receives `SLOT_RELEASED` on `SUBSCRIBE` rather than a silent drop (FR-REJOIN-007,
 `IMP-GATE-51`).
+
+**Verified.** Code merged to `turnbase-platform master` at `7948aea`, `IMP-GATE-52`'s MinIO re-pin
+merged on top at `417ecf9`. `./mvnw verify -Pintegration` green locally, including 4 new
+`RoomReconnectIT` methods and 4 new `RoomControllerIT` methods covering every Done-when clause
+(snapshot-then-delta, no re-announce of an already-`lost_announced_at` departure, grace-window seat
+restoration, post-expiry ordinary join, `IMP-GATE-51`'s `SLOT_RELEASED` race). CI green on
+`turnbase-platform master`'s `build` job (run `34749048422`, 18m23s — the two prior runs on `7948aea`
+failed only on `IMP-GATE-52`'s pre-fix pull error, not on this item's code). `e2e` failed in the same
+run, but past a point it has never reached before: MinIO itself now pulls and starts correctly in the
+real compose stack (confirming `IMP-GATE-52` fixes the live stack, not just Testcontainers), and the
+job instead died on `lstat /target: no such file or directory` inside the e2e smoke test's own Docker
+build context — unrelated to `IMP-M2-08` or `IMP-GATE-52`, and **a different failure than the
+`TURNBASE_GAME_HOST_PAT`/checkout error every prior session's accepted run showed**. Not investigated
+or gated here (out of this item's scope); next session should expect this new failure mode, not the
+old one, when `e2e` is looked at.
 
 ---
 
