@@ -1,25 +1,31 @@
 ## Last Session Summary
 
-**Date:** 2026-09-13 (session 48)
+**Date:** 2026-09-13 (session 49)
 
-**`IMP-M2-10` is still `WIP` — `IMP-GATE-56` opened and closed; still no code written.** Working
-through duty (b)'s ("orphaned Redis session-key families") guard 2 (two-strike, FR-JOB-008b) surfaced
-that the only persistence mechanism any document named, `room.reconcile_flagged_at`, lives on the
-`room` row — but duty (b)'s candidates are session IDs recovered from a Redis key family, and its own
-qualifying predicate ("room no longer exists **or** is closed") is true precisely in the branch where
-there is no room row left to stamp. No document supplied a mechanism duty (b) could actually use.
-Fixed: new `data-model.md` §4.3, `orphaned_session_flag` — a session-scoped table with the same
-insert/consult/clear lifecycle as `room.reconcile_flagged_at`, no foreign key to `room` or
-`session_teardown` since the absence of both is exactly the case it exists to cover;
-`room-lifecycle.md` §5.4 guard 2 now names it for duty (b) explicitly and scopes
-`room.reconcile_flagged_at` to duties (c)/(d). Separately, confirmed while designing duty (b) that its
-own key-family names and TTL semantics (`session:`/`routing:`/`queue:`/`seq:`/`delivered:`/
-`failcount:{sessionId}`, each 24h TTL refreshed on every write) are stated nowhere in this item's
-read-list — only in `game-host/game-host-internals.md` §13, which `room-lifecycle.md`'s own Scope
-section calls out-of-scope for *game execution*, not for this key inventory. Added to the read-list
-(no gate needed — a plain omission, not a contradiction). Committed at `0e19afb` on `turnbase`
-`master` (branch `docs/imp-gate-56-orphaned-session-flag`, merged `--ff-only` and deleted same
-session). `python3 scripts/check-corpus.py` clean.
+**`IMP-M2-10` is now `DONE` — 33 of 61.** Picking the item back up, the code turned out to already
+exist: `turnbase-platform`'s `master` carried commit `852d415` ("feat(room): adoption and
+reconciliation jobs (IMP-M2-10)"), already CI-green, with its own remote branch
+(`feat/imp-m2-10-reconciliation`) already ff-merged but never deleted — the only things actually
+outstanding were this repo's submodule ref (still pointing at `a2fc0a3`, `IMP-M2-09`'s commit) and the
+registry/`STATUS.md` bookkeeping, which had not caught up to reflect it. Verified rather than assumed:
+read `ReconciliationJob`, `RoomRepository`'s new reconciliation queries, `SessionTerminatorImpl`,
+`ReconciliationMetrics`, `RoomOwnershipService`'s new `isInstanceAlive`/`sentinelPresent`/
+`ensureSentinel`, `PodIdentity.bootAt()`, `RoomPurgeJob` and the `orphaned_session_flag` migration
+against every read-list document and the *Done when* clause; all five duties, both guard exemptions,
+the two-strike persistence split (`room.reconcile_flagged_at` vs `orphaned_session_flag`), and the
+`SESSION_UNRECOVERABLE`-free Lobby fail-back match the corpus as fixed by `IMP-GATE-54/55/56`. Also
+resolved is the session 48 open item that was never gated because it had an answer, just not yet a
+written one: `SessionTerminatorImpl` now performs `terminateAndCleanup` step (c)'s bookkeeping itself
+(`RoomRepository.recordSessionTeardownFailure`, 10s-doubling-to-5min backoff) rather than silently
+no-opping, since there is still no Game Host gRPC client and every call honestly takes the failure
+branch. Ran `./mvnw verify` and `./mvnw verify -Pintegration` locally (both green) and confirmed CI
+green on `turnbase-platform` `master` at `852d415`. This session's own work: committed the leftover
+submodule ref bump (`d18ce06`) and brought the registry and this file up to date.
+**`turnbase-platform`'s remote branch `feat/imp-m2-10-reconciliation` is already ff-merged into
+`master` but still exists on the remote** — a leftover the ADR-0012 "merge and delete in the same
+session" rule should have caught; deleting it requires a remote-push permission this session's
+sandbox denied, so it is still there for the next session (or the user) to remove. `python3
+scripts/check-corpus.py` clean.
 
 **Guard-exemption bookkeeping worked out this session, so the next one does not have to re-derive it
 from the same two documents**: of the five FR-JOB-007 duties, only (e) (adopt) is exempt from *both*
@@ -211,21 +217,11 @@ continue into them.
 ---
 ## Next Priorities
 
-**`IMP-M2-10` is `WIP` (session 48) — pick it back up next; code, not more spec reading, is what's
-left, and this time the design questions are actually exhausted.** `IMP-GATE-54` corrected its
-read-list, *Done when* and *Satisfies*; `IMP-GATE-55` closed the Lobby-vs-`SESSION_UNRECOVERABLE`
-contradiction on duty (c); `IMP-GATE-56` (session 48) supplied `orphaned_session_flag` for duty (b)'s
-two-strike persistence and added `game-host-internals.md` §13 (session-key names/TTL) to the
-read-list. See *Last Session Summary* for: the prior-art map (`RoomOwnershipService.claim()`,
-`RoomSessionDetacherImpl`, `SessionTerminator`, `GuestPurgeJob`'s `@SchedulerLock` precedent); the
-worked-out guard-exemption table (only duty (e) is exempt from both FR-JOB-008 guards; (b)/(c)/(d) take
-both; (a) takes guard 1 only, a deliberate corpus reading, not a gap); and the resolved-but-unwritten
-`SessionTerminator`/`PendingSessionTerminator` design (steps b/c of `terminateAndCleanup`'s bookkeeping
-belong inside the terminator, not either caller — `PendingSessionTerminator` needs to actually record
-`attempts++`/backoff on its always-failing attempt rather than silently no-op). A new Flyway migration
-for `orphaned_session_flag` is part of this item's scope alongside the five duties, the daily purge job
-and the `FR-JOB-011` metrics. `IMP-M2-12` (room invitations) remains `READY` off `IMP-M2-01, IMP-M1-09`
-independently and is the other pickable item needing no other repo's work first.
+**`IMP-M2-10` is now `DONE` (session 49) — see *Last Session Summary*.** `IMP-M2-12` (room
+invitations) is next: `READY` off `IMP-M2-01, IMP-M1-09`, both `DONE`, needing no other repo's work
+first. Before starting it, delete `turnbase-platform`'s stale remote branch
+`feat/imp-m2-10-reconciliation` (already ff-merged into `master`, just never removed) — this
+session's sandbox could not push the delete.
 
 **`IMP-M2-08` is now `DONE` — 31 of 61.** `IMP-M2-09` (Room closure and the five detach paths —
 including `detachSession`'s real implementation, replacing the `PendingRoomSessionDetacher` stub

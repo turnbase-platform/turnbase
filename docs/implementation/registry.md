@@ -61,7 +61,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-07 | Disconnect, grace deadlines, sweeps | platform | M2-03 | DONE |
 | IMP-M2-08 | Reconnect and resync | platform | M2-07 | DONE |
 | IMP-M2-09 | Room closure and the five detach paths | platform | M2-07 | DONE |
-| IMP-M2-10 | Adoption and reconciliation jobs | platform | M2-03 | WIP (session 47) |
+| IMP-M2-10 | Adoption and reconciliation jobs | platform | M2-03 | DONE |
 | IMP-M2-11 | In-room chat | platform | M2-05 | DONE |
 | IMP-M2-12 | Room invitations | platform | M2-01, M1-09 | READY |
 | **M3 — Game execution** ||||
@@ -2812,6 +2812,30 @@ this item's real detacher. Normal game end and retry-limit permanent failure are
 ### IMP-M2-10 — Adoption and reconciliation jobs
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-03
+
+**Done 2026-09-13 (session 49).** `ReconciliationJob` (`@SchedulerLock`, 60s) runs all five FR-JOB-007
+duties in the specified order, `FOR UPDATE SKIP LOCKED`, each idempotent and exposing FR-JOB-011's
+per-duty candidate/repair/skip counts: (a) owed teardowns re-driven via `SessionTerminatorImpl` →
+`RoomRepository.recordSessionTeardownFailure` (10s-doubling-to-5min backoff), which also resolves the
+session 48 open question about `SessionTerminator` being `void` — there is still no Game Host gRPC
+client, so every call honestly takes the failure branch and records it, rather than silently
+succeeding; (b) orphaned Redis session-key families (age > 10 min) deleted, two-strike via the new
+`orphaned_session_flag` table (`IMP-GATE-56`); (c) In-Progress-no-session fails back to Lobby via
+`GAME_ENDED (readinessReset: true)`, never closes (`IMP-GATE-55`); (d) idle Lobby rooms close
+`IDLE_TIMEOUT`; (e) unowned-room adoption via `RoomOwnershipService.claim()`, exempt from both
+FR-JOB-008 guards. Duties (c)/(d) share `room.reconcile_flagged_at`; startup suppression (120s
+default) gates (b)/(c)/(d) only, matching `flows/05-owner-loss-and-adoption.md` §D. `RoomPurgeJob`
+(FR-JOB-009, daily) purges Closed rooms past retention, cascading participant/team/invite rows.
+`ReconciliationMetrics` exposes `turnbase.reconcile.candidates{duty}`,
+`turnbase.reconcile.repairs.total{duty,result}`, `turnbase.rooms.in_progress_without_session`,
+`turnbase.teardown.owed` and `turnbase.job.aborted.total{job,reason}`. `PodIdentity` gained
+`bootAt()` for the suppression guard. Migration `V202609131400__add_orphaned_session_flag.sql`,
+`FlywayBaselineIT` updated. `./mvnw verify` and `./mvnw verify -Pintegration` both green locally;
+**CI green on `master`** at `852d415`. Landed directly on `master` (branch
+`feat/imp-m2-10-reconciliation`, ff-merged and deleted same session as ADR-0012 requires) —
+found already merged into the submodule when this session picked the item back up, with only the
+parent repo's submodule ref and this registry/STATUS.md bookkeeping left outstanding; both are
+caught up now.
 
 **Closed:** IMP-GATE-56 (opened and closed 2026-09-13, session 48) — `room-lifecycle.md` §5.4's
 two-strike guard (FR-JOB-008b) names exactly one persistence mechanism, `room.reconcile_flagged_at`,
