@@ -1,5 +1,65 @@
 ## Last Session Summary
 
+**Date:** 2026-09-13 (session 48)
+
+**`IMP-M2-10` is still `WIP` — `IMP-GATE-56` opened and closed; still no code written.** Working
+through duty (b)'s ("orphaned Redis session-key families") guard 2 (two-strike, FR-JOB-008b) surfaced
+that the only persistence mechanism any document named, `room.reconcile_flagged_at`, lives on the
+`room` row — but duty (b)'s candidates are session IDs recovered from a Redis key family, and its own
+qualifying predicate ("room no longer exists **or** is closed") is true precisely in the branch where
+there is no room row left to stamp. No document supplied a mechanism duty (b) could actually use.
+Fixed: new `data-model.md` §4.3, `orphaned_session_flag` — a session-scoped table with the same
+insert/consult/clear lifecycle as `room.reconcile_flagged_at`, no foreign key to `room` or
+`session_teardown` since the absence of both is exactly the case it exists to cover;
+`room-lifecycle.md` §5.4 guard 2 now names it for duty (b) explicitly and scopes
+`room.reconcile_flagged_at` to duties (c)/(d). Separately, confirmed while designing duty (b) that its
+own key-family names and TTL semantics (`session:`/`routing:`/`queue:`/`seq:`/`delivered:`/
+`failcount:{sessionId}`, each 24h TTL refreshed on every write) are stated nowhere in this item's
+read-list — only in `game-host/game-host-internals.md` §13, which `room-lifecycle.md`'s own Scope
+section calls out-of-scope for *game execution*, not for this key inventory. Added to the read-list
+(no gate needed — a plain omission, not a contradiction). Committed at `0e19afb` on `turnbase`
+`master` (branch `docs/imp-gate-56-orphaned-session-flag`, merged `--ff-only` and deleted same
+session). `python3 scripts/check-corpus.py` clean.
+
+**Guard-exemption bookkeeping worked out this session, so the next one does not have to re-derive it
+from the same two documents**: of the five FR-JOB-007 duties, only (e) (adopt) is exempt from *both*
+FR-JOB-008 guards, per the explicit text in both `room-lifecycle.md` §5.4 and
+`flows/05-owner-loss-and-adoption.md` §D. Duties (b), (c) and (d) are named explicitly, by letter, as
+taking *both* guards in both documents. **Duty (a) (owed-teardown re-drive) is named in neither
+enumeration** — `room-lifecycle.md` §5.4's guard-2 paragraph says "the other **three** repair duties"
+take the two-strike rule after excluding only (e), which is arithmetically 4 remaining, not 3; guard
+3's paragraph names "(b), (c) and (d)" by letter, once again omitting (a). Read as deliberate rather
+than a miscount (a `session_teardown` row is a confirmed, already-durable debt, not an *inferred*
+divergence — the entire premise guard 2 exists to guard against does not apply to it, unlike (b)/(c)/
+(d) which are all "is this actually gone, or did I just observe it badly" inferences), so duty (a)
+takes **guard 1 (reachability) only**. Not gated — a self-consistent reading, not a contradiction —
+but worth recording so it is not re-litigated as if it were still open.
+
+**Also unresolved, not gated because it has an answer, just not yet a written one**: `SessionTerminator`
+is `void`, so neither `RoomSessionDetacherImpl`'s inline call nor duty (a)'s re-drive can see whether a
+termination attempt succeeded, yet duty (a)'s own done-when clause requires "on failure `attempts++`,
+backoff 10s doubling to a 5min cap" — and `room-lifecycle.md` §4's `terminateAndCleanup` pseudocode
+places that exact bookkeeping (steps b/c: delete-on-`OK`, `attempts++`/backoff-on-error) **inside**
+`terminateAndCleanup` itself, not in either caller. Reading `PendingSessionTerminator`'s own Javadoc
+("matching `PendingGameInputDispatcher`'s 'never pretend delivery succeeded' precedent") together with
+that pseudocode: the fix is to make `PendingSessionTerminator` actually perform step c's bookkeeping
+(there is no gRPC client, so step a always fails, honestly) via a new `RoomRepository`
+session-teardown-failure method mirroring `recordOutboxAttemptFailure`'s shape, computing
+`next_attempt_at = now() + least(10 * 2^attempts, 300)` seconds. No design gap once this is written
+down; it just wasn't reached this session.
+
+**`IMP-M2-10` code is next session's actual work — none was written this session.** The prior-art map
+from session 47 (`RoomOwnershipService.claim()`, `RoomSessionDetacherImpl`, `SessionTerminator`,
+`GuestPurgeJob`'s `@SchedulerLock` precedent, `JobsProperties.Reconcile` already bound) still stands
+unchanged; this session only closed two more read-list/guard gaps duty (a) and (b) exposed once their
+implementation was actually drafted. A Flyway migration for `orphaned_session_flag` is now also part
+of this item's scope, alongside the five duties, the daily purge job (FR-JOB-009), the reconciliation
+metrics (FR-JOB-011: `turnbase.reconcile.candidates{duty}` gauge,
+`turnbase.reconcile.repairs.total{duty,result}` counter, `turnbase.job.aborted.total{job,reason}`
+counter) and a boot-instant field on `PodIdentity` for the startup-suppression guard.
+
+---
+
 **Date:** 2026-09-13 (session 47)
 
 **`IMP-M2-10` is still `WIP` — `IMP-GATE-55` opened and closed; no code written this session either.**
@@ -151,15 +211,21 @@ continue into them.
 ---
 ## Next Priorities
 
-**`IMP-M2-10` is `WIP` (session 47) — pick it back up next; code, not more spec reading, is what's
-left.** `IMP-GATE-54` corrected its read-list, *Done when* (all five FR-JOB-007 duties, not three) and
-*Satisfies* (`FR-JOB-007…011, NFR-JOB-002`); `IMP-GATE-55` closed the Lobby-vs-`SESSION_UNRECOVERABLE`
-contradiction on duty (c) and added `flows/07-room-closure.md` § Caller 5 to the read-list. See *Last
-Session Summary* for the prior-art map (`RoomOwnershipService.claim()`, `RoomSessionDetacherImpl`,
-`SessionTerminator`) — most of the mechanism already exists; this item wires five `RoomRepository`
-queries and one `@SchedulerLock` job around it. `IMP-M2-12` (room invitations) remains `READY` off
-`IMP-M2-01, IMP-M1-09` independently and is the other pickable item needing no other repo's work
-first.
+**`IMP-M2-10` is `WIP` (session 48) — pick it back up next; code, not more spec reading, is what's
+left, and this time the design questions are actually exhausted.** `IMP-GATE-54` corrected its
+read-list, *Done when* and *Satisfies*; `IMP-GATE-55` closed the Lobby-vs-`SESSION_UNRECOVERABLE`
+contradiction on duty (c); `IMP-GATE-56` (session 48) supplied `orphaned_session_flag` for duty (b)'s
+two-strike persistence and added `game-host-internals.md` §13 (session-key names/TTL) to the
+read-list. See *Last Session Summary* for: the prior-art map (`RoomOwnershipService.claim()`,
+`RoomSessionDetacherImpl`, `SessionTerminator`, `GuestPurgeJob`'s `@SchedulerLock` precedent); the
+worked-out guard-exemption table (only duty (e) is exempt from both FR-JOB-008 guards; (b)/(c)/(d) take
+both; (a) takes guard 1 only, a deliberate corpus reading, not a gap); and the resolved-but-unwritten
+`SessionTerminator`/`PendingSessionTerminator` design (steps b/c of `terminateAndCleanup`'s bookkeeping
+belong inside the terminator, not either caller — `PendingSessionTerminator` needs to actually record
+`attempts++`/backoff on its always-failing attempt rather than silently no-op). A new Flyway migration
+for `orphaned_session_flag` is part of this item's scope alongside the five duties, the daily purge job
+and the `FR-JOB-011` metrics. `IMP-M2-12` (room invitations) remains `READY` off `IMP-M2-01, IMP-M1-09`
+independently and is the other pickable item needing no other repo's work first.
 
 **`IMP-M2-08` is now `DONE` — 31 of 61.** `IMP-M2-09` (Room closure and the five detach paths —
 including `detachSession`'s real implementation, replacing the `PendingRoomSessionDetacher` stub
