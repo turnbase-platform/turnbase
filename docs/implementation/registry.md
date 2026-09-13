@@ -63,7 +63,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-09 | Room closure and the five detach paths | platform | M2-07 | DONE |
 | IMP-M2-10 | Adoption and reconciliation jobs | platform | M2-03 | DONE |
 | IMP-M2-11 | In-room chat | platform | M2-05 | DONE |
-| IMP-M2-12 | Room invitations | platform | M2-01, M1-09 | WIP (session 50) |
+| IMP-M2-12 | Room invitations | platform | M2-01, M1-09 | DONE |
 | **M3 — Game execution** ||||
 | IMP-M3-01 | GDK backend API surface | sdk | M0-02 | READY |
 | IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | READY |

@@ -2,8 +2,9 @@
 
 **Date:** 2026-09-13 (session 50)
 
-**`IMP-M2-12` (room invitations) is `WIP`** — two gates opened and closed while reading this item's
-own read-list, the second superseding the first.
+**`IMP-M2-12` is now `DONE` — 34 of 61.** Room invitations: send, decline, and acceptance via the
+ordinary join endpoint. Two gates opened and closed while reading this item's own read-list, before
+any code, the second superseding the first.
 
 `IMP-GATE-57`: the item's Done-when clause claimed all of FR-JOIN-004's invalidity conditions resolve
 to an empty list, but `room-rest-api.md` §3.1 already specifies the no-slot/no-spectate case returns a
@@ -23,14 +24,65 @@ acceptance is `IMP-M2-01`'s existing join endpoint, which gains one clause: a su
 the caller's pending invitation and alerts its inviter, a failed join leaves it pending so FR-INV-005
 doesn't cost the player their invitation); `rest-conventions.md`'s Authorization table and
 `room-rest-api.md` §5/§8/Related updated to match; `IMP-M2-12`'s *Satisfies* narrowed to
-`FR-INV-001…009, FR-HOST-001`; `IMP-M2-01` gains `FR-LINK-001…002`; `IMP-M5-03` drops them.
+`FR-INV-001…009, FR-HOST-001`; `IMP-M2-01` gains `FR-LINK-001…002`; `IMP-M5-03` drops them. Also
+caught and fixed in-flight: an unverified citation of `room-lifecycle.md`'s ownership-claim mechanism
+in the new spec's step 1 (that mechanism fences `room.version`/WebSocket-affinity writes only,
+`room_invitation` needs neither — fixed to a plain row-level `FOR UPDATE`), and a wrong assumption that
+FR-INV-002's friends check would go through `social.RelationshipQueries` (it doesn't — `RoomRepository
+#isVisible` already established direct-SQL-against-`friendship` as this package's actual precedent for
+FR-LIST-006, so the implementation follows that, not the public API).
 
-`IMP-M2-12`'s Done-when now also names an `AlertPublisher`-shaped seam with a no-op implementation for
-FR-INV-006's alerts, since `IMP-M5-03` (the SSE dispatch mechanism) is not built and not a dependency —
-same precedent as `SessionTerminator`/`PendingSessionTerminator`. Code is next session's actual work;
-none written this session. Also attempted: removing `turnbase-platform`'s stale merged remote branch
-`feat/imp-m2-10-reconciliation` (left over from session 49) — sandbox again denied remote-push
-permission, so it is still there for the user to remove.
+**Code, `turnbase-platform` `f2e3bfd`.** `RoomInvitationRepository`/`RoomInvitationService`/
+`RoomInvitationController` (`POST /api/rooms/{roomId}/invitations`, `DELETE …/invitations/me`), direct
+SQL against `app_user`/`friendship`/`notification` matching `SocialRepository`'s established
+cross-feature-schema precedent. `RoomRepository#joinRoom` gained the accept-on-success clause
+(`room-rest-api.md` §5 step 7); a failed join leaves the invitation untouched. New
+`notification.AlertPublisher` port + `PendingAlertPublisher` no-op impl for FR-INV-006's alerts —
+`IMP-M5-03` isn't built and isn't a dependency, same seam pattern as `SessionTerminator`/
+`PendingSessionTerminator`. `RoomInvitationControllerIT` — 9 new tests (host-only, friends-only,
+self-invite, idempotent resend, idempotent decline, accept-resolves, failed-join-leaves-pending), all
+green; full `./mvnw verify -Pintegration` clean with zero regressions across every existing suite. CI
+green on `turnbase-platform` `master` (run `34780943436`, commit `f2e3bfd`) — `build` job passed;
+`e2e` failed, initially assumed to be the same pre-existing `lstat /target` defect session 44's
+`IMP-GATE-52` note flagged as known-and-accepted. It was not, on closer look — see below.
+
+**`e2e` follow-up, user-requested, out of `IMP-M2-12`'s own scope but done this session.** Diffing run
+`34780943436` against the prior run `34768436866` (`IMP-M2-10`'s push) showed the identical `lstat
+/target` failure shape in both, which at first read like confirmation of "still the known issue." It
+was not: `.github/workflows/build.yml`'s `e2e` job builds `turnbase-game-host`'s jar from its sibling
+checkout (`working-directory: turnbase-game-host`, a "Build turnbase-game-host" step) but has **no
+equivalent step for `turnbase-platform` itself** — `needs: build` only orders the job after `build`,
+it does not carry that job's `target/` over (separate runner, GitHub Actions jobs share nothing on
+disk). `docker compose up --build` then fails the platform image's own `COPY target/turnbase-platform-
+*.jar app.jar` because nothing in the `e2e` job's own checkout ever produced that jar — every `e2e` run
+since session 44 has been failing on this, misdiagnosed as the earlier issue because the error message
+is identical. **Fixed** (commit `9771934`): added the missing `./mvnw package -DskipTests` step,
+mirroring the existing `turnbase-game-host` one. Confirmed by re-running CI (`34782193808`): the
+platform image now builds and the container starts — but then exits `1` within ~20s inside the compose
+stack, a real, different, still-unexplained runtime failure. `e2e-smoke.sh` never captured `docker
+compose logs` before its `cleanup` trap tore the stack down, so the crash reason was invisible in CI.
+**Also fixed** (commit `855438b`): `e2e-smoke.sh` now prints `docker compose logs` on an `up --wait`
+failure before cleanup runs.
+
+**Handoff for the next session — this is exactly where it stops:** commit `855438b` was pushed and a
+third CI run (`34783240475`) was in progress, not yet observed to completion, when this session ended
+at the user's request. **The actual reason `compose-platform-1` exits `1` is still unknown** — the next
+session's first move should be `gh run view 34783240475 --repo turnbase-platform/turnbase-platform
+--log --job <e2e job id>` (or the next push's run, if `34783240475` has rotated out) and read the
+now-captured platform container log. Candidates worth checking first, none confirmed: a required
+`.env`/compose-only config value `e2e-smoke.sh` doesn't set that `local-environment.md` §7 expects: a
+Flyway migration issue specific to the fresh `test` database this compose profile creates (unlikely —
+the same baseline runs clean under every Testcontainers IT); or a readiness dependency on MinIO's
+bucket existing before `minio-init` has actually finished (the log ordering — `minio-init Exited` then
+immediately `platform Starting` — looked plausible but unconfirmed). **This is still non-blocking**
+(`FR-CICD-003`/`OQ-002`, `continue-on-error: true`) — nothing is gated on it, so there's no urgency,
+only unfinished diagnosis. Submodule ref bumped to `855438b` and `IMP-M2-12` flipped to `DONE` in the
+registry regardless, since `IMP-M2-12`'s own `build`-job gate (the one that matters for it) is green
+and unrelated to any of this.
+
+**Not resolved, left for the user:** `turnbase-platform`'s stale merged remote branch
+`feat/imp-m2-10-reconciliation` (left over from session 49) — a third session's sandbox denied
+remote-push permission for the delete.
 
 ---
 
@@ -251,21 +303,28 @@ continue into them.
 ---
 ## Next Priorities
 
-**`IMP-M2-12` (room invitations) is `WIP` (session 50) — see *Last Session Summary*.** Read-list fully
-read, both gates closed, the new `room-invitation-rest-api.md` spec is in place; code is next
-session's actual work. Build in `turnbase-platform`'s `room` package: a `RoomInvitationRepository`
-(direct SQL against `room_invitation` and `notification`, same cross-feature precedent as
-`social.SocialRepository`), `POST /api/rooms/{roomId}/invitations` and `DELETE …/invitations/me` on
-`RoomController` (or a new `RoomInvitationController`), FR-INV-002's friends check via the existing
-`social.RelationshipQueries.areFriends` (already public, already used for `FR-LIST-006`), and the one
-new clause on `IMP-M2-01`'s join transaction (`RoomService`/`RoomRepository`, `room-rest-api.md` §5
-step 7). Define the `AlertPublisher` seam and its no-op implementation before wiring `INVITATION_ACCEPTED`/
-`INVITATION_DECLINED` — `IMP-M5-03` is not built yet. `docs/implementation/registry.md`'s `IMP-M2-12`
-section has the full read-list and Done-when.
+**First, before picking up a new work item: finish diagnosing the `e2e` CI job.** Not gated to any
+work item — see *Last Session Summary*'s `e2e` follow-up. Two real bugs already found and fixed this
+session (the missing `turnbase-platform` build step; no captured logs on failure); a third,
+still-unexplained one remains (`compose-platform-1` exits `1` on startup inside the compose stack).
+Read run `34783240475`'s (or its successor's) now-captured `docker compose logs` output first —
+that's the one piece of information this session ended without seeing.
 
-Before starting: delete `turnbase-platform`'s stale remote branch `feat/imp-m2-10-reconciliation`
-(already ff-merged into `master`, just never removed) — two sessions' sandboxes in a row could not
-push the delete; needs a human or a session with remote-push permission.
+**`IMP-M2-12` is now `DONE` — 34 of 61, and M2 is fully complete.** See *Last Session Summary*.
+**`IMP-M5-03`** (notifications and the SSE stream), `READY` off `IMP-M1-06, IMP-M1-07` (both `DONE`),
+is the natural next pick: it builds the real `NotificationEmitterRegistry`/SSE dispatch that
+`notification.PendingAlertPublisher` (this session's no-op seam) is waiting to be replaced by, and
+`IMP-M2-12`'s two alert types (`INVITATION_ACCEPTED`/`INVITATION_DECLINED`) plus the four
+`FRIEND_REQUEST*`/`FRIEND_ADDED` notification types `IMP-M1-09` already writes are all ready
+consumers with no wiring of their own left to do. Otherwise, fully independent tracks are open:
+`IMP-M3-01` (GDK backend API surface, `turnbase-sdk`) and `IMP-M3-02` (Espresso context lifecycle,
+`turnbase-game-host`) need no other repo's work first; `IMP-M4-01`/`M4-02` (catalog listing, manifest
+validation, `platform`) are `READY` off `M1-01`/`M0-06`; `IMP-M6-01` (Astryx integration,
+`turnbase-frontend`) is `READY` off `M0-05`.
+
+**Still outstanding, not this session's to fix:** `turnbase-platform`'s stale merged remote branch
+`feat/imp-m2-10-reconciliation` — three sessions' sandboxes in a row have denied remote-push
+permission for the delete; needs a human or a session with that permission.
 
 **`IMP-M2-08` is now `DONE` — 31 of 61.** `IMP-M2-09` (Room closure and the five detach paths —
 including `detachSession`'s real implementation, replacing the `PendingRoomSessionDetacher` stub
