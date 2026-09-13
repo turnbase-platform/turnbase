@@ -61,7 +61,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-07 | Disconnect, grace deadlines, sweeps | platform | M2-03 | DONE |
 | IMP-M2-08 | Reconnect and resync | platform | M2-07 | DONE |
 | IMP-M2-09 | Room closure and the five detach paths | platform | M2-07 | DONE |
-| IMP-M2-10 | Adoption and reconciliation jobs | platform | M2-03 | READY |
+| IMP-M2-10 | Adoption and reconciliation jobs | platform | M2-03 | WIP (session 46) |
 | IMP-M2-11 | In-room chat | platform | M2-05 | DONE |
 | IMP-M2-12 | Room invitations | platform | M2-01, M1-09 | READY |
 | **M3 — Game execution** ||||
