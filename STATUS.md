@@ -1,5 +1,42 @@
 ## Last Session Summary
 
+**Date:** 2026-09-13 (session 45)
+
+**`IMP-M2-09` claimed, `IMP-GATE-53` opened and closed — no code landed this session.** Reading the
+item's own read-list surfaced that its *Done when* required wiring all three of `detachSession`'s
+remaining callers (host-leave with no humans, normal game end, retry-limit permanent failure), but
+two of those three have no trigger anywhere in this item's dependency closure: normal game end
+(FR-LIFE-002) and retry-limit failure (FR-FAIL-003/005) both originate in the Orchestration Service,
+which is `IMP-M3-05` and its dependents — not built yet, and not a dependency of `IMP-M2-09`. Same
+shape as `IMP-GATE-08`/`18`/`28`/`46`. Fixed in `docs/implementation/registry.md`: `IMP-M2-09`
+narrowed to the mechanism plus the one reachable caller (host-leave with no humans, via
+`RoomService#leave`); `IMP-M3-08` and `IMP-M3-09` each gained `IMP-M2-09` in *Depends on* and a
+Done-when clause naming their own call site. Committed at `461ddbb` on `turnbase` `master`
+(root-repo docs only, no submodule branch needed). `python3 scripts/check-corpus.py` clean.
+
+**Implementation itself did not start.** Budget ran out mid-session while still reading the
+`RoomOwnershipService`/`RoomEventExecutor` machinery `detachSession` needs to reuse correctly (the
+two-statement version-bump-then-rollback pattern every other `RoomRepository` mutation relies on,
+rather than the single combined fenced `UPDATE` the spec's SQL block shows literally). A draft
+`RoomRepository.detachSession(...)` method was written and then reverted uncommitted, rather than
+leaving a half-finished change in the submodule's working tree. `IMP-M2-09` is `WIP (session 45)` in
+the register — genuinely mid-item, not falsely claimed — and the next session should pick it back up
+directly rather than re-deriving the design from scratch: the plan is `RoomRepository.detachSession`
+(state transition + conditional `room_invitation` delete on `CLOSED` + conditional
+`session_teardown` insert/`game_input_outbox` delete when `sessionId != null`, idempotent on
+`active_session_id = :sessionId`), wired from a new `RoomSessionDetacherImpl` that calls
+`ownership.claim(roomId)` itself (two of the five documented callers arrive owning nothing) and, only
+if owned, reuses `RoomEventExecutor#execute` (not a bespoke transaction) so the existing
+version-bump/epoch-fence/publish machinery does the fencing `room-lifecycle.md` §4 describes as one
+statement — plus a new `SessionTerminator` seam (mirroring `GameSessionStarter`/`GameInputDispatcher`)
+for the `TerminateSession` gRPC call, since no Game Host client exists in this repo yet. `ROOM_CLOSED`
+publishes with the documented `{roomId, reason}` payload; the `LOBBY`/`GAME_ENDED` branch performs the
+state transition and teardown bookkeeping but is not this item's to give an event payload to, since no
+caller of this item ever passes `nextState = 'LOBBY'` — that payload is `IMP-M3-08`'s, same precedent
+as `PendingGameSessionStarter` leaving `GAME_STARTED`'s payload to `IMP-M3-05`.
+
+---
+
 **Date:** 2026-09-13 (session 44)
 
 **IMP-M2-08 — Reconnect and resync. DONE. 31 of 61 items complete.** `turnbase-platform master` now
