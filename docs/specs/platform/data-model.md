@@ -214,6 +214,18 @@ Note that a participant in grace still has `left_at IS NULL`. This is what makes
 a single predicate: a room stays viable while *any* human still holds a reserved slot, which is
 exactly FR-HDISC-003.
 
+**A released row is reused on re-join, never left to collide with a new one (`IMP-GATE-50`).**
+Because the primary key is `(room_id, user_id)` and rows are never deleted, a caller re-joining a
+room they previously departed — voluntary leave, kick, or grace expiry — already owns a row for that
+key; a plain `INSERT` violates it. The join transaction (`room-rest-api.md` §5 step 6) must `INSERT
+... ON CONFLICT (room_id, user_id) DO UPDATE` in this case: reinitialize every per-membership column
+(`joined_at = now()`, `join_order`, `role`, `team_id`, `connection_count = 0`, `ready = false`) and
+clear every departure column (`left_at`, `leave_reason`, `lost_announced_at`, `grace_reservation_id`,
+`grace_expires_at` all to `NULL`). The conflict path fires only when the existing row is genuinely
+Released (`left_at IS NOT NULL`) — a live row never reaches step 6 at all, since step 2 of that
+transaction already turns a request from a current participant into a no-op before any insert is
+attempted.
+
 **`grace_reservation_id`** is a fresh UUID per disconnect and is the CAS token for resolving a
 reservation. It is used rather than comparing `grace_expires_at` because two disconnects can produce
 an identical deadline, and rather than a boolean because a stale actor must be able to prove *which*

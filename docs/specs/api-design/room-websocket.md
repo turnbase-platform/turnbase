@@ -614,13 +614,25 @@ Authorization is enforced at two layers.
 
 | Destination | Check | On failure |
 |---|---|---|
-| `/topic/room.{roomId}` (subscribe) | Sender is a member or spectator of the room | Silent drop |
+| `/topic/room.{roomId}` (subscribe) | Sender is a member or spectator of the room | Silent drop — **except** the one case below |
 | `/topic/room.{roomId}.chat` (subscribe) | Sender is a non-spectator player in the room | Silent drop |
 | `/topic/room.{roomId}.team.{teamId}` (subscribe) | Sender is a player assigned to `teamId` | Silent drop |
 | `/app/room.{roomId}.member` (send) | Sender is a member or spectator of the room | Error on `/user/queue/errors` |
 | `/app/room.{roomId}.host` (send) | `principal.id == room.hostId` (evaluated at message time) | Error on `/user/queue/errors` |
 
 Principal resolution uses `SimpMessageHeaderAccessor.getUser()` — not `SecurityContextHolder`, which is not populated on STOMP channel threads.
+
+**`SLOT_RELEASED` (`IMP-GATE-51`, `reconnection-flow.md` FR-REJOIN-007).** A `SUBSCRIBE` to
+`/topic/room.{roomId}` from a sender who is not a current member is not always a stranger: `data-model.md`
+§2's row-reuse rule (`IMP-GATE-50`) means the room keeps exactly one `room_participant` row per
+`(room_id, user_id)` for the caller's entire history there, so its `leave_reason` is inspectable. When
+that row exists with `left_at IS NOT NULL AND leave_reason = 'GRACE_EXPIRED'`, the caller lost the race
+to their own grace expiry (a rejoin attempt that arrived after the sweep had already resolved it) — the
+subscription is rejected with `SLOT_RELEASED` on `/user/queue/errors` (`retryAfterMs: 0`, not
+retryable) rather than silently dropped, so the client can fall straight into the late-join flow
+(FR-REJOIN-006) instead of reading silence as "room not found." Every other terminal `leave_reason`
+(`LEFT`, `KICKED`, `ROOM_CLOSED`, `GAME_ENDED`, `EARLY_RELEASE`) is an intentional past departure, not
+a race, and stays a silent drop — as does no row existing at all.
 
 ### Handler-level (authoritative)
 

@@ -393,10 +393,14 @@ this instance's existing tenure.
    `spectatorCount < spectatorCapacity`, where the capacity is `turnbase.room.spectator-capacity`
    (NFR-SPEC-001).
 5. **Release the caller's current room** — FR-JOIN-007, below.
-6. **Insert** the `room_participant` row with the next `join_order`, for `PLAYER` auto-assign a team
-   (FR-TEAM-005 in Lobby, FR-TEAM-011 in progress), and — inside the same transaction, fenced by step
-   0's epoch — assign and commit the room's next `version` (`room-websocket.md` *Per-Room
-   Serialization and Versioning*). Set the affinity header from step 0's claim.
+6. **Insert or reuse** the `room_participant` row with the next `join_order`, for `PLAYER`
+   auto-assign a team (FR-TEAM-005 in Lobby, FR-TEAM-011 in progress). Reuse — `INSERT ... ON
+   CONFLICT (room_id, user_id) DO UPDATE`, per `data-model.md` §2's row-state note (`IMP-GATE-50`) —
+   applies when the caller previously departed this exact room, since `room_participant`'s row is
+   never deleted and the primary key would otherwise collide; a plain `INSERT` is only ever reached
+   for a caller with no row here at all. Either way, inside the same transaction, fenced by step 0's
+   epoch, assign and commit the room's next `version` (`room-websocket.md` *Per-Room Serialization and
+   Versioning*). Set the affinity header from step 0's claim.
 
 Steps 1–6 are one transaction, run while step 0's lock is still held. `PLAYER_JOINED` is broadcast on
 `/topic/room.{roomId}` after the transaction commits and before the lock is released — commit before

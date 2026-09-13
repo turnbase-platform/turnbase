@@ -2637,10 +2637,32 @@ what this item's own tests assert.
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-07
 
+**Closed:** IMP-GATE-50 (opened and closed 2026-09-13, session 44) — `data-model.md` §2 states
+`room_participant` keeps one row per `(room_id, user_id)` for a user's entire history in a room (never
+deleted, `left_at` marks release), but `room-rest-api.md` §5 step 6 said "Insert" unconditionally —
+the two cannot both hold the moment a caller re-joins a room they previously departed (voluntary
+leave, kick, or grace expiry: exactly this item's own "ordinary join after expiry" clause), since the
+row already exists and a plain `INSERT` violates the primary key. Fixed: `data-model.md` §2 and
+`room-rest-api.md` §5 step 6 both now specify `INSERT ... ON CONFLICT (room_id, user_id) DO UPDATE`,
+reinitializing the row, for exactly the departed-row case.
+
+**Closed:** IMP-GATE-51 (opened and closed 2026-09-13, session 44) — this item's *Satisfies* claimed
+`reconnection-flow.md` FR-REJOIN-001…008 in full, but no *Done when* clause tested FR-REJOIN-007 (a
+reconnection attempt that loses the race to its own grace expiry must be told plainly, not silently
+dropped or failed generically), and no document said which call path emits `room-websocket.md`'s
+already-registered `SLOT_RELEASED` error code or under what predicate. Fixed, building on
+`IMP-GATE-50`'s row-reuse guarantee: `room-websocket.md`'s Authorization Model now specifies the
+predicate (`left_at IS NOT NULL AND leave_reason = 'GRACE_EXPIRED'` on the caller's own
+`room_participant` row) and the call site (`SUBSCRIBE` to `/topic/room.{roomId}`, rejecting with
+`SLOT_RELEASED` instead of the default silent drop); this item's *Done when* gained the clause below.
+
 **Read first:**
 - `docs/requirements/reconnection-flow.md` FR-REJOIN-001…008, NFR-PERF-001…003
-- `docs/specs/api-design/room-websocket.md` — *Snapshot Delivery*, *Client Reconciliation*
+- `docs/specs/api-design/room-websocket.md` — *Snapshot Delivery*, *Client Reconciliation*, *
+  Authorization Model* (`IMP-GATE-51`)
 - `docs/specs/platform/room-lifecycle.md` §2, §3.2
+- `docs/specs/platform/data-model.md` §2 (`IMP-GATE-50`)
+- `docs/specs/api-design/room-rest-api.md` §5 step 6 (`IMP-GATE-50`)
 - `docs/specs/flows/04-disconnect-and-return.md`
 
 **Satisfies:** `reconnection-flow.md` FR-REJOIN-001…008, NFR-PERF-001…003; `game-rooms.md`
@@ -2650,7 +2672,9 @@ FR-JOIN-011
 that version onward — there is no merge path and no partial replay; the server never re-announces a
 departure whose `lost_announced_at` is already set; a rejoin inside the grace window restores the
 participant's seat and team rather than re-seating them (FR-REJOIN-*, FR-JOIN-011); a rejoin after
-expiry is an ordinary join and is subject to every capacity rule.
+expiry is an ordinary join and is subject to every capacity rule; a rejoin that loses the race to its
+own grace expiry receives `SLOT_RELEASED` on `SUBSCRIBE` rather than a silent drop (FR-REJOIN-007,
+`IMP-GATE-51`).
 
 ---
 
