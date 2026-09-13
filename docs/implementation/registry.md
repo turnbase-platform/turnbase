@@ -2813,20 +2813,48 @@ this item's real detacher. Normal game end and retry-limit permanent failure are
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-03
 
+**Closed:** IMP-GATE-54 (opened and closed 2026-09-13, session 46) — this item's *Done when* required
+"the three reconciliation duties," but `platform-operations.md` FR-JOB-007 has always defined **five**
+lettered duties (a–e: owed-teardown re-drive, orphaned-artifact deletion, In-Progress-no-session
+fail-back, idle-Lobby closure, unowned-room adoption), matching `room-lifecycle.md` §5.2's five-row
+table exactly — no reading of either document yields three. Separately, this item's *Satisfies*
+claimed the full `FR-JOB-001…013` range verbatim, identical to `IMP-M5-04`'s claim of the same full
+range, even though `FR-JOB-001` (guest cleanup) is already built and unclaimed by `IMP-M1-05`,
+`FR-JOB-006` (deadline sweep) is already built and unclaimed by `IMP-M2-07`, and `FR-JOB-012` (upload
+slot sweep) belongs to `IMP-M4-03`'s manifest/upload domain, which this item's read-list never touches
+— same shape as `IMP-GATE-08`/`18`/`28`/`30`/`46`. Fixed: the *Done when* clause below enumerates all
+five duties; *Satisfies* narrows to `FR-JOB-007…011` (reconciliation, its safety guards, the room
+purge `room-lifecycle.md` §5.3 also assigns here, repair idempotency, and reconciliation
+observability — a contiguous, verifiable range) plus `NFR-JOB-002` (the adoption recoverability
+bound; `NFR-JOB-001` is FR-JOB-006's bound, `IMP-M2-07`'s already-shipped concern); read-list corrected
+to name the real duty count and add §6 for FR-JOB-011's metric names. `IMP-M5-04`'s matching over-claim
+is narrowed in its own section below. `FR-JOB-001`/`006` staying unclaimed by their actual builders
+(`IMP-M1-05`/`IMP-M2-07`, both `DONE`) is a pre-existing gap, not reopened here — noted in `STATUS.md`
+instead of touching finished items' sections.
+
 **Read first:**
-- `docs/specs/platform/room-lifecycle.md` §5 **in full** — the three duties, and duty 2's
-  `leave_reason IN ('GRACE_EXPIRED','EARLY_RELEASE','LEFT')` narrowing plus its host disposition
-- `docs/requirements/platform-operations.md` FR-JOB-001…013, NFR-JOB-001…002
+- `docs/specs/platform/room-lifecycle.md` §5 **in full** — §5.1 (already built by `IMP-M2-07`; read
+  for context, not to rebuild) plus this item's own §5.2 (the five reconciliation duties), §5.3
+  (closed-room purge) and §5.4 (safety preconditions) — and §6 (metric names for FR-JOB-011)
+- `docs/requirements/platform-operations.md` FR-JOB-007…011, NFR-JOB-002
 - `docs/decisions/0008-room-ownership-lifecycle.md`
 - `docs/specs/deployment/local-environment.md` §7.2
 - `docs/specs/flows/05-owner-loss-and-adoption.md`
 
-**Satisfies:** `platform-operations.md` FR-JOB-001…013, NFR-JOB-001…002
+**Satisfies:** `platform-operations.md` FR-JOB-007…011, NFR-JOB-002
 
-**Done when:** the three reconciliation duties run per `platform-operations.md` FR-JOB-*; an
-In-Progress room with no session **fails back to Lobby, not closed**; the adopt duty is exempt from
-both FR-JOB-008 guards, which would otherwise block adoption for 120 s after every restart; orphaned
-participant rows are handled by `ON DELETE CASCADE` rather than by a job.
+**Done when:** all **five** FR-JOB-007 reconciliation duties run, `FOR UPDATE SKIP LOCKED`, each
+idempotent (FR-JOB-010 — a repair whose guard no longer holds is a no-op) and each exposing
+FR-JOB-011's per-duty candidate/repair/skip counts: (a) owed teardowns are re-driven via
+`terminateAndCleanup`; (b) orphaned Redis session-key families older than 10 minutes are deleted; (c)
+an In-Progress room with no session **fails back to Lobby, not closed**, with no history entry; (d)
+an idle Lobby room (zero connected participants, past the idle window) closes `IDLE_TIMEOUT`; (e) an
+unowned room is claimed and adopted. The adopt duty (e) alone is exempt from both FR-JOB-008 guards
+(120 s startup suppression, two-consecutive-runs), which would otherwise block adoption for 120 s
+after every restart. The closed-room purge (FR-JOB-009, §5.3) deletes rooms Closed past the retention
+window, cascading to participant, team and invite rows — **orphaned participant rows are handled by
+this cascade, not by a duty of their own**, distinct from duty (b)'s orphaned Redis *artifacts*, which
+is a real duty.
 
 **Duty 2 is the deferred tail.** It announces departures whose `lost_announced_at` is NULL and then
 evaluates closure, and it is the mechanism three other items rely on (M1-08, M2-07, M2-09). Its
@@ -3459,12 +3487,21 @@ alert is for.
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M5-01, IMP-M5-03
 
+**Narrowed by IMP-GATE-54** (`IMP-M2-10`, opened and closed 2026-09-13, session 46) — this item's
+*Satisfies* claimed the full `FR-JOB-001…013` range verbatim, identical to `IMP-M2-10`'s claim of the
+same full range, but this item's read-list touches only the notification/history retention domain:
+`FR-JOB-001` (guest cleanup) is `IMP-M1-05`'s, `FR-JOB-006…011` (deadline sweep and room
+reconciliation/purge) are `IMP-M2-07`'s/`IMP-M2-10`'s, and `FR-JOB-012` (upload slot sweep) is
+`IMP-M4-03`'s — none of those documents appear here. Fixed: narrowed to `FR-JOB-002` (notification
+purge, `data-model-notifications.md`) and `FR-JOB-013` (already named explicitly below); `NFR-JOB-001…002`
+dropped (both are `IMP-M2-07`'s/`IMP-M2-10`'s recoverability bounds, not a retention-window property).
+
 **Read first:**
-- `docs/requirements/platform-operations.md` FR-RET-001…006, FR-JOB-001…013, NFR-JOB-001…002
+- `docs/requirements/platform-operations.md` FR-RET-001…006, FR-JOB-002, FR-JOB-013
 - `docs/specs/platform/data-model-history.md` §4 (erasure), `data-model-notifications.md` §1
 - `docs/specs/deployment/local-environment.md` §7.2 (job scheduling), §7.3 (retention windows)
 
-**Satisfies:** `platform-operations.md` FR-RET-001…006, FR-JOB-001…013, NFR-JOB-001…002;
+**Satisfies:** `platform-operations.md` FR-RET-001…006, FR-JOB-002, FR-JOB-013;
 `game-history.md` NFR-HIST-003
 
 **Done when:** every retention window comes from the §7.3 configuration keys and none is hard-coded;
