@@ -11,7 +11,7 @@
 # where `master` is pushed somewhere shared unless you intend that.
 #
 # Usage:
-#   scripts/autonomous-work-loop.sh [--once] [--max N] [--budget USD]
+#   scripts/autonomous-work-loop.sh [--once] [--max N]
 #                                    [--model NAME] [--sleep SECONDS]
 #                                    [--repo DIR] [--stop-file PATH]
 #
@@ -23,7 +23,6 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MAX_ITERATIONS=20
-MAX_BUDGET_USD=10
 MODEL="sonnet"
 SLEEP_SECONDS=10
 STOP_FILE=""
@@ -33,7 +32,6 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --once) ONCE=1; shift ;;
     --max) MAX_ITERATIONS="$2"; shift 2 ;;
-    --budget) MAX_BUDGET_USD="$2"; shift 2 ;;
     --model) MODEL="$2"; shift 2 ;;
     --sleep) SLEEP_SECONDS="$2"; shift 2 ;;
     --repo) REPO_DIR="$2"; shift 2 ;;
@@ -69,6 +67,13 @@ locally, nothing left uncommitted or unmerged).
 
 If the working tree was not clean, or not on master, when you started: stop
 immediately without changing anything and report that instead.
+
+This is a single non-interactive turn: there is no later turn in which to
+"check back". If you push a submodule commit and need CI to go green before
+bumping its ref at the top level, block on it synchronously in one tool call
+(e.g. `gh run watch <run-id> --exit-status`) and then finish the rest of the
+checklist in the same turn — never end your turn planning to check CI, or
+anything else, "once it completes".
 
 End your final message with exactly one line, and nothing after it, in one of
 these three exact forms:
@@ -106,7 +111,6 @@ while [[ $iteration -lt $MAX_ITERATIONS ]]; do
     --model "$MODEL" \
     --output-format json \
     --dangerously-skip-permissions \
-    --max-budget-usd "$MAX_BUDGET_USD" \
     > "$out_file"
   claude_exit=$?
   set -e
