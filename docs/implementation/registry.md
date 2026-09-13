@@ -60,7 +60,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-06 | Host management and transfer | platform | M2-05 | DONE |
 | IMP-M2-07 | Disconnect, grace deadlines, sweeps | platform | M2-03 | DONE |
 | IMP-M2-08 | Reconnect and resync | platform | M2-07 | DONE |
-| IMP-M2-09 | Room closure and the five detach paths | platform | M2-07 | READY |
+| IMP-M2-09 | Room closure and the five detach paths | platform | M2-07 | WIP (session 45) |
 | IMP-M2-10 | Adoption and reconciliation jobs | platform | M2-03 | READY |
 | IMP-M2-11 | In-room chat | platform | M2-05 | DONE |
 | IMP-M2-12 | Room invitations | platform | M2-01, M1-09 | READY |
@@ -72,8 +72,8 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | READY |
 | IMP-M3-06 | Game input outbox and delivery | platform | M3-05 | READY |
 | IMP-M3-07 | Effect fan-out and spectator filtering | platform | M3-06 | READY |
-| IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05 | READY |
-| IMP-M3-09 | Game failure handling | platform, game-host | M3-07 | READY |
+| IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05, M2-09 | READY |
+| IMP-M3-09 | Game failure handling | platform, game-host | M3-07, M2-09 | READY |
 | IMP-M3-10 | The first official game | sdk consumer | M3-03 | READY |
 | IMP-M3-11 | GDK test harness | sdk | M3-01 | READY |
 | IMP-M3-12 | FE GDK client (`@turnbase/gdk`) | sdk | M0-02 | DONE |
@@ -2719,6 +2719,30 @@ old one, when `e2e` is looked at.
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-07
 
+**Closed: IMP-GATE-53** (opened and closed 2026-09-13, session 45) — this item's own *Done when*
+required wiring all three of its remaining `detachSession` callers (host-leave with no humans, normal
+game end, retry-limit permanent failure) alongside the two `IMP-M2-07` already wired — but two of the
+three have no trigger anywhere in this item's dependency closure. Normal game end (FR-LIFE-002) and
+retry-limit permanent failure (FR-FAIL-003/005) both originate in the Orchestration Service —
+`platform-architecture.md` FR-FAIL-005 states the Orchestration Service itself "notifies the Room
+Service" on permanent failure, and flow 06's game-end trigger is the same actor — which is
+`IMP-M3-05` (*Orchestration client and session registry*) and its dependents, none of which this item
+depends on or which exist yet: `grep` across `src/main/java` for any game-end or retry-limit call site
+turned up nothing, matching `PendingGameSessionStarter`'s own note that no room can carry a real
+`active_session_id` before `IMP-M3-05` lands. Unsatisfiable as written — same shape as
+`IMP-GATE-08`/`18`/`28`/`46`. Fixed: this item's *Done when* narrows to the mechanism plus the one
+caller actually reachable now — host-leave with no humans, wired into `RoomService#leave`'s
+already-claimed branch (the REST/voluntary path; the two non-owning arrivals, account deletion and
+guest cleanup, already flow through `IMP-M2-07`'s existing deferred-tail duty 2 once the real detacher
+lands, per `room-lifecycle.md` §4's own text, and need no new call site here). The other two callers
+move to their natural owners: `IMP-M3-08` (*Session teardown as a durable to-do*, already reading
+`room-lifecycle.md` §4 and `flows/06-game-end-and-rematch.md`) gains the normal-game-end wiring clause
+and `IMP-M2-09` in *Depends on*; `IMP-M3-09` (*Game failure handling*) gains the retry-limit-failure
+wiring clause, `room-lifecycle.md` §4 and `flows/07-room-closure.md` in its read-list, and `IMP-M2-09`
+in *Depends on*. Both already claim the relevant requirement IDs (`FR-XFER-005` and `FR-FAIL-003/005`
+respectively) in their existing *Satisfies*, so neither gains a new claim, only a Done-when clause
+naming the call site.
+
 **Closed:** IMP-GATE-46's third half (`IMP-M2-06`, opened and closed 2026-09-10, session 41) — this
 item's *Satisfies* named `FR-XFER-003`, which `IMP-GATE-39` already assigned to `IMP-M2-01` in full
 (the REST-layer `state <> 'CLOSED'` listing/lookup predicate) — a second, independent double-claim on
@@ -2770,9 +2794,18 @@ uses (IMP-M1-08).
 **`IMP-GATE-49`: this item's real `detachSession` replaces `room.PendingRoomSessionDetacher`.**
 `IMP-M2-07`'s sweep duty 1 (§3.3 step 4) and duty 2 (closure half) already call
 `RoomSessionDetacher#detach` at the moment each condition is met; this item swaps the no-op bean for
-one implementing the transaction above, wires its own three remaining callers (host-leave with no
-humans, normal game end, retry-limit permanent failure) into the same method, and adds nothing at
-`IMP-M2-07`'s two call sites.
+one implementing the transaction above and adds nothing at `IMP-M2-07`'s two call sites.
+
+**`IMP-GATE-53` narrowed this item's own third caller to host-leave with no humans** (FR-XFER-002),
+wired into `RoomService#leave`'s already-claimed branch: when the departing user is the room's host
+and no other human participant remains (`left_at IS NULL AND role = 'PLAYER'`, the same predicate
+§3.3 step 4 uses), close immediately with `NO_PLAYERS_REMAINING` instead of an ordinary
+`PLAYER_LEFT`. The unclaimed branch is unchanged — it already commits the departure with
+`lost_announced_at` left null and returns, exactly `room-lifecycle.md` §4's "a caller that cannot
+claim defers through the existing deferred-tail mechanism" — no new closure logic belongs there; the
+owning instance's duty 2 evaluates closure (including the host disposition) on its next tick, using
+this item's real detacher. Normal game end and retry-limit permanent failure are `IMP-M3-08` and
+`IMP-M3-09`'s own callers respectively (`IMP-GATE-53`).
 
 ---
 
@@ -3073,7 +3106,11 @@ server-side; a client-side filter hands spectators the hidden state and asks the
 
 ### IMP-M3-08 — Session teardown as a durable to-do
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M3-05
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M3-05, IMP-M2-09
+
+**`IMP-M2-09` added to *Depends on*** (`IMP-GATE-53`, session 45) — this item wires the normal
+game-end caller into `room.RoomSessionDetacher#detach`, whose real implementation (`detachSession`,
+`room-lifecycle.md` §4) is `IMP-M2-09`'s.
 
 **Read first:**
 - `docs/decisions/0010-session-teardown-ordering.md`
@@ -3090,17 +3127,29 @@ test `room.active_session_id = :sessionId`, a durable fact, rather than the pres
 is exposed so the `TeardownOwed` alert can fire past 15 minutes (`observability.md` §6 sketches the
 rule; `platform-operations.md` FR-ALERT-007 defines it, deferred here by `IMP-M0-10`).
 
+**`IMP-GATE-53`: this item wires `detachSession`'s normal-game-end caller** (flow 06, `nextState =
+'LOBBY'`, no `closed_reason`) — the game backend's `game_over` notification, once this item's own
+session-completion handling recognizes it, calls `RoomSessionDetacher#detach` exactly as
+`GraceDeadlineSweepJob` already does for the closure paths.
+
 ---
 
 ### IMP-M3-09 — Game failure handling
 
-**Repo:** `turnbase-platform`, `turnbase-game-host` · **Depends on:** IMP-M3-07
+**Repo:** `turnbase-platform`, `turnbase-game-host` · **Depends on:** IMP-M3-07, IMP-M2-09
+
+**`IMP-M2-09` added to *Depends on*** (`IMP-GATE-53`, session 45) — this item wires the
+retry-limit-failure caller into `room.RoomSessionDetacher#detach`, whose real implementation
+(`detachSession`, `room-lifecycle.md` §4) is `IMP-M2-09`'s.
 
 **Read first:**
 - `docs/specs/game-host/game-host-internals.md` §8.1 (the session record's failure slot), §9.1, §12
 - `docs/specs/internal-grpc/orchestration-gamehost-protocol.md` § *Error model*
 - `docs/requirements/platform-architecture.md` FR-FAIL-001…007
 - `docs/requirements/game-contracts.md` FR-FA-001…003, NFR-REL-001…002
+- `docs/specs/platform/room-lifecycle.md` §4 — the detach mechanism this item's caller invokes
+- `docs/specs/flows/07-room-closure.md` § Caller 4 — retry-limit failure fails back to Lobby, not
+  closed
 
 **Satisfies:** `platform-architecture.md` FR-FAIL-001…007; `game-contracts.md` FR-FA-001…003,
 NFR-REL-001…002
@@ -3108,6 +3157,11 @@ NFR-REL-001…002
 **Done when:** the acting player is told why. `platform-architecture.md` FR-FAIL-001 and FR-FAIL-003
 must be coherent about first-failure versus three-failure termination, and the failed input has a
 stated disposition on every path.
+
+**`IMP-GATE-53`: this item wires `detachSession`'s retry-limit-failure caller** (flow 07 caller 4,
+`nextState = 'LOBBY'`, no `closed_reason`, `SESSION_FAILED` broadcast to clients instead of
+`ROOM_CLOSED`, no history entry per `game-history.md` CON-001) — FR-FAIL-005's "notifies the Room
+Service" is this call to `RoomSessionDetacher#detach`.
 
 **The session record carries `lastOutcome` and `lastFailure` for a reason** (IR-15). A replayed
 sequence that previously failed must return *its own* failure. Without those two slots the replay
