@@ -61,7 +61,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-07 | Disconnect, grace deadlines, sweeps | platform | M2-03 | DONE |
 | IMP-M2-08 | Reconnect and resync | platform | M2-07 | DONE |
 | IMP-M2-09 | Room closure and the five detach paths | platform | M2-07 | DONE |
-| IMP-M2-10 | Adoption and reconciliation jobs | platform | M2-03 | WIP (session 46) |
+| IMP-M2-10 | Adoption and reconciliation jobs | platform | M2-03 | WIP (session 47) |
 | IMP-M2-11 | In-room chat | platform | M2-05 | DONE |
 | IMP-M2-12 | Room invitations | platform | M2-01, M1-09 | READY |
 | **M3 — Game execution** ||||
@@ -2813,6 +2813,34 @@ this item's real detacher. Normal game end and retry-limit permanent failure are
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-03
 
+**Closed:** IMP-GATE-55 (opened and closed 2026-09-13, session 47) — `game-rooms.md` FR-LIFE-007 and
+`room-websocket.md`'s `ROOM_CLOSED` reason table said an In-Progress room whose session state is gone
+is **closed** with `SESSION_UNRECOVERABLE`; `platform-operations.md` FR-JOB-007(c) and
+`room-lifecycle.md` §5.2 (this item's own read-list) say it **fails back to Lobby, not closed**
+instead — a flat disagreement on first reading. That reading turned out to be incomplete:
+`flows/07-room-closure.md` § Caller 5 — a document this item's read-list never named, though it is the
+one place all five `detachSession` callers are enumerated together — already reconciles the two sides
+with "fail back to Lobby; `SESSION_UNRECOVERABLE` only if that also fails." That reconciliation is
+itself hollow: `detachSession`'s shared skeleton (same document)
+has exactly two non-success outcomes for any caller — a claim redirect, deferred to the next tick, and
+step 2's idempotent no-op when another caller already detached — and neither is a "failure" this duty
+could close on. No document, including flow 07, names a third outcome. `SESSION_UNRECOVERABLE` has no
+producer under the mechanism as specified anywhere in the corpus. Fixed: `room-lifecycle.md` §5.2's
+duty (c) row and prose state explicitly that this duty has no closure branch, citing the skeleton's two
+non-success outcomes; `flows/07-room-closure.md`'s Caller 5 table and prose drop the
+"`SESSION_UNRECOVERABLE` only if that also fails" hedge; `game-rooms.md` FR-LIFE-007 narrows to the
+idle-Lobby-closure case alone, stating the unrecoverable-session case fails back to Lobby instead;
+`room-websocket.md`'s `ROOM_CLOSED` reason table and `data-model.md`'s closure-reasons table both drop
+`SESSION_UNRECOVERABLE` (five closure paths become four). Separately, duty (c)'s "notify participants"
+cited `platform-architecture.md` FR-FAIL-005, which names no wire event, but the behaviour it
+describes — room back in Lobby, readiness reset — is verbatim `room-websocket.md`'s existing
+`GAME_ENDED` contract; that section and flow 07 both gain FR-JOB-007c as `GAME_ENDED`'s second trigger,
+same payload shape, rather than a new event type. This item's read-list gains
+`flows/07-room-closure.md` § Caller 5 (below) so the next reader of duty (c) has the full mechanism in
+one place rather than reconstructing it from `room-lifecycle.md` alone. This item's *Done when* clause
+already said "fails back to Lobby, not closed, with no history entry," so it is unchanged by the fix
+except to name the event to publish, which was genuinely undetermined before this gate closed.
+
 **Closed:** IMP-GATE-54 (opened and closed 2026-09-13, session 46) — this item's *Done when* required
 "the three reconciliation duties," but `platform-operations.md` FR-JOB-007 has always defined **five**
 lettered duties (a–e: owed-teardown re-drive, orphaned-artifact deletion, In-Progress-no-session
@@ -2840,6 +2868,8 @@ instead of touching finished items' sections.
 - `docs/decisions/0008-room-ownership-lifecycle.md`
 - `docs/specs/deployment/local-environment.md` §7.2
 - `docs/specs/flows/05-owner-loss-and-adoption.md`
+- `docs/specs/flows/07-room-closure.md` § Caller 5 — duty (c)/(d)'s shared `detachSession` mechanism,
+  and why duty (c) has no closure branch (`IMP-GATE-55`)
 
 **Satisfies:** `platform-operations.md` FR-JOB-007…011, NFR-JOB-002
 
@@ -2847,7 +2877,8 @@ instead of touching finished items' sections.
 idempotent (FR-JOB-010 — a repair whose guard no longer holds is a no-op) and each exposing
 FR-JOB-011's per-duty candidate/repair/skip counts: (a) owed teardowns are re-driven via
 `terminateAndCleanup`; (b) orphaned Redis session-key families older than 10 minutes are deleted; (c)
-an In-Progress room with no session **fails back to Lobby, not closed**, with no history entry; (d)
+an In-Progress room with no session **fails back to Lobby, not closed**, with no history entry,
+broadcasting `GAME_ENDED` (`readinessReset: true`) as its FR-JOB-007c trigger (`IMP-GATE-55`); (d)
 an idle Lobby room (zero connected participants, past the idle window) closes `IDLE_TIMEOUT`; (e) an
 unowned room is claimed and adopted. The adopt duty (e) alone is exempt from both FR-JOB-008 guards
 (120 s startup suppression, two-consecutive-runs), which would otherwise block adoption for 120 s

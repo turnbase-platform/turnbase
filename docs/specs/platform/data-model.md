@@ -140,9 +140,13 @@ because a crash can leave connection flags stale, but a genuinely live room cann
 | `GRACE_EXPIRED_NO_HUMAN` | Deferred closure elapsed with no human connected | FR-HDISC-003 |
 | `ACCOUNT_DELETED` | Host's account was deleted | FR-LIFE-004 |
 | `IDLE_TIMEOUT` | Lobby room with no participants past the idle window | FR-JOB-007d |
-| `SESSION_UNRECOVERABLE` | In Progress room whose session state is gone and could not be failed back | FR-JOB-007c |
 
-**Every one of these five paths owes the same two side effects**, and they are listed here because
+An In Progress room whose session state is gone (FR-JOB-007c) is **not** a sixth closure reason: it
+fails back to Lobby instead (`IMP-GATE-55`), and `detachSession`'s shared skeleton
+([`flows/07-room-closure.md`](../flows/07-room-closure.md)) has no path from that duty to `CLOSED` —
+its only non-success outcomes are a deferred claim (retried, never closed) and an idempotent no-op.
+
+**Every one of these four paths owes the same two side effects**, and they are listed here because
 this is the only place the producers appear together. Closure must, in the transaction that sets
 `state = 'CLOSED'`:
 
@@ -153,10 +157,7 @@ this is the only place the producers appear together. Closure must, in the trans
 The second is easy to miss because a foreign-key cascade already exists for it — but that cascade
 fires at FR-JOB-009's purge, seven days later, not at closure.
 
-`IDLE_TIMEOUT` and `SESSION_UNRECOVERABLE` are the two platform-initiated causes named by FR-LIFE-007
-and are kept distinct rather than collapsed into one "reconciliation" value: they mean different
-things to the player — an abandoned lobby was reclaimed, versus a game was lost — and only the second
-is evidence of a defect.
+`IDLE_TIMEOUT` is the one platform-initiated closure cause named by FR-LIFE-007.
 
 ---
 

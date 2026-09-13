@@ -20,7 +20,7 @@ which is where the hazards are.
 | 2 | Grace expiry, no human connected | `FR-HDISC-003` | `CLOSED` | `GRACE_EXPIRED_NO_HUMAN` | Yes — the sweep claims first |
 | 3 | Normal game end | `FR-LIFE-002` | **`LOBBY`** | — | Yes |
 | 4 | Retry-limit permanent failure | `FR-FAIL-003/005` | `LOBBY` | — | Yes |
-| 5 | Reconciliation sweep | `FR-JOB-007c/d` | `CLOSED` or `LOBBY` | `IDLE_TIMEOUT` / `SESSION_UNRECOVERABLE` | Yes — claims first |
+| 5 | Reconciliation sweep | `FR-JOB-007c/d` | `LOBBY` or `CLOSED` | — / `IDLE_TIMEOUT` | Yes — claims first |
 
 Plus one that is not a `detachSession` caller because there is no session to detach: **account
 deletion** (`FR-LIFE-004`, `FR-XFER-002`, `closed_reason = 'ACCOUNT_DELETED'`) closes a hosted room
@@ -129,7 +129,7 @@ Two duties reach `detachSession`:
 
 | Duty | Condition | Outcome |
 |---|---|---|
-| `FR-JOB-007c` | `IN_PROGRESS` with no session state | **Fail back to Lobby** via `FR-FAIL-005`. `SESSION_UNRECOVERABLE` only if that also fails |
+| `FR-JOB-007c` | `IN_PROGRESS` with no session state | **Fail back to Lobby** via `FR-FAIL-005`. No closure branch: the shared skeleton's only non-success outcomes are a deferred claim (§ Caller 1, retried next tick) and step 2's idempotent no-op, neither of which is this duty's to close (`IMP-GATE-55`) |
 | `FR-JOB-007d` | `LOBBY`, zero connected participants, `last_activity_at` older than the idle window | `CLOSED`, `IDLE_TIMEOUT` |
 
 Both keep both `FR-JOB-008` guards — two consecutive observations, and no repair within 120 s of
@@ -145,9 +145,9 @@ information.
 participants" alone is unsafe, because a crash can leave connection flags stale — but a genuinely
 live room cannot have an old `last_activity_at` regardless of what the flags say.
 
-`IDLE_TIMEOUT` and `SESSION_UNRECOVERABLE` are kept distinct rather than collapsed into one
-"reconciliation" value: they mean different things to the player — an abandoned lobby was reclaimed,
-versus a game was lost — and only the second is evidence of a defect.
+Duty (c)'s notification is `GAME_ENDED` (`readinessReset: true`), not `ROOM_CLOSED` — the room isn't
+closed — reusing the ordinary game-end event's contract since the client-facing behaviour is
+identical: back in Lobby, forget local readiness (`IMP-GATE-55`).
 
 ---
 

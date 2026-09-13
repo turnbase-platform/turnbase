@@ -327,7 +327,7 @@ The room has been permanently closed. Delivered to all current subscribers befor
   "version": 49,
   "payload": {
     "roomId": "uuid",
-    "reason": "NO_PLAYERS_REMAINING | GRACE_EXPIRED_NO_HUMAN | ACCOUNT_DELETED | IDLE_TIMEOUT | SESSION_UNRECOVERABLE"
+    "reason": "NO_PLAYERS_REMAINING | GRACE_EXPIRED_NO_HUMAN | ACCOUNT_DELETED | IDLE_TIMEOUT"
   }
 }
 ```
@@ -340,9 +340,10 @@ The room has been permanently closed. Delivered to all current subscribers befor
 | `GRACE_EXPIRED_NO_HUMAN` | An In Progress room's last-connected-human host disconnected and the grace period expired with no human reconnecting (reconnection-flow.md FR-HDISC-003), closing the room via FR-XFER-002/FR-XFER-003. |
 | `ACCOUNT_DELETED` | The host's account was deleted, which counts as a confirmed voluntary departure (FR-LIFE-004). |
 | `IDLE_TIMEOUT` | A Lobby room sat with no connected participant past the configured idle window (`platform-operations.md` FR-JOB-007d, `game-rooms.md` FR-LIFE-007). |
-| `SESSION_UNRECOVERABLE` | An In Progress room's game session state was gone and could not be failed back to Lobby (FR-JOB-007c, FR-LIFE-007). |
 
-The last two are the platform-initiated causes. They are kept distinct rather than collapsed into a single "reconciliation" value because they mean different things to the player — an abandoned lobby was reclaimed, versus a game was lost — and only `SESSION_UNRECOVERABLE` is evidence of a defect.
+`IDLE_TIMEOUT` is the one platform-initiated closure cause. An In Progress room whose game session is
+unrecoverable is **not** closed — `platform-operations.md` FR-JOB-007c fails it back to Lobby instead
+(`IMP-GATE-55`); see `GAME_ENDED` below, which is that path's client notification.
 
 After receiving this event, clients not already told the room was closed by one of the above (e.g. a client that was never attached, or was mid-reconnect when the sweep acted) still learn the outcome via `ROOM_CLOSED` if subscribed, or via the standard rejoin flow reporting the room as closed (reconnection-flow.md FR-REJOIN-008) otherwise. Clients should unsubscribe and navigate away on receipt. The room cannot be rejoined (FR-XFER-003).
 
@@ -371,7 +372,9 @@ The client derives its game destinations from `sessionId` (`/topic/game.{session
 
 #### `GAME_ENDED`
 
-The game session has ended and the room has returned to Lobby state (FR-LIFE-002). All player readiness is reset (FR-READY-004). Clients should unsubscribe from the game topic.
+The game session has ended and the room has returned to Lobby state (FR-LIFE-002). All player readiness is reset (FR-READY-004).
+
+The same event, with the same payload shape, is also the client notification for `platform-operations.md` FR-JOB-007c (`IMP-GATE-55`): an In Progress room whose game session state was found gone is failed back to Lobby by reconciliation rather than closed, and this is what tells attached clients. The wire contract does not distinguish the two triggers — both mean "the game is over, you are back in Lobby, forget your local readiness state" — the difference (a `game_session_completion` history row is written for FR-LIFE-002 and never for FR-JOB-007c) is server-side only. Clients should unsubscribe from the game topic.
 
 ```json
 {

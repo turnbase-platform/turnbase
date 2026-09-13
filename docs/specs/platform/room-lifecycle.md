@@ -696,7 +696,7 @@ moment it does not, the optimization has acquired logic it was never allowed to 
 |---|---|---|
 | Owed teardown | `session_teardown` row with `next_attempt_at <= now()` | `terminateAndCleanup`; on failure `attempts++`, backoff 10s doubling to a 5min cap |
 | Orphaned artifacts | Redis session keys whose room is absent or `CLOSED`, key age > 10 min | delete the whole key family |
-| In Progress, no session | `state = IN_PROGRESS`, session record absent, **flagged on a previous run** | fail back to **Lobby** via FR-FAIL-005: clean keys, reset readiness, notify participants. No history entry |
+| In Progress, no session | `state = IN_PROGRESS`, session record absent, **flagged on a previous run** | fail back to **Lobby** via FR-FAIL-005: clean keys, reset readiness, notify participants (`GAME_ENDED`, `readinessReset: true`). No history entry |
 | Idle Lobby | `state = LOBBY`, zero connected participants, `last_activity_at` older than the idle window | close with `IDLE_TIMEOUT` |
 | Unowned room | `owner_instance_id` naming an instance with no live lease, or null with `ownerless_since` set | claim (§1.2) and adopt (§1.4), so deadlines can be enforced |
 
@@ -704,7 +704,11 @@ Rows are taken `FOR UPDATE SKIP LOCKED` in batches.
 
 **Failing back to Lobby rather than closing** is deliberate: closing destroys a room people may still
 be sitting in, while Lobby is recoverable and reuses a path that already exists and already has a
-client story. If the room really is abandoned, the idle duty collects it later.
+client story. If the room really is abandoned, the idle duty collects it later. **This duty has no
+closure branch** (`IMP-GATE-55`): `detachSession`'s shared skeleton
+([`flows/07-room-closure.md`](../flows/07-room-closure.md)) has exactly two non-success outcomes — a
+deferred claim, retried next tick, and step 2's idempotent no-op — and neither is a reason for this
+duty to close the room instead.
 
 **No Game Host probe.** The session record is the source of truth: a host that lost local state
 recovers from it, and a host with no record returns `NOT_FOUND`. If the record is absent the session
