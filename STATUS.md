@@ -1,34 +1,46 @@
 ## Last Session Summary
 
-**Date:** 2026-09-13 (session 46)
+**Date:** 2026-09-13 (session 47)
 
-**`IMP-M2-10` claimed (adoption and reconciliation jobs); `IMP-GATE-54` opened and closed; no code
-written this session.** Reading the item's own read-list surfaced that its *Done when* required "the
-three reconciliation duties," but `platform-operations.md` FR-JOB-007 has always defined **five**
-lettered duties (a–e: owed-teardown re-drive, orphaned-artifact deletion, In-Progress-no-session
-fail-back, idle-Lobby closure, unowned-room adoption), matching `room-lifecycle.md` §5.2's five-row
-table exactly. Separately, this item's *Satisfies* claimed the full `FR-JOB-001…013` range verbatim —
-identical to `IMP-M5-04`'s claim of the same full range — even though `FR-JOB-001` (guest cleanup) is
-already built and unclaimed by `IMP-M1-05` (`DONE`), `FR-JOB-006` (deadline sweep) is already built
-and unclaimed by `IMP-M2-07` (`DONE`), and `FR-JOB-012` (upload slot sweep) belongs to `IMP-M4-03`'s
-manifest/upload domain — none of those documents appear in either item's read-list. Same shape as
-`IMP-GATE-08`/`18`/`28`/`30`/`46`. Fixed in `docs/implementation/registry.md`: `IMP-M2-10`'s *Done
-when* now enumerates all five FR-JOB-007 duties explicitly, plus the FR-JOB-009 closed-room purge and
-the FR-JOB-008 startup/two-strikes exemption for the adopt duty; its *Satisfies* narrowed to
-`FR-JOB-007…011, NFR-JOB-002` (a contiguous range matching what its read-list — `room-lifecycle.md`
-§5.2–§5.4, now also §6 for FR-JOB-011's metric names — actually covers); `IMP-M5-04`'s matching
-over-claim narrowed to `FR-JOB-002, FR-JOB-013`. Committed at `a0c9765` on `turnbase` `master`.
-`python3 scripts/check-corpus.py` clean. **`FR-JOB-001`/`006` staying unclaimed by their actual
-builders is a pre-existing gap, not reopened this session** — worth a look before either of those
-items' sections is next touched, but out of scope for this gate.
+**`IMP-M2-10` is still `WIP` — `IMP-GATE-55` opened and closed; no code written this session either.**
+Picking the item back up (session 46 left it read-list-corrected, code next), a research pass into
+`turnbase-platform`'s existing room-package prior art (`RoomOwnershipService`, `RoomRepository`,
+`GraceDeadlineSweepJob`, `SessionTerminator`) surfaced that duty (c) — "In Progress room with no
+session fails back to Lobby" — collides with `game-rooms.md` FR-LIFE-007 and `room-websocket.md`'s
+`ROOM_CLOSED` reason table, both of which said the platform **closes** that same room with
+`SESSION_UNRECOVERABLE`. First reading: a flat contradiction between `platform-operations.md`
+FR-JOB-007(c)/`room-lifecycle.md` §5.2 (Lobby) and those two documents (Closed). Second reading, after
+finding `flows/07-room-closure.md` § Caller 5 (missing from this item's read-list, despite being the
+one place all five `detachSession` callers are enumerated together): that document already reconciles
+the two sides — "fail back to Lobby; `SESSION_UNRECOVERABLE` only if that also fails" — but the
+reconciliation is itself hollow, because `detachSession`'s own shared skeleton has exactly two
+non-success outcomes (a deferred claim, retried next tick; an idempotent no-op) and neither is a
+"failure" duty (c) could close on. `SESSION_UNRECOVERABLE` has no producer anywhere in the corpus as
+specified. Fixed: `room-lifecycle.md` §5.2 and `flows/07-room-closure.md` now state explicitly that
+duty (c) has no closure branch; `game-rooms.md` FR-LIFE-007 narrowed to the idle-Lobby case alone;
+`room-websocket.md`'s `ROOM_CLOSED` and `data-model.md`'s closure-reasons tables both drop
+`SESSION_UNRECOVERABLE` (five closure paths become four). Separately, duty (c)'s "notify participants"
+cited `platform-architecture.md` FR-FAIL-005, which names no wire event; fixed by naming the existing
+`GAME_ENDED` event (`readinessReset: true`) as its client notification instead of inventing a new
+type, since the described behaviour — back in Lobby, readiness reset — is that event's contract
+verbatim. `IMP-M2-10`'s read-list gains `flows/07-room-closure.md` § Caller 5. Committed at `9022865`
+on `turnbase` `master` (branch `docs/imp-gate-55-session-unrecoverable-lobby-vs-closed`, merged
+`--ff-only` and deleted same session). `python3 scripts/check-corpus.py` clean.
 
-**`IMP-M2-10` is `WIP` (session 46) — read-list corrected, Done-when now checkable clause-by-clause,
-code is next.** The five reconciliation duties (`room.ReconciliationJob` or similar, on
-`turnbase.jobs.reconciliation.interval`, single-instance per FR-JOB-005) plus the closed-room purge
-(§5.3) and the FR-JOB-008 safety guards are what remains to build; `IMP-M2-07`'s already-shipped
-`GraceDeadlineSweepJob` is prior art for the ownership-partitioned/`ShedLock` split this item's own
-single-instance-except-the-adopt-duty shape will need to reconcile with FR-JOB-005's exception clause
-for partitioned jobs.
+**`IMP-M2-10` code is next, and the research already done should carry forward**: `RoomOwnershipService
+.claim()` already implements the full adoption procedure (§1.4 steps 1–5, 7) — duty (e) just needs a
+new `RoomRepository` query for unowned-room IDs and a call to `claim()` per candidate, no adoption
+logic to write fresh. `RoomSessionDetacherImpl.detach()` is the exact claim-then-mutate pattern duties
+(c) and (d) need (it already claims the room if this instance doesn't own it, then runs the state
+transition under `RoomEventExecutor`). `SessionTerminator`/`PendingSessionTerminator` (a no-op stub)
+is duty (a)'s reuse point for `terminateAndCleanup`; `session_teardown` has no reader anywhere yet —
+duty (a)'s `next_attempt_at`/`attempts`-backoff query and update are new. All Flyway columns this job
+needs already exist (`room.reconcile_flagged_at`, `.ownerless_since`, `room_idle_lobby_idx`,
+`session_teardown.next_attempt_at`) — no new migration required. `turnbase.jobs.reconcile.*` config is
+already bound (`JobsProperties.Reconcile`). `ShedLock` is already wired (`account.GuestPurgeJob` is the
+`@SchedulerLock` precedent); FR-JOB-007 is explicitly single-instance per FR-JOB-005 (not
+ownership-partitioned like FR-JOB-006), so one `@SchedulerLock`-guarded `run()` covering all five
+duties is the right shape — duty (e) only skips the two `FR-JOB-008` *guards* internally, not the lock.
 
 ---
 
@@ -139,10 +151,15 @@ continue into them.
 ---
 ## Next Priorities
 
-**`IMP-M2-10` is `WIP` (session 46) — pick it back up next.** `IMP-GATE-54` corrected its read-list,
-*Done when* (all five FR-JOB-007 duties, not three) and *Satisfies* (`FR-JOB-007…011, NFR-JOB-002`);
-no code written yet. `IMP-M2-12` (room invitations) remains `READY` off `IMP-M2-01, IMP-M1-09`
-independently and is the other pickable item needing no other repo's work first.
+**`IMP-M2-10` is `WIP` (session 47) — pick it back up next; code, not more spec reading, is what's
+left.** `IMP-GATE-54` corrected its read-list, *Done when* (all five FR-JOB-007 duties, not three) and
+*Satisfies* (`FR-JOB-007…011, NFR-JOB-002`); `IMP-GATE-55` closed the Lobby-vs-`SESSION_UNRECOVERABLE`
+contradiction on duty (c) and added `flows/07-room-closure.md` § Caller 5 to the read-list. See *Last
+Session Summary* for the prior-art map (`RoomOwnershipService.claim()`, `RoomSessionDetacherImpl`,
+`SessionTerminator`) — most of the mechanism already exists; this item wires five `RoomRepository`
+queries and one `@SchedulerLock` job around it. `IMP-M2-12` (room invitations) remains `READY` off
+`IMP-M2-01, IMP-M1-09` independently and is the other pickable item needing no other repo's work
+first.
 
 **`IMP-M2-08` is now `DONE` — 31 of 61.** `IMP-M2-09` (Room closure and the five detach paths —
 including `detachSession`'s real implementation, replacing the `PendingRoomSessionDetacher` stub
