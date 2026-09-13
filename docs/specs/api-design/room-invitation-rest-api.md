@@ -48,11 +48,15 @@ Content-Type: application/json
 { "inviteeUsername": "bob" }
 ```
 
+**No room-ownership claim.** `room-rest-api.md`'s claim/lease/affinity-header mechanism fences writes
+to `room.version` and the pod holding the room's live WebSocket connections; `room_invitation` has
+neither. An ordinary `@Transactional` `SELECT ... FOR UPDATE` on the `room` row is enough to serialize
+against a concurrent host transfer or closure — no cross-pod coordination, no `X-TurnBase-Room-Instance`
+header on either endpoint below.
+
 ### Evaluation order, inside one transaction
 
-1. `room.host_user_id = principal`, re-resolved under the same claim/lease `room-rest-api.md`'s other
-   mutating endpoints take (`room-lifecycle.md` §1.2) — an invitation is a room-scoped write like any
-   other. Not the host → `403`.
+1. `SELECT ... FOR UPDATE` the room row; `room.host_user_id = principal`. Not the host → `403`.
 2. `room.state <> 'CLOSED'` — inviting into a room that no longer exists is meaningless. Closed or
    missing → `404`.
 3. Resolve `inviteeUsername` to a `REGISTERED`, non-deleted user. Miss → `404`.
