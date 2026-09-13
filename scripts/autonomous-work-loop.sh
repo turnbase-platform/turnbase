@@ -23,7 +23,7 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MAX_ITERATIONS=20
-MAX_BUDGET_USD=3
+MAX_BUDGET_USD=10
 MODEL="sonnet"
 SLEEP_SECONDS=10
 STOP_FILE=""
