@@ -2813,6 +2813,21 @@ this item's real detacher. Normal game end and retry-limit permanent failure are
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M2-03
 
+**Closed:** IMP-GATE-56 (opened and closed 2026-09-13, session 48) — `room-lifecycle.md` §5.4's
+two-strike guard (FR-JOB-008b) names exactly one persistence mechanism, `room.reconcile_flagged_at`,
+and states that duties (b)/(c)/(d) all take the guard. But `room.reconcile_flagged_at` lives on the
+`room` row, while duty (b)'s candidates are session IDs recovered from a Redis key family, qualified
+as orphaned precisely when "the room no longer exists **or** is closed" (`room-lifecycle.md` §5.2) —
+the "no longer exists" branch has no room row to stamp a flag on, and even the "closed" branch has no
+stable one-to-one room since a room's `active_session_id` is cleared at the same detach that makes the
+session's artifacts orphan candidates. No document supplied a persistence mechanism duty (b) could
+actually use. Fixed: new `data-model.md` §4.3, `orphaned_session_flag` — a session-scoped table with
+the same insert/consult/clear lifecycle as `room.reconcile_flagged_at`, holding no foreign key to
+`room` or `session_teardown` since the absence of both is exactly the case it exists to cover;
+`room-lifecycle.md` §5.4 guard 2 now names it explicitly for duty (b) and scopes
+`room.reconcile_flagged_at` to duties (c)/(d) alone, which is what the surrounding prose already
+assumed.
+
 **Closed:** IMP-GATE-55 (opened and closed 2026-09-13, session 47) — `game-rooms.md` FR-LIFE-007 and
 `room-websocket.md`'s `ROOM_CLOSED` reason table said an In-Progress room whose session state is gone
 is **closed** with `SESSION_UNRECOVERABLE`; `platform-operations.md` FR-JOB-007(c) and
@@ -2870,6 +2885,11 @@ instead of touching finished items' sections.
 - `docs/specs/flows/05-owner-loss-and-adoption.md`
 - `docs/specs/flows/07-room-closure.md` § Caller 5 — duty (c)/(d)'s shared `detachSession` mechanism,
   and why duty (c) has no closure branch (`IMP-GATE-55`)
+- `docs/specs/game-host/game-host-internals.md` §13 — duty (b)'s six session-key-family names
+  (`session:`/`routing:`/`queue:`/`seq:`/`delivered:`/`failcount:{sessionId}`) and their shared
+  24h-refreshed-on-write TTL, the only place either is stated; not previously in this item's read-list
+  despite `room-lifecycle.md`'s own Scope section naming this document as out of scope for *game
+  execution*, which the key inventory is not.
 
 **Satisfies:** `platform-operations.md` FR-JOB-007…011, NFR-JOB-002
 

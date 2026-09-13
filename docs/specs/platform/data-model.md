@@ -395,6 +395,32 @@ session that is being torn down is moot, and delivering it would produce a `NOT_
 would then have to interpret as an unrecoverable game — closing a room that is already closing. The
 `(session_id, id)` index exists to make that discard cheap.
 
+### 4.3 `orphaned_session_flag`
+
+```sql
+CREATE TABLE orphaned_session_flag (
+  session_id         uuid PRIMARY KEY,
+  first_observed_at  timestamptz NOT NULL DEFAULT now()
+);
+```
+
+`platform-operations.md` FR-JOB-008(b)'s two-strike rule needs a durable "first observation" marker
+for every reconciliation duty that infers a divergence, and `room.reconcile_flagged_at` (§1) is that
+marker for the two duties whose candidates are room rows (FR-JOB-007c/d). FR-JOB-007b's candidates are
+not: they are session IDs recovered from a Redis key family, and the predicate that qualifies one as
+orphaned — "whose room no longer exists **or** is closed" (`room-lifecycle.md` §5.2) — is true
+precisely in the case where there is no room row to stamp a flag on, since the room may already have
+been purged (FR-JOB-009). A session-scoped table is therefore the only place this duty's first
+observation can survive a restart.
+
+Row lifecycle mirrors `reconcile_flagged_at`'s: inserted (`ON CONFLICT (session_id) DO NOTHING`) the
+first time a session's key family is found orphaned; consulted on the next run, where a row present
+and orphaned again authorizes the repair (delete the key family) and the flag together; a row present
+but found healthy (the key family is gone, or a live room now claims the session as active) is deleted
+without repairing, exactly as a room's `reconcile_flagged_at` is cleared. No foreign key to
+`session_teardown` or `room`, deliberately — the whole reason this table exists is that neither may
+have a matching row.
+
 ---
 
 ## 5. Index rationale

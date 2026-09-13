@@ -726,13 +726,17 @@ Three guards, each closing a specific false positive:
 1. **Reachability.** Any datastore command that errors or times out aborts the whole run with
    `aborted{reason=redis_unavailable}`. **An error is never read as an absence.** This is the exact
    line between unavailability (FR-FAIL-006's scope, handled elsewhere) and data loss.
-2. **Two strikes.** A divergence must persist across two consecutive runs; the first observation is
-   recorded in `room.reconcile_flagged_at` so it survives a restart, and is cleared as soon as the
-   room looks healthy. **The unowned-room duty is exempt**: an absent liveness lease is not an
-   inference that needs corroborating — it is the claim script's own precondition, re-evaluated
-   atomically at the moment of the claim — and requiring a second run would double NFR-JOB-002 to no
-   purpose. The other three repair duties are all inferences about missing state and do take the two
-   strikes.
+2. **Two strikes.** A divergence must persist across two consecutive runs. For duties (c) and (d),
+   whose candidates are room rows, the first observation is recorded in `room.reconcile_flagged_at` so
+   it survives a restart, and is cleared as soon as the room looks healthy. **Duty (b)'s candidates are
+   identified by session ID and may have no corresponding room row at all** — precisely when the room
+   has already been purged, one of the two conditions FR-JOB-007b names — so `room.reconcile_flagged_at`
+   cannot record its first observation; [`data-model.md`](data-model.md) §4.3's
+   `orphaned_session_flag` is the session-scoped equivalent (`IMP-GATE-56`). **The unowned-room duty is
+   exempt**: an absent liveness lease is not an inference that needs corroborating — it is the claim
+   script's own precondition, re-evaluated atomically at the moment of the claim — and requiring a
+   second run would double NFR-JOB-002 to no purpose. The other three repair duties are all inferences
+   about missing state and do take the two strikes.
 3. **Startup suppression.** No repair within 120s of instance start. A just-booted instance has not
    had the Game Host re-register and would read a legitimately recovering system as a broken one.
    The sweep still runs, detects and logs during this window — it simply does not act. This is the
