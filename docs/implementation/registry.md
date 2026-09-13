@@ -3074,8 +3074,9 @@ FR-INV-001…009 and `game-rooms.md` FR-HOST-001. `IMP-M2-01`'s *Satisfies* gain
 
 **Satisfies:** `notifications-invitations.md` FR-INV-001…009; `game-rooms.md` FR-HOST-001
 
-**Done when:** `POST /api/rooms/{roomId}/invitations` is host-only, friends-only (FR-INV-002, via
-`social.RelationshipQueries.areFriends`), and writes a `ROOM_INVITATION` notification
+**Done when:** `POST /api/rooms/{roomId}/invitations` is host-only, friends-only (FR-INV-002, a direct
+`friendship` check matching `RoomRepository#isVisible`'s existing precedent), and writes a
+`ROOM_INVITATION` notification
 (`room-invitation-rest-api.md` §2); `DELETE …/invitations/me` deletes the caller's own pending row
 idempotently and alerts the inviter only when a row actually existed (§3); a successful join at
 `IMP-M2-01`'s join endpoint deletes the caller's pending invitation to that room and alerts its

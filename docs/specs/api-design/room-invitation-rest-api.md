@@ -57,9 +57,10 @@ Content-Type: application/json
    missing → `404`.
 3. Resolve `inviteeUsername` to a `REGISTERED`, non-deleted user. Miss → `404`.
 4. Self-invite → `422`.
-5. `social.RelationshipQueries.areFriends(principal, invitee)` false → `422` (FR-INV-002). This is the
-   same public query `room-rest-api.md` §3's `visible()` FRIENDS_ONLY term already calls — no new
-   cross-feature dependency.
+5. No `friendship` row for `(principal, invitee)` → `422` (FR-INV-002). The same direct-SQL check
+   `room-rest-api.md` §3's `visible()` FRIENDS_ONLY term already runs against the `friendship` table —
+   this package already reads across the `social` schema boundary this way (`RoomRepository#isVisible`),
+   so this is that same established pattern, not a new one.
 6. `room_invitation_pair_key (room_id, invitee_user_id)` already holds a row for this pair → `200`
    idempotently returns the existing row rather than `409` — a host clicking Invite twice on the same
    friend is not an error, and FR-INV-007 already guarantees multiple invitations to *different*
