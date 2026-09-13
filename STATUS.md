@@ -2,38 +2,44 @@
 
 **Date:** 2026-09-13 (session 45)
 
-**`IMP-M2-09` claimed, `IMP-GATE-53` opened and closed — no code landed this session.** Reading the
-item's own read-list surfaced that its *Done when* required wiring all three of `detachSession`'s
-remaining callers (host-leave with no humans, normal game end, retry-limit permanent failure), but
-two of those three have no trigger anywhere in this item's dependency closure: normal game end
-(FR-LIFE-002) and retry-limit failure (FR-FAIL-003/005) both originate in the Orchestration Service,
-which is `IMP-M3-05` and its dependents — not built yet, and not a dependency of `IMP-M2-09`. Same
-shape as `IMP-GATE-08`/`18`/`28`/`46`. Fixed in `docs/implementation/registry.md`: `IMP-M2-09`
-narrowed to the mechanism plus the one reachable caller (host-leave with no humans, via
-`RoomService#leave`); `IMP-M3-08` and `IMP-M3-09` each gained `IMP-M2-09` in *Depends on* and a
-Done-when clause naming their own call site. Committed at `461ddbb` on `turnbase` `master`
-(root-repo docs only, no submodule branch needed). `python3 scripts/check-corpus.py` clean.
+**`IMP-M2-09` is now `DONE` — 32 of 61.** Room closure and the five detach paths, run in two passes.
 
-**Implementation itself did not start.** Budget ran out mid-session while still reading the
-`RoomOwnershipService`/`RoomEventExecutor` machinery `detachSession` needs to reuse correctly (the
-two-statement version-bump-then-rollback pattern every other `RoomRepository` mutation relies on,
-rather than the single combined fenced `UPDATE` the spec's SQL block shows literally). A draft
-`RoomRepository.detachSession(...)` method was written and then reverted uncommitted, rather than
-leaving a half-finished change in the submodule's working tree. `IMP-M2-09` is `WIP (session 45)` in
-the register — genuinely mid-item, not falsely claimed — and the next session should pick it back up
-directly rather than re-deriving the design from scratch: the plan is `RoomRepository.detachSession`
-(state transition + conditional `room_invitation` delete on `CLOSED` + conditional
-`session_teardown` insert/`game_input_outbox` delete when `sessionId != null`, idempotent on
-`active_session_id = :sessionId`), wired from a new `RoomSessionDetacherImpl` that calls
-`ownership.claim(roomId)` itself (two of the five documented callers arrive owning nothing) and, only
-if owned, reuses `RoomEventExecutor#execute` (not a bespoke transaction) so the existing
-version-bump/epoch-fence/publish machinery does the fencing `room-lifecycle.md` §4 describes as one
-statement — plus a new `SessionTerminator` seam (mirroring `GameSessionStarter`/`GameInputDispatcher`)
-for the `TerminateSession` gRPC call, since no Game Host client exists in this repo yet. `ROOM_CLOSED`
-publishes with the documented `{roomId, reason}` payload; the `LOBBY`/`GAME_ENDED` branch performs the
-state transition and teardown bookkeeping but is not this item's to give an event payload to, since no
-caller of this item ever passes `nextState = 'LOBBY'` — that payload is `IMP-M3-08`'s, same precedent
-as `PendingGameSessionStarter` leaving `GAME_STARTED`'s payload to `IMP-M3-05`.
+**Pass 1 — `IMP-GATE-53` opened and closed.** Reading the item's own read-list surfaced that its
+*Done when* required wiring all three of `detachSession`'s remaining callers (host-leave with no
+humans, normal game end, retry-limit permanent failure), but two of those three have no trigger
+anywhere in this item's dependency closure: normal game end (FR-LIFE-002) and retry-limit failure
+(FR-FAIL-003/005) both originate in the Orchestration Service, which is `IMP-M3-05` and its
+dependents — not built yet, and not a dependency of `IMP-M2-09`. Same shape as
+`IMP-GATE-08`/`18`/`28`/`46`. Fixed in `docs/implementation/registry.md`: `IMP-M2-09` narrowed to the
+mechanism plus the one reachable caller (host-leave with no humans, via `RoomService#leave`);
+`IMP-M3-08` and `IMP-M3-09` each gained `IMP-M2-09` in *Depends on* and a Done-when clause naming
+their own call site. Committed at `461ddbb` on `turnbase` `master`. `python3 scripts/check-corpus.py`
+clean.
+
+**Pass 2 — implementation, `turnbase-platform` `a2fc0a3`.** Replaced the no-op
+`PendingRoomSessionDetacher` with the real `detachSession` (`room-lifecycle.md` §4): a fenced,
+version-bumping room update via `RoomEventExecutor#execute` (not a bespoke transaction), FR-INV-008's
+invitation deletion at closure, and durable `session_teardown`/outbox bookkeeping (ADR-0010), all
+idempotent on `active_session_id`. A new `SessionTerminator` seam (`PendingSessionTerminator` for now)
+stands in for the Game Host `TerminateSession` call, matching `GameSessionStarter`/
+`GameInputDispatcher`'s precedent since no gRPC client to the Game Host exists in this repo yet. Wires
+the one caller `IMP-GATE-53` left reachable: `RoomService#leave` now closes a room immediately with
+`NO_PLAYERS_REMAINING` when the departing host leaves no other human player behind. Also fixed a
+latent gap in `IMP-M2-07`'s own sweep duty 1 (`GraceDeadlineSweepJob`): it evaluated closure
+unconditionally instead of only when a session is attached, which would have closed every Lobby room
+a rolling deploy's mass grace-reservation open (§1.4 step 4) leaves behind — exactly what FR-DC-007
+forbids, invisible until this item's detacher stopped being a no-op. `RoomSessionDetacherImplIT`,
+updated `GraceDeadlineSweepJobIT`/`RoomControllerIT`; CI (`build`, run 34754357250) green. Submodule
+ref bumped `417ecf9..a2fc0a3` and `docs/implementation/registry.md` flipped to `DONE` here.
+
+**Process note:** this session ran via `scripts/autonomous-work-loop.sh` (a new unattended
+`claude -p` loop, one fresh session per item). Pass 1 ran out of its per-session budget cap before
+touching code (design reading only) — cap raised from $3 to unlimited for future runs. Pass 2
+completed the implementation and pushed, but ended its turn expecting to "check back" on CI once it
+went green, which doesn't exist non-interactively — left the top-level registry/submodule-ref bump
+uncommitted until a human (via the outer session) watched CI to completion and finished the commit.
+The script's prompt now tells sessions to block synchronously on CI (`gh run watch --exit-status`)
+rather than ever ending a turn to check something "once it completes".
 
 ---
 
