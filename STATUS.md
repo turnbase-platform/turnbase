@@ -1,5 +1,20 @@
 ## Last Session Summary
 
+**Date:** 2026-09-13 (session 50)
+
+**`IMP-M2-12` (room invitations) is `WIP`** — `IMP-GATE-57` opened and closed this session:
+`docs/implementation/registry.md`'s own Done-when clause for this item claimed FR-JOIN-004's
+invalidity conditions all resolve to an empty list, but `room-rest-api.md` §3.1 (already in this
+item's read-list) specifies that the no-slot/no-spectate case returns a full room resource with
+`canJoin: false, canSpectate: false`, not "not found" — needed so the client can offer the
+spectate-only choice. Fixed by rewriting the registry's Done-when clause to match the API spec's
+actual two-shape design; no other document changed. Read-list fully read; code is next. Also deleted
+this session: attempted to remove `turnbase-platform`'s stale merged remote branch
+`feat/imp-m2-10-reconciliation` (left over from session 49) — sandbox again denied remote-push
+permission, so it is still there for the user to remove.
+
+---
+
 **Date:** 2026-09-13 (session 49)
 
 **`IMP-M2-10` is now `DONE` — 33 of 61.** Picking the item back up, the code turned out to already

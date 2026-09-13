@@ -63,7 +63,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-09 | Room closure and the five detach paths | platform | M2-07 | DONE |
 | IMP-M2-10 | Adoption and reconciliation jobs | platform | M2-03 | DONE |
 | IMP-M2-11 | In-room chat | platform | M2-05 | DONE |
-| IMP-M2-12 | Room invitations | platform | M2-01, M1-09 | READY |
+| IMP-M2-12 | Room invitations | platform | M2-01, M1-09 | WIP (session 50) |
 | **M3 — Game execution** ||||
 | IMP-M3-01 | GDK backend API surface | sdk | M0-02 | READY |
 | IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | READY |
@@ -3027,11 +3027,23 @@ that filters chat sees a permanent gap in the room stream and resyncs forever.
 **Satisfies:** `notifications-invitations.md` FR-INV-001…009, FR-LINK-001…002; `game-rooms.md`
 FR-HOST-001…002, FR-JOIN-003…004, FR-JOIN-006…008, NFR-SEC-002
 
+**Closed:** IMP-GATE-57 (opened and closed 2026-09-13, session 50) — this item's own Done-when clause
+claimed all of FR-JOIN-004's invalidity conditions resolve to an empty list, but `room-rest-api.md`
+§3.1 (this item's own read-list) already specifies otherwise: the no-slot/no-spectate case returns one
+element with `canJoin: false, canSpectate: false` — the room resource itself, not "not found" — so the
+client can present the FR-JOIN-004 spectate-only offer where it applies. Only the
+room-does-not-exist/closed case is an empty list. Fixed by rewriting the Done-when clause below to
+match `room-rest-api.md` §3.1's actual two-shape design instead of asserting a single "not found"
+shape for all cases; the API spec itself needed no change.
+
 **Done when:** the invite identifier is cryptographically random and non-sequential (NFR-SEC-002);
-resolution goes through `GET /api/rooms?inviteCode=…` and returns an empty list rather than a `404`
-for an unknown or dead code (FR-JOIN-004's four invalidity conditions are all "not found", and they
-must be indistinguishable from each other); the link is single and reusable per room (FR-HOST-002);
-invitations are removed **at closure** by IMP-M2-09, not by the purge cascade (FR-INV-008).
+resolution goes through `GET /api/rooms?inviteCode=…` and, per `room-rest-api.md` §3.1, returns an
+empty list (never a `404`) for a code matching no open room, and a full room resource with
+`canJoin`/`canSpectate` for a code matching an open room the caller cannot enter — the two response
+shapes are indistinguishable *within* the "room does not exist or is closed" bucket, but the no-way-in
+case is deliberately distinguishable from that bucket so the client can offer the spectate-only choice
+FR-JOIN-004 requires; the link is single and reusable per room (FR-HOST-002); invitations are removed
+**at closure** by IMP-M2-09, not by the purge cascade (FR-INV-008).
 
 ---
 
