@@ -1,5 +1,37 @@
 ## Last Session Summary
 
+**Date:** 2026-09-13 (session 46)
+
+**`IMP-M2-10` claimed (adoption and reconciliation jobs); `IMP-GATE-54` opened and closed; no code
+written this session.** Reading the item's own read-list surfaced that its *Done when* required "the
+three reconciliation duties," but `platform-operations.md` FR-JOB-007 has always defined **five**
+lettered duties (a–e: owed-teardown re-drive, orphaned-artifact deletion, In-Progress-no-session
+fail-back, idle-Lobby closure, unowned-room adoption), matching `room-lifecycle.md` §5.2's five-row
+table exactly. Separately, this item's *Satisfies* claimed the full `FR-JOB-001…013` range verbatim —
+identical to `IMP-M5-04`'s claim of the same full range — even though `FR-JOB-001` (guest cleanup) is
+already built and unclaimed by `IMP-M1-05` (`DONE`), `FR-JOB-006` (deadline sweep) is already built
+and unclaimed by `IMP-M2-07` (`DONE`), and `FR-JOB-012` (upload slot sweep) belongs to `IMP-M4-03`'s
+manifest/upload domain — none of those documents appear in either item's read-list. Same shape as
+`IMP-GATE-08`/`18`/`28`/`30`/`46`. Fixed in `docs/implementation/registry.md`: `IMP-M2-10`'s *Done
+when* now enumerates all five FR-JOB-007 duties explicitly, plus the FR-JOB-009 closed-room purge and
+the FR-JOB-008 startup/two-strikes exemption for the adopt duty; its *Satisfies* narrowed to
+`FR-JOB-007…011, NFR-JOB-002` (a contiguous range matching what its read-list — `room-lifecycle.md`
+§5.2–§5.4, now also §6 for FR-JOB-011's metric names — actually covers); `IMP-M5-04`'s matching
+over-claim narrowed to `FR-JOB-002, FR-JOB-013`. Committed at `a0c9765` on `turnbase` `master`.
+`python3 scripts/check-corpus.py` clean. **`FR-JOB-001`/`006` staying unclaimed by their actual
+builders is a pre-existing gap, not reopened this session** — worth a look before either of those
+items' sections is next touched, but out of scope for this gate.
+
+**`IMP-M2-10` is `WIP` (session 46) — read-list corrected, Done-when now checkable clause-by-clause,
+code is next.** The five reconciliation duties (`room.ReconciliationJob` or similar, on
+`turnbase.jobs.reconciliation.interval`, single-instance per FR-JOB-005) plus the closed-room purge
+(§5.3) and the FR-JOB-008 safety guards are what remains to build; `IMP-M2-07`'s already-shipped
+`GraceDeadlineSweepJob` is prior art for the ownership-partitioned/`ShedLock` split this item's own
+single-instance-except-the-adopt-duty shape will need to reconcile with FR-JOB-005's exception clause
+for partitioned jobs.
+
+---
+
 **Date:** 2026-09-13 (session 45)
 
 **`IMP-M2-09` is now `DONE` — 32 of 61.** Room closure and the five detach paths, run in two passes.
@@ -106,6 +138,11 @@ continue into them.
 
 ---
 ## Next Priorities
+
+**`IMP-M2-10` is `WIP` (session 46) — pick it back up next.** `IMP-GATE-54` corrected its read-list,
+*Done when* (all five FR-JOB-007 duties, not three) and *Satisfies* (`FR-JOB-007…011, NFR-JOB-002`);
+no code written yet. `IMP-M2-12` (room invitations) remains `READY` off `IMP-M2-01, IMP-M1-09`
+independently and is the other pickable item needing no other repo's work first.
 
 **`IMP-M2-08` is now `DONE` — 31 of 61.** `IMP-M2-09` (Room closure and the five detach paths —
 including `detachSession`'s real implementation, replacing the `PendingRoomSessionDetacher` stub
