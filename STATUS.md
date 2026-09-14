@@ -1,37 +1,49 @@
 ## Last Session Summary
 
-**Date:** 2026-09-14 (session 53)
+**Date:** 2026-09-14 (session 54)
 
-**No item completed — `IMP-GATE-60` opened and closed on `IMP-M4-02` before any code.** Picked up
-`IMP-M4-02` (manifest schema validation, `READY` off `IMP-M0-06`, `DONE`) per `STATUS.md`'s own
-recommendation. Reading its read-list found the item's own framing of `manifest.schema.json` as "the
-executable artifact and the authority" implies code in `turnbase-platform` reads that file directly —
-but the repo must build from a standalone clone (`conventions.md` §5's constraint on `turnbase-common`
-applies identically here), and no document said how the file crosses from the spec tree into this
-repository's build, where the copy lives, or whether a drift guard exists.
-`docs/specs/manifest/manifest-schema.md`'s own "the contract ... consumed by both the platform upload
-validator and the local test harness ... so the two cannot drift" already names the exact risk
-`conventions.md` §5 built a full mechanism for on `gamehost.proto` (committed copy, `sync-proto.sh`,
-`--check` in pre-push) — and never extended that mechanism here. Same shape as
-`IMP-GATE-31`/`33`/`35`/`37`/`57`/`58`/`59`, at the scale of a build mechanism rather than a REST
-surface.
+**`IMP-M4-02` is now `DONE` — 36 of 61.** Manifest schema validation, picked up per session 53's own
+recommendation now that `IMP-GATE-60` had specified the copy mechanism. No spec defect this time —
+the read-list (`manifest.schema.json`, `manifest-schema.md`, `bundle-format.md` §3,
+`game-development-experience.md` FR-MANIFEST-001…009) was sufficient.
 
-**Fixed** on `turnbase` `master`, branch `docs/imp-gate-60-manifest-schema-copy` (merged `--ff-only`,
-deleted locally and on the remote, same session): `conventions.md` §5 gained a paragraph mirroring
-"The proto is copied, not shared" — a committed copy at
-`turnbase-platform/src/main/resources/manifest/manifest.schema.json`; new
-`scripts/sync-manifest-schema.sh` (`--check` and refresh, matching `sync-proto.sh`'s shape). One
-deliberate difference from the proto script: `--check` treats a **missing** copy as nothing to verify
-yet rather than as drift, and is **not** wired into `.githooks/pre-push` this session — no copy exists
-until `IMP-M4-02` actually creates one, and a hard check against a copy nobody has built yet would fail
-every push for a reason unrelated to whatever that push contains. `IMP-M4-02`'s own Done-when clause
-gained the wiring as part of its scope, alongside the sync script's existing role. `python3
-scripts/check-corpus.py` clean.
+**Code, `turnbase-platform` `0728237`.** `upload.ManifestValidator` runs the committed
+`manifest.schema.json` copy (created this session at
+`turnbase-platform/src/main/resources/manifest/`, via `scripts/sync-manifest-schema.sh`) as Layer 1
+through `com.networknt:json-schema-validator` (Draft 2020-12) rather than hand-written per-field
+checks. Layer 2 covers what the schema can't express: team-template/parameter range ordering, the
+conditional team-template name, parameter-default membership/bounds per type, duplicate parameter
+keys, and the IR-12 rejection of `capabilities.ai: true`. Unknown keys are collected as non-fatal
+`warnings`, matching the schema's deliberately lenient `additionalProperties` stance.
+`ManifestValidationResult` carries `errors`/`warnings` as `common.CheckError` (`{check, message}`),
+the shape `error-handling.md`'s bundle-validation format already uses. Archive/JAR/activation checks
+(`bundle-format.md` Phases A, B, C, E, F, G) stay `IMP-M4-03`'s job — this validator only ever sees an
+already-parsed manifest document.
 
-**`IMP-M4-02` is back to `READY` — code, including the actual schema copy and its pre-push wiring, is
-next session's work.** No implementation code was written this session. Everything else in `STATUS.md`'s
-prior *Next Priorities* (`IMP-M3-01`, `IMP-M3-02`, `IMP-M4-01`, `IMP-M5-01`, `IMP-M6-01`) is unaffected
-and remains independently `READY`.
+**Also fixed, found while committing the schema copy:** neither `.gitattributes` file pinned
+`manifest.schema.json` to LF, unlike `gamehost.proto` — `sync-manifest-schema.sh`'s own header
+comment (session 53) claimed the same "pinned to LF on each side" guarantee `sync-proto.sh`'s does,
+copied verbatim, but the pin itself was never added. Under this environment's `core.autocrlf=true` a
+fresh clone would checkout the two copies with different line endings, and `--check`'s
+`--strip-trailing-cr` masks exactly that case locally without fixing it for a real diff. Fixed: both
+`.gitattributes` files gained a `text eol=lf` pin, mirroring `*.proto`'s. Not gated — a missing
+safeguard the script's own comment already claimed existed, not a documents-contradict-each-other
+defect — recorded in the registry so it isn't rediscovered as a mystery CI flake.
+
+**Verified.** `ManifestValidatorTest` (unit): the spec's own worked example validates clean; each
+Layer 2 rule and the `capabilities.ai` rejection independently produce the documented `check` id; an
+unrecognized key warns without affecting `valid()`; an empty document produces the full
+missing-required-field error set. `./mvnw verify` and `./mvnw verify -Pintegration` green locally.
+Pushed directly to `turnbase-platform master` (no PR, ADR-0012) after `pre-push` passed; CI run
+`34893340481`'s `build` job green (19m42s). `e2e` failed on the same pre-existing, non-gating
+smoke-test issue flagged since session 50/51 (`platform-operations.md` OQ-002) — unrelated to this
+change. Submodule ref bumped in this repo.
+
+**Not resolved, left for the user:** `turnbase-platform`'s remote branch
+`feat/imp-m4-02-manifest-schema-validation` — already merged `--ff-only` into `master` and deleted
+locally, but this session's sandbox denied remote-branch-delete permission, same as three prior
+sessions' branches (`feat/imp-m2-10-reconciliation`, still outstanding from session 49/50/51/52/53
+too — this makes at least two stale merged remote branches now waiting on a human with push rights).
 
 ---
 
@@ -430,21 +442,22 @@ continue into them.
 ---
 ## Next Priorities
 
-**`IMP-M4-02` is `READY` again — `IMP-GATE-60` closed, no code written.** See *Last Session Summary*.
-The spec now defines the copy mechanism (`conventions.md` §5, `scripts/sync-manifest-schema.sh`); the
-next session picking this item up creates the actual copy in `turnbase-platform` and wires
-`--check` into `.githooks/pre-push` as part of its own Done-when clause.
+**`IMP-M4-02` is now `DONE` — 36 of 61.** See *Last Session Summary*. `IMP-M4-03` (upload pipeline
+and version state machine), `READY` off it, is the natural next pick: it's the consumer
+`ManifestValidator` was built for, and its own Done-when already names the Phase A–G checks that sit
+around this item's Layer 1/2 validation (`bundle-format.md` §3.2).
 
-**`IMP-M5-03` is now `DONE` — 35 of 61.** See *Last Session Summary*. Its one deliberate scope gap
+**`IMP-M5-03` is `DONE` — 35 of 61.** See session 52's summary. Its one deliberate scope gap
 (live push of a newly created notification to an already-open stream isn't wired for the two existing
 producers, `room.RoomInvitationRepository` and `social.SocialRepository`) is recorded there, not
 gated — pick it up only if a future item's own Done-when actually needs it.
 
 **Independently `READY` next picks:** `IMP-M3-01`/`IMP-M3-02` (GDK backend API surface / Game Host
-skeleton, `turnbase-sdk`/`turnbase-game-host`), `IMP-M4-01`/`IMP-M4-02` (catalog), `IMP-M5-01` (game
-history recording, off `IMP-M3-09` — check that dependency is actually `DONE` before claiming),
-`IMP-M6-01` (Astryx integration, `turnbase-frontend`, off `IMP-M0-05`). `IMP-M5-04` (retention purge
-jobs) is **not** yet startable: it depends on `IMP-M5-01`, still `READY`, not `DONE`.
+skeleton, `turnbase-sdk`/`turnbase-game-host`), `IMP-M4-01` (catalog listing), `IMP-M4-03` (upload
+pipeline, above), `IMP-M5-01` (game history recording, off `IMP-M3-09` — check that dependency is
+actually `DONE` before claiming), `IMP-M6-01` (Astryx integration, `turnbase-frontend`, off
+`IMP-M0-05`). `IMP-M5-04` (retention purge jobs) is **not** yet startable: it depends on `IMP-M5-01`,
+still `READY`, not `DONE`.
 
 **Still outstanding, not gated to any item: the `e2e` CI job's `compose-platform-1` exit-`1` failure.**
 Unrelated to notifications — this session's `build` run (`34883859139`) was green, `e2e` failed on the

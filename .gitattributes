@@ -13,6 +13,11 @@
 # whole value is that a real difference is never dismissed as noise.
 *.proto text eol=lf
 
+# Same reason, same fix, for the manifest schema byte-compared by
+# scripts/sync-manifest-schema.sh --check against turnbase-platform's committed copy
+# (conventions.md §5, IMP-GATE-60).
+docs/specs/manifest/manifest.schema.json text eol=lf
+
 # Maven and Gradle wrappers ship as-is; mvnw is a shell script and mvnw.cmd must
 # stay CRLF for cmd.exe.
 mvnw text eol=lf
