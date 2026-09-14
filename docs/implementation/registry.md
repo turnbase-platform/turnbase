@@ -86,7 +86,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M5 — History, statistics, notifications** ||||
 | IMP-M5-01 | Game history recording | platform | M3-09 | READY |
 | IMP-M5-02 | Per-game statistics | platform | M5-01 | READY |
-| IMP-M5-03 | Notifications and the SSE stream | platform | M1-06, M1-07 | WIP (session 52) |
+| IMP-M5-03 | Notifications and the SSE stream | platform | M1-06, M1-07 | DONE |
 | IMP-M5-04 | Retention purge jobs | platform | M5-01, M5-03 | READY |
 | **M6 — Platform frontend** ||||
 | IMP-M6-01 | Astryx integration and the `ui/` boundary | frontend | M0-05 | READY |
@@ -3607,6 +3607,46 @@ five endpoints (`GET /api/notifications` list, `GET .../unread-count`, `PATCH ..
 `POST .../read-all`, `DELETE .../{id}`); registered in that directory's `INDEX.md`;
 `room-invitation-rest-api.md` §6 and its Related table now cite it instead of a bare requirement ID.
 Read-list corrected below.
+
+**Done 2026-09-14 (session 52).** `notification.NotificationController` builds the five
+`notification-rest-api.md` endpoints exactly (`GET /api/notifications`, `GET .../unread-count`, `PATCH
+.../{id}`, `POST .../read-all`, `DELETE .../{id}`), each scoped by the `rest-conventions.md` ownership
+predicate (`WHERE user_id = :principal`, `404` on mismatch) via `NotificationRepository`'s direct SQL
+against `notification` — this package's own table, so no cross-schema read is needed the way
+`room.RoomInvitationRepository` needed one. `notification.NotificationStreamController` builds `GET
+/api/notifications/stream`; `notification.NotificationEmitterRegistry` is the SSE counterpart of
+`websocket.WebSocketConnectionRegistry` — same two-index shape (connections by emitter id, a secondary
+index by user id), the `sse-notifications.md` § Keepalive comment on a 30s `@Scheduled` tick, and an
+`@EventListener` on `session.SessionRevokedEvent` that sends the matching session's stream one final
+`event: alert` naming `revoked_reason` and closes it (`FR-SESS-010`, `IMP-GATE-28` — the SSE half
+`IMP-M2-02` already closed for STOMP). Offline catch-up (`delivered_at IS NULL`, oldest `event_seq`
+first, stamped as sent) is `NotificationRepository#markUndeliveredAsDelivered`. `AlertPublisher`'s real
+implementation, `SseAlertPublisher`, replaces `PendingAlertPublisher` (deleted) and routes through the
+same registry — `room.RoomInvitationService`'s existing `alertPublisher.publish(...)` call for
+`INVITATION_ACCEPTED`/`INVITATION_DECLINED` now actually reaches a connected host with no change on
+that side.
+
+**Live push of a newly created notification to an already-open stream is deliberately not built here.**
+`room.RoomInvitationRepository` and `social.SocialRepository` write `notification` rows by direct SQL,
+with no dispatch call of any kind — unlike alerts, no placeholder port for this existed for them to
+call, and this item's own *Done when* clause names only the offline-catch-up path and the
+revocation-close behaviour, not a live-push guarantee for an already-connected client. A user who is
+already on the stream when another feature writes a row sees it only at their next panel open or badge
+refresh (`unread-count`), not pushed instantly — `sse-notifications.md`'s "at-least-once at best... the
+notification center is the backstop" reasoning covers exactly this gap, but closing it for existing
+producers would mean editing two other already-`DONE` items' repositories, which this item's *Done
+when* does not ask for. Left as a scope note rather than a gate: nothing here contradicts another
+document or leaves an unmade decision, and the *Done when* clause is satisfiable exactly as written.
+
+**Verified.** `NotificationEmitterRegistryTest` (unit, mocked `SseEmitter` — the
+`WebSocketConnectionRegistryTest` pattern): alert routing by user id, silent drop for an offline user,
+session-scoped close-with-final-alert on `SessionRevokedEvent`, keepalive. `NotificationControllerIT`
+(integration, real Postgres): all five endpoints including ownership `404`s, the guarded one-way
+`read_at` transition and its `422` on `{"read":false}`, mark-all-read and delete scoped to the
+principal, delete idempotency; the stream test connects with the JDK `HttpClient`, asserts the exact
+`event: notification` / `id:` / flattened-payload frame shape `sse-notifications.md`'s wire example
+specifies for a row inserted before connecting, and confirms `delivered_at` is stamped.
+`./mvnw verify -Pintegration` green locally (162 unit + all integration tests, JaCoCo merged gate met).
 
 **Read first:**
 - `docs/requirements/notifications-invitations.md` FR-NOTIF-001…009, FR-ALERT-001…005, FR-ALERT-010,

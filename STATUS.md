@@ -1,5 +1,57 @@
 ## Last Session Summary
 
+**Date:** 2026-09-14 (session 52)
+
+**`IMP-M5-03` is now `DONE` — 35 of 61.** Notifications and the SSE stream, picked up per session
+51's own recommendation now that `IMP-GATE-59` had specified the REST surface. No spec defect this
+time — the read-list (`notifications-invitations.md`, `data-model-notifications.md` §1/§3/§4,
+`sse-notifications.md` in full, `notification-rest-api.md` in full, `rest-conventions.md` §
+*Authorization and Ownership*, `pagination-filtering-sorting.md`, `platform-operations.md` FR-JOB-013/
+FR-RET-001…006) was sufficient, and the retention-purge index and `room_invitation.expires_at` the
+Done-when clause names were both already in the baseline migration from `IMP-M2-12`.
+
+**Code, `turnbase-platform` `93a4f2f`.** `notification.NotificationController`/`Service`/`Repository`
+build the five `notification-rest-api.md` endpoints against direct SQL on `notification` — this
+package's own table, so no cross-schema read like `RoomInvitationRepository`'s. `NotificationStream
+Controller` (`GET /api/notifications/stream`) and `NotificationEmitterRegistry` build the SSE half:
+the registry mirrors `websocket.WebSocketConnectionRegistry`'s two-index shape (connections by
+emitter id, a secondary index by user id), sends the `sse-notifications.md` § Keepalive comment on a
+30s `@Scheduled` tick, and closes a stream on `session.SessionRevokedEvent` with a final `event: alert`
+naming `revoked_reason` (`FR-SESS-010`, `IMP-GATE-28` — the SSE half `IMP-M2-02` already closed for
+STOMP). Offline catch-up (`delivered_at IS NULL`, oldest `event_seq` first, stamped as sent) is
+`NotificationRepository#markUndeliveredAsDelivered`. `AlertPublisher`'s real implementation,
+`SseAlertPublisher`, replaces the no-op `PendingAlertPublisher` (deleted) — `IMP-M2-12`'s existing
+`alertPublisher.publish(...)` call for `INVITATION_ACCEPTED`/`INVITATION_DECLINED` now reaches a
+connected host with no change on that side.
+
+**Scope note, not a gate: live push of a newly created notification to an already-open stream is not
+built here.** `room.RoomInvitationRepository` and `social.SocialRepository` write `notification` rows
+by direct SQL with no dispatch call of any kind — unlike alerts, no placeholder port existed for them
+to call, and this item's own Done-when clause names only offline catch-up and the revocation-close
+behaviour, not a live-push guarantee for an already-connected client. An already-open stream sees a
+new row only at the next panel open or badge refresh, not pushed instantly. `sse-notifications.md`'s
+own "at-least-once at best... the notification center is the backstop" reasoning covers this gap, and
+closing it for two other already-`DONE` items' repositories is outside what this item's Done-when
+asks for — recorded here rather than silently, since the next session touching live notification
+delivery should not have to rediscover it.
+
+**Verified.** `NotificationEmitterRegistryTest` (unit, mocked `SseEmitter`, the
+`WebSocketConnectionRegistryTest` pattern) — alert routing by user id, silent drop when offline,
+session-scoped close-with-final-alert, keepalive. `NotificationControllerIT` (integration, real
+Postgres) — all five endpoints including ownership `404`s, the guarded one-way `read_at` transition
+and its `422` on `{"read":false}`, mark-all-read and delete scoped to the principal, delete
+idempotency, and a stream test using the JDK `HttpClient` that asserts the exact `event: notification`
+frame shape `sse-notifications.md`'s wire example specifies and confirms `delivered_at` gets stamped.
+`./mvnw verify -Pintegration` green locally, zero regressions (176 integration tests total including
+every pre-existing suite). Pushed directly to `turnbase-platform master` (no PR, ADR-0012) after the
+`pre-push` hook passed; CI run `34883859139`'s `build` job green (19m31s — tests, coverage, Trivy,
+image push). `e2e` failed on the same `compose-platform-1` exit-`1` issue session 51 already flagged
+as unexplained and unrelated to this change (it fails inside the full compose smoke test, not on
+anything notification-specific); per `platform-operations.md` OQ-002 e2e gates nothing pre-merge, so
+this does not block `DONE`. Submodule ref bumped in this repo.
+
+---
+
 **Date:** 2026-09-14 (session 51)
 
 **No item completed — `IMP-GATE-59` opened and closed on `IMP-M5-03` before any code.** Picked up
@@ -343,17 +395,21 @@ continue into them.
 ---
 ## Next Priorities
 
-**`IMP-M5-03`'s REST surface is now specified (`IMP-GATE-59`, closed this session) — it is the natural
-next pick.** `docs/specs/api-design/notification-rest-api.md` names all five endpoints the notification
-center needs; the item is `READY` (never left it, the gate closed before any code) off
-`IMP-M1-06, IMP-M1-07`, both `DONE`. See *Last Session Summary*.
+**`IMP-M5-03` is now `DONE` — 35 of 61.** See *Last Session Summary*. Its one deliberate scope gap
+(live push of a newly created notification to an already-open stream isn't wired for the two existing
+producers, `room.RoomInvitationRepository` and `social.SocialRepository`) is recorded there, not
+gated — pick it up only if a future item's own Done-when actually needs it.
 
-**First, before picking up a new work item: finish diagnosing the `e2e` CI job.** Not gated to any
-work item — see *Last Session Summary*'s `e2e` follow-up. Two real bugs already found and fixed this
-session (the missing `turnbase-platform` build step; no captured logs on failure); a third,
-still-unexplained one remains (`compose-platform-1` exits `1` on startup inside the compose stack).
-Read run `34783240475`'s (or its successor's) now-captured `docker compose logs` output first —
-that's the one piece of information this session ended without seeing.
+**Independently `READY` next picks:** `IMP-M3-01`/`IMP-M3-02` (GDK backend API surface / Game Host
+skeleton, `turnbase-sdk`/`turnbase-game-host`), `IMP-M4-01`/`IMP-M4-02` (catalog), `IMP-M5-01` (game
+history recording, off `IMP-M3-09` — check that dependency is actually `DONE` before claiming),
+`IMP-M6-01` (Astryx integration, `turnbase-frontend`, off `IMP-M0-05`). `IMP-M5-04` (retention purge
+jobs) is **not** yet startable: it depends on `IMP-M5-01`, still `READY`, not `DONE`.
+
+**Still outstanding, not gated to any item: the `e2e` CI job's `compose-platform-1` exit-`1` failure.**
+Unrelated to notifications — this session's `build` run (`34883859139`) was green, `e2e` failed on the
+same shape flagged since session 50/51. Read a recent run's `docker compose logs` output (captured
+since session 50's fix) before diagnosing further.
 
 **`IMP-M2-12` is now `DONE` — 34 of 61, and M2 is fully complete.** See *Last Session Summary*.
 **`IMP-M5-03`** (notifications and the SSE stream), `READY` off `IMP-M1-06, IMP-M1-07` (both `DONE`),
