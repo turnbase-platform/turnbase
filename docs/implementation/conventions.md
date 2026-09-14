@@ -384,6 +384,30 @@ package as the tail — `io.turnbase.grpc.gamehost.v1` (IMP-GATE-01). Keeping th
 not decoration: a future `turnbase.gamehost.v2` has to generate into a package that can coexist with
 v1 on one classpath, because both consumers will run them side by side through a migration.
 
+**The manifest schema is copied, not shared, the same way and for the same reason** (IMP-GATE-60).
+`manifest.schema.json` is authoritative in [`../specs/manifest/`](../specs/manifest/) —
+`manifest-schema.md` calls it "the contract consumed by both the platform upload validator and the
+local test harness ... so the two cannot drift," which is exactly the proto's problem restated for a
+JSON Schema file. `turnbase-platform` (and, when `IMP-M3-11` builds the harness, `turnbase-sdk`) each
+hold a **committed copy**, not a path read out of the superproject checkout, for the identical reason:
+each repository's CI checks out that repository alone.
+
+```
+turnbase-platform/src/main/resources/manifest/manifest.schema.json
+```
+
+```bash
+scripts/sync-manifest-schema.sh            # refresh the copy from the authoritative file
+scripts/sync-manifest-schema.sh --check    # fail if a copy that exists has drifted
+```
+
+Same drift risk as the proto, same fix. The one difference from `sync-proto.sh`: the copy does not
+exist yet anywhere (no item has created it), so `--check` treats a **missing** copy as nothing to
+verify yet, not as drift — it is not wired into the parent's pre-push hook until the item that first
+creates a copy (`IMP-M4-02` for `turnbase-platform`) adds that wiring alongside it, the same way the
+proto's own pre-push entry was added together with its first committed copy rather than before it.
+Editing a copy directly, once one exists, is a defect exactly as it is for the proto.
+
 ---
 
 ## 6. What a repository must have

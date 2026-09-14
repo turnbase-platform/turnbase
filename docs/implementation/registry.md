@@ -3441,6 +3441,21 @@ client-side (IMP-M6-06) — the API never returns an HTML string, which is what 
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M0-06
 
+**Closed:** IMP-GATE-60 (opened and closed 2026-09-14, session 53) — this item's own read-list calls
+`manifest.schema.json` "the executable artifact and the authority," meaning code in this repository
+reads it directly, but `turnbase-platform` must build from a standalone clone (no path outside the
+repository, same constraint `conventions.md` §5 states for `turnbase-common`) and no document said
+how the file gets from the spec tree into this repository's build, where it lives, or whether a
+drift guard exists — `manifest-schema.md`'s own "the contract ... so the two cannot drift" language
+already names the exact risk `conventions.md` §5 built a full mechanism for on the proto, and never
+extended it here. Same shape as `IMP-GATE-31`/`33`/`35`/`37`/`57`/`58`/`59`, at the scale of a build
+mechanism rather than a REST surface. Fixed: `conventions.md` §5 gained a paragraph mirroring "The
+proto is copied, not shared" — a committed copy at
+`turnbase-platform/src/main/resources/manifest/manifest.schema.json`, refreshed and checked by new
+`scripts/sync-manifest-schema.sh` (`--check` is a no-op until a copy exists, since none does yet —
+wiring the parent's pre-push hook is this item's own job once it creates the first copy, not a
+prerequisite to starting it).
+
 **Read first:**
 - `docs/specs/manifest/manifest.schema.json` — **the executable artifact and the authority**
 - `docs/specs/manifest/manifest-schema.md` — the prose, including the `capabilities` rules
@@ -3452,7 +3467,10 @@ client-side (IMP-M6-06) — the API never returns an HTML string, which is what 
 **Done when:** validation runs against `manifest.schema.json` — the executable artifact — and the
 prose documents agree with it. Where they disagree, fix the document. `capabilities.ai: true` is
 **rejected** at validation (IR-12): the field survives in the schema for a future release, and a
-bundle declaring it today would list a game whose AI seats can never be filled.
+bundle declaring it today would list a game whose AI seats can never be filled. The schema file is
+committed to this repository via `scripts/sync-manifest-schema.sh` (`IMP-GATE-60`,
+`conventions.md` §5), and that script's `--check` mode is wired into the parent repo's
+`.githooks/pre-push` in the same change that creates the copy.
 
 ---
 

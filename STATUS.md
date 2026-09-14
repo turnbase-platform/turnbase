@@ -1,5 +1,40 @@
 ## Last Session Summary
 
+**Date:** 2026-09-14 (session 53)
+
+**No item completed — `IMP-GATE-60` opened and closed on `IMP-M4-02` before any code.** Picked up
+`IMP-M4-02` (manifest schema validation, `READY` off `IMP-M0-06`, `DONE`) per `STATUS.md`'s own
+recommendation. Reading its read-list found the item's own framing of `manifest.schema.json` as "the
+executable artifact and the authority" implies code in `turnbase-platform` reads that file directly —
+but the repo must build from a standalone clone (`conventions.md` §5's constraint on `turnbase-common`
+applies identically here), and no document said how the file crosses from the spec tree into this
+repository's build, where the copy lives, or whether a drift guard exists.
+`docs/specs/manifest/manifest-schema.md`'s own "the contract ... consumed by both the platform upload
+validator and the local test harness ... so the two cannot drift" already names the exact risk
+`conventions.md` §5 built a full mechanism for on `gamehost.proto` (committed copy, `sync-proto.sh`,
+`--check` in pre-push) — and never extended that mechanism here. Same shape as
+`IMP-GATE-31`/`33`/`35`/`37`/`57`/`58`/`59`, at the scale of a build mechanism rather than a REST
+surface.
+
+**Fixed** on `turnbase` `master`, branch `docs/imp-gate-60-manifest-schema-copy` (merged `--ff-only`,
+deleted locally and on the remote, same session): `conventions.md` §5 gained a paragraph mirroring
+"The proto is copied, not shared" — a committed copy at
+`turnbase-platform/src/main/resources/manifest/manifest.schema.json`; new
+`scripts/sync-manifest-schema.sh` (`--check` and refresh, matching `sync-proto.sh`'s shape). One
+deliberate difference from the proto script: `--check` treats a **missing** copy as nothing to verify
+yet rather than as drift, and is **not** wired into `.githooks/pre-push` this session — no copy exists
+until `IMP-M4-02` actually creates one, and a hard check against a copy nobody has built yet would fail
+every push for a reason unrelated to whatever that push contains. `IMP-M4-02`'s own Done-when clause
+gained the wiring as part of its scope, alongside the sync script's existing role. `python3
+scripts/check-corpus.py` clean.
+
+**`IMP-M4-02` is back to `READY` — code, including the actual schema copy and its pre-push wiring, is
+next session's work.** No implementation code was written this session. Everything else in `STATUS.md`'s
+prior *Next Priorities* (`IMP-M3-01`, `IMP-M3-02`, `IMP-M4-01`, `IMP-M5-01`, `IMP-M6-01`) is unaffected
+and remains independently `READY`.
+
+---
+
 **Date:** 2026-09-14 (session 52)
 
 **`IMP-M5-03` is now `DONE` — 35 of 61.** Notifications and the SSE stream, picked up per session
@@ -394,6 +429,11 @@ continue into them.
 
 ---
 ## Next Priorities
+
+**`IMP-M4-02` is `READY` again — `IMP-GATE-60` closed, no code written.** See *Last Session Summary*.
+The spec now defines the copy mechanism (`conventions.md` §5, `scripts/sync-manifest-schema.sh`); the
+next session picking this item up creates the actual copy in `turnbase-platform` and wires
+`--check` into `.githooks/pre-push` as part of its own Done-when clause.
 
 **`IMP-M5-03` is now `DONE` — 35 of 61.** See *Last Session Summary*. Its one deliberate scope gap
 (live push of a newly created notification to an already-open stream isn't wired for the two existing
