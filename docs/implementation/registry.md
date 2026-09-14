@@ -86,7 +86,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M5 — History, statistics, notifications** ||||
 | IMP-M5-01 | Game history recording | platform | M3-09 | READY |
 | IMP-M5-02 | Per-game statistics | platform | M5-01 | READY |
-| IMP-M5-03 | Notifications and the SSE stream | platform | M1-06, M1-07 | READY |
+| IMP-M5-03 | Notifications and the SSE stream | platform | M1-06, M1-07 | WIP (session 52) |
 | IMP-M5-04 | Retention purge jobs | platform | M5-01, M5-03 | READY |
 | **M6 — Platform frontend** ||||
 | IMP-M6-01 | Astryx integration and the `ui/` boundary | frontend | M0-05 | READY |
