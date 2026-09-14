@@ -17,6 +17,7 @@ Realizes `notifications-invitations.md` FR-INV-001…009 and `game-rooms.md` FR-
 | [sse-notifications.md](sse-notifications.md) | The `ROOM_INVITATION` notification type and the `INVITATION_ACCEPTED`/`INVITATION_DECLINED` alert types this feature writes/publishes |
 | [../platform/data-model-notifications.md](../platform/data-model-notifications.md) | `room_invitation`, and why it and not the room's `ON DELETE CASCADE` is what deletes a stale invitation |
 | [social-rest-api.md](social-rest-api.md) | The nearest sibling: send/accept/decline over a request-row-plus-notification, same shape |
+| [notification-rest-api.md](notification-rest-api.md) | Where a received `ROOM_INVITATION` notification is actually read — `GET /api/notifications` |
 | [../../requirements/game-rooms.md](../../requirements/game-rooms.md) | FR-HOST-001 |
 | [../../requirements/notifications-invitations.md](../../requirements/notifications-invitations.md) | FR-INV-001…009 |
 
@@ -141,7 +142,8 @@ invitee username unknown), `422` (self-invite, not friends).
 ## 6. What is deliberately absent
 
 - **No `GET` listing endpoint for sent or received invitations.** A received invitation is read from
-  the notification center (`FR-NOTIF-001`, `GET /api/notifications`); a sent one has no UI surface in
+  the notification center (`FR-NOTIF-001`, `GET /api/notifications` —
+  [`notification-rest-api.md`](notification-rest-api.md) §2); a sent one has no UI surface in
   this corpus's scope (`notifications-invitations.md` *Out of Scope*: "Invitation status tracking in
   the room lobby UI"). Adding a list route here would be the first reader of `room_invitation` outside
   the notification it produced, for a view nothing asks for.

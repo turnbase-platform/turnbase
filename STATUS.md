@@ -1,5 +1,45 @@
 ## Last Session Summary
 
+**Date:** 2026-09-14 (session 51)
+
+**No item completed — `IMP-GATE-59` opened and closed on `IMP-M5-03` before any code.** Picked up
+`IMP-M5-03` (notifications and the SSE stream, `READY` off `IMP-M1-06, IMP-M1-07`, both `DONE`) per
+`STATUS.md`'s own recommendation. Reading its read-list end to end (`notifications-invitations.md`,
+`data-model-notifications.md` §1/§3/§4, `sse-notifications.md` in full, `platform-operations.md`
+FR-JOB-013/FR-RET-001…006) found the item's *Satisfies* claims FR-NOTIF-001…009 in full — notification
+center access, unread badge, read/unread state, mark-all-read, delete, pagination — but no document
+anywhere defines the notification center's REST surface. `sse-notifications.md` specifies only the
+stream endpoint; `rest-conventions.md`'s Authorization table already assumed `GET /api/notifications`
+and `/api/notifications/{id}` exist (naming the ownership predicate and the principal-scoping rule)
+without any document ever stating their methods, bodies, or status codes; `room-invitation-rest-api.md`
+§6 independently pointed at the same missing endpoint as where a received `ROOM_INVITATION` is read.
+Same shape as `IMP-GATE-31`/`33`/`35`/`37`/`57`/`58` — confirmed real, not a document this item merely
+hadn't read, since two independent existing documents both assumed it. Also: this item's own read-list
+never named `rest-conventions.md` or `pagination-filtering-sorting.md`, despite both supplying
+conventions the missing surface has to follow.
+
+**Fixed** on `turnbase` `master`, commit range on branch `docs/imp-gate-59-notification-rest-api`
+(merged `--ff-only`, branch deleted, both locally and on the remote, same session): new
+`docs/specs/api-design/notification-rest-api.md` — five endpoints (`GET /api/notifications` paginated
+list, `GET .../unread-count` for the bell badge, `PATCH .../{id}` mark-read, `POST .../read-all`,
+`DELETE .../{id}`), each endpoint's status codes, request/response bodies, and ownership handling spelled
+out, plus a deliberate design note on why the unread count is its own endpoint rather than a field on
+the list envelope (the bell must be populated before the panel is ever opened, and refreshed on every
+SSE push, neither of which has a list request to piggyback on). Registered in
+`docs/specs/api-design/INDEX.md`; `room-invitation-rest-api.md` §6 and its Related table now cite the
+new document by name instead of a bare requirement ID. `IMP-M5-03`'s read-list gained
+`notification-rest-api.md` in full, `rest-conventions.md` § *Authorization and Ownership*, and
+`pagination-filtering-sorting.md`; its *Done when* clause gained an explicit line requiring the five
+endpoints to exist and match that document exactly. `python3 scripts/check-corpus.py` clean.
+
+**`IMP-M5-03` is back to `READY` — code is next session's work, none was written this session.** The
+five-endpoint surface is now fully specified; the item's own `Done when` (retention-purge partial
+index, SSE registry subscribing to `SessionRevokedEvent` on `IMP-M1-06`'s revocation) is unchanged
+beyond the new endpoint clause. `IMP-M3-01`, `IMP-M3-02`, `IMP-M4-01`, `IMP-M4-02`, `IMP-M6-01` remain
+independently `READY` for anyone who wants a different track.
+
+---
+
 **Date:** 2026-09-13 (session 50)
 
 **`IMP-M2-12` is now `DONE` — 34 of 61.** Room invitations: send, decline, and acceptance via the
@@ -302,6 +342,11 @@ continue into them.
 
 ---
 ## Next Priorities
+
+**`IMP-M5-03`'s REST surface is now specified (`IMP-GATE-59`, closed this session) — it is the natural
+next pick.** `docs/specs/api-design/notification-rest-api.md` names all five endpoints the notification
+center needs; the item is `READY` (never left it, the gate closed before any code) off
+`IMP-M1-06, IMP-M1-07`, both `DONE`. See *Last Session Summary*.
 
 **First, before picking up a new work item: finish diagnosing the `e2e` CI job.** Not gated to any
 work item — see *Last Session Summary*'s `e2e` follow-up. Two real bugs already found and fixed this

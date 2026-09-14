@@ -3586,23 +3586,49 @@ enforces the generic retention/alert rules, but never writes a `friend_request`-
 `IMP-M1-09` does, and now carries the claim. FR-FREQ-001…006 stays in this item's read-list: the type
 table (`data-model-notifications.md` §3) is still the wire contract the SSE stream serves.
 
+**`IMP-GATE-58` narrowed this item's *Satisfies*** (closed 2026-09-13, session 50, on `IMP-M2-12`):
+`FR-LINK-001…002` dropped — double-claimed with `IMP-M2-12`, and neither item builds anything for it;
+`IMP-M2-01`'s already-shipped invite-code mechanism is the entire behaviour, and now carries the claim.
+
+**Closed:** IMP-GATE-59 (opened and closed 2026-09-14, session 51) — this item's *Satisfies* claims
+FR-NOTIF-001…009 in full (notification center access, unread badge, read/unread state, mark-all-read,
+delete, retention, real-time and offline delivery, pagination), but no document in the corpus ever
+defined the notification center's REST surface — `sse-notifications.md` specifies only the stream
+(`GET /api/notifications/stream`), and `rest-conventions.md`'s Authorization table already assumed
+`GET /api/notifications` and `/api/notifications/{id}` exist (the ownership predicate, the
+principal-scoped collection rule) without any document ever naming their methods, request/response
+shapes, or status codes. `room-invitation-rest-api.md` §6 independently assumed the same endpoint as
+where a received `ROOM_INVITATION` is read, confirming the gap is real rather than a document this
+item merely hadn't read yet. Same shape as `IMP-GATE-31`/`33`/`35`/`37`/`57`/`58`. This item's own
+read-list never named `rest-conventions.md` or `pagination-filtering-sorting.md` either, despite both
+supplying conventions the missing surface would have to follow. Fixed: new
+[`docs/specs/api-design/notification-rest-api.md`](../specs/api-design/notification-rest-api.md) —
+five endpoints (`GET /api/notifications` list, `GET .../unread-count`, `PATCH .../{id}` mark read,
+`POST .../read-all`, `DELETE .../{id}`); registered in that directory's `INDEX.md`;
+`room-invitation-rest-api.md` §6 and its Related table now cite it instead of a bare requirement ID.
+Read-list corrected below.
+
 **Read first:**
 - `docs/requirements/notifications-invitations.md` FR-NOTIF-001…009, FR-ALERT-001…005, FR-ALERT-010,
   FR-FREQ-001…006
 - `docs/specs/platform/data-model-notifications.md` §1 (`notification`), §3 (types), **§4 — alerts
   have no table, and three current "notifications" are alerts**
 - `docs/specs/api-design/sse-notifications.md` **in full**
+- `docs/specs/api-design/notification-rest-api.md` **in full** — the five REST endpoints this item
+  builds
+- `docs/specs/api-design/rest-conventions.md` § *Authorization and Ownership* — the
+  `/api/notifications/{id}` ownership predicate and the principal-scoped collection rule
+- `docs/specs/api-design/pagination-filtering-sorting.md` — the envelope and total-ordering rule
+  `notification-rest-api.md` §2's list endpoint follows
 - `docs/requirements/platform-operations.md` FR-JOB-013, FR-RET-001…006
-
-**`IMP-GATE-58` narrowed this item's *Satisfies*** (closed 2026-09-13, session 50, on `IMP-M2-12`):
-`FR-LINK-001…002` dropped — double-claimed with `IMP-M2-12`, and neither item builds anything for it;
-`IMP-M2-01`'s already-shipped invite-code mechanism is the entire behaviour, and now carries the claim.
 
 **Satisfies:** `notifications-invitations.md` FR-NOTIF-001…009, FR-ALERT-001…005, FR-ALERT-010,
 NFR-PERF-001, NFR-SCALE-001, NFR-SEC-001; `user-accounts.md`
 FR-SESS-010; `platform-views.md` VW-NOTIF-001…004
 
-**Done when:** the retention purge is indexed **partially on having no subject**, so it can never
+**Done when:** the five `notification-rest-api.md` endpoints exist, each enforcing the
+`rest-conventions.md` ownership predicate and returning the exact status codes and bodies that
+document specifies; the retention purge is indexed **partially on having no subject**, so it can never
 remove an actionable message out from under a live object; and no notification is permanently
 unpurgeable because its subject never expires. The SSE connection registry subscribes to
 `IMP-M1-06`'s `SessionRevokedEvent`: on receipt, the matching session's stream sends a final `event:

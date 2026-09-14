@@ -22,6 +22,7 @@ These specifications cover the HTTP REST API, WebSocket protocol, and SSE channe
 | [room-websocket.md](room-websocket.md) | Room WebSocket protocol: room affinity, lobby event catalogue, command catalogue, authorization |
 | [room-chat-websocket.md](room-chat-websocket.md) | Room chat WebSocket protocol: CHAT_MESSAGE event, SEND_CHAT_MESSAGE command, spectator exclusion |
 | [sse-notifications.md](sse-notifications.md) | Server-Sent Events for platform notifications |
+| [notification-rest-api.md](notification-rest-api.md) | Notification center REST surface: list, unread count, mark read, mark all read, delete |
 | [rate-limiting.md](rate-limiting.md) | Abuse controls: HTTP tiers (Redis), account-minting tier, **WebSocket frame tier** (pod-local), client-IP derivation, per-env configurability |
 | [input-validation.md](input-validation.md) | Canonicalization, field catalogue (incl. confusable-safe usernames), size limits, `CHANGE_PARAMETERS` whitelist, output encoding |
 | [openapi-documentation.md](openapi-documentation.md) | SpringDoc OpenAPI 3.x, Swagger UI, deprecation markers |
