@@ -18,6 +18,7 @@ These specifications cover the HTTP REST API, WebSocket protocol, and SSE channe
 | [pagination-filtering-sorting.md](pagination-filtering-sorting.md) | List endpoint conventions: pagination, filtering, sorting |
 | [error-handling.md](error-handling.md) | RFC 9457 Problem Details, `@ControllerAdvice`, error taxonomy |
 | [file-uploads.md](file-uploads.md) | Pre-signed URL upload flow for game bundles |
+| [admin-rest-api.md](admin-rest-api.md) | Admin API on the management-port listener: game-row creation, the official-upload mirror of the file-uploads.md flow, and the review queue (approve/reject) |
 | [websocket.md](websocket.md) | STOMP-over-WebSocket: topics, authentication, message envelope — **and the game session protocol**: effect delivery destinations, game event catalogue, `resync`-based catch-up, action-send authorization |
 | [room-websocket.md](room-websocket.md) | Room WebSocket protocol: room affinity, lobby event catalogue, command catalogue, authorization |
 | [room-chat-websocket.md](room-chat-websocket.md) | Room chat WebSocket protocol: CHAT_MESSAGE event, SEND_CHAT_MESSAGE command, spectator exclusion |

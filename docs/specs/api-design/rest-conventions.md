@@ -4,6 +4,10 @@
 
 All REST endpoints are served under `/api/`. There is no URL version prefix. API evolution is managed through new routes and deprecation headers — see [Versioning and Deprecation](#versioning-and-deprecation).
 
+**Scoped to the public listener.** The admin API ([admin-rest-api.md](admin-rest-api.md)) is a second,
+independent listener on the management port (§ *Actuator and the Management Port* below) and uses
+`/admin/`, not `/api/` — it shares no namespace with the public API because it shares no port with it.
+
 ## URL Structure
 
 - Plural nouns, lowercase: `/api/games`, `/api/rooms`, `/api/users`

@@ -1,5 +1,11 @@
 # Admin Tooling Requirements
 
+## Related API Specifications
+
+- [admin-rest-api.md](../specs/api-design/admin-rest-api.md) — the admin REST surface: HTTP Basic
+  auth, official-game creation and upload, the review queue (implements FR-ADM-001…003,
+  FR-REV-001…006, FR-OFF-001…002, NFR-AUD-001, NFR-CRED-001)
+
 ## Stakeholders
 
 | Role | Description |

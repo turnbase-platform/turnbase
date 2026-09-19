@@ -1,5 +1,55 @@
 ## Last Session Summary
 
+**Date:** 2026-09-19 (session 58)
+
+**No item completed — `IMP-GATE-63` opened and closed on `IMP-M4-05` before any code.** Picked up
+`IMP-M4-05` (admin API, review queue and badges, `READY` off `IMP-M4-03`, `DONE`) — **not**
+`IMP-M3-05`, which the prior session's own *Next Priorities* recommended as "now startable... all
+[dependencies] `DONE`": that claim was wrong on inspection — the register table lists `IMP-M3-04`
+(gRPC service implementation, `turnbase-game-host`) as `READY`, not `DONE`, so `IMP-M3-05` is not
+actually startable yet. Not gated (a stale recommendation is not a documents-disagree defect — the
+register table itself was always correct; only prose in this file's own *Next Priorities* was stale),
+but worth naming plainly so a third session doesn't repeat it: `IMP-M3-05` needs `IMP-M3-04` `DONE`
+first.
+
+Reading `IMP-M4-05`'s read-list (`admin-tooling.md` in full, `data-model-catalog.md` §1/§2,
+`rest-conventions.md` § *Actuator and the Management Port*, `local-environment.md` §1) against its own
+*Satisfies* surfaced two problems before any code was written. First: this item's own claim of
+`admin-tooling.md` FR-OFF-001 ("admin can upload a game directly as an Official title") is
+unbuildable as written — **no document anywhere defines how a `game` row is created.**
+`file-uploads.md` step 1 (`POST /api/games/{gameId}/versions`) assumes `gameId` already names a row;
+`game-catalog.md` FR-GAME-001 defers the mechanism to the Game SDK spec, which itself never lands on
+it. The item's own read-list never named `file-uploads.md`/`bundle-format.md`, the documents whose
+Phase A-G pipeline the fix has to reuse — same shape as every prior missing-REST-surface gate
+(`IMP-GATE-31/33/35/37/57/58/59`), this time one layer deeper (a missing row-creation step, not a
+missing endpoint document). Second, smaller: this item's *Satisfies* duplicated `FR-PRV-001…004` with
+`IMP-M4-01`, which already claims and actually implements them (catalog-query invisibility,
+room-creation preconditions) — neither is admin-API work, and nothing in `IMP-M4-05`'s own Done-when
+ever exercised them.
+
+**Fixed** on `turnbase` `master` (branch `docs/imp-gate-63-admin-rest-api`, merged `--ff-only` and
+deleted, both locally and on the remote, same session): new
+`docs/specs/api-design/admin-rest-api.md` — `POST /admin/games` (the missing game-row creation,
+scoped deliberately to the one path the MVP needs: admin's own official upload, per `ADR-0006`; the
+community path, FR-GAME-001 proper, stays deferred and is `IMP-M4-01`'s gap to close when community
+uploads open) plus an admin-scoped mirror of `file-uploads.md`'s upload-slot/confirm/get routes
+(identical request/response shapes, reused Phase A-G pipeline), the review-queue endpoints
+(list-pending/detail/approve/reject), and a resolution for `bundle-format.md` stage E4's
+"arrived on the admin path" half that `IMP-M4-03`'s own session note left open: satisfied by which
+listener served the request, since no other signal (session, token, header) is shared between the
+public and admin surfaces. `rest-conventions.md` § *Base Path* now carves out the admin listener's
+`/admin/` namespace (it shares no port with the public API, so it shares no namespace rule either);
+`admin-tooling.md` gained a *Related API Specifications* section; `docs/specs/api-design/INDEX.md`
+registered the new file. `IMP-M4-05`'s own read-list, *Satisfies* (drops `FR-PRV-001…004`) and *Done
+when* updated to match. `python3 scripts/check-corpus.py` clean.
+
+**`IMP-M4-05` is back to `READY` — code is next session's work, none was written this session.** Its
+scope is now fully specified: `POST /admin/games`, the three admin-scoped upload routes, and the four
+review-queue routes, all against `admin-rest-api.md` directly rather than reconstructed from
+`admin-tooling.md` prose.
+
+---
+
 **Date:** 2026-09-19 (session 57)
 
 **`IMP-M4-04` is now `DONE` — 38 of 61.** Bundle publication and asset serving, picked up per
@@ -679,14 +729,21 @@ continue into them.
 ---
 ## Next Priorities
 
-**`IMP-M4-04` is now `DONE` — 38 of 61.** See *Last Session Summary*. `IMP-M3-05` (orchestration
-client and session registry) is now startable — it depends on `IMP-M3-04, IMP-M2-04, IMP-M2-06,
-IMP-M4-04`, all `DONE`, and carries the `/play/{sessionId}` bootstrap-document work `IMP-GATE-62`
-carved out of `IMP-M4-04` (reusing this session's `Host`-routing filter and deny-listed asset tree
-directly). `IMP-M4-05` (admin API — review queue and badges) remains independently `READY` off
-`IMP-M4-03`. Also still independently `READY`: `IMP-M3-01`/`M3-02` (GDK backend API / Game Host
-skeleton), `IMP-M5-01` (game history, off `IMP-M3-09` — confirm that dependency is actually `DONE`
-first), `IMP-M6-01` (Astryx integration, off `IMP-M0-05`).
+**`IMP-M4-05` (admin API, review queue and badges) is `READY`, fully specified, no code yet —
+the natural next pick.** See *Last Session Summary*: `IMP-GATE-63` closed with
+`docs/specs/api-design/admin-rest-api.md` supplying every endpoint shape, including the
+previously-undefined `POST /admin/games` game-row-creation step. Build to that document directly.
+
+**`IMP-M3-05` (orchestration client and session registry) is *not* actually startable, despite what
+this file said last session.** Its dependency `IMP-M3-04` (gRPC service implementation,
+`turnbase-game-host`) is `READY` in the register table, not `DONE` — confirmed by reading the table
+directly this session, not carried over from prose. Do not pick it up until `IMP-M3-04` (and its own
+chain: `M3-03` off `M3-01, M3-02`) is actually `DONE`.
+
+Independently `READY` with all dependencies actually confirmed `DONE`: `IMP-M4-01` (catalog listing,
+off `IMP-M1-01`), `IMP-M3-01`/`IMP-M3-02` (GDK backend API surface / Espresso context lifecycle — no
+other item needed first), `IMP-M6-01` (Astryx integration, off `IMP-M0-05`). `IMP-M5-01` (game
+history) needs `IMP-M3-09`, still `READY` — not a valid pick yet either.
 
 **Still outstanding, not gated to any item — the `e2e` CI job's `NOAUTH HELLO must be called with
 the client already authenticated` Redis-auth failure.** Confirmed identical, by reading the actual

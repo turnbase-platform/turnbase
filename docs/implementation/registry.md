@@ -82,7 +82,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M4-02 | Manifest schema validation | platform | M0-06 | DONE |
 | IMP-M4-03 | Upload pipeline and version state machine | platform | M4-02 | DONE |
 | IMP-M4-04 | Bundle publication and asset serving | platform | M4-03 | DONE |
-| IMP-M4-05 | Admin API — review queue and badges | platform | M4-03 | WIP (session 58) |
+| IMP-M4-05 | Admin API — review queue and badges | platform | M4-03 | READY |
 | **M5 — History, statistics, notifications** ||||
 | IMP-M5-01 | Game history recording | platform | M3-09 | READY |
 | IMP-M5-02 | Per-game statistics | platform | M5-01 | READY |
@@ -3635,21 +3635,50 @@ query string (FR-OBS-005).
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M4-03
 
+**Closed:** `IMP-GATE-63` (opened and closed 2026-09-19, session 58) — this item's own claimed
+`admin-tooling.md` FR-OFF-001 ("admin can upload a game directly as an Official title") turned out to
+be unbuildable: no document anywhere defines how a `game` row is created at all — `file-uploads.md`
+step 1 assumes `gameId` already names one, and `game-catalog.md` FR-GAME-001 defers the mechanism to
+a document that itself defers it onward again. This item's read-list also never named
+`file-uploads.md`/`bundle-format.md`, whose Phase A–G pipeline the fix has to reuse, and its own
+*Satisfies* duplicated `FR-PRV-001…004` with `IMP-M4-01`, which already claims and actually implements
+them (catalog visibility, room-creation preconditions) — neither is admin-API work. Fixed: new
+`docs/specs/api-design/admin-rest-api.md` — `POST /admin/games` (the missing game-row creation, scoped
+to the one path the MVP needs: admin's own official upload) plus an admin-scoped mirror of
+`file-uploads.md`'s three routes, the review-queue endpoints (list/detail/approve/reject), and the
+`bundle-format.md` stage E4 resolution (the "arrived on the admin path" half `IMP-M4-03`'s session
+note left open is decided by which listener served the request — there is no other signal available).
+`rest-conventions.md` § *Base Path* now carves out the admin listener's `/admin/` namespace;
+`admin-tooling.md` gained a *Related API Specifications* section. `FR-PRV-001…004` dropped from this
+item's *Satisfies* (see below). `python3 scripts/check-corpus.py` clean.
+
 **Read first:**
 - `docs/requirements/admin-tooling.md` **in full**
-- `docs/specs/platform/data-model-catalog.md` §1, §2
-- `docs/specs/api-design/rest-conventions.md` § *Actuator and the Management Port*
+- `docs/specs/api-design/admin-rest-api.md` **in full** — the endpoint shapes, request/response
+  bodies and status codes this item builds to
+- `docs/specs/api-design/file-uploads.md`, `docs/specs/manifest/bundle-format.md` §3.2 (Phases A-G,
+  stage E4) — the pipeline `admin-rest-api.md` §4 reuses verbatim; read `upload.VersionUploadController`/
+  `Service`/`PublicationService` directly, don't re-derive them
+- `docs/specs/platform/data-model-catalog.md` §1, §2, §4
+- `docs/specs/api-design/rest-conventions.md` § *Actuator and the Management Port*, § *Base Path*
 - `docs/specs/deployment/local-environment.md` §1 host port map
 
 **Satisfies:** `admin-tooling.md` FR-ADM-001…003, FR-REV-001…006, FR-BADGE-001…004, FR-OFF-001…002,
-FR-PRV-001…004, NFR-AUD-001, NFR-CRED-001, NFR-SEC-001
+NFR-AUD-001, NFR-CRED-001, NFR-SEC-001
+
+**`FR-PRV-001…004` removed from *Satisfies*** — `IMP-M4-01` already claims them and its own Done-when
+is where they are actually checked (catalog-query invisibility, room-creation preconditions); nothing
+in this item's own Done-when below ever exercised them, so the duplicate was a bookkeeping error, not
+a second implementation.
 
 **Done when:** the admin API is served on the **management port, the same listener as actuator**, and
 is loopback-bound under compose and unrouted under Kubernetes (FR-ADM-001, `admin-tooling.md`
 CON-001, `local-environment.md` §1); HTTP Basic with credentials from configuration (FR-ADM-002);
-**no browser panel exists** (FR-ADM-003); approval sets Verified and publishes, rejection stores a
-plain-text reason and does **not** delete the game or transfer ownership (FR-REV-004…006); official
-uploads bypass the queue entirely (FR-OFF-002); every admin action writes an audit record
+**no browser panel exists** (FR-ADM-003); `POST /admin/games` creates the game row and `POST
+/admin/games/{gameId}/versions`/`.../confirm` complete an official upload to `ACTIVE` with no review
+row ever created (FR-OFF-001…002, `admin-rest-api.md` §3-§4); approval sets Verified and publishes,
+rejection stores a plain-text reason and does **not** delete the game or transfer ownership
+(FR-REV-004…006, `admin-rest-api.md` §5); every mutating admin action writes an audit record
 (NFR-AUD-001).
 
 ---
