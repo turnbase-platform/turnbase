@@ -1,5 +1,46 @@
 ## Last Session Summary
 
+**Date:** 2026-09-19 (session 56)
+
+**No item completed — `IMP-GATE-62` opened and closed on `IMP-M4-04` before any code.** Picked up
+`IMP-M4-04` (bundle publication and asset serving, `READY` off `IMP-M4-03`, `DONE`) per session 55's
+own recommendation. Reading its read-list (`bundle-format.md` §5, `game-asset-serving.md` in full,
+ADR-0007, `local-environment.md` §7.7) surfaced two problems before any code was written.
+
+First: this item's own *Satisfies* triple-claimed `game-contracts.md` FR-FE-001…006 with `IMP-M3-12`
+and `IMP-M6-05` — but FR-FE-001…006 is the game-session postMessage event catalogue (`init`,
+`game_event`, `player_joined`, `player_left`, `game_over`, spectator filtering), and
+`game-asset-serving.md`'s own Scope section names that catalogue **out of scope** for this document.
+Bundle publication and asset serving never touch it.
+
+Second, and more load-bearing: this item's one *Done when* clause ("publication filters") turned out
+to already be fully satisfied — `IMP-M4-03`'s `PublicationService` (verified by reading it) already
+implements §5.2's deny list verbatim, so the clause was true before this item's own code existed.
+Meanwhile the read-list's real remaining scope — `GET /play/{sessionId}` (§5's bootstrap document,
+§4.1's version-pinning row) — has no data to resolve against: there is no `sessionId → (gameId,
+version)` mapping anywhere in the schema. Game sessions are `IMP-M3-05`'s data to create
+(`room.GameSessionStarter` is still `IMP-M2-06`'s no-op stub, confirmed by reading
+`PendingGameSessionStarter.java`), and `IMP-M3-05` was not this item's dependency. Same shape as
+`IMP-GATE-08`/`18`/`28`/`46`/`53`.
+
+**Fixed** on `turnbase` `master` (branch `docs/imp-gate-62-m4-04-scope`, merged `--ff-only` and
+deleted, same session): `IMP-M4-04`'s *Satisfies* dropped `FR-FE-001…006` (unique to `IMP-M3-12`/
+`IMP-M6-05` already) and narrowed to `FR-ASSET-001/002/005/006/009` — exactly what `IMP-M4-03` alone
+makes buildable: the `Host`-header virtual-routing filter and `GET /g/{gameId}/{version}/**` static
+asset serving. Its read-list and *Done when* were rewritten to match. `GET /play/{sessionId}`
+(FR-ASSET-003/007) moved to `IMP-M3-05`, which already composes and broadcasts `gameFrontendUrl` on
+`GAME_STARTED` and is the only item with session data to resolve the route against — it gained
+`IMP-M4-04` in *Depends on*, `FR-ASSET-003/007/008` in *Satisfies* (008 was already being built there,
+just never claimed), a read-list addition (`game-asset-serving.md` §4.1/§5/§7), and a *Done when*
+clause requiring `START_GAME` to pin `(gameId, version)` on the session record and the route to serve
+against it. `python3 scripts/check-corpus.py` clean.
+
+**`IMP-M4-04` is back to `READY` — code is next session's work, none was written this session.** Its
+scope is now exactly the `Host`-routing filter plus the static asset route, buildable off `IMP-M4-03`
+alone with no other repo or unbuilt item involved.
+
+---
+
 **Date:** 2026-09-19 (session 55)
 
 **`IMP-M4-03` is now `DONE` — 37 of 61.** Upload pipeline and version state machine, picked up per
@@ -567,7 +608,14 @@ continue into them.
 ---
 ## Next Priorities
 
-**`IMP-M4-03` is now `DONE` — 37 of 61.** See *Last Session Summary*. `IMP-M4-04` (bundle publication
+**`IMP-GATE-62` is closed — `IMP-M4-04` is `READY` again, narrowed.** See *Last Session Summary*.
+Its scope is now just the `Host`-routing filter and `GET /g/{gameId}/{version}/**`, buildable off
+`IMP-M4-03` alone — the natural next pick, and small. `IMP-M3-05` (orchestration client and session
+registry) gained the `/play/{sessionId}` bootstrap-document work this gate carved out of `IMP-M4-04`,
+plus `IMP-M4-04` in its own *Depends on* — it is not startable until `IMP-M4-04` is `DONE`.
+`IMP-M4-05` (admin API — review queue and badges) is still independently `READY` off `IMP-M4-03`.
+
+**`IMP-M4-03` is now `DONE` — 37 of 61.** See prior session's summary. `IMP-M4-04` (bundle publication
 and asset serving) and `IMP-M4-05` (admin API — review queue and badges), both `READY` off it, are
 the natural next picks — `IMP-M4-05` in particular is where E4's deferred admin-path-detection half
 (this session's scope note) has to land, since it's the item that actually builds the loopback-bound

@@ -81,7 +81,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M4-01 | Catalog listing and game detail | platform | M1-01 | READY |
 | IMP-M4-02 | Manifest schema validation | platform | M0-06 | DONE |
 | IMP-M4-03 | Upload pipeline and version state machine | platform | M4-02 | DONE |
-| IMP-M4-04 | Bundle publication and asset serving | platform | M4-03 | WIP (session 56) |
+| IMP-M4-04 | Bundle publication and asset serving | platform | M4-03 | READY |
 | IMP-M4-05 | Admin API — review queue and badges | platform | M4-03 | READY |
 | **M5 — History, statistics, notifications** ||||
 | IMP-M5-01 | Game history recording | platform | M3-09 | READY |
@@ -3182,11 +3182,17 @@ a seen sequence, the ordinary next sequence, and a forward gap — are stated at
 
 ### IMP-M3-05 — Orchestration client and session registry
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M3-04, IMP-M2-04, IMP-M2-06
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M3-04, IMP-M2-04, IMP-M2-06, IMP-M4-04
 
 **`IMP-M2-06` added to *Depends on*** (`IMP-GATE-46`, session 41) — this item's own clause below
 replaces `IMP-M2-06`'s in-process-stub `GameSessionStarter` with a real implementation, so the port
 and the `START_GAME` handler calling it must exist first.
+
+**`IMP-M4-04` added to *Depends on*** (`IMP-GATE-62`, session 56) — `GET /play/{sessionId}`
+(`game-asset-serving.md` §4.1 row 1, §5) reuses `IMP-M4-04`'s `Host`-routing filter and asset-serving
+code, and needs the deny-listed unpacked tree that item's dependency (`IMP-M4-03`) publishes; this
+item is the one that creates the session data the route resolves against, so it is where the route
+lands. See `IMP-M4-04`'s *Closed* note for the full gate.
 
 **Read first:**
 - `docs/specs/internal-grpc/orchestration-gamehost-protocol.md` — *Addressing the Game Host pods*,
@@ -3195,9 +3201,12 @@ and the `START_GAME` handler calling it must exist first.
 - `docs/specs/flows/02-room-to-game-start.md` — **step 6 names exactly which keys Orchestration writes**
 - `docs/specs/platform/data-model.md` §1 (`active_session_id`), §4
 - `docs/specs/api-design/room-websocket.md` — `GAME_STARTED`'s exact payload shape
+- `docs/specs/game-frontend/game-asset-serving.md` §4.1 (the `/play/{sessionId}` route and version
+  pinning), §5 (the bootstrap document), §7 (session integration)
 
 **Satisfies:** `platform-architecture.md` FR-ORCH-001…007, FR-REG-001…004, FR-SESS-001…006;
-`game-rooms.md` FR-HOST-009 (success path only — the precondition/rejection half is `IMP-M2-06`'s)
+`game-rooms.md` FR-HOST-009 (success path only — the precondition/rejection half is `IMP-M2-06`'s);
+`game-development-experience.md` FR-ASSET-003, FR-ASSET-007, FR-ASSET-008
 
 **Done when:** `session:{id}` has **exactly one writer, the Game Host** (IR-14). Orchestration writes
 only the keys flow 02 step 6 names and reads the rest. The platform's own record of a live session is
@@ -3205,10 +3214,18 @@ only the keys flow 02 step 6 names and reads the rest. The platform's own record
 state and not the knowledge that a session exists.
 
 **The real `GameSessionStarter` implementation replaces `IMP-M2-06`'s stub**: on a successful
-`START_GAME`, it creates the session via the orchestration client, persists `room.active_session_id`,
-and broadcasts `GAME_STARTED` with the live `sessionId` and the server-composed `gameFrontendUrl`
+`START_GAME`, it creates the session via the orchestration client, persists `room.active_session_id`
+**and the `(gameId, version)` pinned for that session** (FR-ASSET-007 — resolved once, at start, from
+the game's then-current `ACTIVE` version, never re-resolved for the session's lifetime), and
+broadcasts `GAME_STARTED` with the live `sessionId` and the server-composed `gameFrontendUrl`
 (`room-websocket.md`) — not before, since a failed session creation must never advance the room to
 In Progress.
+
+**`GET /play/{sessionId}` serves `game-asset-serving.md` §5's bootstrap document** for the pinned
+`(gameId, version)`, 404ing when the session is unknown or ended and when the `Host` header's
+`gameId` does not match the session's own (§4.1's *Validation*) — never serving game A's code from
+game B's origin. A reconnecting player and every other participant receive the identical bundle
+regardless of any republish in between (FR-ASSET-007).
 
 **Closes IMP-GATE-08's cross-repo half:** this item gives `GameHostRegistryService` its real server
 implementation, so it also carries the end-to-end check `IMP-M0-04` could not — a `turnbase-game-host`
@@ -3561,18 +3578,52 @@ forever.
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M4-03
 
+**Closed:** IMP-GATE-62 (opened and closed 2026-09-19, session 56) — this item's own *Satisfies*
+triple-claimed `game-contracts.md` FR-FE-001…006 with `IMP-M3-12` and `IMP-M6-05`, even though
+`game-asset-serving.md`'s own Scope section names "the postMessage message catalogue itself" as
+explicitly **out of scope** for that document — FR-FE-001…006 is the game-session event catalogue
+(`init`, `game_event`, `player_joined`, `player_left`, `game_over`, spectator filtering), which
+neither bundle publication nor asset serving ever touches. Separately, this item's own *Done when*
+clause tested none of its real `FR-ASSET-001…009` scope: its one clause ("publication filters") was
+already fully satisfied by `IMP-M4-03`'s `PublicationService`, which implements §5.2's deny list
+verbatim, before this item's own code existed. Underneath that, half of this item's read-list —
+`GET /play/{sessionId}` (§5's server-rendered bootstrap document; §4.1's version-pinning row and its
+`Host`-vs-session `gameId` cross-check; FR-ASSET-003/007) — has no data to resolve against: no
+`sessionId → (gameId, version)` mapping exists anywhere in the schema, because game sessions are
+`IMP-M3-05`'s data to create, and `IMP-M3-05` was not this item's dependency
+(`room.GameSessionStarter` is still `IMP-M2-06`'s no-op stub, confirmed by reading
+`room/PendingGameSessionStarter.java`). Same shape as `IMP-GATE-08`/`18`/`28`/`46`/`53` — an item
+whose read-list quietly assumes a caller or a data source that a sibling, unlisted item actually
+builds. Fixed: `FR-FE-001…006` dropped from this item's *Satisfies* — unique to `IMP-M3-12`
+(the client library) and `IMP-M6-05` (the shell's relay) already, per their own sections. This item
+narrowed to exactly what `IMP-M4-03` alone makes buildable: the `Host`-header virtual-routing filter
+and `GET /g/{gameId}/{version}/**` static asset serving. `GET /play/{sessionId}` (§4.1 row 1, §5, §7)
+moves to `IMP-M3-05` below — the item that already composes and broadcasts `gameFrontendUrl` on
+`GAME_STARTED` and is the only item with session data to resolve the route against; `IMP-M3-05` gains
+`IMP-M4-04` in *Depends on* (it reuses this item's asset-serving code and deny-listed tree),
+`FR-ASSET-003/007/008` in *Satisfies* (008 was already being built there, unclaimed), and a *Done
+when* clause. Read-list and Done-when corrected below.
+
 **Read first:**
 - `docs/specs/manifest/bundle-format.md` §5 (unpacking and publication)
-- `docs/specs/game-frontend/game-asset-serving.md` **in full** — §3 origin architecture, §4 serving,
-  §5 the bootstrap document, §9 invariants
+- `docs/specs/game-frontend/game-asset-serving.md` §3 (origin architecture), §4 (serving — routes,
+  the `Host` filter, the unauthenticated-assets deny list), §6.4 (CSP on game responses), §9
+  invariants 1, 2, 4, 6 (the ones that do not depend on session data)
 - `docs/decisions/0007-game-frontend-separate-domain.md`
 - `docs/specs/deployment/local-environment.md` §7.7
 
-**Satisfies:** `game-development-experience.md` FR-ASSET-001…009; `game-contracts.md` FR-FE-001…006
+**Satisfies:** `game-development-experience.md` FR-ASSET-001, FR-ASSET-002, FR-ASSET-005,
+FR-ASSET-006, FR-ASSET-009
 
-**Done when:** publication **filters**. Unpacking the whole archive under `/g/{gameId}/{version}/`
-publishes the backend JAR to anonymous callers — `gameId` is in the hostname and the version is a
-public catalog column, so the URL is derivable from a catalog page.
+**Done when:** a request's `Host` header alone decides whether it may reach the platform API, the
+platform frontend, or `/g/{gameId}/{version}/**` — never routes from one set to the other regardless
+of path (§4, §9 invariant 1). `GET /g/{gameId}/{version}/**` serves only what `IMP-M4-03`'s
+publication deny list wrote — unpacking the whole archive would publish the backend JAR to anonymous
+callers, since `gameId` is in the hostname and the version is a public catalog column, so the URL is
+derivable from a catalog page — with the fixed extension-to-content-type map, `X-Content-Type-Options:
+nosniff`, `Cache-Control: public, max-age=31536000, immutable`, and §6.4's CSP on every response; a
+missing object 404s. No platform cookie is ever scoped to the games domain, and the games origin never
+appears in any CORS/STOMP/server-side trust allowlist (§9 invariant 2).
 
 **A pre-signed URL is a bearer credential.** Every log line that carries one is truncated at the
 query string (FR-OBS-005).
