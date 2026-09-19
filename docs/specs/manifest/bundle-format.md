@@ -186,8 +186,19 @@ split determines what each check can possibly know.
 | Phase | When | Knows | Reports as |
 |---|---|---|---|
 | **A — Slot** | `POST /api/games/{gameId}/versions` | a version string and a declared size | `422` (or `409`), synchronously |
-| **B–F — Validation** | after `POST .../confirm`, background job | the archive and the manifest | `validation_errors` on the version row; retrieved by `GET .../versions/{uploadId}` and pushed as `BUNDLE_VALIDATION_COMPLETE` |
-| **G — Publication** | same job, after B–F pass | everything, plus the row lock on the game | as above |
+| **B1 — Stored object** | within `POST .../confirm`, before it returns | whether the object exists and its size | `422` (or `503`/`410` outside this taxonomy — `file-uploads.md`'s error table), synchronously, on the confirm request itself |
+| **C–F — Validation** | after `POST .../confirm` returns `202`, background job | the archive and the manifest | `validation_errors` on the version row; retrieved by `GET .../versions/{uploadId}` and pushed as `BUNDLE_VALIDATION_COMPLETE` |
+| **G — Publication** | same job, after C–F pass | everything, plus the row lock on the game | as above |
+
+**B1 is synchronous, not part of the background job** — a correction to this table and to §3.4 below.
+`file-uploads.md`'s flow narrative (step 3) and its own § Size Validation both describe the
+stored-size check as failing the `confirm` request itself, before `202` is ever returned; an earlier
+revision of this table and of `error-handling.md`'s Bundle Validation Errors section grouped B with
+the asynchronous C-F job and said `POST /api/games/{gameId}/versions` was the only synchronous `422`
+source, which cannot both be true alongside `file-uploads.md`'s explicit, repeated statement to the
+contrary. Resolved in `file-uploads.md`'s favor: it is the more specific, operational document for
+the confirm endpoint's own behavior, and it independently states the same thing in two places. See
+`IMP-GATE-61`.
 
 **Phase A's version-ordering check is advisory and Phase G's is authoritative.** `file-uploads.md`
 step 1 checks the declared version against the current active one, which is the right thing to do —
@@ -214,11 +225,11 @@ dotted paths, matching the existing `manifest.version` / `backend.gdkClasses` ex
 | A3 | `version.slot` | no unexpired `PENDING`, `PROCESSING`, `ACTIVE` or `SUPERSEDED` row already holds this `(game_id, version)` | §7.4 | fatal, `409` |
 | A4 | `bundle.declaredSize` | `bundleSize` ≤ `turnbase.uploads.max-bundle-size` | FR-UPLOAD-007, FR-BUNDLE-006 | fatal, `422` |
 
-**Phase B — the stored object:**
+**Phase B — the stored object** (synchronous, within `POST .../confirm` — see §3.1):
 
 | # | `check` | Decides | Requirement | On failure |
 |---|---|---|---|---|
-| B1 | `bundle.storedSize` | the object exists, and its size is ≤ the declared size and ≤ the configured cap | FR-UPLOAD-007 | fatal |
+| B1 | `bundle.storedSize` | the object exists, and its size is ≤ the declared size and ≤ the configured cap | FR-UPLOAD-007 | fatal, `422` |
 
 **Phase C — archive integrity** *(barrier: nothing downstream can run without a readable archive)*:
 
@@ -298,10 +309,17 @@ This spec resolves it as follows, and the resolution is visible in the shapes:
 
 - **Phase A failures are a `422`** on `POST /api/games/{gameId}/versions`, with `instance` naming that
   path. This is a synchronous rejection of a request; the `422` bundle-validation shape fits exactly.
-- **Phase B–G failures are not an HTTP error at all.** They are the *state of a resource* that was
-  successfully created. `GET /api/games/{gameId}/versions/{uploadId}` returns `200` with the version
-  record, whose `status` is `FAILED` and which carries `errors` and `warnings` arrays of the same
-  `{ check, message }` entries, read from `validation_errors` / `validation_warnings`:
+- **Phase B1 failures are a `422`** on `POST .../confirm` itself, with `instance` naming that path —
+  the stored-size check runs before that request returns anything, so it is exactly as synchronous
+  as Phase A's checks, just against a different request. `IMP-GATE-61` corrected this section (and
+  §3.1's table) to say so; an earlier revision grouped B with the asynchronous phases below and
+  `error-handling.md` claimed `POST /api/games/{gameId}/versions` was the only synchronous source,
+  which `file-uploads.md`'s own flow narrative and § Size Validation directly contradict.
+- **Phase C–G failures are not an HTTP error at all.** They are the *state of a resource* that was
+  successfully created (`confirm` already returned `202` by the time any of them can run). `GET
+  /api/games/{gameId}/versions/{uploadId}` returns `200` with the version record, whose `status` is
+  `FAILED` and which carries `errors` and `warnings` arrays of the same `{ check, message }` entries,
+  read from `validation_errors` / `validation_warnings`:
 
 ```json
 {

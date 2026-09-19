@@ -101,8 +101,13 @@ happens in two phases and no single response can carry both.
 
 ### Synchronous — `422` from the request that failed
 
-Checks that run before the platform accepts the upload — version ordering, declared size — fail the
-request that made them. `POST /api/games/{gameId}/versions` is the only one:
+Checks that run before the platform accepts what that request asked for fail the request that made
+them, in this shape. Two requests can produce it, not one: `POST /api/games/{gameId}/versions`
+(stages A1-A4 — version format, ordering, declared size) and `POST
+/api/games/{gameId}/versions/{uploadId}/confirm` (stage B1 — the stored object exists and its size
+does not exceed what was declared, [file-uploads.md](file-uploads.md) § Size Validation). Both are
+checks the platform can evaluate before doing anything asynchronous, and both fail the request that
+triggered them rather than the version resource:
 
 ```json
 {
@@ -117,12 +122,18 @@ request that made them. `POST /api/games/{gameId}/versions` is the only one:
 }
 ```
 
+`confirm`'s own synchronous outcomes are not limited to this shape — `410 Gone` (the slot expired)
+and `503` (storage unreachable) are ordinary Problem Details with no `errors` array, per
+[file-uploads.md](file-uploads.md)'s error table. Only stage B1 uses the `{check, message}` shape,
+because it is the one confirm-time check this taxonomy actually governs.
+
 ### Asynchronous — `200` from the version resource
 
-Everything that requires the bundle bytes — manifest schema, entry points, GDK class absence,
-serializability — runs **after** `confirm` has already returned `202 Accepted`
-([file-uploads.md](file-uploads.md)). There is no request left to fail. The result is the **state of
-the version resource**, read from `GET /api/games/{gameId}/versions/{uploadId}`:
+Everything that requires the bundle bytes *and cannot be checked before storing them* — manifest
+schema, entry points, GDK class absence, serializability — runs **after** `confirm` has already
+returned `202 Accepted` ([file-uploads.md](file-uploads.md)). There is no request left to fail for
+any of this. The result is the **state of the version resource**, read from `GET
+/api/games/{gameId}/versions/{uploadId}`:
 
 ```json
 {

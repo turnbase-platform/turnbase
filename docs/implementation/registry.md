@@ -80,7 +80,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M4 — Catalog and upload** ||||
 | IMP-M4-01 | Catalog listing and game detail | platform | M1-01 | READY |
 | IMP-M4-02 | Manifest schema validation | platform | M0-06 | DONE |
-| IMP-M4-03 | Upload pipeline and version state machine | platform | M4-02 | READY |
+| IMP-M4-03 | Upload pipeline and version state machine | platform | M4-02 | WIP (session 55) |
 | IMP-M4-04 | Bundle publication and asset serving | platform | M4-03 | READY |
 | IMP-M4-05 | Admin API — review queue and badges | platform | M4-03 | READY |
 | **M5 — History, statistics, notifications** ||||
@@ -3516,6 +3516,19 @@ shape. Submodule ref bumped in this repo.
 ### IMP-M4-03 — Upload pipeline and version state machine
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M4-02
+
+**Closed:** IMP-GATE-61 (opened and closed 2026-09-19, session 55) — `error-handling.md`'s Bundle
+Validation Errors § Synchronous claimed `POST /api/games/{gameId}/versions` is the only endpoint
+producing a synchronous `422` in the `{check, message}` shape, and `bundle-format.md` §3.1's phase
+table and §3.4's prose grouped Phase B with the asynchronous C-G background job, reporting only via
+`validation_errors`/`GET`. Both directly contradict `file-uploads.md`, whose flow narrative (step 3)
+and dedicated § Size Validation independently and repeatedly state that stage B1 (the stored-object
+size check) fails the `confirm` request itself, synchronously, before `202` is ever returned. Fixed
+in `file-uploads.md`'s favor — it is the more specific, operational document for the confirm
+endpoint and states the same thing twice: `bundle-format.md` §3.1's table now carries B1 as its own
+synchronous row distinct from the C-F background job, §3.2's Phase B heading and §3.4's prose say so
+explicitly, and `error-handling.md`'s Synchronous section now names both request paths that can
+produce this shape.
 
 **Read first:**
 - `docs/specs/manifest/bundle-format.md` **in full** — §3 the pipeline (Phases A–G), §4 the
