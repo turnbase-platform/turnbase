@@ -1,5 +1,76 @@
 ## Last Session Summary
 
+**Date:** 2026-09-19 (session 57)
+
+**`IMP-M4-04` is now `DONE` — 38 of 61.** Bundle publication and asset serving, picked up per
+session 56's own recommendation now narrowed to exactly the `Host`-routing filter and the static
+asset route. One small read-list defect found and fixed inline before code, not gated: the read-list
+cited `game-asset-serving.md` §9 "invariants 1, 2, 4, 6", but §9 only defines five invariants — the
+"6" was an editing slip (most likely a stray copy from the adjacent "§6.4" citation). Not a
+document-vs-document contradiction or a left-to-the-implementer decision — corrected the citation to
+"1, 2, 4" directly in `registry.md` (session 57 marker in the read-list itself), same session, no
+gate opened.
+
+**Code, `turnbase-platform` `78190ec`.** `common.GameOriginMatcher` classifies a request's `Host`
+header as a game origin (matching `GameFrontendProperties`'s literal-or-`{gameId}`-templated
+pattern) or not — "not" reads as "the platform origin" per §4's table, which names exactly two
+buckets, so this does **not** additionally require an exact match against `PlatformOriginProperties`
+(a Host neither config value literally names, e.g. every test harness's `127.0.0.1:<port>`, still
+reaches the platform API). Matching is hostname-only, ignoring any port on either side —
+`local-environment.md` §3 "Both origins are one listener" establishes the two origins always share
+the identical port by construction, so port carries no classifying information and comparing it
+would only make the check brittle against whatever port is actually bound (an ephemeral test port,
+notably). `common.GameOriginRoutingInterceptor` is the one-line enforcement of §9 invariant 1's XOR:
+a game-origin Host reaching anything outside `/play/**`/`/g/**`, or a non-game-origin Host reaching
+either of those, 404s before the handler — registered in `PlatformWebMvcConfig` at
+`Ordered.HIGHEST_PRECEDENCE` (a real bug caught here: `HIGHEST_PRECEDENCE - 1` integer-underflows to
+`Integer.MAX_VALUE`, silently making the "highest precedence" interceptor run *last* — `originCheckInterceptor` moved to `HIGHEST_PRECEDENCE + 1` instead of contesting the same slot).
+`session.SessionAuthenticationInterceptor` gained the `/g/`/`/play/` exemption its own Javadoc had
+already anticipated ("the item that adds one adds its own exemption here") — the games origin never
+receives cookies by construction (§4.2), so these routes cannot require a session, and by the time
+this interceptor runs `GameOriginRoutingInterceptor` has already confirmed the Host is a real game
+origin. `upload.GameAssetController` serves `GET /g/{gameId}/{version}/{*assetPath}` from
+`IMP-M4-03`'s already-deny-listed `unpacked/` tree, gated on a new `GameVersionRepository.isServable`
+query (`status IN ('ACTIVE','SUPERSEDED') AND bundle_purged_at IS NULL`, `bundle-format.md` §5.3).
+`ArtifactStore` gained `get()`, returning the content-type `PublicationService` recorded at publish
+time rather than re-deriving the extension map at serve time — one source of truth, publish and serve
+can't disagree. `common.GameResponseHeaders` builds §6.4's CSP (with a fresh nonce per response) from
+one place, public so `IMP-M3-05`'s bootstrap-document route can reuse the identical header later
+without a second copy of the directive string.
+
+**One pre-existing test fixed, found by the real integration suite, not gated as a spec defect
+because the spec was never wrong — the test was:** `SingleListenerOriginRoutingIT` (from
+`IMP-M0-07`, long before any Host-based routing existed) asserted that `turnbase.localhost` and
+`{gameId}.games.localhost` must get an **identical** HTTP status for the same request — true only in
+the pre-routing world, and exactly the behaviour §9 invariant 1 requires this item to break. Its
+actual point (one shared listener) doesn't need status equality to hold; both requests reaching a
+real HTTP server on the identical port already proves that (a second listener would refuse the
+connection outright for at least one Host). Updated the assertion and its Javadoc to say so.
+
+**Verified.** `GameOriginMatcherTest`/`GameOriginRoutingInterceptorTest` (unit, both origin shapes —
+per-game and shared-constant templates, the exact case that must still reach the API through a
+non-matching Host). `GameAssetControllerIT` (integration, real MinIO) — six cases over **real HTTP**
+against `{gameId}.games.localhost`/`turnbase.localhost` (both resolve to loopback locally per RFC
+6761, so this exercises genuine `Host`-based virtual routing, not a mocked header): served asset with
+every documented header, `SUPERSEDED` still serves, a purged bundle's asset is gone, a missing object
+404s despite a servable version, and both cross-origin directions 404. `./mvnw verify` and
+`./mvnw verify -Pintegration` (201 IT tests) green locally — one `OAuthControllerIT`/`ChatControllerIT`
+failure on a first full run was a MinIO Testcontainers startup flake under heavy concurrent load
+(same shape session 55 already documented), confirmed by an isolated rerun of just those two classes,
+both clean. CI green on `turnbase-platform master` (run `35462118529`, `build` job `19m36s`). `e2e`
+failed on the exact pre-existing `NOAUTH HELLO must be called with the client already authenticated`
+Redis-auth cause flagged in this file's own *Next Priorities* since session 56 — confirmed by reading
+the job's own log, unrelated to this item, non-gating per `platform-operations.md` OQ-002. Submodule
+ref bumped to `78190ec`.
+
+**Housekeeping note for whoever reviews this session's diff:** the feature branch was created
+*after* the edits had already started (should have been the first move, not a mid-session catch-up)
+— caught before committing, `git checkout -b` carried the dirty tree over cleanly, no work lost. Worth
+a beat of caution: create the branch before touching any file, not once something is already
+half-written.
+
+---
+
 **Date:** 2026-09-19 (session 56)
 
 **No item completed — `IMP-GATE-62` opened and closed on `IMP-M4-04` before any code.** Picked up
@@ -607,6 +678,23 @@ continue into them.
 
 ---
 ## Next Priorities
+
+**`IMP-M4-04` is now `DONE` — 38 of 61.** See *Last Session Summary*. `IMP-M3-05` (orchestration
+client and session registry) is now startable — it depends on `IMP-M3-04, IMP-M2-04, IMP-M2-06,
+IMP-M4-04`, all `DONE`, and carries the `/play/{sessionId}` bootstrap-document work `IMP-GATE-62`
+carved out of `IMP-M4-04` (reusing this session's `Host`-routing filter and deny-listed asset tree
+directly). `IMP-M4-05` (admin API — review queue and badges) remains independently `READY` off
+`IMP-M4-03`. Also still independently `READY`: `IMP-M3-01`/`M3-02` (GDK backend API / Game Host
+skeleton), `IMP-M5-01` (game history, off `IMP-M3-09` — confirm that dependency is actually `DONE`
+first), `IMP-M6-01` (Astryx integration, off `IMP-M0-05`).
+
+**Still outstanding, not gated to any item — the `e2e` CI job's `NOAUTH HELLO must be called with
+the client already authenticated` Redis-auth failure.** Confirmed identical, by reading the actual
+job log, on this session's own CI run (`35462118529`) — third session in a row to hit the exact same
+cause since it was first diagnosed in session 56. Still nobody has picked it up: the fix is likely a
+missing `SPRING_DATA_REDIS_PASSWORD` in the e2e compose profile's platform service env, or a Redis
+image default-auth mismatch. Non-gating (`platform-operations.md` OQ-002) but three sessions of the
+identical unfixed cause is worth someone's dedicated turn rather than a fourth confirmation.
 
 **`IMP-GATE-62` is closed — `IMP-M4-04` is `READY` again, narrowed.** See *Last Session Summary*.
 Its scope is now just the `Host`-routing filter and `GET /g/{gameId}/{version}/**`, buildable off
