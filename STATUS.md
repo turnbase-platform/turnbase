@@ -1,6 +1,131 @@
 ## Last Session Summary
 
-**Date:** 2026-09-14 (session 54)
+**Date:** 2026-09-19 (session 55)
+
+**`IMP-M4-03` is now `DONE` — 37 of 61.** Upload pipeline and version state machine, picked up per
+session 54's own recommendation. One gate opened and closed while implementing: `IMP-GATE-61`.
+
+**`IMP-GATE-61`** — `error-handling.md`'s Bundle Validation Errors § Synchronous claimed
+`POST /api/games/{gameId}/versions` was the only endpoint producing a synchronous `422` in the
+`{check, message}` shape, and `bundle-format.md` §3.1's phase table grouped Phase B with the
+asynchronous C-G background job — both directly contradicted `file-uploads.md`'s flow narrative and
+its own § Size Validation, which twice state that `confirm`'s stored-size check (stage B1) fails the
+`confirm` request itself, synchronously, before `202` is ever returned. Resolved in
+`file-uploads.md`'s favor across both documents (it is the more specific, operational document and
+says the same thing twice); `error-handling.md`'s Synchronous section now names both request paths,
+and `bundle-format.md` §3.1/§3.2/§3.4 carry B1 as its own synchronous row/heading/bullet, distinct
+from the C-G background job.
+
+**Code, `turnbase-platform` `518116d`.** The full Phase A-G pipeline in a new `upload` package:
+`VersionUploadController`/`Service` for the synchronous halves (Phase A slot creation — stages
+A1-A4; Phase B1 confirm — stored-size check, 410/503 outside the `{check,message}` taxonomy);
+`BundleValidationService` orchestrating the async Phases C-G on a dedicated `@Async` executor
+(`UploadAsyncConfig` — no async executor existed anywhere in this repo before this item);
+`ArchiveReader` — one hand-rolled ZIP central-directory reader (not `java.util.zip.ZipFile`, which
+does not expose the general-purpose bit flags §2.2's UTF-8/encryption rules need), reused by
+validation and by publication per §2.4's "one reader" rule and one level deep by `BackendJarAnalyzer`
+for F1; `BackendJarAnalyzer` (F1-F5, ASM `ClassReader`/`ClassNode`) and `StateSerializabilityAnalyzer`
+(F6-F7 — resolves `S` from `TurnBaseGame<S>`'s generic `Signature` attribute, walks its field/record
+graph against §4.4's table, detecting the exact GRMP-F4 defect via the `MethodParameters`
+attribute/`@JsonProperty` check); `PublicationService` (§5's deny-listed unpack, write-then-verify-
+count, and the §5.4 activation transaction under the `game` row lock); `GameVersionRepository`
+(direct SQL against `game`/`game_version`, `room.RoomInvitationRepository`'s established
+cross-feature-schema precedent) including the authoritative ordering re-check and the narrowed
+`VERIFIED → UNVERIFIED`-only badge transition; `UploadSlotCleanupJob` (§7.2's four sweep duties,
+`room.RoomPurgeJob`'s `@SchedulerLock` shape) — duty 2 is the fix for a died-mid-validation version
+number permanently burning `(game_id, version)`. New `ArtifactStore` abstraction (put/get/delete/
+presign) over the existing raw `S3Client`, plus a new `S3Presigner` bean.
+
+**Two real bugs found by the integration test suite, both fixed:** `ArtifactStoreConfig`'s new
+`S3Presigner` bean was missing `pathStyleAccessEnabled`, so a presigned PUT URL against MinIO used
+virtual-hosted-style addressing and every signature mismatched what the client actually sent (every
+confirmed upload's bundle PUT failed with MinIO's `MissingFields`); `S3ArtifactStore
+.downloadToTempFile` pre-created its destination with `Files.createTempFile`, but AWS SDK v2's
+`S3Client#getObject(request, Path)` refuses to write to a path that already exists (opens
+`CREATE_NEW`) — every confirmed bundle's download step threw a swallowed `FileAlreadyExistsException`,
+surfacing only as a generic `pipeline.interrupted` `FAILED` status with no indication of the real
+cause. Neither would have been caught without exercising the real pre-signed-URL round trip against
+real MinIO, which is exactly what `VersionUploadControllerIT`'s happy-path test does.
+
+**Scope notes, not gates — each a deliberate simplification within this item's own Done-when, not a
+gap in it:**
+- **E4's admin-path detection.** No admin upload endpoint or loopback-auth context exists yet
+  (`IMP-M4-05`, not built). E4 checks only the game-row half of ADR-0006's predicate (`badge =
+  'OFFICIAL' AND owner_user_id IS NULL`) — correctly, since that half is fully decidable now — and
+  omits the "arrived on the admin path" half, since there is no mechanism anywhere in this repo yet
+  to decide it. `IMP-M4-05` inherits closing this gap.
+- **E5's `gdkApiVersion` range is a configured value, not an assertion against a real guest bridge
+  artifact.** `bundle-format.md` §6.1 wants the configured range checked against the deployed guest
+  bridge JAR's own declared version at startup; no guest bridge or Game Host gRPC client exists in
+  this repo (`game-host-internals.md` is outside this item's read-list). `GdkCompatibilityProperties`
+  binds `turnbase.gdk.supported-range` (default `0.3.0-0.3.0`, matching the spec's own MVP value) and
+  E5 checks the manifest against it directly; there is nothing yet to assert it against.
+- **F6/F7's module-registry knowledge is hardcoded, not read from a shared serialization
+  component.** `game-host-internals.md` §5's shared serialization component (the authority §4.4 asks
+  this stage to read Jackson's registered-module set from) does not exist as a consumable artifact.
+  `StateSerializabilityAnalyzer` hardcodes the same two facts that component would otherwise supply
+  (`java.time.*` and `Optional` are unhandled — no `JavaTimeModule`/`Jdk8Module` registered) rather
+  than re-deriving a policy; noted at the point in the code where a future shared-component read
+  would replace it.
+- **No `BUNDLE_VALIDATION_COMPLETE` SSE push.** `notification.AlertPublisher`/`SseAlertPublisher`
+  (`IMP-M5-03`) exist and a seam would be trivial to wire, but this item's own Done-when never
+  mentions it and the client can already poll `GET .../versions/{uploadId}`. Left as a clean seam,
+  not wired — same pattern `IMP-M5-03`'s own session note used for its own scope gaps.
+- **Publication's write-then-verify (§5.3 step 3) checks object *count*, not a per-object byte
+  checksum.** A cheap, real defence against a half-unpacked tree (a crash mid-write leaves a count
+  mismatch, aborting activation) but not full corruption detection — `bundle-format.md` OQ-003
+  already tracks the general absence of a per-object integrity digest as unresolved across the whole
+  spec, not something this item was asked to close.
+- **The `PROCESSING` lease is stamped once at claim, not renewed while the pipeline runs.** Default
+  `validation-lease` is 10 minutes against an NFR-UPLOAD-001 target of under 30 seconds per run, so
+  the risk of the sweep abandoning a still-running validation is low in practice, but a renewal call
+  partway through Phases C-G would close it properly; not implemented this session.
+
+**Verified — every Done-when clause tested explicitly, by name:**
+1. *Every non-terminal status has a documented exit, including a died validator* —
+   `UploadSlotCleanupJobIT` (duties 1/3/4 against real MinIO) and
+   `VersionUploadControllerIT#theSweepFreesAnAbandonedLeaseAndTheVersionNumberCanBeRetried` (duty 2).
+2. *A died-mid-validation version number is not permanently burned* — the same test: a `PROCESSING`
+   row with an expired lease, swept to `FAILED`, then a fresh slot request for the identical
+   `(gameId, version)` succeeds with `201`.
+3. *Two open slots cannot walk the active version backwards* —
+   `GameVersionRepositoryIT#twoSlotsCannotWalkTheActiveVersionBackwards`: 1.3.0 then 1.2.5 against an
+   active 1.2.0, activated in that order; 1.2.5's activation is rejected by the authoritative recheck
+   under the `game` row lock, not by request ordering. Proven directly against `activate()` rather
+   than through HTTP, since a non-Official game can never reach activation at all (see E4 above) —
+   the two-slot race has nothing to do with badge/ownership, so this is a faithful, more direct proof
+   of the actual mechanism.
+4. *Badge clears `VERIFIED → UNVERIFIED` only* — `GameVersionRepositoryIT`'s four badge tests:
+   `VERIFIED → UNVERIFIED`, `UNVERIFIED` stays `UNVERIFIED`, `OFFICIAL` stays `OFFICIAL` on both a
+   first and a second activation (the only path the MVP exercises, per ADR-0006) without violating
+   `game_official_ownerless_ck`.
+5. *Phase A is a synchronous `422`; Phases B-G never are* — four `VersionUploadControllerIT` tests
+   for A1/A2/A4's `422`s and A3's `409`; `confirmingBeforeTheObjectIsUploadedIsSynchronous422` for
+   B1; `asyncFailuresSurfaceOnlyAsTheVersionResourceNeverAsAnHttpError` asserts the `GET` on a
+   `FAILED` version returns HTTP `200` (not `4xx`) with the error in the body.
+
+Plus a real bundle validating end to end through every phase to `ACTIVE`
+(`aFullyValidBundleActivates`) with a genuine compiled `TurnBaseGame` implementation and JAR (built
+by a new `TestJavaCompiler` test helper — real `javac`, not hand-assembled bytecode, so
+`-parameters`/`MethodParameters` — the exact GRMP-F4 defect — is the real compiler's output, not an
+approximation); 15 `ArchiveReaderTest` cases (traversal, absolute paths, backslashes, empty
+segments, trailing dots, oversized segments, case-insensitive duplicates, entry-count/total/
+per-entry/ratio ceilings, corrupt archives); 8 `BackendJarAnalyzerTest` cases (F1-F5); 16
+`StateSerializabilityAnalyzerTest` cases against every row of §4.4's table. `./mvnw verify` (207
+tests) and `./mvnw verify -Pintegration` (195 tests) both green locally, zero regressions — one
+`RoomPurgeJobIT` failure on the first full run was a MinIO Testcontainers startup timeout under this
+session's heavy concurrent Docker load, confirmed a flake by an isolated rerun and by the full suite
+passing clean on the following run.
+
+**CI green on `turnbase-platform master`** — run `35446728285`, `build` job `22m14s`. `e2e` failed,
+confirmed the same non-gating shape flagged since session 50/51
+(`dependency failed to start: container compose-platform-1 exited (1)`) — but this run's captured
+logs (added by session 50's own e2e fix) finally show the actual cause for the first time: the
+platform container fails Spring context refresh on `RedisRateLimiterConfig` with `NOAUTH HELLO must
+be called with the client already authenticated` — the e2e compose profile's Redis requires a
+password the platform container isn't configured to send. Unrelated to this item (Redis
+authentication, not uploads); recorded here since it is the first session to actually see the
+cause rather than an opaque `exited (1)`. Submodule ref bumped to `518116d`.
 
 **`IMP-M4-02` is now `DONE` — 36 of 61.** Manifest schema validation, picked up per session 53's own
 recommendation now that `IMP-GATE-60` had specified the copy mechanism. No spec defect this time —
@@ -441,6 +566,24 @@ continue into them.
 
 ---
 ## Next Priorities
+
+**`IMP-M4-03` is now `DONE` — 37 of 61.** See *Last Session Summary*. `IMP-M4-04` (bundle publication
+and asset serving) and `IMP-M4-05` (admin API — review queue and badges), both `READY` off it, are
+the natural next picks — `IMP-M4-05` in particular is where E4's deferred admin-path-detection half
+(this session's scope note) has to land, since it's the item that actually builds the loopback-bound
+admin auth context. `docs/specs/deployment/local-environment.md` §6's seeded-game item (`IMP-M0-01`
+row, depends on `IMP-M4-03`) is also now unblocked. Independently `READY`: `IMP-M3-01`/`M3-02`
+(GDK backend API / Game Host skeleton), `IMP-M5-01` (game history, off `IMP-M3-09` — confirm that
+dependency is actually `DONE` first), `IMP-M6-01` (Astryx integration, off `IMP-M0-05`).
+
+**Still outstanding, not gated to any item: the `e2e` CI job's `compose-platform-1` exit-`1`
+failure — now with a real cause, not just a shape.** This session's captured logs show the platform
+container failing Spring context refresh on `RedisRateLimiterConfig`: `NOAUTH HELLO must be called
+with the client already authenticated` — the e2e compose profile's Redis instance requires a
+password the platform container isn't configured to send. Worth a dedicated look (likely a missing
+`SPRING_DATA_REDIS_PASSWORD` in the e2e compose profile's platform service env, or a Redis image
+default-auth mismatch) — out of scope for `IMP-M4-03`, which only confirmed the shape matched prior
+sessions' non-gating failure before moving on.
 
 **`IMP-M4-02` is now `DONE` — 36 of 61.** See *Last Session Summary*. `IMP-M4-03` (upload pipeline
 and version state machine), `READY` off it, is the natural next pick: it's the consumer

@@ -80,7 +80,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M4 — Catalog and upload** ||||
 | IMP-M4-01 | Catalog listing and game detail | platform | M1-01 | READY |
 | IMP-M4-02 | Manifest schema validation | platform | M0-06 | DONE |
-| IMP-M4-03 | Upload pipeline and version state machine | platform | M4-02 | WIP (session 55) |
+| IMP-M4-03 | Upload pipeline and version state machine | platform | M4-02 | DONE |
 | IMP-M4-04 | Bundle publication and asset serving | platform | M4-03 | READY |
 | IMP-M4-05 | Admin API — review queue and badges | platform | M4-03 | READY |
 | **M5 — History, statistics, notifications** ||||
