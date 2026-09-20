@@ -50,9 +50,19 @@ deleted_at IS NULL AND archived_at IS NULL AND listed
 
 For the owner, `badge <> 'UNVERIFIED'` and `listed` are both waived — an owner sees and can open their
 own Unverified or unlisted game (`admin-tooling.md` FR-PRV-001, `game-catalog.md` FR-GDET-009).
-`deleted_at IS NULL` and `active_version_id IS NOT NULL` are **not** waived for anyone, including the
-owner: a soft-deleted game is FR-GDET-007's "no longer exists" case (§4), and a game with no active
-version has nothing to display regardless of who is asking.
+`deleted_at IS NULL`, `archived_at IS NULL` and `active_version_id IS NOT NULL` are **not** waived for
+anyone, including the owner: a soft-deleted game is FR-GDET-007's "no longer exists" case (§4), a game
+with no active version has nothing to display regardless of who is asking, and an archived game
+(FR-ACCT-007 — its owner deleted their account) has no owner session left that could ever present the
+waived credential in the first place, so the question of waiving it for them does not arise.
+
+The full predicate, as applied by the repository:
+
+```sql
+deleted_at IS NULL AND archived_at IS NULL AND active_version_id IS NOT NULL
+  AND (listed OR owner_user_id = :viewerId)
+  AND (badge <> 'UNVERIFIED' OR owner_user_id = :viewerId)
+```
 
 This carve-out is deliberately narrow. `admin-tooling.md` FR-PRV-002 — hosting a room for a private or
 Unverified game — is a `/api/rooms` concern, not this document's; nothing here grants a non-owner any

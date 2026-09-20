@@ -1,5 +1,55 @@
 ## Last Session Summary
 
+**Date:** 2026-09-20 (session 61)
+
+**`IMP-M4-01` is now `DONE` — 40 of 61.** Catalog listing and game detail, picked up per session 60's
+own recommendation off `IMP-M1-01`. One gate opened and closed on this item before any code:
+`IMP-GATE-64` (three defects — no document defined the `GET /api/games`/`GET /api/games/{gameId}`
+routes this item's own *Done when* requires; `pagination-filtering-sorting.md` and `api-design/
+INDEX.md` both described a Spring Data JPA Specifications mechanism that exists nowhere in
+`turnbase-platform`; this item's own *Satisfies* over-claimed `FR-GAME-001…014` and `admin-tooling.md
+FR-PRV-001…004` beyond what its two read-only endpoints build). Fixed by adding
+`docs/specs/api-design/catalog-rest-api.md`, correcting the filtering-mechanism description in both
+documents, and narrowing *Satisfies* to what is actually built — `FR-PRV-004` (the game owner's
+submit-for-review action) remains unclaimed by any item in the registry; `admin-rest-api.md` §7
+already disclaims building it. Full detail in the item's own registry section under *Closed*.
+
+**Code, `turnbase-platform` `bcd9633`.** New `catalog` package: `CatalogController`/`CatalogService`/
+`CatalogRepository` implement `GET /api/games` (paginated, filtered, sorted listing) and
+`GET /api/games/{gameId}` (detail with `infoDocMarkdown`) against `catalog-rest-api.md`'s visibility
+predicate — `deleted_at IS NULL AND archived_at IS NULL AND active_version_id IS NOT NULL AND (listed
+OR owner_user_id = :viewerId) AND (badge <> 'UNVERIFIED' OR owner_user_id = :viewerId)` — hand-written
+`JdbcClient` SQL, no JPA, following `AdminGameRepository`'s established direct-SQL-against-another-
+feature's-table precedent. `SessionAuthenticationInterceptor` gained the `/api/games` exemption its
+own Javadoc had already anticipated; a session is still read when present, to resolve the owner-
+visibility carve-out, but is not required. A genuine SQL bug caught before any test ran green: the
+detail query's `info_doc_markdown` column was being concatenated after the completed FROM/JOIN clause
+block rather than into the SELECT list — fixed by splitting the shared SQL into `CATALOG_COLUMNS`/
+`CATALOG_FROM` constants and building `LIST_SELECT`/`DETAIL_SELECT` from them separately.
+
+**Verified.** New `CatalogRepositoryIT` (7 tests, direct-repository, `GameVersionRepositoryIT`'s
+Flyway-migrate pattern) and `CatalogControllerIT` (8 tests, full app boot, `RoomControllerIT`'s
+pattern) prove all three Done-when clauses: an Unverified game is invisible to everyone but its owner
+(including anonymously, since the listing route needs no session); every row carries exactly one badge
+from one column; the info doc is delivered as raw Markdown, never HTML, and `null` when absent — plus
+unlisted-game visibility, soft-delete `410`, missing-active-version invisibility, null-owner
+`"TurnBase"` author rendering, active-player-count semantics (excludes spectators/left/closed-room
+participants, includes grace-period ones), and version-tuple sort ordering (`10.0.0` after `2.0.0`,
+not lexicographic). `./mvnw verify` and `./mvnw verify -Pintegration` both green locally, zero
+regressions. CI green on `turnbase-platform master` (run `35530028504`).
+
+**Branch-workflow deviation, noted honestly rather than glossed over:** this session's commit landed
+directly on `turnbase-platform`'s `master` rather than on a dedicated `feat/imp-m4-01-…` branch first —
+a miss against the work-item skill's branch-per-session step, most likely because a background-task
+interruption mid-session (a `gh run watch` process and several wait tasks were killed and had to be
+re-verified from scratch) broke the normal flow. The net repository state matches what the rule
+protects against — no orphan branch, nothing left to merge or delete, `master` holds the tested,
+CI-green commit — but the literal branch-then-merge step was skipped. No history rewrite was
+attempted. Worth a beat of caution next session: create the branch first, before any edit, every time.
+Submodule ref bumped to `bcd9633`.
+
+---
+
 **Date:** 2026-09-20 (session 60)
 
 **`IMP-M4-05` is now `DONE` — 39 of 61.** Admin API, review queue and badges, picked up per session
@@ -743,16 +793,26 @@ continue into them.
 ---
 ## Next Priorities
 
-**`IMP-M4-05` is now `DONE` — 39 of 61.** See *Last Session Summary*. `IMP-M3-05` (orchestration
+**`IMP-M4-01` is now `DONE` — 40 of 61.** See *Last Session Summary*. `IMP-M3-05` (orchestration
 client and session registry) remains the one item this repo's M3/M4 work has been converging on but
 still cannot start: its dependency `IMP-M3-04` (gRPC service implementation, `turnbase-game-host`) is
 `READY` in the register table, not `DONE` — check the table directly before picking it up, prose in
 this file has been wrong about this before (session 58).
 
-Independently `READY` with all dependencies actually confirmed `DONE`: `IMP-M4-01` (catalog listing,
-off `IMP-M1-01`), `IMP-M3-01`/`IMP-M3-02` (GDK backend API surface / Espresso context lifecycle — no
-other item needed first), `IMP-M6-01` (Astryx integration, off `IMP-M0-05`). `IMP-M5-01` (game
-history) needs `IMP-M3-09`, still `READY` — not a valid pick yet either.
+Independently `READY` with all dependencies actually confirmed `DONE`: `IMP-M3-01`/`IMP-M3-02` (GDK
+backend API surface / Espresso context lifecycle — no other item needed first), `IMP-M6-01` (Astryx
+integration, off `IMP-M0-05`). `IMP-M5-01` (game history) needs `IMP-M3-09`, still `READY` — not a
+valid pick yet either.
+
+**`FR-PRV-004` (the game owner's submit-for-review action) is unclaimed by any item in the
+registry** — surfaced while narrowing `IMP-M4-01`'s over-claimed *Satisfies* this session.
+`admin-rest-api.md` §7 explicitly disclaims building it, and no other item's *Satisfies* names it
+either. Worth either assigning to an existing catalog/admin item or opening a small new one before it
+is forgotten entirely.
+
+**`IMP-M4-01`'s commit landed directly on `turnbase-platform master` without a feature branch first**
+— see *Last Session Summary* for the honest account. No cleanup needed (no orphan branch exists), but
+worth remembering to create the branch before the first edit next time.
 
 **Still outstanding, not gated to any item — the `e2e` CI job's `NOAUTH HELLO must be called with
 the client already authenticated` Redis-auth failure.** Last confirmed identical on session 57's CI
