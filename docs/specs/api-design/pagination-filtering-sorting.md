@@ -73,9 +73,9 @@ Server-side filtering is mandatory — client-side filtering is not acceptable (
 
 ### Implementation
 
-Spring Data JPA Specifications compose filter predicates from query params. Each filterable resource exposes a `SpecificationBuilder` that maps typed query params to JPA predicates and combines them with `AND`. This keeps repository interfaces clean and avoids dynamic JPQL strings.
+`turnbase-platform` has no JPA/Hibernate anywhere in it (`conventions.md`) — every repository hand-writes SQL against `JdbcClient`. Each filterable resource has a filter DTO record (e.g. `room.RoomListFilter`) that the `@Repository` class turns into a dynamic `WHERE` clause: a small `WhereClause` helper record accumulates one SQL fragment and one bound `.param()` per non-null filter field, joined with `AND`. Sorting reuses the same repository's `SORT_COLUMNS` whitelist map and an `orderByClause(Sort)` helper that always appends the primary key as the final tiebreaker (§ *Sorting*). This keeps the dynamic-SQL surface in one place per resource and avoids string-concatenated predicates elsewhere.
 
-Filterable endpoints document their accepted filter params via `@ParameterObject` on the filter DTO, which SpringDoc picks up automatically for the Swagger UI.
+Filterable endpoints document their accepted filter params on the controller method's query parameters directly (`@RequestParam`); there is no Swagger/SpringDoc generation in this codebase.
 
 Database indexes must exist on all filterable and sortable columns. Index requirements are noted in each resource's requirements document (e.g. `game-catalog.md NFR-SCAL-001`).
 

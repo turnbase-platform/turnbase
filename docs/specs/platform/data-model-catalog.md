@@ -118,9 +118,14 @@ that row would render the platform's own name as its author under the rule below
 matters for correctness is the unenforced one, so both are enforced.
 
 FR-CAT-002 requires an author username in every catalog row. For a null owner the catalog renders the
-platform name; FR-CAT-007's sort by author must therefore place these rows deterministically
-(`ORDER BY coalesce(u.username, '') ...`) rather than leaving them to `NULLS` default ordering, which
-differs between ascending and descending.
+literal string `"TurnBase"` — the product's own name, already the noun `admin-tooling.md` FR-BADGE-002
+uses for "first-party TurnBase content" — never a blank field or the sentinel `null` a client would
+have to special-case. It is a rendering value only, produced by the read path (`coalesce(u.username,
+'TurnBase')`), not a row in `app_user`; sorting is unaffected, since FR-CAT-007's sort by author must
+still place these rows deterministically (`ORDER BY coalesce(u.username, '') ...`) rather than
+leaving them to `NULLS` default ordering, which differs between ascending and descending — the sort
+key and the display value coalesce to different strings on purpose, one for a stable order, one for a
+reader.
 
 **Under ADR-0006 the MVP has no community games at all** — `runtime: "jvm"` is the only runtime and
 is official-only — so for the MVP every row here has `owner_user_id IS NULL`, `badge = 'OFFICIAL'`,

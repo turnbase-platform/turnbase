@@ -12,6 +12,7 @@ These specifications cover the HTTP REST API, WebSocket protocol, and SSE channe
 |------|-------|
 | [rest-conventions.md](rest-conventions.md) | URL structure, HTTP methods, status codes, versioning and deprecation strategy, CORS/Origin policy and CSRF |
 | [room-rest-api.md](room-rest-api.md) | Room membership REST surface: create, list, get, join, leave, invite-code resolution. In-room mutations are STOMP — see `room-websocket.md` |
+| [catalog-rest-api.md](catalog-rest-api.md) | Public catalog REST surface: paginated game listing and single game detail, the Unverified-except-owner visibility rule, the 404/410 split for a game's detail page |
 | [social-rest-api.md](social-rest-api.md) | Friend graph REST surface: username search, send/accept/cancel/decline a friend request, friend list, unfriend, the `relationshipState` extension to the profile response |
 | [room-invitation-rest-api.md](room-invitation-rest-api.md) | Friends-only platform room invitation REST surface: send, decline — acceptance is the ordinary room-join endpoint, not a route of its own |
 | [oauth-rest-api.md](oauth-rest-api.md) | Google OAuth REST surface: the consent-redirect and callback routes, the pending-registration cookie and JSON endpoints, the FR-AUTH-016 collision-challenge-and-link endpoint |
@@ -32,7 +33,7 @@ These specifications cover the HTTP REST API, WebSocket protocol, and SSE channe
 
 - No URL versioning — evolution via new routes + `Deprecation`/`Sunset` headers (RFC 8594)
 - RFC 9457 Problem Details for all error responses
-- Offset-based 1-indexed pagination with typed query param filtering backed by JPA Specifications
+- Offset-based 1-indexed pagination with typed query param filtering backed by hand-written `JdbcClient` SQL (no JPA/Hibernate anywhere in `turnbase-platform`)
 - Pre-signed URL flow for game bundle uploads (MinIO in dev/test via Testcontainers, S3 in production)
 - Single multiplexed STOMP-over-WebSocket per client for game and lobby real-time events
 - Game effects are routed by destination, not filtered on the client: `broadcast` → session topic, `send_to_team` → membership-validated team topic, `send_to_player` → per-user queue (NFR-SEC-002)

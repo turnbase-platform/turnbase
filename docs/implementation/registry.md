@@ -3435,15 +3435,20 @@ and is exactly the mistake the origin check exists to prevent.
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-01
 
 **Read first:**
-- `docs/requirements/game-catalog.md` FR-CAT-001…010, FR-GDET-001…009, FR-GAME-001…014
+- `docs/requirements/game-catalog.md` FR-CAT-001…010, FR-GDET-001…009
 - `docs/specs/platform/data-model-catalog.md` §1 (`game`), §3 (`game_tag`), §4 (`game_review`)
-- `docs/requirements/admin-tooling.md` FR-BADGE-001…004, FR-PRV-001…004 — visibility is an
+- `docs/requirements/admin-tooling.md` FR-BADGE-001…004, FR-PRV-001 — visibility is an
   admin-tooling rule that this endpoint enforces
 - `docs/specs/api-design/pagination-filtering-sorting.md`
 - `docs/specs/api-design/input-validation.md` § *Output encoding*
+- `docs/specs/api-design/rest-conventions.md`
+- `docs/specs/api-design/error-handling.md`
+- `docs/specs/platform/data-model.md` §1 (`room`), §2 (`room_participant`) — FR-GDET-005's active
+  player count reads these tables directly, `room_open_game_idx`'s documented purpose
+- `docs/specs/api-design/catalog-rest-api.md`
 
-**Satisfies:** `game-catalog.md` FR-CAT-001…010, FR-GDET-001…009, FR-GAME-001…014, NFR-PERF-001…002,
-NFR-SCAL-001, NFR-SEC-001…002, NFR-USAB-001…002; `admin-tooling.md` FR-PRV-001…004; `platform-views.md`
+**Satisfies:** `game-catalog.md` FR-CAT-001…010, FR-GDET-001…009, NFR-PERF-001…002,
+NFR-SCAL-001, NFR-SEC-001…002, NFR-USAB-001…002; `admin-tooling.md` FR-PRV-001; `platform-views.md`
 VW-CAT-001…003, VW-GDET-001…003
 
 **Done when:** an Unverified game is absent from the catalog and from search for every caller except
@@ -3451,6 +3456,23 @@ its owner (`admin-tooling.md` FR-PRV-001); each game carries exactly one badge, 
 (FR-BADGE-001); descriptions are delivered as **Markdown source** and rendered to React elements
 client-side (IMP-M6-06) — the API never returns an HTML string, which is what makes
 `input-validation.md`'s `dangerouslySetInnerHTML` ban enforceable rather than aspirational (IR-19).
+
+**Closed:** `IMP-GATE-64` (opened and closed 2026-09-20, session 61) — three defects found claiming
+this item. (1) No document defined the `GET /api/games` / `GET /api/games/{gameId}` routes this item's
+own *Done when* requires; fixed by adding `docs/specs/api-design/catalog-rest-api.md`, registered in
+that directory's `INDEX.md` and in `game-catalog.md`'s *Related API Specifications*. (2)
+`pagination-filtering-sorting.md` § *Filtering* § *Implementation* and `api-design/INDEX.md`'s *Key
+Decisions* both described a Spring Data JPA Specifications mechanism that exists nowhere in
+`turnbase-platform` — every repository (`RoomRepository`, `AdminGameRepository`, etc.) hand-writes SQL
+via `JdbcClient`; fixed both documents to describe that mechanism instead. (3) This item's own
+*Satisfies* claimed the entirety of `FR-GAME-001…014` and `admin-tooling.md FR-PRV-001…004`, neither
+of which its *Done when* clause tests or its two read-only endpoints build — narrowed to what is
+actually built (dropped `FR-GAME-001…014` outright; narrowed `FR-PRV-001…004` to `FR-PRV-001`).
+`FR-PRV-004` (the game owner's submit-for-review action) remains unclaimed by any item in the
+registry — `admin-rest-api.md` §7 already disclaims building it; noted in `STATUS.md` for a future
+item rather than solved here. (4) `data-model-catalog.md` §1 asserted a null-owner game "renders the
+platform name" as its catalog author without ever naming the literal string — a decision visible in a
+response body that no document made; fixed by naming it (`"TurnBase"`) in that section.
 
 ---
 
