@@ -1,52 +1,66 @@
 ## Last Session Summary
 
-**Date:** 2026-09-19 (session 58)
+**Date:** 2026-09-20 (session 60)
 
-**No item completed — `IMP-GATE-63` opened and closed on `IMP-M4-05` before any code.** Picked up
-`IMP-M4-05` (admin API, review queue and badges, `READY` off `IMP-M4-03`, `DONE`) — **not**
-`IMP-M3-05`, which the prior session's own *Next Priorities* recommended as "now startable... all
-[dependencies] `DONE`": that claim was wrong on inspection — the register table lists `IMP-M3-04`
-(gRPC service implementation, `turnbase-game-host`) as `READY`, not `DONE`, so `IMP-M3-05` is not
-actually startable yet. Not gated (a stale recommendation is not a documents-disagree defect — the
-register table itself was always correct; only prose in this file's own *Next Priorities* was stale),
-but worth naming plainly so a third session doesn't repeat it: `IMP-M3-05` needs `IMP-M3-04` `DONE`
-first.
+**`IMP-M4-05` is now `DONE` — 39 of 61.** Admin API, review queue and badges, picked up per session
+58's own read-list corrections (`admin-rest-api.md` fully specified, code was all that remained). No
+spec defect this time — the read-list was sufficient. Two genuine implementation bugs found and fixed,
+both in code this session wrote or wired, not pre-existing gaps.
 
-Reading `IMP-M4-05`'s read-list (`admin-tooling.md` in full, `data-model-catalog.md` §1/§2,
-`rest-conventions.md` § *Actuator and the Management Port*, `local-environment.md` §1) against its own
-*Satisfies* surfaced two problems before any code was written. First: this item's own claim of
-`admin-tooling.md` FR-OFF-001 ("admin can upload a game directly as an Official title") is
-unbuildable as written — **no document anywhere defines how a `game` row is created.**
-`file-uploads.md` step 1 (`POST /api/games/{gameId}/versions`) assumes `gameId` already names a row;
-`game-catalog.md` FR-GAME-001 defers the mechanism to the Game SDK spec, which itself never lands on
-it. The item's own read-list never named `file-uploads.md`/`bundle-format.md`, the documents whose
-Phase A-G pipeline the fix has to reuse — same shape as every prior missing-REST-surface gate
-(`IMP-GATE-31/33/35/37/57/58/59`), this time one layer deeper (a missing row-creation step, not a
-missing endpoint document). Second, smaller: this item's *Satisfies* duplicated `FR-PRV-001…004` with
-`IMP-M4-01`, which already claims and actually implements them (catalog-query invisibility,
-room-creation preconditions) — neither is admin-API work, and nothing in `IMP-M4-05`'s own Done-when
-ever exercised them.
+**Code, `turnbase-platform` `4135eda`.** New `admin` package, registered into the management
+(actuator) child context via `AdminManagementContextConfiguration`
+(`@ManagementContextConfiguration(ManagementContextType.CHILD)`, discovered through the
+`ManagementContextConfiguration.imports` SPI): `AdminGameController`/`AdminReviewController`/
+`AdminUploadController` against `AdminGameService`/`AdminReviewService`/`AdminGameRepository`
+(direct SQL against `game`/`game_version`/`game_review`), `AdminBasicAuthInterceptor` (hand-rolled
+HTTP Basic against `AdminProperties`' configured credentials, constant-time comparison, writes its own
+`401` directly with `WWW-Authenticate` rather than going through `GlobalExceptionHandler`), and
+`AdminAuditLogger` (structured JSON log line per mutating action, `NFR-AUD-001`). `POST /admin/games`
+creates the game row; the admin-scoped upload-slot/confirm routes reuse `upload`'s existing Phase A-G
+pipeline verbatim and resolve `bundle-format.md` stage E4's "arrived on the admin path" half by which
+listener served the request (`AdminUploadController` vs. the public `VersionUploadController` — no
+other signal is shared between the two surfaces). Approve sets `Verified` and publishes; reject stores
+a plain-text reason without deleting the game or transferring ownership.
 
-**Fixed** on `turnbase` `master` (branch `docs/imp-gate-63-admin-rest-api`, merged `--ff-only` and
-deleted, both locally and on the remote, same session): new
-`docs/specs/api-design/admin-rest-api.md` — `POST /admin/games` (the missing game-row creation,
-scoped deliberately to the one path the MVP needs: admin's own official upload, per `ADR-0006`; the
-community path, FR-GAME-001 proper, stays deferred and is `IMP-M4-01`'s gap to close when community
-uploads open) plus an admin-scoped mirror of `file-uploads.md`'s upload-slot/confirm/get routes
-(identical request/response shapes, reused Phase A-G pipeline), the review-queue endpoints
-(list-pending/detail/approve/reject), and a resolution for `bundle-format.md` stage E4's
-"arrived on the admin path" half that `IMP-M4-03`'s own session note left open: satisfied by which
-listener served the request, since no other signal (session, token, header) is shared between the
-public and admin surfaces. `rest-conventions.md` § *Base Path* now carves out the admin listener's
-`/admin/` namespace (it shares no port with the public API, so it shares no namespace rule either);
-`admin-tooling.md` gained a *Related API Specifications* section; `docs/specs/api-design/INDEX.md`
-registered the new file. `IMP-M4-05`'s own read-list, *Satisfies* (drops `FR-PRV-001…004`) and *Done
-when* updated to match. `python3 scripts/check-corpus.py` clean.
+**Bug 1 — `NoUniqueBeanDefinitionException` at child-context startup, found and fixed before any test
+ran green.** `TurnBaseApplication`'s default `@ComponentScan` independently discovered every
+stereotype-annotated class under `admin` (registered under Spring's default decapitalized bean name),
+*and* discovered `AdminManagementContextConfiguration` itself (a `@Configuration` class, since
+`@ManagementContextConfiguration` is meta-annotated `@Configuration`) whose own `@Import` list
+registered the identical classes again under their FQCN — two bean definitions per admin bean, visible
+together in the child context's bean-factory hierarchy. Fixed: `TurnBaseApplication` gained an explicit
+`@ComponentScan(excludeFilters = ...)` excluding `io.turnbase.platform.admin.*` from the main scan,
+leaving `AdminManagementContextConfiguration`'s `@Import` as admin's one registration path.
+`@ConfigurationPropertiesScan` is a separate mechanism this filter doesn't touch, so `AdminProperties`
+(no stereotype annotation) still binds in the parent context, exactly as the child needs it to.
 
-**`IMP-M4-05` is back to `READY` — code is next session's work, none was written this session.** Its
-scope is now fully specified: `POST /admin/games`, the three admin-scoped upload routes, and the four
-review-queue routes, all against `admin-rest-api.md` directly rather than reconstructed from
-`admin-tooling.md` prose.
+**Bug 2 — every correctly-Basic-authenticated `/admin/**` request still `401`ed, found by the new
+integration suite once bug 1 stopped masking it.** `session.SessionAuthenticationInterceptor` and the
+four interceptors `common.PlatformWebMvcConfig` registers (`GameOriginRoutingInterceptor`,
+`OriginCheckInterceptor`, `RequestSizeInterceptor`, `RateLimitInterceptor`) are all registered with no
+path restriction — `/**` by Spring MVC's default. Spring's `@Autowired List<WebMvcConfigurer>`
+resolution searches the full bean-factory hierarchy, not just the local context, so these
+main-context beans were also being collected by the admin child context's own MVC configuration and
+applied to `/admin/**` — `SessionAuthenticationInterceptor` rejected every admin request for lacking a
+session cookie, ahead of and regardless of `AdminBasicAuthInterceptor`'s own (correct) check.
+Confirmed, not assumed: the `401` body's `detail` was `"Authentication is required for this
+endpoint."` — `SessionAuthenticationInterceptor`'s own message, distinct from
+`AdminBasicAuthInterceptor`'s `"Missing or invalid admin credentials."` Fixed: `excludePathPatterns
+("/admin/**")` added to all five registrations. This is the correct fix independent of the bleed
+mechanism too — the operator surface is a separate listener authenticated only by HTTP Basic; none of
+session auth, browser-CSRF origin checks, the public request-size gate, or the public rate limiter
+apply to it.
+
+**Verified.** New `AdminApiControllerIT` (9 integration tests, real Postgres/MinIO/Redis): missing/
+wrong credentials `401`, correct credentials succeed, admin routes absent (`404`) on the main port,
+official-upload-to-`ACTIVE` with no review row, approve sets `Verified`/publishes/notifies, reject
+stores the reason and leaves ownership/badge alone, a blank rejection reason is a `422`, every
+mutating action produces an audit-log record. `./mvnw verify` (217 tests) and `./mvnw verify
+-Pintegration` (210 tests) both green locally, zero regressions. CI green on `turnbase-platform
+master` (run `35526331547`, `build` job `24m15s`) — pushed directly (no PR, ADR-0012), branch
+`feat/imp-m4-05-admin-api` merged `--ff-only` and deleted, both locally and on the remote (`git push
+origin :feat/imp-m4-05-admin-api` — plain `--delete` was denied by this session's sandbox, same as
+several prior sessions', but the refspec form was not). Submodule ref bumped to `4135eda`.
 
 ---
 
@@ -729,16 +743,11 @@ continue into them.
 ---
 ## Next Priorities
 
-**`IMP-M4-05` (admin API, review queue and badges) is `READY`, fully specified, no code yet —
-the natural next pick.** See *Last Session Summary*: `IMP-GATE-63` closed with
-`docs/specs/api-design/admin-rest-api.md` supplying every endpoint shape, including the
-previously-undefined `POST /admin/games` game-row-creation step. Build to that document directly.
-
-**`IMP-M3-05` (orchestration client and session registry) is *not* actually startable, despite what
-this file said last session.** Its dependency `IMP-M3-04` (gRPC service implementation,
-`turnbase-game-host`) is `READY` in the register table, not `DONE` — confirmed by reading the table
-directly this session, not carried over from prose. Do not pick it up until `IMP-M3-04` (and its own
-chain: `M3-03` off `M3-01, M3-02`) is actually `DONE`.
+**`IMP-M4-05` is now `DONE` — 39 of 61.** See *Last Session Summary*. `IMP-M3-05` (orchestration
+client and session registry) remains the one item this repo's M3/M4 work has been converging on but
+still cannot start: its dependency `IMP-M3-04` (gRPC service implementation, `turnbase-game-host`) is
+`READY` in the register table, not `DONE` — check the table directly before picking it up, prose in
+this file has been wrong about this before (session 58).
 
 Independently `READY` with all dependencies actually confirmed `DONE`: `IMP-M4-01` (catalog listing,
 off `IMP-M1-01`), `IMP-M3-01`/`IMP-M3-02` (GDK backend API surface / Espresso context lifecycle — no
@@ -746,12 +755,12 @@ other item needed first), `IMP-M6-01` (Astryx integration, off `IMP-M0-05`). `IM
 history) needs `IMP-M3-09`, still `READY` — not a valid pick yet either.
 
 **Still outstanding, not gated to any item — the `e2e` CI job's `NOAUTH HELLO must be called with
-the client already authenticated` Redis-auth failure.** Confirmed identical, by reading the actual
-job log, on this session's own CI run (`35462118529`) — third session in a row to hit the exact same
-cause since it was first diagnosed in session 56. Still nobody has picked it up: the fix is likely a
-missing `SPRING_DATA_REDIS_PASSWORD` in the e2e compose profile's platform service env, or a Redis
-image default-auth mismatch. Non-gating (`platform-operations.md` OQ-002) but three sessions of the
-identical unfixed cause is worth someone's dedicated turn rather than a fourth confirmation.
+the client already authenticated` Redis-auth failure.** Last confirmed identical on session 57's CI
+run (`35462118529`) — three sessions in a row hit the exact same cause since it was first diagnosed
+in session 56, and it was not re-checked this session (this session's own admin-API work never
+touched `e2e`). The fix is likely a missing `SPRING_DATA_REDIS_PASSWORD` in the e2e compose profile's
+platform service env, or a Redis image default-auth mismatch. Non-gating (`platform-operations.md`
+OQ-002) but worth someone's dedicated turn rather than a further confirmation.
 
 **`IMP-GATE-62` is closed — `IMP-M4-04` is `READY` again, narrowed.** See *Last Session Summary*.
 Its scope is now just the `Host`-routing filter and `GET /g/{gameId}/{version}/**`, buildable off
