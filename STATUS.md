@@ -1,5 +1,55 @@
 ## Last Session Summary
 
+**Date:** 2026-09-22 (session 64)
+
+**`IMP-M3-01` is now `DONE` — 41 of 61.** GDK backend API surface, picked up as an independently-ready
+item (deps: `IMP-M0-02`, `DONE`) rather than continuing session 62/63's stuck attempts at `IMP-M0-12`
+(seed data), which two consecutive sessions had already spent opening and closing spec-defect gates on
+without landing code. Read the full read-list (`backend-gdk-api.md` in full, `game-development-
+experience.md` FR-GDK-001…016, `game-contracts.md`, ADR-0006) end to end before writing anything; no
+spec-defect gate was needed — the one apparent tension (FR-LOG-002's richer log color annotations vs.
+`backend-gdk-api.md` §6 deferring them) is an already-cross-referenced deferral (`backend-gdk-api.md`'s
+own §13 OQ-003 cites `game-contracts.md` OQ-001), not a new contradiction.
+
+**Code, `turnbase-sdk` `2c2ed0b`** (branch `feat/imp-m3-01-gdk-backend-api-surface`, merged
+`--ff-only`, deleted locally; remote branch delete was denied by the session's permission gate — see
+below). Implements the full Java type surface from `backend-gdk-api.md` §§3–8: the `TurnBaseGame<S>`
+lifecycle interface (`onInit`/`onAction`/default `onPlayerJoined`/`onPlayerLeft`/`onResync`), context
+types (`InitContext`, `ActionContext`, `PlayerJoinedContext`, `PlayerLeftContext`, `PlayerLeftReason`,
+`ResyncContext`, `ViewerRole`), model types (`Player`, `Team`, `GameParameters`, `GameOutcome` with
+nested `TeamResult`/`PlayerResult` and a `Builder`, `ParameterAccessException`), the sealed `Effect`
+hierarchy (`BroadcastEffect`/`SendToPlayerEffect`/`SendToTeamEffect`/`LogEffect`/`GameOverEffect`) with
+its `Effects` factory, and the four result types (`InitResult`/`ActionResult`/`PlayerJoinedResult`/
+`PlayerLeftResult`, each with a builder) plus `ViewResult`. All five pre-existing `package-info.java`
+files (from `IMP-M0-02`) were updated from placeholder "empty until IMP-M3-01" text to real
+`{@link}`s. §9's determinism contract is stated directly in `TurnBaseGame`'s own Javadoc, not only in
+the spec, per the item's own *Done when* clause.
+
+**Verified.** `EffectsTest`, `GameOutcomeTest`, `ActionResultTest`/`InitResultTest`/
+`PlayerJoinedResultTest`/`PlayerLeftResultTest`/`ViewResultTest` cover every factory/builder;
+`GuessingGameExampleTest` implements §11's worked example verbatim (a real `TurnBaseGame` plus
+test-double contexts) and proves determinism (`onInit` called twice with the same seed produces equal
+state), wrong/right-guess branching, the separate FE-payload/structured-outcome channels on
+`gameOver`, and that `onResync` never leaks hidden state. `./mvnw spotless:apply` reformatted several
+hand-written files (long record headers, Javadoc wrapping) before `./mvnw verify` (unit tests,
+Checkstyle, Error Prone/NullAway, JaCoCo merge-check) and `./mvnw verify -Pintegration` both went
+green. One compile error caught locally before either ran: an anonymous `PlayerLeftContext`'s
+overridden `player()` shadowed the test's own `player(String)` helper from inside its own body —
+fixed by capturing the `Player` in an outer local instead of calling the shadowed name from within the
+override.
+
+**One deviation from the session checklist, flagged rather than absorbed silently:** the remote
+feature branch (`feat/imp-m3-01-gdk-backend-api-surface`) could not be deleted — the harness's
+permission gate denied `git push origin --delete ...` with no prompt to appeal to in a non-interactive
+run, and re-attempting the identical command against an explicit denial is not the right response. The
+branch is otherwise fully spent: fast-forward-merged into `master`, local copy deleted, and it points
+at the exact commit `master` already carries, so nothing is unmerged or at risk — it is just a stale
+ref sitting on the remote. Worth a manual `git push origin --delete
+feat/imp-m3-01-gdk-backend-api-surface` from an interactive session that can accept the permission
+prompt.
+
+---
+
 **Date:** 2026-09-22 (session 63)
 
 **No item completed — `IMP-GATE-66` opened and closed on `IMP-M0-12` before any code.** Picked up
@@ -840,6 +890,20 @@ continue into them.
 
 ---
 ## Next Priorities
+
+**`IMP-M3-01` is `DONE` — 41 of 61.** See *Last Session Summary*. `IMP-M0-12` (seed data) is still the
+most-recommended next pick — un-gated since `IMP-GATE-66` closed two sessions ago — and can now
+optionally use the real `io.turnbase.gdk.TurnBaseGame` interface instead of `TestBundles.java`'s
+hand-compiled stub, though no *Done when* clause requires that switch. Its unresolved design question
+is unchanged: `SocialService`/`NotificationService` are package-private, so the seeder's path into
+them (real REST surface over `WebClient`, vs. a narrow new public entry point per feature) still needs
+a deliberate decision before its `ApplicationRunner` is written. `IMP-M3-11` (GDK test harness) is now
+`READY` for the first time — its only dependency, `IMP-M3-01`, is `DONE`.
+
+A stale remote branch `feat/imp-m3-01-gdk-backend-api-surface` on `turnbase-sdk`'s origin needs a
+manual `git push origin --delete` — the session's permission gate blocked the automated delete (see
+*Last Session Summary*). It is already fully merged into `master`; deleting it is cleanup, not a
+blocker.
 
 **`IMP-M0-12` (seed data) is `READY`, un-gated, and is the natural next pick.** See *Last Session
 Summary* — `IMP-GATE-66` closed this session, `local-environment.md` §6 now excludes all three
