@@ -3418,9 +3418,42 @@ create → join → start → several turns → outcome → history round trip p
 
 **Satisfies:** `game-development-experience.md` FR-HARNESS-001…008, FR-HARNESS-010
 
-**Done when:** the harness performs the **executing** round trip. `game-development-experience.md`
-NFR-UPLOAD-002 forbids running game code at upload, so static serializability is checked at upload
-and the executing round trip belongs here (FR-HARNESS-010).
+**Closed:** IMP-GATE-67 (opened and closed 2026-09-22) — this item's own *Done when* clause checked
+only the executing round trip (FR-HARNESS-010), while its own *Satisfies* claimed the full harness
+(FR-HARNESS-001…008) — the CLI launcher, the two-origin browser bootstrap, the mock
+Orchestration/WebSocket bridge, bundle-validator reuse before launch, multi-player simulation, log
+rendering and team/parameter configuration `test-harness.md` describes at length — none of which
+exists anywhere in `turnbase-sdk` yet and which no other registry item claims. Fixed by rewriting
+*Done when* below to cover every Must-priority FR-HARNESS clause *Satisfies* already claimed, not just
+FR-HARNESS-010. FR-HARNESS-008 (hot reload, "Could") is left out of *Done when* deliberately — it
+stays in *Satisfies* as aspirational per its own priority, matching how other items treat "Could"
+rows.
+
+**Done when:**
+1. `mvn io.turnbase:turnbase-harness:run`, invoked from a game project directory containing a manifest
+   and bundle, launches a local environment with no Docker, Redis or database (FR-HARNESS-001,
+   FR-HARNESS-006).
+2. Before launch, the shared bundle validator (the same artifact `bundle-format.md` gives the upload
+   pipeline) runs against the project's manifest and bundle; a fatal finding stops the launch, a
+   warning prints and the launch continues (FR-HARNESS-002).
+3. The harness serves the game FE (`frontend.entryPoint`) at `http://game.localhost:{port}` and its own
+   shell at `http://localhost:{port}`, populating `window.__TURNBASE__` before the game's JS runs
+   (`test-harness.md` §3).
+4. Two or more browser tabs connect as distinct simulated players through an in-process mock
+   Orchestration that speaks `game-contracts.md`'s real WebSocket protocol — session, roster, teams,
+   sequence allocation, effect fan-out with the spectator-broadcast-only rule (FR-HARNESS-001,
+   FR-HARNESS-003).
+5. Team assignment and game parameters are configurable before a session starts — the roster synthesized
+   from the manifest's `teamTemplates` at the `count.min` × `size.max` shape, parameters overridable via
+   `harness.json` (FR-HARNESS-007).
+6. A CLI flag or debug-panel action delivers a mock `action`, `player_joined`, or `player_left` (with a
+   selectable `reason`) to a chosen player without opening a browser tab for them, and can force a
+   `resync` (FR-HARNESS-005).
+7. The game log renders with the platform's Markdown configuration (FR-HARNESS-004).
+8. After `onInit` and after every action, the harness runs the executing serialization round trip
+   (serialize, deserialize, compare) using the same `ObjectMapper` configuration as the GDK Host;
+   `strictSerialization: true` (the default) fails the run on a mismatch, `false` warns and continues
+   (FR-HARNESS-010).
 
 ---
 

@@ -1,5 +1,43 @@
 ## Last Session Summary
 
+**Date:** 2026-09-22 (session 65)
+
+**No item completed — `IMP-GATE-67` opened and closed on `IMP-M3-11` before any code.** Picked up
+`IMP-M3-11` (GDK test harness, `READY` off `IMP-M3-01`, `DONE` as of session 64) per session 64's own
+recommendation — its only dependency had just landed. Reading its read-list end to end
+(`docs/specs/gdk-api/test-harness.md` in full, `game-development-experience.md` FR-HARNESS-001…008/010,
+NFR-UPLOAD-002) before writing anything found a scope mismatch between the item's own *Satisfies* and
+its *Done when*.
+
+*Satisfies* claimed the full FR-HARNESS-001…008 set — the CLI launcher (`mvn
+io.turnbase:turnbase-harness:run`), the two-origin browser bootstrap, the in-process mock
+Orchestration/WebSocket bridge, bundle-validator reuse before launch, multi-player simulation via
+browser tabs/debug panel/CLI/scenario file, game-log rendering, and team/parameter configuration —
+everything `test-harness.md`'s §§2-8 describe at length. But the item's one *Done when* clause checked
+only FR-HARNESS-010 (the executing serialization round trip). No harness code exists anywhere in
+`turnbase-sdk` yet (confirmed by reading the repo, not assumed — a search for anything named
+`*harness*` in the checkout turns up nothing), and no other registry item claims FR-HARNESS-001…008
+either, so this wasn't a double-claim like prior gates — it was a genuinely unclaimed gap between what
+the item says it builds and what its own acceptance clause checks. Same shape as `IMP-GATE-64`/`62`,
+but this time the fix expands *Done when* to match *Satisfies* rather than narrowing *Satisfies* to
+match an already-built neighbor, since nothing else in the corpus owns this scope.
+
+**Fixed** on `turnbase` `master` (branch `docs/imp-gate-67-m3-11-done-when-scope`, merged `--ff-only`
+and deleted, both locally and on the remote, same session): `IMP-M3-11`'s *Done when* rewritten to
+eight checkable clauses covering every Must-priority FR-HARNESS requirement — CLI launch with no
+Docker/Redis/DB, pre-launch shared-validator run, two-origin bootstrap, multi-tab mock-Orchestration
+multiplayer, team/parameter configuration, CLI/debug-panel mock actions without a browser per player,
+Markdown log rendering, and the executing round trip after `onInit` and every action. FR-HARNESS-008
+(hot reload, "Could" priority) stays in *Satisfies* but deliberately out of *Done when*, matching how
+other items already treat "Could" rows. `python3 scripts/check-corpus.py` clean.
+
+**`IMP-M3-11` is back to `READY` — no code was written this session.** Its read-list is unchanged and
+was sufficient; the gate was entirely about the acceptance clause, not a missing document. Whoever
+picks it up next builds the actual CLI/JVM harness module against the now-complete eight-clause
+*Done when*.
+
+---
+
 **Date:** 2026-09-22 (session 64)
 
 **`IMP-M3-01` is now `DONE` — 41 of 61.** GDK backend API surface, picked up as an independently-ready
@@ -890,6 +928,23 @@ continue into them.
 
 ---
 ## Next Priorities
+
+**`IMP-M3-11` (GDK test harness) is `READY` again, scope now fully specified — 41 of 61 unchanged.**
+See *Last Session Summary*: `IMP-GATE-67` closed this session, and `IMP-M3-11`'s *Done when* now
+covers the whole FR-HARNESS-001…008/010 surface, not just the round trip. It's a genuinely large item
+— a CLI launcher, a mock Orchestration/WebSocket bridge, two-origin browser serving, bundle-validator
+reuse, multi-player simulation, log rendering — plan for it accordingly rather than as a small pickup.
+
+**`IMP-M0-12` (seed data) remains the other un-gated `READY` item**, and its unresolved design
+question is unchanged from session 64's note: `SocialService`/`NotificationService` are
+package-private, so the seeder's path into them (real REST surface over `WebClient`, vs. a narrow new
+public entry point per feature) needs a deliberate decision before its `ApplicationRunner` is written.
+Two prior sessions (62, 63) already got stuck there without landing code — resolve that question
+explicitly before writing code, not mid-implementation.
+
+Other independently `READY` picks, unchanged from session 64's note: `IMP-M3-02` (Espresso context
+lifecycle, `turnbase-game-host`, off `M0-04`), `IMP-M6-01` (Astryx integration, `turnbase-frontend`,
+off `M0-05`).
 
 **`IMP-M3-01` is `DONE` — 41 of 61.** See *Last Session Summary*. `IMP-M0-12` (seed data) is still the
 most-recommended next pick — un-gated since `IMP-GATE-66` closed two sessions ago — and can now
