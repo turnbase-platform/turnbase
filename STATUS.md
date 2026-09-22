@@ -1,5 +1,51 @@
 ## Last Session Summary
 
+**Date:** 2026-09-22 (session 67)
+
+**`IMP-M6-01` is now `DONE` — 42 of 61.** Astryx integration and the `ui/` boundary, picked up per
+session 66's own recommendation now that `IMP-GATE-68` had closed and `design-system.md` §5 fully
+specified `no-raw-color`/`no-raw-spacing`. No spec defect this session — the read-list
+(`design-system.md`, `0013-astryx-design-system.md`, `platform-ui-library.md`) was sufficient.
+
+**Code, `turnbase-frontend` `66cc19e`.** `src/ui/index.ts` added as the sole entry point into
+`src/ui/` (near-empty, `export {}`, per §4 — Astryx components are imported directly from
+`@astryxdesign/core/<Component>`, no wrapper layer). Chose `@eslint/css@2.0.0` (official ESLint
+CSS-language plugin) as the CSS-parsing mechanism session 66 left open — confirmed available on the
+npm registry and sufficient for both rule authoring and `RuleTester`-based tests. Three new local
+ESLint rules in `eslint-rules/`: `no-raw-color-css` (flags `Hash` hex literals and
+`rgb()`/`rgba()`/`hsl()`/`hsla()`/`oklch()` `Function` nodes anywhere in a CSS `Declaration`'s value
+tree, not descending into a matched function's own arguments), `no-raw-spacing-css` (flags `px`/`rem`
+`Dimension` nodes on `padding`/`margin`/`gap`/`row-gap`/`column-gap`/`inset`-family properties,
+including vendor-prefixed and logical/directional longhands), and `no-raw-color-tsx` (regex-based,
+flags hex/`rgb()`/`hsl()`/`oklch()` literals in string/template literals). None carry a path
+allow-list, matching §5's Done-when requirement.
+
+**One real bug found and fixed before any lint run succeeded:** wiring `@eslint/css`'s
+`files: ["**/*.css"]` block into `eslint.config.js` made every pre-existing unscoped JS/TS config
+block (from `js.configs.recommended`, `tseslint.configs.strictTypeChecked`/`stylisticTypeChecked`,
+`reactHooks`, `reactRefresh`, the custom `no-restricted-imports` block) apply to CSS files too — flat
+config's "no `files` pattern = applies everywhere" rule — crashing `no-irregular-whitespace` on
+`sourceCode.getAllComments is not a function` against the CSS-language `sourceCode`. Fixed by wrapping
+the JS/TS-oriented config in an explicit `{ files: ["**/*.{ts,tsx}"], extends: [...] }` block
+(`tseslint.config()`'s documented support for nested `extends`, verified by reading its source),
+scoping it away from the new CSS block.
+
+**Verified.** 34 new `RuleTester` cases (`no-raw-color-css.test.js`/`no-raw-spacing-css.test.js`/
+`no-raw-color-tsx.test.js`, run via `vitest` thanks to `globals: true`) cover valid `var()` usage,
+named colors (out of scope), non-governed properties using px/rem, percentages, and invalid
+hex/rgb/hsl/oklch, nested `color-mix()`, `calc()`, vendor-prefixed and logical spacing properties. All
+7 Done-when clauses checked directly: `src/ui/` exists and is near-empty; no `--tb-*` custom property
+anywhere (`grep -rn -- '--tb-' src/` empty); both import-boundary `no-restricted-imports` rules
+confirmed firing correctly; `no-raw-color`/`no-raw-spacing` confirmed firing against a deliberately bad
+temp file and passing clean against the real `src/index.css`; the remaining three clauses (CSS
+Modules/token-consumption, swizzle-comment, WCAG-contrast) are vacuously true — no components exist in
+`src/ui/` yet beyond `index.ts`. `npm run format`, `npm run lint`, `npm run typecheck`, `npm run test`
+(35 tests, 100% coverage on the trivial new file), and `npm run build` all green locally. CI green on
+`turnbase-frontend master` (run `35770882607` — build, container/Trivy scan, GHCR push all passed).
+Submodule ref bumped to `66cc19e`.
+
+---
+
 **Date:** 2026-09-22 (session 66)
 
 **No item completed — `IMP-GATE-68` opened and closed on `IMP-M6-01` before any code.** Picked up
@@ -970,15 +1016,11 @@ continue into them.
 ---
 ## Next Priorities
 
-**`IMP-M6-01` (Astryx integration, `turnbase-frontend`) is `READY` again, scope now fully specified —
-41 of 61 unchanged.** See *Last Session Summary*: `IMP-GATE-68` closed this session, and
-`design-system.md` §5 now defines `no-raw-color`/`no-raw-spacing` completely (what each forbids, no
-allow-list). Remaining work is genuinely small — `src/ui/index.ts`, two local ESLint rules — the
-import-boundary rules and the package installs/pins are already done (`IMP-M0-05`). Whoever picks it
-up decides and records the CSS-parsing mechanism for the two rules (`@eslint/css` is one live option,
-confirmed on the npm registry, but nothing mandates it).
+**`IMP-M6-01` is `DONE` — 42 of 61.** See *Last Session Summary*. Astryx integration and the `ui/`
+boundary are complete; `src/ui/` stays near-empty until a future item composes or swizzles a real
+component into it.
 
-Other independently `READY` picks, unchanged from session 64/65's notes: `IMP-M0-12` (seed data,
+Independently `READY` picks, unchanged from session 64/65's notes: `IMP-M0-12` (seed data,
 `turnbase-platform`, off `M0-06`/`M4-03` — unresolved `SocialService`/`NotificationService`
 package-private question, two prior sessions stuck here, resolve it explicitly before code),
 `IMP-M3-02` (Espresso context lifecycle, `turnbase-game-host`, off `M0-04`), `IMP-M3-11` (GDK test
