@@ -89,7 +89,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M5-03 | Notifications and the SSE stream | platform | M1-06, M1-07 | DONE |
 | IMP-M5-04 | Retention purge jobs | platform | M5-01, M5-03 | READY |
 | **M6 — Platform frontend** ||||
-| IMP-M6-01 | Astryx integration and the `ui/` boundary | frontend | M0-05 | WIP (session 66) |
+| IMP-M6-01 | Astryx integration and the `ui/` boundary | frontend | M0-05 | BLOCKED |
 | IMP-M6-02 | Shell, routing and auth tiers | frontend | M6-01 | READY |
 | IMP-M6-03 | Account and profile views | frontend | M6-02, M1-07 | READY |
 | IMP-M6-04 | Room views and the STOMP client | frontend | M6-02, M2-08 | READY |
@@ -3968,6 +3968,17 @@ document is retained as a record of a deferred feature and implements nothing.
 ### IMP-M6-01 — Astryx integration and the `ui/` boundary
 
 **Repo:** `turnbase-frontend` · **Depends on:** IMP-M0-05
+
+**Gate:** IMP-GATE-68 — this item's own Done-when clause 4 requires `no-raw-color` and
+`no-raw-spacing` ESLint rules "with no path allow-list," but `design-system.md` (the item's own
+read-list, in full) never defines what either rule checks — the pre-Astryx version of that document
+did (a table: hex/`rgb()`/`hsl()`/`oklch()` literals in `.css`/`.tsx` for the first, `px`/`rem` on
+`padding`/`margin`/`gap`/`inset` for the second, plus a now-obsolete `tokens.css` allow-list for the
+first only), but the ADR-0013 rewrite dropped the table entirely without replacing it, and §9's
+traceability table now maps the whole `FR-TOK-001…008` range to "Astryx" — wrong for `FR-TOK-008`
+specifically, which is about raw values in *our* code, not Astryx's token supply, and is exactly what
+the pre-rewrite table enforced. Opened 2026-09-22. Fix belongs in
+`docs/specs/platform-frontend/design-system.md`.
 
 **Read first:**
 - `docs/decisions/0013-astryx-design-system.md` — why the library is Astryx
