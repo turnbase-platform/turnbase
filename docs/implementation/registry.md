@@ -1029,6 +1029,26 @@ because a pipeline that blocks on every advisory stops being run
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M0-06, IMP-M4-03
 
+**Closed:** IMP-GATE-66 (opened and closed 2026-09-22) — `local-environment.md` §6's `Notifications`
+row (as left by IMP-GATE-65) still required seeding one `GAME_APPROVED` and one `GAME_REJECTED`
+notification, both of which `AdminReviewService.approve`/`reject` can only produce by deciding a
+pre-existing open `game_review` row — and nothing in this repository ever inserts one.
+`admin-rest-api.md` §4 states it directly: "no `game_review` row is ever written by this pipeline for
+any badge (nothing in it writes one today)"; §7 states it again: "`POST
+/admin/games/{gameId}/approve`/`reject` consume a `game_review` row this document never produces."
+The row would come from FR-PRV-004 (`admin-tooling.md`, "Must"), the game owner's submit-for-review
+action — confirmed unclaimed by any registry item (verified by reading `AdminGameRepository`, whose
+own Javadoc calls `insertGame()` "the one row-creation mechanism [`admin-rest-api.md`] supplies," and
+it only inserts a `game` row) and disclaimed in `admin-rest-api.md` §7 itself ("No submission
+endpoint... belongs with whichever item builds it"). Same shape as `IMP-GATE-65`: the seed table asked
+for something the corpus has no real pipeline to produce, and §6's own rule ("the seeder drives the
+real upload pipeline; it does not write rows and objects by hand") forbids inserting a `game_review`
+row directly to manufacture the two notifications. Fixed in `local-environment.md` §6: the
+`Notifications` row now excludes `ROOM_INVITATION`, `GAME_APPROVED` and `GAME_REJECTED` by name, with
+the `game_review`/FR-PRV-004 reasoning inline; the remaining five types are enough for the center to
+not be empty on first login. `GAME_APPROVED`/`GAME_REJECTED` seeding is left for whichever item builds
+FR-PRV-004 and the review queue it feeds.
+
 **Closed:** IMP-GATE-65 (opened and closed 2026-09-22) — `local-environment.md` §6's own seed table
 contradicted itself: its `Notifications` row required "one of each type in §3" including
 `ROOM_INVITATION`, whose subject (`notification.invitation_id`) references a `room_invitation` row,

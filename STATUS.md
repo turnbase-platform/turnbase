@@ -1,45 +1,50 @@
 ## Last Session Summary
 
-**Date:** 2026-09-22 (session 62)
+**Date:** 2026-09-22 (session 63)
 
-**No item completed — `IMP-GATE-65` opened and closed on `IMP-M0-12` before any code.** Picked up
-`IMP-M0-12` (seed data, `READY` off `IMP-M0-06, IMP-M4-03`, both `DONE`) per session 55's own note that
-it had become unblocked. Reading its two-document read-list (`local-environment.md` §6,
-`bundle-format.md` §3) surfaced a self-contradiction inside §6's own seed table, before any code was
-written.
+**No item completed — `IMP-GATE-66` opened and closed on `IMP-M0-12` before any code.** Picked up
+`IMP-M0-12` (seed data, `READY` off `IMP-M0-06, IMP-M4-03`, both `DONE`) per session 62's own
+recommendation, now that `IMP-GATE-65` had left it self-consistent. Reading the read-list end to end
+before writing any code (`local-environment.md` §6, `bundle-format.md` §3, plus following the
+"drives the real pipeline" rule into `admin-rest-api.md` and the actual `upload`/`admin` source to
+confirm what pipeline exists) surfaced a second problem in the same `Notifications` row `IMP-GATE-65`
+had just fixed.
 
-§6's `Notifications` row requires seeding "one of each type in §3 of
-`data-model-notifications.md`" — which includes `ROOM_INVITATION` — but that type's subject
-(`notification.invitation_id`) references a `room_invitation` row, and `room_invitation.room_id` is a
-`NOT NULL` foreign key to `room` (confirmed by reading `V202608091200__baseline.sql` directly, not
-assumed). The same table's own `Rooms` row is "None," by deliberate design (a seeded `LOBBY` room
-would be reclaimed by the idle sweep 30 minutes later, "which reads in the logs like a defect"). A
-`CLOSED` room built solely to host the invitation doesn't resolve it either: `room_invitation` rows are
-deleted at closure (`data-model-notifications.md` §6, FR-INV-008), so a closed room with a still-live
-pending invitation is state the running system can never produce through its own code — seeding it
-directly would be fabricated, not representative, data. Same shape as prior gates that found a
-document contradicting itself rather than two documents disagreeing.
+§6 still requires seeding one `GAME_APPROVED` and one `GAME_REJECTED` notification (two of the eight
+types in `data-model-notifications.md` §3). Both can only be produced by
+`AdminReviewService.approve`/`reject` deciding a pre-existing open `game_review` row — and nothing in
+this repository ever inserts one. Confirmed by reading the code, not assumed: `AdminGameRepository
+.insertGame()`'s own Javadoc calls itself "the one row-creation mechanism `admin-rest-api.md`
+supplies," and it only inserts a `game` row; `admin-rest-api.md` §4 and §7 both say directly that no
+`game_review` row is ever written by any pipeline in this document. The row would come from
+FR-PRV-004 (`admin-tooling.md`, "Must" — the game owner's submit-for-review action), which
+`admin-rest-api.md` §7 explicitly disclaims building and which session 61 had already flagged as
+unclaimed by any registry item. Same shape as `IMP-GATE-65`: the seed table asks for something the
+corpus has no real pipeline to produce, and §6's own rule ("the seeder drives the real upload
+pipeline; it does not write rows and objects by hand") forbids hand-inserting a `game_review` row to
+manufacture the two notifications instead.
 
-**Fixed** on `turnbase` `master` (branch `docs/imp-gate-65-m0-12-seed-room-invitation`, merged
+**Fixed** on `turnbase` `master` (branch `docs/imp-gate-66-m0-12-review-notifications`, merged
 `--ff-only` and deleted, both locally and on the remote, same session): `local-environment.md` §6's
-`Notifications` row now excludes `ROOM_INVITATION` by name, with the FK-chain and closure-invariant
-reasoning inline, and notes the other seven types in §3 already satisfy "the center is not empty on
-first login." `python3 scripts/check-corpus.py` clean.
+`Notifications` row now excludes `ROOM_INVITATION`, `GAME_APPROVED` and `GAME_REJECTED` by name, with
+the `game_review`/FR-PRV-004 reasoning inline; the remaining five types are enough for the center to
+not be empty on first login. `python3 scripts/check-corpus.py` clean.
 
 **`IMP-M0-12` is back to `READY` — no code was written this session.** Its read-list and *Done when*
 are otherwise unchanged: the seeder still has to drive the real upload/validation pipeline
 (`bundle-format.md` §3) for at least one official game, seed `alice`/`bob`/`carol`/`dave` with the
-friendship/pending-request shape, and seed one notification of each of the seven remaining §3 types.
-While confirming this item was buildable at all, found (not gated — no document conflict, just a fact
-worth recording) that no real `io.turnbase.gdk.TurnBaseGame` interface exists anywhere yet
-(`IMP-M3-01`, GDK backend API surface, is still `READY`) — but that doesn't block this item:
-`turnbase-platform/src/test/java/.../upload/TestBundles.java` already establishes, for `IMP-M4-03`'s
-own integration tests, that the Phase F backend-artifact checks are purely structural (ASM bytecode
-analysis against the fully-qualified name `io/turnbase/gdk/TurnBaseGame`, not a real compile-time
-dependency on the SDK artifact) — so the seed's official-game bundle can reuse that exact same
-hand-compiled-stub approach for a genuine, pipeline-validated bundle without waiting on `IMP-M3-01` or
-`IMP-M3-10` (the first official game, a separate sixth repo, still gated on the unbuilt Game Host
-bridge). Next session's actual work is the `ApplicationRunner` itself.
+friendship/pending-request shape, and seed one notification of each of the five remaining §3 types
+(`FRIEND_REQUEST`, `FRIEND_REQUEST_ACCEPTED`, `FRIEND_REQUEST_DECLINED`, `FRIEND_ADDED`,
+`BUNDLE_VALIDATION_COMPLETE`) — all five are producible through real account/social/upload flows,
+unlike the two now excluded. Session 62's own finding still holds: the seed's official-game bundle can
+reuse `TestBundles.java`'s hand-compiled-`io.turnbase.gdk.TurnBaseGame`-stub approach without waiting
+on `IMP-M3-01`/`IMP-M3-10`. **Worth flagging for whoever picks this up next:** `SocialService` and
+`SocialRepository` are package-private (no `public` modifier), same as `NotificationService` — the
+seeder cannot call them directly from a `seed` package without either widening a Modulith boundary or
+routing the friendship/notification-producing steps through the real HTTP surface (self-directed
+`WebClient` calls against the running app, the same way the bundle upload has to go through
+request-slot → PUT → confirm → poll, per §6's own "drives the real pipeline" framing) — not yet
+resolved, and worth deciding deliberately rather than discovering mid-implementation next session.
 
 ---
 
@@ -837,11 +842,23 @@ continue into them.
 ## Next Priorities
 
 **`IMP-M0-12` (seed data) is `READY`, un-gated, and is the natural next pick.** See *Last Session
-Summary* — `IMP-GATE-65` closed this session, `local-environment.md` §6 is now internally consistent,
-and code is all that remains. The bundle-fixture approach `IMP-M4-03`'s own `TestBundles.java` already
-uses (a hand-compiled stub `io.turnbase.gdk.TurnBaseGame` interface + a trivial implementer, since
-Phase F's checks are structural bytecode analysis, not a real SDK dependency) is directly reusable for
-the seed's official-game bundle — no need to wait on `IMP-M3-01` or `IMP-M3-10`.
+Summary* — `IMP-GATE-66` closed this session, `local-environment.md` §6 now excludes all three
+notification types (`ROOM_INVITATION`, `GAME_APPROVED`, `GAME_REJECTED`) that the real system cannot
+yet produce, and code is all that remains. The bundle-fixture approach `IMP-M4-03`'s own
+`TestBundles.java` already uses (a hand-compiled stub `io.turnbase.gdk.TurnBaseGame` interface + a
+trivial implementer, since Phase F's checks are structural bytecode analysis, not a real SDK
+dependency) is directly reusable for the seed's official-game bundle — no need to wait on `IMP-M3-01`
+or `IMP-M3-10`. **Before writing the `ApplicationRunner`, resolve how it reaches `social`/`notification`
+at all** — `SocialService` and `NotificationService` are package-private, so either the seeder drives
+the real REST surface over `WebClient` against the running app (consistent with §6's "drives the real
+pipeline" framing, and with how the bundle upload already has to work: slot → PUT → confirm → poll),
+or a narrow public seeding entry point gets added to each feature deliberately, as a real design
+decision rather than a boundary worked around in passing.
+
+**`FR-PRV-004` (the game owner's submit-for-review action) is still unclaimed by any item in the
+registry** — flagged again this session while diagnosing `IMP-GATE-66`; `IMP-M0-12`'s two now-excluded
+notification types (`GAME_APPROVED`/`GAME_REJECTED`) will need it before they can ever be seeded.
+Worth assigning to an existing catalog/admin item or opening a small new one.
 
 **`IMP-M4-01` is `DONE` — 40 of 61.** See prior session's summary. `IMP-M3-05` (orchestration
 client and session registry) remains the one item this repo's M3/M4 work has been converging on but
