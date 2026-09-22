@@ -1,5 +1,46 @@
 ## Last Session Summary
 
+**Date:** 2026-09-22 (session 66)
+
+**No item completed — `IMP-GATE-68` opened and closed on `IMP-M6-01` before any code.** Picked up
+`IMP-M6-01` (Astryx integration and the `ui/` boundary, `READY` off `IMP-M0-05`, `DONE`) — a
+well-contained item per ADR-0013 ("an integration, not a construction"), not one of the two items
+flagged as stuck (`IMP-M0-12`'s package-private-service question) or oversized (`IMP-M3-11`'s
+full-harness scope) in session 65's notes. Reading its read-list in full (`design-system.md`,
+`0013-astryx-design-system.md`, `platform-ui-library.md`) before writing any code found Done-when
+clause 4 requires `no-raw-color` and `no-raw-spacing` ESLint rules "with no path allow-list," but the
+current `design-system.md` — rewritten wholesale by ADR-0013 — never defines what either rule checks.
+It only exists in the pre-Astryx version of the same document (`git show 028bd92:...`), which is not
+part of the live corpus or this item's read-list: a table of hex/`rgb()`/`hsl()`/`oklch()` literals in
+`.css`/`.tsx` for the color rule, `px`/`rem` on `padding`/`margin`/`gap`/`inset` for the spacing rule,
+plus a now-obsolete `tokens.css` allow-list for the color rule only. Confirmed no third-party plugin
+fills the gap either — no `@astryxdesign/eslint-plugin` exists on the npm registry (checked directly,
+not assumed) — and §9's own traceability table compounded the error by mapping the whole
+`FR-TOK-001…008` range to "Astryx," which is wrong for `FR-TOK-008` specifically: that requirement is
+about raw values in *our* code, not Astryx's token supply, and is exactly what the dropped table used
+to enforce.
+
+**Fixed** on `turnbase` `master` (branch `docs/imp-gate-68-m6-01-raw-lint-enforcement`, merged
+`--ff-only` and deleted locally; never pushed, so no remote branch to delete), pushed directly to
+`origin/master` after the `pre-push` corpus/proto/manifest checks passed: `design-system.md` §5 gained
+an *Enforcement (FR-TOK-008)* subsection carrying `no-raw-color`/`no-raw-spacing` forward from the
+pre-Astryx design with no allow-list (the one legitimate reason for one — the token file itself — no
+longer exists); the pre-Astryx design's third rule, `no-raw-font-size`, is deliberately dropped rather
+than carried forward, since typography is now fully Astryx-owned and this item's own Done-when never
+named it. §9's traceability table now splits `FR-TOK-001…007` (Astryx) from `FR-TOK-008` (ours, §5).
+`python3 scripts/check-corpus.py` clean.
+
+**`IMP-M6-01` is back to `READY` — no code was written this session.** Its read-list is unchanged and
+was sufficient once `design-system.md` itself carried the missing definition; the gate was entirely
+about a dropped enforcement mechanism, not a missing document. Whoever picks it up next builds
+`src/ui/index.ts` and the two new local ESLint rules against the now-complete §5 spec — `@eslint/css`
+(official ESLint CSS language support, confirmed available on the npm registry at `2.0.0`) is one
+credible mechanism for a CSS-aware `no-raw-color`/`no-raw-spacing` rule, but the item's Done-when does
+not mandate a specific package and none is named in this corpus, so that choice is the next session's
+to make and record, not this one's to pre-decide.
+
+---
+
 **Date:** 2026-09-22 (session 65)
 
 **No item completed — `IMP-GATE-67` opened and closed on `IMP-M3-11` before any code.** Picked up
@@ -928,6 +969,24 @@ continue into them.
 
 ---
 ## Next Priorities
+
+**`IMP-M6-01` (Astryx integration, `turnbase-frontend`) is `READY` again, scope now fully specified —
+41 of 61 unchanged.** See *Last Session Summary*: `IMP-GATE-68` closed this session, and
+`design-system.md` §5 now defines `no-raw-color`/`no-raw-spacing` completely (what each forbids, no
+allow-list). Remaining work is genuinely small — `src/ui/index.ts`, two local ESLint rules — the
+import-boundary rules and the package installs/pins are already done (`IMP-M0-05`). Whoever picks it
+up decides and records the CSS-parsing mechanism for the two rules (`@eslint/css` is one live option,
+confirmed on the npm registry, but nothing mandates it).
+
+Other independently `READY` picks, unchanged from session 64/65's notes: `IMP-M0-12` (seed data,
+`turnbase-platform`, off `M0-06`/`M4-03` — unresolved `SocialService`/`NotificationService`
+package-private question, two prior sessions stuck here, resolve it explicitly before code),
+`IMP-M3-02` (Espresso context lifecycle, `turnbase-game-host`, off `M0-04`), `IMP-M3-11` (GDK test
+harness, `turnbase-sdk`, off `M3-01` — large, plan as a multi-part build: CLI launcher, mock
+Orchestration/WebSocket bridge, two-origin browser serving, bundle-validator reuse, multi-player
+simulation, log rendering).
+
+---
 
 **`IMP-M3-11` (GDK test harness) is `READY` again, scope now fully specified — 41 of 61 unchanged.**
 See *Last Session Summary*: `IMP-GATE-67` closed this session, and `IMP-M3-11`'s *Done when* now
