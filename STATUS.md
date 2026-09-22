@@ -1,5 +1,48 @@
 ## Last Session Summary
 
+**Date:** 2026-09-22 (session 62)
+
+**No item completed — `IMP-GATE-65` opened and closed on `IMP-M0-12` before any code.** Picked up
+`IMP-M0-12` (seed data, `READY` off `IMP-M0-06, IMP-M4-03`, both `DONE`) per session 55's own note that
+it had become unblocked. Reading its two-document read-list (`local-environment.md` §6,
+`bundle-format.md` §3) surfaced a self-contradiction inside §6's own seed table, before any code was
+written.
+
+§6's `Notifications` row requires seeding "one of each type in §3 of
+`data-model-notifications.md`" — which includes `ROOM_INVITATION` — but that type's subject
+(`notification.invitation_id`) references a `room_invitation` row, and `room_invitation.room_id` is a
+`NOT NULL` foreign key to `room` (confirmed by reading `V202608091200__baseline.sql` directly, not
+assumed). The same table's own `Rooms` row is "None," by deliberate design (a seeded `LOBBY` room
+would be reclaimed by the idle sweep 30 minutes later, "which reads in the logs like a defect"). A
+`CLOSED` room built solely to host the invitation doesn't resolve it either: `room_invitation` rows are
+deleted at closure (`data-model-notifications.md` §6, FR-INV-008), so a closed room with a still-live
+pending invitation is state the running system can never produce through its own code — seeding it
+directly would be fabricated, not representative, data. Same shape as prior gates that found a
+document contradicting itself rather than two documents disagreeing.
+
+**Fixed** on `turnbase` `master` (branch `docs/imp-gate-65-m0-12-seed-room-invitation`, merged
+`--ff-only` and deleted, both locally and on the remote, same session): `local-environment.md` §6's
+`Notifications` row now excludes `ROOM_INVITATION` by name, with the FK-chain and closure-invariant
+reasoning inline, and notes the other seven types in §3 already satisfy "the center is not empty on
+first login." `python3 scripts/check-corpus.py` clean.
+
+**`IMP-M0-12` is back to `READY` — no code was written this session.** Its read-list and *Done when*
+are otherwise unchanged: the seeder still has to drive the real upload/validation pipeline
+(`bundle-format.md` §3) for at least one official game, seed `alice`/`bob`/`carol`/`dave` with the
+friendship/pending-request shape, and seed one notification of each of the seven remaining §3 types.
+While confirming this item was buildable at all, found (not gated — no document conflict, just a fact
+worth recording) that no real `io.turnbase.gdk.TurnBaseGame` interface exists anywhere yet
+(`IMP-M3-01`, GDK backend API surface, is still `READY`) — but that doesn't block this item:
+`turnbase-platform/src/test/java/.../upload/TestBundles.java` already establishes, for `IMP-M4-03`'s
+own integration tests, that the Phase F backend-artifact checks are purely structural (ASM bytecode
+analysis against the fully-qualified name `io/turnbase/gdk/TurnBaseGame`, not a real compile-time
+dependency on the SDK artifact) — so the seed's official-game bundle can reuse that exact same
+hand-compiled-stub approach for a genuine, pipeline-validated bundle without waiting on `IMP-M3-01` or
+`IMP-M3-10` (the first official game, a separate sixth repo, still gated on the unbuilt Game Host
+bridge). Next session's actual work is the `ApplicationRunner` itself.
+
+---
+
 **Date:** 2026-09-20 (session 61)
 
 **`IMP-M4-01` is now `DONE` — 40 of 61.** Catalog listing and game detail, picked up per session 60's
@@ -793,7 +836,14 @@ continue into them.
 ---
 ## Next Priorities
 
-**`IMP-M4-01` is now `DONE` — 40 of 61.** See *Last Session Summary*. `IMP-M3-05` (orchestration
+**`IMP-M0-12` (seed data) is `READY`, un-gated, and is the natural next pick.** See *Last Session
+Summary* — `IMP-GATE-65` closed this session, `local-environment.md` §6 is now internally consistent,
+and code is all that remains. The bundle-fixture approach `IMP-M4-03`'s own `TestBundles.java` already
+uses (a hand-compiled stub `io.turnbase.gdk.TurnBaseGame` interface + a trivial implementer, since
+Phase F's checks are structural bytecode analysis, not a real SDK dependency) is directly reusable for
+the seed's official-game bundle — no need to wait on `IMP-M3-01` or `IMP-M3-10`.
+
+**`IMP-M4-01` is `DONE` — 40 of 61.** See prior session's summary. `IMP-M3-05` (orchestration
 client and session registry) remains the one item this repo's M3/M4 work has been converging on but
 still cannot start: its dependency `IMP-M3-04` (gRPC service implementation, `turnbase-game-host`) is
 `READY` in the register table, not `DONE` — check the table directly before picking it up, prose in

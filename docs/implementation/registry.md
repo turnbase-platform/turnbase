@@ -1029,6 +1029,16 @@ because a pipeline that blocks on every advisory stops being run
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M0-06, IMP-M4-03
 
+**Closed:** IMP-GATE-65 (opened and closed 2026-09-22) — `local-environment.md` §6's own seed table
+contradicted itself: its `Notifications` row required "one of each type in §3" including
+`ROOM_INVITATION`, whose subject (`notification.invitation_id`) references a `room_invitation` row,
+and `room_invitation.room_id` is a `NOT NULL` FK to `room` — but the same table's `Rooms` row is
+"None." A `CLOSED` room built to hold the invitation doesn't resolve it either: `room_invitation` rows
+are deleted at closure (FR-INV-008), so that combination can't occur through the running system's own
+code paths and would be fabricated state. Fixed in `local-environment.md` §6: the `Notifications` row
+now excludes `ROOM_INVITATION` by name, with the reasoning inline; the other seven types in §3 already
+populate the center on first login.
+
 **Read first:**
 - `docs/specs/deployment/local-environment.md` §6
 - `docs/specs/manifest/bundle-format.md` §3 — the pipeline the seed must go through

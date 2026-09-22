@@ -338,7 +338,7 @@ without tripping a migration checksum.
 | Users | `alice`, `bob`, `carol`, `dave` — password `password`; `alice`↔`bob` friends, `carol`→`alice` request pending |
 | Games | The official games, `badge = 'OFFICIAL'`, `owner_user_id = NULL`, one `ACTIVE` version each with a real bundle in MinIO |
 | Rooms | None. A room is cheap to create through the UI, and a seeded room in `LOBBY` would be collected by the idle sweep 30 minutes later, which reads in the logs like a defect |
-| Notifications | One of each type in §3 of [`../platform/data-model-notifications.md`](../platform/data-model-notifications.md), so the center is not empty on first login |
+| Notifications | One of each type in §3 of [`../platform/data-model-notifications.md`](../platform/data-model-notifications.md) **except `ROOM_INVITATION`** — its subject is a `room_invitation` row, and `room_invitation.room_id` is a `NOT NULL` foreign key to `room`, which the row above deliberately seeds none of. Manufacturing one anyway would need either a live `LOBBY` room (the exact idle-sweep outcome the row above avoids) or a `CLOSED` one carrying a still-pending invitation, a combination the running system can never produce itself — `room_invitation` rows are deleted at closure (`data-model-notifications.md` §6, FR-INV-008). The other seven types are enough for the center to not be empty on first login |
 
 ```bash
 make reset-db     # drop schema, re-migrate, re-seed
