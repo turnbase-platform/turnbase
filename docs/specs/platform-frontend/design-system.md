@@ -193,6 +193,31 @@ list to code against.
 
 There is no `--tb-*` prefix any more. Nothing in the platform defines a parallel token scale.
 
+### Enforcement (FR-TOK-008)
+
+Astryx supplies the tokens; nothing stops our own code from bypassing them with a literal. Two
+ESLint rules close that gap, carried forward from the pre-Astryx design with one change: the
+`tokens.css` path allow-list is gone, because there is no token definition file left to exempt.
+
+| Rule | Forbids | Escape |
+|---|---|---|
+| `no-raw-color` | Any hex, `rgb()`, `hsl()`, `oklch()` color literal in a `.css` or `.tsx` file | none |
+| `no-raw-spacing` | A `px`/`rem` length on `padding`, `margin`, `gap`, or `inset` in a `.css` file | none |
+
+**Neither has an escape hatch.** An allow-list is used the first time the rule is inconvenient, which
+is the first time it is doing its job — and the one legitimate reason for one (the token file itself
+needing raw values) no longer exists.
+
+Both are local rules — no third-party package defines them. No `@astryxdesign/eslint-plugin` or
+equivalent exists (checked against the npm registry, not assumed); NFR-DX-004's "the library ships an
+ESLint plugin" is Astryx's own inventory obligation for *its* tokens and components, not a substitute
+for policing raw values in *ours*.
+
+The pre-Astryx design also enforced a third rule, `no-raw-font-size`. That one is dropped, not carried
+forward: typography (`FR-TOK-002`) is fully Astryx-owned now, or comes from a rung-3 component's own
+props against `--spacing-*`/type tokens — there is no first-party surface left where our code sets a
+raw `font-size`.
+
 ---
 
 ## 6. What remains ours
@@ -284,7 +309,8 @@ platform code — the obligation is to *use* it, not to rebuild it.
 
 | Requirement | Realized by |
 |---|---|
-| FR-TOK-001…008 | **Astryx** — theme tokens; §5 names the families and points at `astryx docs tokens` |
+| FR-TOK-001…007 | **Astryx** — theme tokens; §5 names the families and points at `astryx docs tokens` |
+| FR-TOK-008 (raw-value ban) | §5 *Enforcement* — `no-raw-color`/`no-raw-spacing`, our own lint rules, not Astryx's supply |
 | FR-COMP-001…009, 011…014 | **Astryx** — 150+ components; §7 is the lookup path |
 | FR-COMP-010 (`className`) | **Astryx** — supported on components; §5 append-not-substitute |
 | FR-LYT-001…003 | **Astryx** — `Stack`, `Layout` and the layout primitives |
