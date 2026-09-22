@@ -3159,6 +3159,9 @@ game developer reads it.
 - `docs/decisions/0005-game-sandbox-espresso-spike.md`
 - `docs/reviews/2026-07-02-mvp-readiness/espresso-spike-results.md`
 - `docs/requirements/platform-architecture.md` FR-CTX-001…012, FR-LOAD-001…005
+- `docs/specs/deployment/local-environment.md` §7.8 (Game Host config), §7.9 (artifact-store
+  endpoint/bucket keys, shared with the monolith) — added: the artifact-fetch half of §7 needs the
+  same `turnbase.artifact-store.*` keys the monolith already binds, and §7.8 alone does not carry them.
 
 **Satisfies:** `platform-architecture.md` FR-CTX-001…012, FR-LOAD-001…005
 
