@@ -66,7 +66,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-12 | Room invitations | platform | M2-01, M1-09 | DONE |
 | **M3 — Game execution** ||||
 | IMP-M3-01 | GDK backend API surface | sdk | M0-02 | DONE |
-| IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | READY |
+| IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | WIP (session 68) |
 | IMP-M3-03 | GDK host bridge and serialization boundary | game-host | M3-01, M3-02 | READY |
 | IMP-M3-04 | gRPC service implementation | game-host | M3-03 | READY |
 | IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | READY |
