@@ -66,7 +66,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M2-12 | Room invitations | platform | M2-01, M1-09 | DONE |
 | **M3 — Game execution** ||||
 | IMP-M3-01 | GDK backend API surface | sdk | M0-02 | DONE |
-| IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | WIP (session 68) |
+| IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | DONE |
 | IMP-M3-03 | GDK host bridge and serialization boundary | game-host | M3-01, M3-02 | READY |
 | IMP-M3-04 | gRPC service implementation | game-host | M3-03 | READY |
 | IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | READY |
@@ -3169,6 +3169,14 @@ game developer reads it.
 that a test exercises — the table is a checklist, and an unexercised row is an assumption; a context
 is created and disposed per §6's model with no leak across sessions; the guest classpath built per §7
 contains the game JAR and the SDK and nothing else.
+
+**Scope note (session 68/69):** FR-CTX-004/005/007 (no filesystem, no network, per-context memory cap)
+are container-owned per §4.1's own framing — no deployment-manifest work item yet exists to provision
+a container, so they are not exercised here; that is a gap in a later item, not in this one.
+FR-CTX-009/010 (idle and memory-pressure eviction) are host-owned and implemented in
+`GameContextManager`. FR-CTX-012 (polyglot extensibility) is "design" status per §4's table and needed
+no code. "The SDK" on the guest classpath is the configured `sdkJarPath` placeholder — the real guest
+bridge jar carrying the GDK API classes is IMP-M3-03's deliverable (§3.2).
 
 ---
 

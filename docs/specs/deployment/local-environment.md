@@ -508,6 +508,9 @@ asserts the difference at startup and refuses to boot if it does not hold.
 | `turnbase.gamehost.grpc.max-message-size` | `32MB` | `TURNBASE_GAMEHOST_GRPC_MAX_MESSAGE_SIZE` | protocol doc |
 | `turnbase.gamehost.guest-java-home` | `/opt/graalvm-guest-jdk21` | `TURNBASE_GAMEHOST_GUEST_JAVA_HOME` | game-host-internals §15 |
 | `turnbase.gamehost.orchestration-address` | `platform:8080` | `TURNBASE_GAMEHOST_ORCHESTRATION_ADDRESS` | IMP-GATE-09 |
+| `turnbase.gamehost.sdk-jar-path` | `/opt/turnbase/guest-bridge.jar` | `TURNBASE_GAMEHOST_SDK_JAR_PATH` | game-host-internals §4.2 |
+| `turnbase.gamehost.artifact-cache-dir` | `/var/lib/turnbase/game-host/artifact-cache` | `TURNBASE_GAMEHOST_ARTIFACT_CACHE_DIR` | FR-LOAD-003 |
+| `turnbase.gamehost.artifact-cache-size-limit` | `512MB` | `TURNBASE_GAMEHOST_ARTIFACT_CACHE_SIZE_LIMIT` | FR-LOAD-004 |
 
 The heartbeat interval and lease TTL are **not** configured on the Game Host: they are handed to it
 in `RegisterResponse`, so the monolith owns both sides of the liveness contract and they cannot be
