@@ -1029,6 +1029,15 @@ because a pipeline that blocks on every advisory stops being run
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M0-06, IMP-M4-03
 
+**Closed:** IMP-GATE-72 (opened and closed 2026-09-26) — `local-environment.md` §6 still required one
+`BUNDLE_VALIDATION_COMPLETE` notification, which goes to an uploader the v1 system cannot have (only the
+admin listener uploads — ADR-0006 — and it has no user), and which no code produces; the same shape as
+`IMP-GATE-65`/`66`. It also left open how the seeder reaches `SocialService`/`NotificationService`, which
+are package-private and which earlier sessions stalled on. Fixed in §6: the type is excluded by name;
+the remaining four are specified as one story; and the "real pipeline" rule is stated to govern games
+only — users, the friendship, the request and the notifications are direct idempotent SQL against fixed
+UUIDs (passwords hashed by the app's own `PasswordEncoder`), so no feature needs a seeding entry point.
+
 **Closed:** IMP-GATE-71 (opened and closed 2026-09-26) — the *Done when* ("an official game that can
 actually be started") cannot be met by this item: the only real game is `IMP-M3-10`'s, which this item
 does not depend on and which itself waits on `IMP-M3-03`; and no document said where the seeder gets
@@ -1078,7 +1087,7 @@ populate the center on first login.
 **Satisfies:** — *(developer experience; `local-environment.md` §6 is the only source)*
 
 **Done when:** (narrowed by IMP-GATE-71) under the `local`/`e2e` profiles a start seeds the §6 users,
-the `alice`↔`bob` friendship, `carol`'s pending request and the five in-scope notification types; and
+the `alice`↔`bob` friendship, `carol`'s pending request and the four in-scope notification types (`IMP-GATE-72`); and
 every `<gameId>.zip` in `turnbase.seed.bundles-dir` is driven through the real upload pipeline — an
 integration test with a fixture bundle asserts the game is listed, its version is `ACTIVE`, and
 `/g/{gameId}/{version}/<frontend entry point>` serves `200` (the unpack really happened); a second run
