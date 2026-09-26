@@ -1,26 +1,36 @@
 ## Last Session Summary
 
-**Date:** 2026-09-26 (session 71)
+**Date:** 2026-09-26 (session 73)
 
-**No work item completed — 43 of 61 unchanged. One spec defect found, fixed and closed: `IMP-GATE-70`.**
-Session 71 claimed `IMP-M3-03` again and, before writing code, checked how its second half would get
-green: `turnbase-game-host` has no dependency on `turnbase-sdk` today, `IMP-GATE-69` made it depend on
-`turnbase-sdk` and the new `turnbase-serialization`, and `conventions.md` §5's CI bootstrap window
-covered `turnbase-common` only. `turnbase-sdk` is private and untagged (nothing on GitHub Packages),
-and `TURNBASE_COMMON_PAT` is scoped to `turnbase-common`, so the Game Host's CI would fail at a clone
-step no document describes. *Done when* requires a green pipeline, so it was unsatisfiable as written.
+**`IMP-M0-12` (seed data) is `DONE` — 44 of 61. One spec defect found, fixed and closed: `IMP-GATE-73`.**
+Session 72 built and merged `IMP-M0-12` (`turnbase-platform` `f789407`), then spent its last hour
+polling CI run `36252029924`, whose `Verify` step never finished. That run was the investigation's
+starting point. MinIO's `quay.io/minio/*` repositories (where `IMP-GATE-52` had moved the pins) no
+longer serve anonymous pulls, so upstream publishes no public MinIO image at all. Every
+`PostgresIntegrationTest` subclass spent about 7 minutes retrying the pull before failing, and the job
+has no `timeout-minutes`, so the run would have taken about 3 hours. Local builds hid it because the
+old image was cached. Nothing in `IMP-M0-12`'s code was at fault: the full `-Pintegration` suite
+passed locally on `f789407`.
 
-**Fix (`conventions.md` §5, new paragraph):** the window extends to `turnbase-sdk` — one root
-`./mvnw install -DskipTests` in that repo must install both artifacts, the consumer gets a second
-bootstrap step, and a new fine-grained read-only PAT **`TURNBASE_SDK_PAT`** on `turnbase-game-host`.
-`registry.md` `IMP-M3-03` gained the `Closed:` line and is `READY` again. `check-corpus.py` clean.
-No code written; no submodule touched; no branch outlives the session.
+**Fix (`local-environment.md` §1, §5):** MinIO now comes from the `pgsty` community fork —
+`pgsty/minio:RELEASE.2026-08-04T00-00-00Z` and `pgsty/mc:RELEASE.2026-09-16T00-00-00Z`. They have
+the same base image, entrypoint and variables, and MinIO is dev/test-only because production uses S3.
+Applied in `turnbase-platform` `34f020e` (compose, Helm, both Testcontainers pins) and
+`turnbase-game-host` `7bbeee9` (`S3ArtifactStoreIT`). Verified: the MinIO-backed ITs in both repos
+passed locally, a compose `minio` + `minio-init` bring-up created the private bucket, and CI was green
+on both repos (platform `36260709084` `build`; game-host `36260710568`). `e2e` failed on the
+pre-existing `compose-platform-1` exit only — MinIO came up healthy in it. Submodule refs bumped.
+`check-corpus.py` clean. No branch outlives the session.
 
 ---
+
 ## Next Priorities
 
-**`IMP-GATE-73` is open on `IMP-M0-12`:** MinIO's `quay.io` images no longer serve anonymous pulls, so
-every integration-test run in CI fails. Fix belongs in `local-environment.md` §1.
+**`IMP-M0-12` is `DONE` — 44 of 61; `IMP-GATE-73` (MinIO image source) is closed.** See *Last Session
+Summary*. Two follow-ups, neither gated: (1) CI's `Verify` jobs have no `timeout-minutes`, so a
+Testcontainers pull failure retries silently for hours instead of failing fast. Add one (about 40 min;
+healthy runs take about 25) in `turnbase-platform` and `turnbase-game-host`. (2) The `pgsty` fork is a
+community build: if it ever disappears too, `local-environment.md` §1 is where the next source is named.
 
 **Human action needed before `IMP-M3-03`'s game-host half can merge:** create a fine-grained PAT
 (read-only on Contents, scoped to `turnbase-sdk` only) and store it as `TURNBASE_SDK_PAT` on
@@ -29,8 +39,7 @@ starting: build the `turnbase-sdk` half first (root reactor so one `./mvnw insta
 `turnbase-sdk` + `turnbase-serialization`; publish workflow must cover both), merge and push it green,
 then do the game-host half locally and merge it only once `gh secret list -R
 turnbase-platform/turnbase-game-host` shows the secret and the workflow's new bootstrap step exists.
-Other independently `READY` picks that need no human step: `IMP-M0-12`, `IMP-M3-11` (the latter now
-also depends on `IMP-M3-03`, so not startable until that is `DONE`).
+`IMP-M3-11` now also depends on `IMP-M3-03`, so it cannot start until that is `DONE`.
 
 
 **`IMP-M3-03` is `READY` again after `IMP-GATE-69`** — start it in `turnbase-sdk` (the

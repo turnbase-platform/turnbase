@@ -39,7 +39,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M0-09 | Configuration and secrets wiring | platform, game-host | M0-03, M0-04 | DONE |
 | IMP-M0-10 | Observability baseline | platform, game-host | M0-03, M0-04 | DONE |
 | IMP-M0-11 | CI/CD workflows | all | M0-01…05 | DONE |
-| IMP-M0-12 | Seed data | platform | M0-06, M4-03 | BLOCKED |
+| IMP-M0-12 | Seed data | platform | M0-06, M4-03 | DONE |
 | **M1 — Accounts and sessions** ||||
 | IMP-M1-01 | Error model, REST conventions, validation harness | platform | M0-03 | DONE |
 | IMP-M1-02 | Rate limiter (Tiers 1–5) | platform | M1-01 | DONE |
@@ -1029,9 +1029,20 @@ because a pipeline that blocks on every advisory stops being run
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M0-06, IMP-M4-03
 
-**Gate:** IMP-GATE-73 — `local-environment.md` §1 pins MinIO to `quay.io/minio/minio` and `quay.io/minio/mc`, which
-no longer serve anonymous pulls, so every Testcontainers MinIO start and every fresh `docker compose up` fails.
-Opened 2026-09-26. Fix belongs in `local-environment.md`.
+**Closed:** IMP-GATE-73 (opened and closed 2026-09-26, session 73, found when this item's CI run
+`36252029924` sat in `Verify` for over two hours) — `local-environment.md` §1 pinned MinIO to
+`quay.io/minio/minio` and `quay.io/minio/mc`, the registry `IMP-GATE-52` moved to. Both repositories
+have since stopped serving anonymous pulls (`unauthorized`; `docker manifest inspect` reports no such
+manifest for any tag), so upstream publishes no public image at all. Every `PostgresIntegrationTest`
+subclass then spent about 7 minutes retrying the pull before failing in `initializationError`. The run
+never failed because the workflow sets no `timeout-minutes`. Locally the suite passed only because the
+old image was still cached. Fixed in `local-environment.md` §1 (table and a new paragraph) and §5
+(the `minio-init` snippet): MinIO now comes from the `pgsty` community fork, which rebuilds the same
+server and client from source on the same base image, with the same entrypoint and variables.
+`turnbase-platform` (`34f020e`: compose, Helm `values.yaml`, both Testcontainers pins) and
+`turnbase-game-host` (`7bbeee9`: `S3ArtifactStoreIT`) pin `pgsty/minio:RELEASE.2026-08-04T00-00-00Z`
+and `pgsty/mc:RELEASE.2026-09-16T00-00-00Z`. `.asCompatibleSubstituteFor("minio/minio")` stays. No
+`dependabot.yml` names a MinIO image.
 
 **Closed:** IMP-GATE-72 (opened and closed 2026-09-26) — `local-environment.md` §6 still required one
 `BUNDLE_VALIDATION_COMPLETE` notification, which goes to an uploader the v1 system cannot have (only the
@@ -1097,6 +1108,15 @@ integration test with a fixture bundle asserts the game is listed, its version i
 `/g/{gameId}/{version}/<frontend entry point>` serves `200` (the unpack really happened); a second run
 changes nothing and does not fail; an unset directory seeds no games and does not fail. *"Can actually
 be started" is `IMP-M3-10`'s clause, not this one's.*
+
+**Verified.** Code merged to `turnbase-platform master` at `f789407` (session 72). Its own CI run was
+cancelled on `IMP-GATE-73`'s pull failure. The first green `build` containing it is run `36260709084`
+on `34f020e` (the gate's fix). The full `-Pintegration` suite also passed locally on `f789407`
+(231 tests). `SeedDataIT` boots the application under `local` per test on a fresh schema and asserts
+the §6 users, friendship, pending request and four notification types, a fixture bundle driven to
+`ACTIVE` and served from its game origin, a seeded login, a second run changing nothing, an unset
+directory seeding no games, and no seeding outside `local`/`e2e`. `e2e` failed on the pre-existing `compose-platform-1` exit (see
+`STATUS.md`), not on this item.
 
 **The seed must go through the upload and validation pipeline, not around it.** A seed that inserts
 catalog rows directly produces a game that lists and cannot start — the exact outcome §6 says it is

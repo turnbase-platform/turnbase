@@ -24,14 +24,25 @@ operating it is a stated learning goal. The observability set is wired in
 | **Game Host** | `turnbase/game-host` | `9090` gRPC, `8081` management | Redis, MinIO, Platform Monolith (to register) |
 | **PostgreSQL 16** | `postgres:16-alpine` | `5432` | — |
 | **Redis 7** | `redis:7-alpine` | `6379` | — |
-| **MinIO** | `quay.io/minio/minio` (`IMP-GATE-52`) | `9000` S3 API, `9001` console | — |
-| MinIO init (`minio-init`) | `quay.io/minio/mc` (`IMP-GATE-52`) | — | MinIO. Runs to completion, then exits |
+| **MinIO** | `pgsty/minio` (`IMP-GATE-73`) | `9000` S3 API, `9001` console | — |
+| MinIO init (`minio-init`) | `pgsty/mc` (`IMP-GATE-73`) | — | MinIO. Runs to completion, then exits |
 | Prometheus | `prom/prometheus` | `9090` | — |
 | Grafana | `grafana/grafana` | `3000` | Prometheus, Loki, Tempo |
 | Loki | `grafana/loki` | `3100` | — |
 | Tempo | `grafana/tempo` | `4317` OTLP gRPC, `3200` HTTP | — |
 | Promtail | `grafana/promtail` | — | Loki. Tails the container log directory (`observability.md` §3) |
 | Alertmanager | `prom/alertmanager` | `9093` | — |
+
+**MinIO images come from the `pgsty` community fork, not from MinIO** (`IMP-GATE-73`). MinIO stopped
+publishing to Docker Hub (`IMP-GATE-52`), and by 2026-09-26 its `quay.io/minio/*` repositories no
+longer served anonymous pulls either, so upstream publishes no public image at all. `pgsty/minio` and
+`pgsty/mc` rebuild the same server and client from source on the same UBI-micro base, with the same
+entrypoint, `/data` layout and `MINIO_ROOT_*` variables. Every consumer — the compose file, the Helm
+chart and each Testcontainers `MinIOContainer` — pins the same `RELEASE.*` tag. Testcontainers'
+`MinIOContainer` accepts only the name `minio/minio`, so each Java pin declares
+`.asCompatibleSubstituteFor("minio/minio")`. MinIO is a local and test dependency only — production
+uses S3 ([`../api-design/file-uploads.md`](../api-design/file-uploads.md)) — so the fork never reaches a
+production path.
 
 ### Host port map
 
@@ -295,12 +306,12 @@ from the IDE against them, which is what the `local` Spring profile's defaults i
 
 `turnbase.artifact-store.bucket` (§7.9) must exist before the monolith issues its first pre-signed
 URL. It is created by a one-shot `minio/mc` init container that runs to completion before the
-monolith starts — pulled from `quay.io`, not Docker Hub, where MinIO no longer publishes
-(`IMP-GATE-52`):
+monolith starts — the `pgsty` community image, because MinIO no longer publishes one
+(`IMP-GATE-73`, §1):
 
 ```yaml
 minio-init:
-  image: quay.io/minio/mc
+  image: pgsty/mc
   depends_on: { minio: { condition: service_healthy } }
   entrypoint: >
     /bin/sh -c "
