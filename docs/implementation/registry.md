@@ -39,7 +39,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M0-09 | Configuration and secrets wiring | platform, game-host | M0-03, M0-04 | DONE |
 | IMP-M0-10 | Observability baseline | platform, game-host | M0-03, M0-04 | DONE |
 | IMP-M0-11 | CI/CD workflows | all | M0-01…05 | DONE |
-| IMP-M0-12 | Seed data | platform | M0-06, M4-03 | READY |
+| IMP-M0-12 | Seed data | platform | M0-06, M4-03 | WIP (session 72) |
 | **M1 — Accounts and sessions** ||||
 | IMP-M1-01 | Error model, REST conventions, validation harness | platform | M0-03 | DONE |
 | IMP-M1-02 | Rate limiter (Tiers 1–5) | platform | M1-01 | DONE |
