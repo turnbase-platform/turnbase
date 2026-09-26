@@ -67,7 +67,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M3 — Game execution** ||||
 | IMP-M3-01 | GDK backend API surface | sdk | M0-02 | DONE |
 | IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | DONE |
-| IMP-M3-03 | GDK host bridge and serialization boundary | sdk, game-host | M3-01, M3-02 | WIP (session 71) |
+| IMP-M3-03 | GDK host bridge and serialization boundary | sdk, game-host | M3-01, M3-02 | READY |
 | IMP-M3-04 | gRPC service implementation | game-host | M3-03 | READY |
 | IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | READY |
 | IMP-M3-06 | Game input outbox and delivery | platform | M3-05 | READY |
@@ -3194,6 +3194,16 @@ item's *Repo* named only `turnbase-game-host`, which the harness (`turnbase-sdk`
 new `game-host-internals.md` §3.6 — `io.turnbase:turnbase-serialization` is built by `turnbase-sdk`;
 the guest bridge JAR is a second, shaded and unrelocated artifact of `turnbase-game-host`;
 `conventions.md` §5 names the new artifact.
+
+**Closed:** IMP-GATE-70 (opened and closed 2026-09-26) — the item's *Done when* needs `turnbase-game-host`
+to depend on `turnbase-sdk` and `turnbase-serialization` and its pipeline to go green, but `conventions.md`
+§5's bootstrap window covered `turnbase-common` alone: `turnbase-sdk` is private and untagged, so its
+artifacts are nowhere for the Game Host's CI to fetch, and `TURNBASE_COMMON_PAT` cannot read it. Fixed:
+`conventions.md` §5 extends the window to `turnbase-sdk` — one root `./mvnw install` installs both
+artifacts, a second bootstrap step, a new human-provisioned `TURNBASE_SDK_PAT` secret on
+`turnbase-game-host`. **The secret is a human action and does not yet exist**: do the `turnbase-sdk` half
+first and merge it, verify the game-host half locally, and merge that half only once the secret is
+present (`gh secret list -R turnbase-platform/turnbase-game-host` shows it).
 
 **Read first:**
 - `docs/specs/game-host/game-host-internals.md` §3 (the guest bridge and host shim — **including §3.6,

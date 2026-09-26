@@ -1,37 +1,34 @@
 ## Last Session Summary
 
-**Date:** 2026-09-26 (session 70)
+**Date:** 2026-09-26 (session 71)
 
-**No work item completed — 43 of 61 unchanged. One spec defect found, fixed and closed: `IMP-GATE-69`.**
-Session 70 picked up `IMP-M3-03` (GDK host bridge and serialization boundary), claimed it, read its
-read-list, and found the item could not be built as written: `game-host-internals.md` §3.2/§5 say the
-serialization engine is "one module reused by" the guest bridge, the test harness and the upload
-validator, and **no document said which repository builds it**, nor where the guest bridge JAR itself
-is built. The item's *Repo* was `turnbase-game-host` alone, which the harness (`turnbase-sdk`) cannot
-depend on — `turnbase-sdk` may depend on neither `turnbase-common` nor `turnbase-game-host`. `IMP-M4-03`
-had already hit the same hole and hardcoded the capability table in
-`StateSerializabilityAnalyzer` (its own Javadoc says so).
+**No work item completed — 43 of 61 unchanged. One spec defect found, fixed and closed: `IMP-GATE-70`.**
+Session 71 claimed `IMP-M3-03` again and, before writing code, checked how its second half would get
+green: `turnbase-game-host` has no dependency on `turnbase-sdk` today, `IMP-GATE-69` made it depend on
+`turnbase-sdk` and the new `turnbase-serialization`, and `conventions.md` §5's CI bootstrap window
+covered `turnbase-common` only. `turnbase-sdk` is private and untagged (nothing on GitHub Packages),
+and `TURNBASE_COMMON_PAT` is scoped to `turnbase-common`, so the Game Host's CI would fail at a clone
+step no document describes. *Done when* requires a green pipeline, so it was unsatisfiable as written.
 
-**Decision recorded in the spec (owner may overturn — it is an architectural call, made by the agent):**
-new `game-host-internals.md` §3.6.
-- `io.turnbase:turnbase-serialization` (mapper config, round-trip routine, size checks, Jackson-free
-  capability descriptor; package `io.turnbase.serialization`) is built by **`turnbase-sdk`**, as a
-  separate artifact from `io.turnbase:turnbase-sdk` so Jackson never reaches developers' compile
-  classpath.
-- The guest bridge JAR is a **second, shaded, unrelocated artifact of `turnbase-game-host`**
-  (`io.turnbase.gdk.*` + serialization + Jackson + `io.turnbase.gamehost.bridge`); it, not the Spring
-  Boot fat jar, is what `turnbase.gamehost.sdk-jar-path` points at.
-- Rejected homes: `turnbase-common` (SDK may not depend on it), `turnbase-game-host` (harness cannot
-  consume it), inside the public `turnbase-sdk` jar (leaks Jackson into the API).
-
-**Docs changed:** `game-host-internals.md` (§3.6 new, §5 bullet), `conventions.md` §5 (names the new
-artifact), `registry.md` — `IMP-M3-03` now spans `sdk` then `game-host`, read-list gains §3.6, *Done
-when* gains the artifact/jar/Espresso-entrypoint clauses; `IMP-M3-11` gains a dependency on `IMP-M3-03`
-(its clause 8 needs the artifact); `IMP-M4-03` gains a non-gating follow-up note. `check-corpus.py`
-clean. No code written; no submodule touched; no branch created.
+**Fix (`conventions.md` §5, new paragraph):** the window extends to `turnbase-sdk` — one root
+`./mvnw install -DskipTests` in that repo must install both artifacts, the consumer gets a second
+bootstrap step, and a new fine-grained read-only PAT **`TURNBASE_SDK_PAT`** on `turnbase-game-host`.
+`registry.md` `IMP-M3-03` gained the `Closed:` line and is `READY` again. `check-corpus.py` clean.
+No code written; no submodule touched; no branch outlives the session.
 
 ---
 ## Next Priorities
+
+**Human action needed before `IMP-M3-03`'s game-host half can merge:** create a fine-grained PAT
+(read-only on Contents, scoped to `turnbase-sdk` only) and store it as `TURNBASE_SDK_PAT` on
+`turnbase-platform/turnbase-game-host` (`IMP-GATE-70`). An agent cannot do this. It does not block
+starting: build the `turnbase-sdk` half first (root reactor so one `./mvnw install` installs
+`turnbase-sdk` + `turnbase-serialization`; publish workflow must cover both), merge and push it green,
+then do the game-host half locally and merge it only once `gh secret list -R
+turnbase-platform/turnbase-game-host` shows the secret and the workflow's new bootstrap step exists.
+Other independently `READY` picks that need no human step: `IMP-M0-12`, `IMP-M3-11` (the latter now
+also depends on `IMP-M3-03`, so not startable until that is `DONE`).
+
 
 **`IMP-M3-03` is `READY` again after `IMP-GATE-69`** — start it in `turnbase-sdk` (the
 `turnbase-serialization` artifact: publish/install and pin it), then `turnbase-game-host` (bridge

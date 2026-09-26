@@ -341,6 +341,31 @@ the same category as cutting a release tag. Deleted alongside the bootstrap inst
 first real release lands, for the same reason: at that point resolution is an ordinary authenticated
 fetch from GitHub Packages using the workflow's own token, not a second repository's source.
 
+**The same window applies to `turnbase-sdk`, and to `io.turnbase:turnbase-serialization` with it**
+(`IMP-GATE-70`). `turnbase-game-host` first depends on both in `IMP-M3-03`, and nothing in this section
+said how its CI resolves them: `turnbase-sdk` is private, has no tagged release, and publishes only on
+a `v*.*.*` tag (`publish.yml`), so there is nothing on GitHub Packages to fetch. Same mechanism, same
+reasoning as `turnbase-common`:
+
+- `<turnbase-sdk.version>` and `<turnbase-serialization.version>` are properties in the consumer's
+  pom, pinned to `turnbase-sdk`'s current development version (`0.1.0-SNAPSHOT` today) until its first
+  tag exists. Both artifacts are built by `turnbase-sdk` and share one version.
+- `turnbase-sdk` must therefore install **both** artifacts from **one** `./mvnw install -DskipTests` at
+  its repository root. A consumer's CI has one clone-and-install step per producing repository, not one
+  per artifact, and a second command is a second thing to forget when a third artifact
+  (`io.turnbase:turnbase-harness`, `IMP-M3-11`) arrives.
+- The consumer's workflow gains a second bootstrap step beside the `turnbase-common` one, and it needs
+  its **own credential**: `TURNBASE_COMMON_PAT` is scoped to `turnbase-common` only and cannot read
+  another repository. The credential is a **fine-grained PAT, read-only on Contents, scoped to
+  `turnbase-sdk` only**, stored as **`TURNBASE_SDK_PAT`** in `turnbase-game-host`. Creating it is a
+  human action, the same category as cutting a tag; **until it exists, `turnbase-game-host`'s CI fails
+  at the clone step regardless of what the code does**, which reads like a broken build and is not.
+  An agent cannot provision it, so a work item that adds this dependency finishes its `turnbase-sdk`
+  half and verifies the consumer half locally against `./mvnw install`, and leaves the consumer's push
+  unmerged until the secret is present (§4: work that is not green stays off `master`).
+- Both steps, and the secret, are deleted in the same change that bumps the version properties to a
+  release, exactly as for `turnbase-common`.
+
 **The local loop**, when a proto change must be tried against a consumer before it is released:
 
 ```bash
