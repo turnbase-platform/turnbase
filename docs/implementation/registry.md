@@ -4130,8 +4130,19 @@ do not let it land unread in a hand-written file.
 
 **Repo:** `turnbase-frontend` (the shell, and the nginx template that serves it) and
 `turnbase-platform` (the compose service and Helm templates that put the Frontend container on the
-platform origin — `IMP-GATE-74`). Branch per repo; `turnbase-frontend` first, since the platform
-change pins its image. · **Depends on:** IMP-M6-01
+platform origin — `IMP-GATE-74`; and the one-field principal change of `IMP-GATE-75`). Branch per
+repo; `turnbase-frontend` first, since the platform change pins its image. · **Depends on:** IMP-M6-01
+
+**Closed:** IMP-GATE-75 (opened and closed 2026-09-26, session 75, found writing the tier gate) —
+§3's three tiers need to tell a Guest from a Registered user, and `GET /api/auth/session` ("returns
+the current principal") was the only source, but no document said what the principal contains and the
+shipped `PrincipalResponse` was `{userId, username}` — no tier. The alternatives were parsing the
+`guest-` username prefix or an extra `GET /api/users/{username}` per page load. Fixed:
+`rest-conventions.md` § Authentication defines the principal body as `{userId, username, kind}`
+(`REGISTERED` | `GUEST`, the `app_user.kind` literals) for `register`, `login`, `guest`, `session` and
+`complete-registration`; `oauth-rest-api.md` §6 cites it. The platform's `PrincipalResponse` gains
+`kind` as part of this item. The same section now also names the `login`/`register` request bodies,
+which no document gave and which the shell's forms must match.
 
 **Closed:** IMP-GATE-74 (opened and closed 2026-09-26, session 74, found reading this item's
 *Done when*) — the item says "the CSP is emitted by the platform origin", but no document said what
@@ -4165,7 +4176,9 @@ names nginx as the emitter and stops restating the directive. The wiring is this
 **Satisfies:** `platform-views.md` VW-NAV-001…012, VW-REDIR-001…007, VW-LAND-001…004,
 VW-LOGIN-001…004, VW-REG-001…003, VW-OAUTHCOMP-001…002, NFR-USAB-001…002
 
-**Done when:** §3's three auth tiers gate every route, and a route's tier is declared with the route
+**Done when:** (`IMP-GATE-75`) every response carrying the principal — `register`, `login`, `guest`,
+`session`, `complete-registration` — includes `kind`, asserted per endpoint in `turnbase-platform`, and
+the shell takes its tier from it; §3's three auth tiers gate every route, and a route's tier is declared with the route
 rather than checked inside the view; §6's CSP is emitted by the platform origin **without restating
 `frame-src`**, which `game-asset-serving.md` §6.3 owns — two documents specifying one directive is how
 they drift; a mid-session 401 follows the VW-REDIR rules rather than blanking the view; the SSE

@@ -184,7 +184,7 @@ One transaction:
    `provider_subject = sub`), default `user_privacy_settings`. This is the account-creation event
    `rate-limiting.md`'s Tier 5 OAuth line names — increment `rate:mint:register:{ip}` here, on
    success, exactly as `POST /api/auth/register` does. Issue a session, clear the pending cookie,
-   `201` with `Location: /api/users/{username}`.
+   `201` with `Location: /api/users/{username}` and the principal representation (`rest-conventions.md` § Authentication — `kind` is `REGISTERED`) as the body.
 3. **Held by an active account** → create nothing. Instead, write `collisionUserId` onto the pending
    record (still under its original TTL — this does not extend it) and respond so the frontend can
    switch forms without a second round trip through Google:

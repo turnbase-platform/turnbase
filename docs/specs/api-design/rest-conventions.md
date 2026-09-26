@@ -70,6 +70,19 @@ The session lifecycle is four endpoints:
 | `POST /api/auth/logout` | Revokes the current session, clears the cookie, returns `204` (`FR-SESS-011`) |
 | `GET /api/auth/session` | Returns the current principal, or `401`. The frontend's tier check on load |
 
+**Request bodies (`IMP-GATE-75`).** `login` takes `{ "usernameOrEmail", "password" }` (VW-LOGIN-001); `register` takes
+`{ "username", "email", "password", "confirmPassword" }` (VW-REG-001); `guest` and `logout` take none. These are the field
+names `turnbase-platform` shipped in `IMP-M1-04` and the springdoc document (`openapi-documentation.md`) is not yet built, so
+until it is this is the only place a client can read them.
+
+**The principal representation (`IMP-GATE-75`).** `register`, `login`, `guest` and `session` all respond with the same body, and it is what the shell's tier check reads:
+
+```json
+{ "userId": "uuid", "username": "alice", "kind": "REGISTERED" }
+```
+
+`kind` is `REGISTERED` or `GUEST` — the literal values of `app_user.kind` (`data-model-accounts.md` §1). It is a field of the principal rather than something the client infers from a `guest-` username prefix (FR-AUTH-013) or from a second request to `GET /api/users/{username}`: the shell must choose between the Guest and Registered tiers on every page load before it renders anything, and a tier decided by string convention is a decision the server cannot change without breaking every client. `login` always answers `REGISTERED` (guests have no login, FR-GUEST-004) and `guest` always `GUEST`.
+
 **Logout is a `POST`, not a `DELETE`.** It is not the removal of an addressable resource — the caller
 cannot name the session, and must not be able to, since a session identifier in a URL is a
 credential in a URL. `POST` to an action endpoint is the honest shape, and it keeps logout inside the
