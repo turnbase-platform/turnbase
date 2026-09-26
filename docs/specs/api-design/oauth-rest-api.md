@@ -35,7 +35,7 @@ not a JSON request/response pair. The remaining two are ordinary JSON endpoints 
 | Method | Path | Kind | Auth |
 |---|---|---|---|
 | `GET` | `/api/auth/providers` | JSON | Public |
-| `GET` | `/auth/google` | Browser redirect | Public |
+| `GET` | `/auth/google` | Browser redirect | Public (`?intent=link`: a Registered session, §7a) |
 | `GET` | `/auth/callback` | Browser redirect | Public |
 | `GET` | `/api/auth/oauth/pending` | JSON | Pending cookie |
 | `POST` | `/api/auth/oauth/complete-registration` | JSON | Pending cookie |
@@ -98,6 +98,10 @@ response is a `302` to Google's authorization endpoint with the platform's clien
 `redirect_uri` (`http://turnbase.localhost:8080/auth/callback` locally), the requested scopes
 (`openid email`), and `state`.
 
+`GET /auth/google?intent=link` is the settings-page variant (§7a, `IMP-GATE-78`): it requires a live
+`Registered` session and carries the caller's `userId` in `state`; `redirect` is ignored, since the
+destination is always `/settings`.
+
 No rate limit beyond Tier 4 — this endpoint mints nothing and reads nothing about any account; the
 account-creation cost is Tier 5, applied where the account is actually created (§4, §7 note).
 
@@ -136,6 +140,8 @@ Browser-navigated, sent by Google. In order:
    §5) — the secret never reaches the browser at any step in this document.
 3. Resolve identity by `(method = 'GOOGLE', provider_subject = sub)` — **never by email**
    (`data-model-accounts.md` §2, `flows/01-arrival-and-account.md` §E's own emphasis).
+3a. **`state` carries `intent=link`** → §7a's callback branch; steps 4 and 5 do not run and no session
+   is issued.
 4. **Found** → issue a session exactly as `IMP-M1-04`'s `SessionService` does for credential login
    (displace-then-insert), set `turnbase_session`, `302` to `state`'s destination or `/rooms`. No
    pending cookie is ever set on this branch.
@@ -258,6 +264,39 @@ duplicate Tier 1's job with a different key.
 
 ---
 
+## 7a. Linking Google from settings (`IMP-GATE-78`)
+
+`FR-AUTH-010`'s authenticated add-a-method path for `GOOGLE`. It is three requests, and the middle one
+is not optional: `turnbase_session` is `SameSite=Strict`, so the browser **does not send it** on the
+cross-site navigation Google's `302` produces. `/auth/callback` therefore cannot know who is calling,
+and must not act on `state`'s `userId` alone — an attacker could start the flow as themselves and
+walk a victim through Google's consent screen, binding the *victim's* Google identity to the
+attacker's account. The last hop is made by the frontend over a same-site request, which does carry
+the session, and that is where ownership is checked.
+
+1. **Initiate** — `GET /auth/google?intent=link` (§3). No live session, or a guest's → `302
+   /login?redirect=/settings`.
+2. **Callback** — §4 steps 1–3, then, with `state.intent = link`: if `(GOOGLE, sub)` is already held by
+   **any** account, including the caller's own → `302 /settings?linkError=1` (one flag for both, so
+   the response does not disclose whether the identity belongs to someone else). Otherwise store
+   `oauth:link:{token}` = `{userId, sub}` in Redis with TTL
+   `turnbase.auth.oauth.pending-registration-ttl` (no new property — the window is the same "user
+   walked away from the tab"), set the cookie `turnbase_oauth_link` (`{token}` only; same flags,
+   `Max-Age` and reasoning as §2's), and `302 /settings?linkGoogle=1`. **No session is issued and none
+   is read.**
+3. **Confirm** — `POST /api/users/me/auth-methods/google` (`rest-conventions.md`), which the settings
+   page calls on seeing `linkGoogle=1`. It reads the record by cookie and requires
+   `record.userId = principal` (else `403`, and the record is left to expire — a wrong caller must
+   not be able to consume someone else's). On success it inserts the `GOOGLE` `user_auth_method` row
+   for the principal, deletes the record, and clears the cookie. A concurrent insert of the same `sub`
+   loses on `user_auth_method_subject_key` and answers `409`.
+
+The account's `email` and `email_source` are **not** touched: linking adds a way to log in, not a new
+address, and the Google email is never read on this branch (§4 step 3's "never by email" holds).
+Tier 1 applies to step 3 — an auth-method addition, per `NFR-SEC-003` — and to nothing else here.
+
+---
+
 ## 8. Changes to other documents
 
 - **`rate-limiting.md` § Tier 1** — "Applies to" gains `POST /api/auth/oauth/link-challenge`,
@@ -304,6 +343,11 @@ MinIO instead of a real one.
 | Username fails `input-validation.md`'s pipeline | `400` | `validation-failed` | FR-AUTH-013…015 |
 | Username skeleton already taken | `409` | — | FR-AUTH-003 |
 | Wrong password, or no such collision account (`link-challenge`) | `401` | `unauthenticated` | FR-AUTH-016 |
+| `/auth/callback` with `intent=link` and a `(GOOGLE, sub)` already held | `302` to `/settings?linkError=1` | — | FR-AUTH-010 |
+| `POST /api/users/me/auth-methods/google` with no live `turnbase_oauth_link` record | `404` | `not-found` | FR-AUTH-010 |
+| Same, record belongs to another user | `403` | `forbidden` | FR-AUTH-010 |
+| Same, or `.../password`, when that method is already linked | `409` | `conflict` | FR-AUTH-010 |
+| `DELETE /api/users/me/auth-methods/{method}` on the only method | `422` | `business-rule-violation` | FR-AUTH-011 |
 | `Origin` present and not the platform origin, on either `POST` | `403` | `forbidden` | `rest-conventions.md` |
 | Rate limit (Tier 4 on the two redirects, Tier 1 on `link-challenge`, Tier 5 on `complete-registration`'s success path) | `429` | `rate-limit-exceeded` | `rate-limiting.md` |
 
@@ -315,10 +359,10 @@ MinIO instead of a real one.
   nothing to resume, since nothing has been created yet.
 - **No endpoint to abandon a pending registration explicitly.** The TTL (§2, §9) is the only cleanup;
   an abandoned pending record simply expires, and nothing references it in the meantime.
-- **No separate "link Google to my existing account" entry point from account settings in this
-  document.** `FR-AUTH-010`'s general "add an auth method from settings" is a different, already
-  authenticated flow with its own item; the linking this document performs is specifically
-  `FR-AUTH-016`'s unauthenticated collision path, reachable only from a pending record.
+- **§7 does not link from account settings.** `FR-AUTH-016`'s collision path is unauthenticated and
+  reachable only from a pending record. `FR-AUTH-010`'s authenticated flow is §7a's, and the password
+  half of it is `POST /api/users/me/auth-methods/password` (`rest-conventions.md`), which has no OAuth
+  round trip at all.
 
 ---
 
@@ -329,7 +373,8 @@ MinIO instead of a real one.
 | FR-AUTH-007 | §3, §4, §6 |
 | FR-AUTH-008 | §6 — `email_source = 'OAUTH'`; immutability itself is `data-model-accounts.md`'s and `PATCH /api/users/me`'s |
 | FR-AUTH-009 | §7 success path |
-| FR-AUTH-011 | Not built here — a linked account already has ≥1 method; removal's guard is `IMP-M1-04`'s / a future add/remove item's |
+| FR-AUTH-010 | §7a (Google); `POST /api/users/me/auth-methods/password` (password) — `IMP-M1-11` |
+| FR-AUTH-011 | Not built here — a linked account already has ≥1 method; removal's guard is `DELETE /api/users/me/auth-methods/{method}`'s, `IMP-M1-11` |
 | FR-AUTH-012 | Unaffected by this document — `PATCH /api/users/me`'s existing `email_source` gate covers it |
 | FR-AUTH-016 | §6 step 3, §7 |
 | VW-LOGIN-002, VW-REG-002 | §3's hidden-when-absent note |

@@ -92,14 +92,47 @@ credential in a URL. `POST` to an action endpoint is the honest shape, and it ke
 Revoking the row does nothing to a socket already open, and for a guest this is irreversible —
 `FR-SESS-011` requires a confirmation before the platform destroys the only key to the account.
 
-Four further self-scoped account routes, all under `/api/users/me` so the principal is the resource:
+Further self-scoped account routes, all under `/api/users/me` so the principal is the resource. Every one is Registered-only: a guest caller gets `403` (`forbidden`), the same answer `PATCH /api/users/me` already gives.
 
 | Endpoint | Effect |
 |---|---|
+| `GET /api/users/me` | The caller's own account and settings — the one read the Account Settings view (`platform-views.md` VW-SET-001…006a) renders from. `200` with the representation below. See *The account representation* |
 | `PATCH /api/users/me` | Updates username and/or email, either or both in one body. Each field enforces its own rolling 30-day window against `username_changed_at`/`email_changed_at` (`user-accounts.md` FR-ACCT-002/003) independently of the other. `200` with the updated resource; `409` on a duplicate username/email; `422` if the field's window hasn't elapsed; email is rejected outright (`422`) when `email_source = 'OAUTH'` (FR-AUTH-008/012 — an OAuth-derived email is immutable, not merely rate-limited) |
 | `POST /api/users/me/password` | Changes the password. Body carries the current password and the new one (`user-accounts.md` FR-ACCT-010). `204` on success, `422` on current-password mismatch |
 | `PATCH /api/users/me/privacy` | Profile visibility and the four per-section toggles (`user-accounts.md` FR-PROF-004, FR-PROF-006; `platform-views.md` VW-SET-006, VW-SET-006a). Body is a partial `user_privacy_settings` representation |
+| `POST /api/users/me/auth-methods/password` | Adds a `PASSWORD` method to an account that has none (an OAuth-registered user, FR-AUTH-010). Body `{ "password", "confirmPassword" }`, held to the same policy as registration. `204`; `409` if a `PASSWORD` method is already linked; `400` on a policy failure |
+| `POST /api/users/me/auth-methods/google` | Completes linking a Google identity from settings (FR-AUTH-010). No body: the identity comes from the `turnbase_oauth_link` cookie `GET /auth/callback` set, and the endpoint checks the record belongs to the caller. The full flow is `oauth-rest-api.md` §7a. `200` with `{ "authMethods": [...] }`; `404` with no live link record; `403` if the record belongs to another user; `409` if a `GOOGLE` method is already linked |
+| `DELETE /api/users/me/auth-methods/{method}` | Removes one method (`PASSWORD` or `GOOGLE`; any other value is `400`). `204`. `422` (`business-rule-violation`) if it is the caller's only method (FR-AUTH-011, the guarded delete of `data-model-accounts.md` §2); `404` if the caller has no such method. Removing `GOOGLE` from an account whose `email_source` is `OAUTH` sets `email_source = 'SELF'` in the same transaction — the address stops being bound to a provider the account no longer uses (FR-AUTH-008), and becomes editable under the ordinary 30-day window. Removing `PASSWORD` does not revoke sessions; removing `GOOGLE` does not either |
 | `DELETE /api/users/me` | Permanently deletes the caller's account (`user-accounts.md` FR-ACCT-004…008). `204` on success; clears the session cookie and closes the caller's live connections, same as logout (`FR-SESS-010`). No request body and no confirmation step at this layer — `platform-views.md` VW-SET-007's confirmation is a frontend affordance, not a server-side proof requirement |
+
+**The account representation (`IMP-GATE-78`).** `GET /api/users/me` answers
+
+```json
+{
+  "userId": "uuid", "username": "alice", "email": "alice@example.com",
+  "emailSource": "SELF",
+  "usernameChangeableAt": null, "emailChangeableAt": "2026-10-20T09:00:00Z",
+  "authMethods": ["PASSWORD", "GOOGLE"],
+  "privacy": {
+    "profilePrivate": false, "historyVisibility": "PUBLIC", "statsVisibility": "PUBLIC",
+    "gamesVisibility": "PUBLIC", "friendsVisibility": "PUBLIC", "blockFriendRequests": false
+  }
+}
+```
+
+`emailSource` is `app_user.email_source` (`SELF` or `OAUTH`) and is what VW-SET-002's condition reads.
+`authMethods` is the set of `user_auth_method.method` values, and is what VW-SET-003's ("credential
+method linked") and VW-SET-005's ("more than one linked") conditions read. `*ChangeableAt` is the
+instant the rolling 30-day window of FR-ACCT-002/003 elapses, or `null` when the field may be changed
+now — computed by the server from `username_changed_at`/`email_changed_at`, so the client never
+hard-codes thirty days. `privacy` is exactly `PATCH /api/users/me/privacy`'s `200` body. The password
+hash and every `provider_subject` are never included.
+
+**Why this exists rather than reusing `GET /api/users/{username}`.** That representation is the
+*public* one: it carries `visibleSections` and `profilePrivate`, not the per-section values, the
+block-requests flag, the email, or the linked methods, and it must not — an owner-only field on a route
+that also serves strangers is one privacy-resolution bug from a leak. Settings needs the caller's own
+truth, which is a different resource.
 
 **Username and email share one endpoint, not two.** Both are single mutable identity fields on
 `app_user` with the identical rolling-window shape (`data-model-accounts.md` §1's "one timestamp, not
@@ -124,7 +157,7 @@ account the caller is deleting — so `DELETE` is the honest verb. The idempoten
 not arise here: deletion revokes the caller's session in the same transaction, so a retry has no
 session cookie left to authenticate with and gets `401` before reaching the resource at all.
 
-Both are `404`-free — the principal is always the resource, so there is nothing to fail to find.
+The routes above the auth-method ones are `404`-free — the principal is always the resource, so there is nothing to fail to find. The `404`s the auth-method routes document are about the *method* (no such link record, no such method on this account), never about the caller.
 
 **A password change revokes every other session for the account** and closes their live sockets, by
 the same mechanism as `FR-SESS-003` displacement. A password change that leaves a stolen session

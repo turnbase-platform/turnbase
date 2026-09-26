@@ -51,6 +51,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M1-08 | Account deletion and erasure | platform | M1-07 | DONE |
 | IMP-M1-09 | Social graph — friendships and requests | platform | M1-07 | DONE |
 | IMP-M1-10 | Google OAuth registration and login | platform | M1-04 | DONE |
+| IMP-M1-11 | Account read and auth-method management | platform | M1-10 | READY |
 | **M2 — Rooms and realtime** ||||
 | IMP-M2-01 | Room CRUD and listing | platform | M1-06, M2-03 | DONE |
 | IMP-M2-02 | STOMP endpoint, auth, subscriptions | platform | M2-01, M2-03 | DONE |
@@ -91,17 +92,17 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M6 — Platform frontend** ||||
 | IMP-M6-01 | Astryx integration and the `ui/` boundary | frontend | M0-05 | DONE |
 | IMP-M6-02 | Shell, routing and auth tiers | frontend, platform | M6-01 | DONE (session 75) |
-| IMP-M6-03 | Account and profile views | frontend | M6-02, M1-07 | READY |
+| IMP-M6-03 | Account and profile views | frontend | M6-02, M1-07, M1-11 | READY |
 | IMP-M6-04 | Room views and the STOMP client | frontend | M6-02, M2-08 | READY |
 | IMP-M6-05 | Game iframe host and postMessage relay | frontend | M6-04, M3-07 | READY |
 | IMP-M6-06 | Catalog and history views | frontend | M6-02, M4-01 | READY |
 | ~~IMP-M6-07~~ | ~~Onboarding wizard~~ | frontend | — | CANCELLED |
 
-**61 live items.** IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
+**62 live items.** IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
 `onboarding-wizard.md`'s FR-ONB-* and NFR-ONB-* have no implementing item by design. The heading is
 kept below so the number is never reused. `IMP-M3-12` was added 2026-08-22, closing IMP-GATE-05 — see
-its section under M3. `IMP-M1-10` was added 2026-09-06, closing IMP-GATE-26 — see its section under
-M1.
+its section under M3. `IMP-M1-10` was added 2026-09-06, closing IMP-GATE-26, and `IMP-M1-11` on
+2026-09-26, closing IMP-GATE-78 — see their sections under M1.
 
 Statuses are seeded as `READY`. **No item is gated** — the 2026-08-16 audit's 23 blockers are all
 closed (see *Readiness gates* at the end for what each fix changed). An item's real status is
@@ -1912,8 +1913,8 @@ read-list gained the citation.
 - `docs/specs/api-design/error-handling.md`
 - `docs/specs/deployment/local-environment.md` §7.4 (the two new OAuth TTL properties)
 
-**Satisfies:** `user-accounts.md` FR-AUTH-007…012, FR-AUTH-016; `platform-views.md` VW-LOGIN-002,
-VW-REG-002, VW-OAUTHCOMP-001…002
+**Satisfies:** `user-accounts.md` FR-AUTH-007…009, FR-AUTH-012, FR-AUTH-016; `platform-views.md`
+VW-LOGIN-002, VW-REG-002, VW-OAUTHCOMP-001…002 (`FR-AUTH-010`/`011` are `IMP-M1-11`'s — `IMP-GATE-78`)
 
 **Done when:** `GET /auth/google` redirects to Google with a signed, short-lived `state` carrying a
 validated internal destination; `GET /auth/callback` verifies `state`, exchanges the code server-side
@@ -1932,6 +1933,49 @@ fails.
 **The redirect URI is `http://turnbase.localhost:8080/auth/callback`, not `localhost`** —
 `secrets-and-configuration.md` §5 flags this explicitly: they are different URIs to Google, and the
 platform origin is deliberately the non-obvious one.
+
+### IMP-M1-11 — Account read and auth-method management
+
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M1-10
+
+**Closed:** IMP-GATE-78 (opened and closed 2026-09-26, session 77) — `IMP-M6-03`'s Account Settings view
+(`platform-views.md` VW-SET-001…006a) had nothing to render from and nothing to call. No route
+returned the caller's own email, `email_source`, linked auth methods or per-section privacy values
+(`GET /api/users/{username}` is the public representation and rightly omits them), and no route added
+or removed an auth method: `oauth-rest-api.md` §11 and §12 deferred `FR-AUTH-010`/`011` to "a future
+add/remove item" that no registry entry was. Fixed: `rest-conventions.md` gained `GET /api/users/me`
+and `/api/users/me/auth-methods` (password add, Google complete, remove); `oauth-rest-api.md` gained
+§7a (the three-request Google link flow, shaped by `turnbase_session` being `SameSite=Strict`);
+`rate-limiting.md` Tier 1 names the routes; `IMP-M1-10`'s *Satisfies* no longer claims
+`FR-AUTH-010`/`011`; this item is new, and `IMP-M6-03` depends on it.
+
+**Read first:**
+- `docs/requirements/user-accounts.md` FR-AUTH-008…012, FR-ACCT-002…003, NFR-SEC-003
+- `docs/specs/api-design/rest-conventions.md` § Authentication — *The account representation* and
+  the `/api/users/me` routes table
+- `docs/specs/api-design/oauth-rest-api.md` §2, §3, §4, §7a, §10
+- `docs/specs/platform/data-model-accounts.md` §1 (`email_source`, the two `*_changed_at` columns),
+  §2 (`user_auth_method`, and FR-AUTH-011's guarded delete), §4 (`user_privacy_settings`)
+- `docs/specs/api-design/rate-limiting.md` § Tier 1
+- `docs/specs/api-design/error-handling.md`
+
+**Satisfies:** `user-accounts.md` FR-AUTH-010, FR-AUTH-011 (the removal guard; the creation-time half
+is `IMP-M1-04`'s)
+
+**Done when:** `GET /api/users/me` answers the representation in `rest-conventions.md` and `403` for a
+guest, with no `password_hash` or `provider_subject` anywhere in it; `usernameChangeableAt` and
+`emailChangeableAt` are `null` when the field is changeable now and the instant the window elapses
+otherwise; `POST .../auth-methods/password` adds a `PASSWORD` row under registration's password policy
+and `409`s when one exists; `DELETE .../auth-methods/{method}` is a guarded delete in the same
+transaction as its count (two concurrent removals against an account with two methods leave exactly
+one — asserted with a real concurrent test, not a mock), refuses the only method with `422`, and
+removing `GOOGLE` from an `email_source = 'OAUTH'` account sets `email_source = 'SELF'`; `GET
+/auth/google?intent=link` needs a Registered session, and `/auth/callback` on that branch **issues no
+session and reads none** — asserted by a callback with no cookie at all — storing only the
+`oauth:link:{token}` record; `POST .../auth-methods/google` links only when the record's `userId`
+equals the caller's (a record minted for user A, confirmed by user B, is `403` and is not consumed),
+`409`s on an already-held `sub`, and never touches `email` or `email_source`; the four Tier 1 routes
+count failures only.
 
 ---
 
@@ -4241,10 +4285,23 @@ navigation bug three milestones from where it was introduced.
 
 ### IMP-M6-03 — Account and profile views
 
-**Repo:** `turnbase-frontend` · **Depends on:** IMP-M6-02, IMP-M1-07
+**Repo:** `turnbase-frontend` · **Depends on:** IMP-M6-02, IMP-M1-07, IMP-M1-11
+
+**Closed:** IMP-GATE-78 (opened and closed 2026-09-26, session 77) — see `IMP-M1-11`. Settings had no
+read route and no auth-method routes; the platform half is now its own item and this one waits on it.
+The read-list also lacked `social-rest-api.md` (the Friends views' whole API) and the two `rest-conventions.md`
+/ `oauth-rest-api.md` sections above. **Still open, not gated:** the profile page's statistics and game
+history tabs need `IMP-M5-01`/`M5-02`'s REST surface, which is not `DONE`; build those tabs against
+whatever those items publish, or leave them for the item that does.
 
 **Read first:**
 - `docs/requirements/platform-views.md` VW-PROF-001…008, VW-SET-001…007, VW-FREN-001…005
+- `docs/specs/api-design/rest-conventions.md` § Authentication — the `/api/users/me` routes and *The
+  account representation*: everything Account Settings reads and writes (`IMP-GATE-78`)
+- `docs/specs/api-design/oauth-rest-api.md` §7a — the three-request Google link the Add
+  authentication method action drives
+- `docs/specs/api-design/social-rest-api.md` — the friend list, requests and `relationshipState` the
+  Friends and profile views call
 - `docs/requirements/user-accounts.md` FR-PROF-001…008, FR-ACCT-002…004, FR-ACCT-009…010
 - `docs/requirements/social-friends.md` FR-SOC-001…021
 - `docs/specs/platform-frontend/design-system.md` §4 (the component inventory these views compose)

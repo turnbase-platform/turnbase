@@ -60,8 +60,8 @@ IP-based tier trivially bypassable and is a common, silent failure. IPv4 keys on
 ## Tier 1 — Auth failures (IP-based, strict)
 
 Applies to: login, registration, password change, auth-method addition/removal —
-including `POST /api/auth/oauth/link-challenge` ([oauth-rest-api.md](oauth-rest-api.md) §7), the one
-auth-method-addition endpoint built so far.
+including `POST /api/auth/oauth/link-challenge` ([oauth-rest-api.md](oauth-rest-api.md) §7) and the
+three `/api/users/me/auth-methods` routes ([rest-conventions.md](rest-conventions.md), `IMP-GATE-78`).
 
 Implements `user-accounts.md` NFR-SEC-003 exactly:
 

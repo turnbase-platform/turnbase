@@ -1,29 +1,32 @@
 ## Last Session Summary
 
-**Date:** 2026-09-26 (session 76)
+**Date:** 2026-09-26 (session 77)
 
-**`IMP-GATE-77` (Redis credentials never reached the monolith) is opened and closed — no work item
-completed, still 45 of 61.** Spring Boot's `spring.data.redis.url` overrides `.password`, so compose
-and Helm (which set both) connected to Redis with no credential and the platform exited on `NOAUTH`.
-The spec now says Redis is addressed by `spring.data.redis.host`/`.port` and never by `url`
-(`local-environment.md` §7.9, `secrets-and-configuration.md` § Redis); `turnbase-platform` follows
-(`application.yml`, compose, Helm configmap, the rate limiter's error text) and gained
-`RedisConnectionConfigTest`, which loads the real `application.yml` so a committed `url` default
-cannot return. Checked on the real compose stack (`--build`, password containing `/+:@`): the
-monolith reaches `UP` with no workaround. Helm template renders `HOST`/`PORT`.
+**`IMP-GATE-78` opened and closed; no work item completed — still 45 of 62.** Picked `IMP-M6-03` (account
+and profile views) and stopped at its read-list: Account Settings had nothing to render from or call.
+No route returned the caller's own email, `email_source`, linked auth methods or per-section privacy
+values (`GET /api/users/{username}` is the public shape and rightly omits them), and no route added or
+removed an auth method — `oauth-rest-api.md` deferred `FR-AUTH-010`/`011` to "a future add/remove item"
+that no registry entry was. Fixed in the spec: `rest-conventions.md` gained `GET /api/users/me` (with
+its representation) and `/api/users/me/auth-methods` (password add, Google complete, remove);
+`oauth-rest-api.md` gained §7a; `rate-limiting.md` Tier 1 names the routes. New item **`IMP-M1-11`**
+(`turnbase-platform`, `READY`) builds them; `IMP-M6-03` now depends on it. Corpus check clean.
 
-**Gotcha worth keeping:** the platform `Dockerfile` copies `target/*.jar`, so `docker compose up
---build` after an edit ships the *old* code unless `./mvnw package` ran first. I lost one run to it.
-
-**Not done, still open:** the Game Host has no Redis client yet (its `application.yml` carries only
-`redis-unavailable-window`), so the spec's "same three properties" is a promise for whoever builds
-it. `turnbase-platform` `78e19e6`: `build` green. `e2e` still fails, now at its first step — the
-missing `TURNBASE_FRONTEND_PAT` (below) — so it never reaches Redis and the `NOAUTH` fix is not yet
-CI-confirmed; only the local compose run is.
+**Decisions worth a second look (mine, not the owner's):** (1) removing `GOOGLE` from an
+`email_source='OAUTH'` account flips it to `SELF` so the email becomes editable, rather than refusing
+the removal; (2) the Google link is three requests, not two, because `turnbase_session` is
+`SameSite=Strict` and is not sent on Google's cross-site return — `/auth/callback` therefore stores a
+Redis record and the frontend's same-site `POST` checks `record.userId = principal` (§7a explains the
+attack this closes). Both are reversible in the spec before `IMP-M1-11` is built.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M1-11` (account read and auth-method management, `turnbase-platform`) is the next pick and
+gates `IMP-M6-03`.** Start there, then the frontend. `IMP-GATE-78` is closed; the profile page's
+statistics/history tabs additionally need `IMP-M5-01`/`M5-02`, which are not `DONE` (noted in `IMP-M6-03`).
+`IMP-M6-04` and `-06` remain `READY` and independent of it.
 
 **Human action needed for the e2e job:** `IMP-M6-02` added a `turnbase-frontend` checkout to
 `turnbase-platform`'s `e2e` job, which needs a fine-grained PAT (read-only on Contents, scoped to
