@@ -34,6 +34,7 @@ not a JSON request/response pair. The remaining two are ordinary JSON endpoints 
 
 | Method | Path | Kind | Auth |
 |---|---|---|---|
+| `GET` | `/api/auth/providers` | JSON | Public |
 | `GET` | `/auth/google` | Browser redirect | Public |
 | `GET` | `/auth/callback` | Browser redirect | Public |
 | `GET` | `/api/auth/oauth/pending` | JSON | Pending cookie |
@@ -104,6 +105,18 @@ account-creation cost is Tier 5, applied where the account is actually created (
 page with no `TURNBASE_OAUTH_GOOGLE_CLIENT_SECRET` configured never renders the "Continue with
 Google" button (`VW-LOGIN-002`, `VW-REG-002`); this endpoint still exists and still 404s cleanly if
 hit directly, rather than 500ing on a missing config value.
+
+**How the page knows (`IMP-GATE-76`).** `GET /api/auth/providers` — unauthenticated, Tier 4, no
+parameters — answers `200` with
+
+```json
+{ "google": true }
+```
+
+`google` is `true` exactly when both the client ID and the client secret are configured, and never
+discloses either. Nothing else in the corpus told the frontend whether the button would work, and a
+browser cannot probe `/auth/google` to find out (a `302` to Google and a `404` are indistinguishable
+across a navigation). It is a `GET` that reads only deployment configuration.
 
 ---
 

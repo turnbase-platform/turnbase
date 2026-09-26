@@ -4144,6 +4144,17 @@ shipped `PrincipalResponse` was `{userId, username}` — no tier. The alternativ
 `kind` as part of this item. The same section now also names the `login`/`register` request bodies,
 which no document gave and which the shell's forms must match.
 
+**Closed:** IMP-GATE-76 (opened and closed 2026-09-26, session 75, found designing the nginx template
+and the login page) — two defects. (1) `local-environment.md` §1 (as `IMP-GATE-74` fixed it) proxied
+the whole `/auth/` prefix to the monolith, but `/auth/complete-registration` is a *shell* route that
+`oauth-rest-api.md` §4 redirects the browser to; the prefix would send it to the monolith and 404.
+Fixed: only `/auth/google` and `/auth/callback` are proxied. (2) `VW-LOGIN-002`/`VW-REG-002` hide the
+Google button when the secret is absent, but no document gave the frontend any way to know — a
+browser cannot probe a `302`-or-`404` across a navigation. Fixed: `GET /api/auth/providers` →
+`{ "google": bool }` (`oauth-rest-api.md` §1/§3), exempted in `user-accounts.md` NFR-SEC-006, Tier 4
+in `rate-limiting.md`. The platform half (endpoint, interceptor exemption, rate-limit path) is this
+item's.
+
 **Closed:** IMP-GATE-74 (opened and closed 2026-09-26, session 74, found reading this item's
 *Done when*) — the item says "the CSP is emitted by the platform origin", but no document said what
 serves the shell document at that origin. `local-environment.md` §1 had the monolith answering
@@ -4177,14 +4188,16 @@ names nginx as the emitter and stops restating the directive. The wiring is this
 VW-LOGIN-001…004, VW-REG-001…003, VW-OAUTHCOMP-001…002, NFR-USAB-001…002
 
 **Done when:** (`IMP-GATE-75`) every response carrying the principal — `register`, `login`, `guest`,
-`session`, `complete-registration` — includes `kind`, asserted per endpoint in `turnbase-platform`, and
-the shell takes its tier from it; §3's three auth tiers gate every route, and a route's tier is declared with the route
+`session`, `complete-registration` — includes `kind`, and `GET /api/auth/providers` answers
+`{ "google": bool }` unauthenticated, each asserted in `turnbase-platform`; the shell takes its tier
+from `kind` and renders the Google buttons only when `google` is `true`; §3's three auth tiers gate every route, and a route's tier is declared with the route
 rather than checked inside the view; §6's CSP is emitted by the platform origin **without restating
 `frame-src`**, which `game-asset-serving.md` §6.3 owns — two documents specifying one directive is how
 they drift; a mid-session 401 follows the VW-REDIR rules rather than blanking the view; the SSE
 stream reconnects with backoff and does not duplicate alerts on reconnect. **And (`IMP-GATE-74`)** a
 `docker compose up` serves the shell at `http://turnbase.localhost:8080` from the Frontend
-container — `/api`, `/ws` (including the upgrade) and `/auth` reach the monolith through it, and a
+container — `/api`, `/ws` (including the upgrade), `/auth/google` and `/auth/callback` reach the monolith through it
+(`/auth/complete-registration` is served by the shell — `IMP-GATE-76`), and a
 `Host: x.games.localhost` request reaches the monolith's games origin unchanged; the served CSP's
 `frame-src` equals `game-asset-serving.md` §6.3's derivation for the configured template, and a
 test proves it for both a per-game and a constant (shared-origin) template; the Helm chart gains the

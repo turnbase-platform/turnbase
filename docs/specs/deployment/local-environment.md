@@ -104,8 +104,11 @@ than about the browser's same-site rules.
 - `Host` equal to the host of `turnbase.platform.origin` → the **shell**: the built static bundle,
   with the SPA fallback to `index.html`, and the shell's `Content-Security-Policy` header
   ([`shell-architecture.md`](../platform-frontend/shell-architecture.md) §6) on the document
-  response. Requests under `/api/`, `/ws`, `/auth/` are proxied to the monolith, carrying
-  `X-Forwarded-For`/`-Proto`/`-Host` and the `Upgrade` headers a WebSocket needs.
+  response. Requests under `/api/` and `/ws`, and exactly `/auth/google` and `/auth/callback`, are
+  proxied to the monolith, carrying `X-Forwarded-For`/`-Proto`/`-Host` and the `Upgrade` headers a
+  WebSocket needs. **`/auth/complete-registration` is not proxied** — it is a shell route
+  (`platform-views.md` VW-OAUTHCOMP; `oauth-rest-api.md` §4 redirects the browser to it), so a
+  blanket `/auth/` prefix would send the shell's own page to the monolith to 404 (`IMP-GATE-76`).
 - **Every other `Host`** (in practice `*.games.localhost`) → proxied wholesale to the monolith, which
   routes the games origin by `Host` as before. The platform host is the explicit match and the games
   hosts are the fall-through, so the wildcard is never enumerated in nginx.
