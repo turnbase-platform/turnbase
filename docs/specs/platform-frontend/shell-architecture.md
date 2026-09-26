@@ -236,6 +236,11 @@ The shell document is served from the platform origin, which holds the session c
 policy [`../game-frontend/game-asset-serving.md`](../game-frontend/game-asset-serving.md) §6.3
 delegates here; that document owns `frame-src` and this one owns everything else.
 
+**Who emits it (`IMP-GATE-74`).** The Frontend container's nginx — the listener at the platform
+origin ([`../deployment/local-environment.md`](../deployment/local-environment.md) §1) — with
+`add_header ... always` on the shell document response. It is a template rendered at container start
+because `frame-src`'s value is deployment configuration. The monolith does not serve the shell.
+
 ```
 default-src 'self';
 script-src 'self';
@@ -243,7 +248,7 @@ style-src 'self';
 img-src 'self' data: https:;
 font-src 'self';
 connect-src 'self';
-frame-src {gameFrontendOrigin};
+frame-src <owned by game-asset-serving.md §6.3 — derived at start, not written here>;
 frame-ancestors 'none';
 form-action 'self';
 base-uri 'none';
@@ -258,7 +263,7 @@ response that carries it and cannot be displaced by injected markup earlier in t
 | `script-src 'self'` | No `'unsafe-inline'` and no `'unsafe-eval'`. Vite emits external modules in production, so neither is needed — and if a future dependency demands one, that is a dependency decision, not a CSP relaxation |
 | `img-src ... https:` | Info-document images (`game-catalog.md` FR-GDET-004, [`../api-design/input-validation.md`](../api-design/input-validation.md)) come from arbitrary hosts. `data:` covers inline icons. This is the one deliberately wide directive, and it is wide for content that renders as an `<img>` and nothing else |
 | `connect-src 'self'` | REST, STOMP and SSE are all same-origin. **The games origin is never added** — the shell talks to game frontends through `postMessage`, never over the network |
-| `frame-src {gameFrontendOrigin}` | Owned by `game-asset-serving.md` §6.3. Pinned to the games origin, which blocks the frame from navigating itself off-origin and closes the exfiltration channel a second time |
+| `frame-src` | Owned by `game-asset-serving.md` §6.3, including how its value is derived. Pinned to the games origin, which blocks the frame from navigating itself off-origin and closes the exfiltration channel a second time |
 | `frame-ancestors 'none'` | The platform is never embedded. This replaces `X-Frame-Options`, which is not sent |
 | `base-uri 'none'` | An injected `<base>` retargets every relative URL in the document — including the script tags — which turns a single injection into full script control |
 | `object-src 'none'` | Nothing on the platform uses a plugin element |

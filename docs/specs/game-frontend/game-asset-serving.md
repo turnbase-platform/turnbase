@@ -275,6 +275,14 @@ The shell document that embeds the frame MUST pin `frame-src` to the games origi
 frame-src http://*.games.localhost:8080;
 ```
 
+**The value is derived, not configured** (`IMP-GATE-74`). The shell is served by the Frontend
+container's nginx, which has no build-time knowledge of the games origin (§3.1). At start it takes
+`turnbase.game-frontend.origin-template` (env `TURNBASE_GAME_FRONTEND_ORIGIN_TEMPLATE`) and replaces
+`{gameId}` with `*`; a template with no `{gameId}` (the shared-origin configuration of §3.1) is used
+verbatim. The example above is that derivation applied to the local default. This section is the
+**only** place `frame-src` is specified — `shell-architecture.md` §6 refers here and does not restate
+the directive.
+
 This blocks the frame from navigating itself anywhere else at all, closing the exfiltration channel a
 second time, in a second layer. (The rest of the shell's CSP is [`../platform-frontend/shell-architecture.md`](../platform-frontend/shell-architecture.md) §6.)
 

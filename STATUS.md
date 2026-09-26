@@ -1,30 +1,39 @@
 ## Last Session Summary
 
-**Date:** 2026-09-26 (session 73)
+**Date:** 2026-09-26 (session 74)
 
-**`IMP-M0-12` (seed data) is `DONE` — 44 of 61. One spec defect found, fixed and closed: `IMP-GATE-73`.**
-Session 72 built and merged `IMP-M0-12` (`turnbase-platform` `f789407`), then spent its last hour
-polling CI run `36252029924`, whose `Verify` step never finished. That run was the investigation's
-starting point. MinIO's `quay.io/minio/*` repositories (where `IMP-GATE-52` had moved the pins) no
-longer serve anonymous pulls, so upstream publishes no public MinIO image at all. Every
-`PostgresIntegrationTest` subclass spent about 7 minutes retrying the pull before failing, and the job
-has no `timeout-minutes`, so the run would have taken about 3 hours. Local builds hid it because the
-old image was cached. Nothing in `IMP-M0-12`'s code was at fault: the full `-Pintegration` suite
-passed locally on `f789407`.
+**No item completed — 44 of 61 unchanged. One spec defect found, fixed and closed: `IMP-GATE-74`.**
+The session claimed `IMP-M6-02` (shell, routing and auth tiers) — `IMP-M3-03` was the natural pick but
+its game-host half cannot merge without `TURNBASE_SDK_PAT` (`IMP-GATE-70`; `gh secret list` still
+shows only `TURNBASE_COMMON_PAT`). Reading `IMP-M6-02`'s *Done when* ("the CSP is emitted by the
+platform origin") turned up that no document said what serves the shell document there:
+`local-environment.md` §1 had the monolith answering `turnbase.localhost:8080`, and neither compose
+nor the Helm chart deploys `turnbase-frontend`'s image at all. `frame-src`, which `game-asset-serving.md`
+§6.3 owns, was only a literal local value, though it is deployment configuration a static bundle cannot
+know.
 
-**Fix (`local-environment.md` §1, §5):** MinIO now comes from the `pgsty` community fork —
-`pgsty/minio:RELEASE.2026-08-04T00-00-00Z` and `pgsty/mc:RELEASE.2026-09-16T00-00-00Z`. They have
-the same base image, entrypoint and variables, and MinIO is dev/test-only because production uses S3.
-Applied in `turnbase-platform` `34f020e` (compose, Helm, both Testcontainers pins) and
-`turnbase-game-host` `7bbeee9` (`S3ArtifactStoreIT`). Verified: the MinIO-backed ITs in both repos
-passed locally, a compose `minio` + `minio-init` bring-up created the private bucket, and CI was green
-on both repos (platform `36260709084` `build`; game-host `36260710568`). `e2e` failed on the
-pre-existing `compose-platform-1` exit only — MinIO came up healthy in it. Submodule refs bumped.
-`check-corpus.py` clean. No branch outlives the session.
+**Fix:** the Frontend container (nginx) is the listener on the platform origin — shell, CSP, and a
+reverse proxy of `/api`, `/ws`, `/auth` to the monolith; every other `Host` falls through to the
+monolith's games origin (`local-environment.md` §1, §4, §7.7; container count is now twelve).
+`game-asset-serving.md` §6.3 derives `frame-src` at container start from
+`turnbase.game-frontend.origin-template` (`{gameId}` → `*`); `shell-architecture.md` §6 names nginx as
+emitter and no longer restates the directive. `IMP-M6-02`'s read-list gained the auth REST docs it
+was missing (`rest-conventions.md`, `oauth-rest-api.md`), its *Repo* now spans `turnbase-frontend` and
+`turnbase-platform` (compose + Helm wiring), and its *Done when* gained the wiring clauses. The item
+is back to `READY`; no code was written and no submodule changed.
 
 ---
 
 ## Next Priorities
+
+**`IMP-GATE-74` (who serves the shell and emits its CSP) is closed; `IMP-M6-02` is `READY` and now
+larger than its title.** See *Last Session Summary*. It spans two repos — `turnbase-frontend` first
+(shell, `react-router`, nginx `templates/` rendered by `envsubst`), then `turnbase-platform` (a
+`frontend` compose service that takes host port `8080` from the monolith, Helm `frontend-*` templates,
+Ingress `turnbase.localhost` → Frontend Service, e2e smoke retargeted). The login/register request and
+session-response bodies are not in any spec; read them from the platform's OpenAPI document
+(`openapi-documentation.md`). Independent picks unchanged: `IMP-M3-03` (sdk half first; game-host half
+still needs the `TURNBASE_SDK_PAT` human action below).
 
 **`IMP-M0-12` is `DONE` — 44 of 61; `IMP-GATE-73` (MinIO image source) is closed.** See *Last Session
 Summary*. Two follow-ups, neither gated: (1) CI's `Verify` jobs have no `timeout-minutes`, so a

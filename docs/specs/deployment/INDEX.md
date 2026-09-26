@@ -18,7 +18,7 @@ escalation path rather than deferring the whole subject to a cloud phase that ha
 
 | File | Topic |
 |------|-------|
-| [local-environment.md](local-environment.md) | The eleven containers and the MinIO init job, ports and network; startup order and readiness; the 120-second suppression budget; Kubernetes vs. compose; seed data; **the consolidated configuration surface**; how tests get their dependencies |
+| [local-environment.md](local-environment.md) | The twelve containers (including the Frontend edge) and the MinIO init job, ports and network; startup order and readiness; the 120-second suppression budget; Kubernetes vs. compose; seed data; **the consolidated configuration surface**; how tests get their dependencies |
 | [schema-migrations.md](schema-migrations.md) | Flyway layout and naming, what a migration may contain, the baseline, CI drift and checksum checks, seeds, Flyway configuration |
 | [observability.md](observability.md) | Metrics, logs, traces and alert routing: Actuator/Prometheus scrape, Logback JSON → Promtail → Loki, OTLP → Tempo, Grafana provisioning, Alertmanager rules |
 | [secrets-and-configuration.md](secrets-and-configuration.md) | JWT signing keys and their rotation, database and Redis credentials, OAuth client secrets, per-environment configuration, what must never reach a log |

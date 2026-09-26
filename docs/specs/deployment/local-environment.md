@@ -13,13 +13,14 @@ only by reading prose in a spec that owns something else.
 
 ## 1. What runs
 
-Eleven long-running containers plus a one-shot MinIO init job. Five are the system, six are the
+Twelve long-running containers plus a one-shot MinIO init job. Six are the system, six are the
 observability stack that `platform-operations.md` OQ-003 puts inside the local environment because
 operating it is a stated learning goal. The observability set is wired in
 [`observability.md`](observability.md); this section only says what runs.
 
 | Component | Image | In-cluster ports | Depends on |
 |---|---|---|---|
+| **Frontend** | `turnbase/frontend` (nginx) | `8080` — the platform origin's edge: the shell document and its static assets, and a reverse proxy to the monolith (below) | Platform Monolith |
 | **Platform Monolith** | `turnbase/platform` | `8080` HTTP + WS + game assets, `8081` management | Postgres, Redis, MinIO |
 | **Game Host** | `turnbase/game-host` | `9090` gRPC, `8081` management | Redis, MinIO, Platform Monolith (to register) |
 | **PostgreSQL 16** | `postgres:16-alpine` | `5432` | — |
@@ -52,7 +53,7 @@ in-cluster map:
 
 | Host port | Reaches | Bind |
 |---|---|---|
-| `8080` | Platform Monolith HTTP, WebSocket, **and the games origin** | all |
+| `8080` | **Frontend** — the platform origin (shell document, and `/api`, `/ws`, `/auth` proxied to the monolith) **and the games origin** (every other `Host`, proxied to the monolith) | all |
 | `8081` | Platform management + **admin API** | `127.0.0.1` only |
 | `8082` | Game Host management | `127.0.0.1` only |
 | `9090` | Game Host gRPC (debugging with `grpcurl`) | `127.0.0.1` only |
@@ -92,10 +93,28 @@ mechanism is the container's own bind address.
 The platform is served at `http://turnbase.localhost:8080` and game frontends at
 `http://{gameId}.games.localhost:8080`
 ([`../game-frontend/game-asset-serving.md`](../game-frontend/game-asset-serving.md) §3). These are
-different **registrable domains** — which is the entire security property ADR-0007 buys — served by
-the same process on the same port, routed by `Host` header. Nothing about the origin separation
-requires a second port or a second deployment, and adding one would suggest the separation is about
-network topology rather than about the browser's same-site rules.
+different **registrable domains** — which is the entire security property ADR-0007 buys — served on
+the same port, routed by `Host` header. Nothing about the origin separation requires a second port
+or a second deployment, and adding one would suggest the separation is about network topology rather
+than about the browser's same-site rules.
+
+**Who answers on that port (`IMP-GATE-74`).** The listener is the **Frontend** container's nginx
+(`turnbase-frontend`'s image), under both compose and Kubernetes:
+
+- `Host` equal to the host of `turnbase.platform.origin` → the **shell**: the built static bundle,
+  with the SPA fallback to `index.html`, and the shell's `Content-Security-Policy` header
+  ([`shell-architecture.md`](../platform-frontend/shell-architecture.md) §6) on the document
+  response. Requests under `/api/`, `/ws`, `/auth/` are proxied to the monolith, carrying
+  `X-Forwarded-For`/`-Proto`/`-Host` and the `Upgrade` headers a WebSocket needs.
+- **Every other `Host`** (in practice `*.games.localhost`) → proxied wholesale to the monolith, which
+  routes the games origin by `Host` as before. The platform host is the explicit match and the games
+  hosts are the fall-through, so the wildcard is never enumerated in nginx.
+
+Under Kubernetes the Ingress may still send the games host straight to the monolith Service; the
+frontend's fall-through exists because compose has one published port and no Ingress. The monolith is
+never published on `8080` when the Frontend container is — the host port map above is the single
+source. Only the monolith's own listener is the security boundary for the API: nginx adds no
+authorization and the monolith's `Origin`/session checks are unchanged.
 
 Every `*.localhost` name resolves to loopback in Chrome and Firefox with no `/etc/hosts` entry.
 
@@ -253,7 +272,7 @@ Two things keep them honest:
 ```
 turnbase-platform/deploy/
 ├── compose/
-│   ├── docker-compose.yml            # the four core services
+│   ├── docker-compose.yml            # the five core services
 │   ├── docker-compose.observability.yml
 │   ├── initdb/
 │   │   └── 01-roles.sql              # FR-CRED-005 two-role split
@@ -264,6 +283,7 @@ turnbase-platform/deploy/
     ├── values-local.yaml
     └── templates/
         ├── platform-{deployment,service,ingress,configmap,secret,hpa}.yaml
+        ├── frontend-{deployment,service,configmap}.yaml
         ├── gamehost-{deployment,service,configmap}.yaml
         ├── postgres-{statefulset,service,pvc}.yaml
         ├── redis-{statefulset,service,configmap}.yaml
@@ -276,8 +296,8 @@ not reset the database. They are in the chart rather than as chart dependencies 
 a managed database post-MVP: when that arrives, the change is deleting three templates and pointing a
 connection string, not unpicking a subchart.
 
-The Ingress publishes two host rules to the same Service — `turnbase.localhost` and
-`*.games.localhost` — with `nginx.ingress.kubernetes.io/proxy-read-timeout` raised well above the
+The Ingress publishes two host rules — `turnbase.localhost` to the Frontend Service and
+`*.games.localhost` to the monolith Service (`IMP-GATE-74`) — with `nginx.ingress.kubernetes.io/proxy-read-timeout` raised well above the
 STOMP heartbeat interval, because the default 60 s closes an idle WebSocket that the protocol
 considers perfectly healthy.
 
@@ -527,6 +547,13 @@ that are not tier budgets:
 |---|---|---|
 | `turnbase.platform.origin` | `http://turnbase.localhost:8080` | `TURNBASE_PLATFORM_ORIGIN` |
 | `turnbase.game-frontend.origin-template` | `http://{gameId}.games.localhost:8080` | `TURNBASE_GAME_FRONTEND_ORIGIN_TEMPLATE` |
+
+The Frontend container reads both (same names, one source in compose/Helm), plus
+`TURNBASE_FRONTEND_UPSTREAM` (default `platform:8080`), the monolith address nginx proxies to. It
+consumes them at container start — nginx's official image renders `/etc/nginx/templates/*.template`
+with `envsubst` — never at build time, for the reason `game-asset-serving.md` §3.1 gives: the same
+image must serve every environment. `frame-src` is *derived* from the template in
+`game-asset-serving.md` §6.3, not restated.
 
 These two must remain different **registrable domains** (ADR-0007). Setting the games template to a
 subdomain of the platform origin silently removes the isolation that

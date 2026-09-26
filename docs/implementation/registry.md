@@ -90,7 +90,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M5-04 | Retention purge jobs | platform | M5-01, M5-03 | READY |
 | **M6 — Platform frontend** ||||
 | IMP-M6-01 | Astryx integration and the `ui/` boundary | frontend | M0-05 | DONE |
-| IMP-M6-02 | Shell, routing and auth tiers | frontend | M6-01 | WIP (session 74) |
+| IMP-M6-02 | Shell, routing and auth tiers | frontend, platform | M6-01 | READY |
 | IMP-M6-03 | Account and profile views | frontend | M6-02, M1-07 | READY |
 | IMP-M6-04 | Room views and the STOMP client | frontend | M6-02, M2-08 | READY |
 | IMP-M6-05 | Game iframe host and postMessage relay | frontend | M6-04, M3-07 | READY |
@@ -4128,11 +4128,34 @@ do not let it land unread in a hand-written file.
 
 ### IMP-M6-02 — Shell, routing and auth tiers
 
-**Repo:** `turnbase-frontend` · **Depends on:** IMP-M6-01
+**Repo:** `turnbase-frontend` (the shell, and the nginx template that serves it) and
+`turnbase-platform` (the compose service and Helm templates that put the Frontend container on the
+platform origin — `IMP-GATE-74`). Branch per repo; `turnbase-frontend` first, since the platform
+change pins its image. · **Depends on:** IMP-M6-01
+
+**Closed:** IMP-GATE-74 (opened and closed 2026-09-26, session 74, found reading this item's
+*Done when*) — the item says "the CSP is emitted by the platform origin", but no document said what
+serves the shell document at that origin. `local-environment.md` §1 had the monolith answering
+`turnbase.localhost:8080` and no Frontend container at all — neither compose nor the Helm chart
+deployed `turnbase-frontend`'s image, whose `nginx.conf` already anticipated SPA fallback for this
+item. And `frame-src`, which `game-asset-serving.md` §6.3 "owns", was given there only as a literal
+local value, though the value is deployment configuration (`turnbase.game-frontend.origin-template`)
+that a static bundle cannot know. Fixed: `local-environment.md` §1/§4/§7.7 make the Frontend
+container the listener on the platform origin (shell + CSP + reverse proxy to the monolith; every
+other `Host` falls through to the monolith); `game-asset-serving.md` §6.3 defines `frame-src` as
+derived at container start from the origin template (`{gameId}` → `*`); `shell-architecture.md` §6
+names nginx as the emitter and stops restating the directive. The wiring is this item's, below.
 
 **Read first:**
 - `docs/specs/platform-frontend/shell-architecture.md` §§1–3 (structure, auth tiers, routing),
   §6 (Content-Security-Policy), §7 (notifications and alerts), §10
+- `docs/specs/deployment/local-environment.md` §1 (*Both origins are one listener*), §4, §7.7 — who
+  serves the shell, and the two env vars it reads
+- `docs/specs/game-frontend/game-asset-serving.md` §6.3 — the one place `frame-src` is specified
+- `docs/specs/api-design/rest-conventions.md` § Authentication — `login`, `guest`, `logout`,
+  `session` and the `turnbase_session` cookie the tier check rests on
+- `docs/specs/api-design/oauth-rest-api.md` — `/auth/google`, `/auth/callback`, and the three
+  `/api/auth/oauth/*` endpoints `/auth/complete-registration` calls (VW-OAUTHCOMP)
 - `docs/requirements/platform-views.md` VW-NAV-001…012, VW-REDIR-001…007, VW-LAND-001…004,
   VW-LOGIN-001…004, VW-REG-001…003, VW-OAUTHCOMP-001…002
 - `docs/requirements/user-accounts.md` FR-SESS-001…004, FR-SESS-010…011
@@ -4146,7 +4169,13 @@ VW-LOGIN-001…004, VW-REG-001…003, VW-OAUTHCOMP-001…002, NFR-USAB-001…002
 rather than checked inside the view; §6's CSP is emitted by the platform origin **without restating
 `frame-src`**, which `game-asset-serving.md` §6.3 owns — two documents specifying one directive is how
 they drift; a mid-session 401 follows the VW-REDIR rules rather than blanking the view; the SSE
-stream reconnects with backoff and does not duplicate alerts on reconnect.
+stream reconnects with backoff and does not duplicate alerts on reconnect. **And (`IMP-GATE-74`)** a
+`docker compose up` serves the shell at `http://turnbase.localhost:8080` from the Frontend
+container — `/api`, `/ws` (including the upgrade) and `/auth` reach the monolith through it, and a
+`Host: x.games.localhost` request reaches the monolith's games origin unchanged; the served CSP's
+`frame-src` equals `game-asset-serving.md` §6.3's derivation for the configured template, and a
+test proves it for both a per-game and a constant (shared-origin) template; the Helm chart gains the
+`frontend-*` templates and its Ingress sends `turnbase.localhost` to the Frontend Service.
 
 **The shell mounts `<LinkProvider component={Link}>` inside `<Theme>`, once** (`design-system.md`
 §2). Skipping it is the expensive mistake in M6: every Astryx `Link`, and every component that
