@@ -1,32 +1,35 @@
 ## Last Session Summary
 
-**Date:** 2026-09-26 (session 77)
+**Date:** 2026-09-26 (session 78)
 
-**`IMP-GATE-78` opened and closed; no work item completed — still 45 of 62.** Picked `IMP-M6-03` (account
-and profile views) and stopped at its read-list: Account Settings had nothing to render from or call.
-No route returned the caller's own email, `email_source`, linked auth methods or per-section privacy
-values (`GET /api/users/{username}` is the public shape and rightly omits them), and no route added or
-removed an auth method — `oauth-rest-api.md` deferred `FR-AUTH-010`/`011` to "a future add/remove item"
-that no registry entry was. Fixed in the spec: `rest-conventions.md` gained `GET /api/users/me` (with
-its representation) and `/api/users/me/auth-methods` (password add, Google complete, remove);
-`oauth-rest-api.md` gained §7a; `rate-limiting.md` Tier 1 names the routes. New item **`IMP-M1-11`**
-(`turnbase-platform`, `READY`) builds them; `IMP-M6-03` now depends on it. Corpus check clean.
+**`IMP-M1-11` is `DONE` — 46 of 62.** `turnbase-platform` `e69b5ed`, `build` green; ref bumped. Built
+`GET /api/users/me`, `POST .../auth-methods/password`, `DELETE .../auth-methods/{method}` and the
+three-request Google link (`GET /auth/google?intent=link` → session-less `/auth/callback` storing only
+`oauth:link:{token}` → `POST .../auth-methods/google`, `403` and not consumed when the record's `userId`
+is not the caller's, `409` on a held `sub`). Tier 1 counts failures on the four routes.
 
-**Decisions worth a second look (mine, not the owner's):** (1) removing `GOOGLE` from an
-`email_source='OAUTH'` account flips it to `SELF` so the email becomes editable, rather than refusing
-the removal; (2) the Google link is three requests, not two, because `turnbase_session` is
-`SameSite=Strict` and is not sent on Google's cross-site return — `/auth/callback` therefore stores a
-Redis record and the frontend's same-site `POST` checks `record.userId = principal` (§7a explains the
-attack this closes). Both are reversible in the spec before `IMP-M1-11` is built.
+**Concurrency:** under READ COMMITTED a guarded `DELETE` alone still races when two *different* rows
+are deleted (each statement's count sees two rows). `AuthMethodRepository.remove` therefore takes
+`FOR NO KEY UPDATE` on the `app_user` row first. The real concurrent test (12 rounds, barrier-started)
+fails when that lock is removed — checked by mutation — and passes with it.
+
+**Decisions made in code, worth a second look:** an `intent` other than `link` is a plain login
+initiation; a `409` on link confirmation does not consume the record (only success does); the callback
+redirects to `/settings?linkGoogle=1` on success and `/settings?linkError=1` for a held `sub` — `IMP-M6-03`
+should read those two query flags. The two spec decisions from session 77 (GOOGLE removal flips
+`email_source` to `SELF`; three-request link) were built as specified and are unchanged.
+
+**CI:** `e2e` fails at *Check out turnbase-frontend* (`Input required and not supplied: token`) — the
+`TURNBASE_FRONTEND_PAT` human action below, not this change. One local `RoomInvitationControllerIT` run
+hit a Testcontainers `redis:7-alpine` startup failure; it passed on rerun.
 
 ---
 
 ## Next Priorities
 
-**`IMP-M1-11` (account read and auth-method management, `turnbase-platform`) is the next pick and
-gates `IMP-M6-03`.** Start there, then the frontend. `IMP-GATE-78` is closed; the profile page's
-statistics/history tabs additionally need `IMP-M5-01`/`M5-02`, which are not `DONE` (noted in `IMP-M6-03`).
-`IMP-M6-04` and `-06` remain `READY` and independent of it.
+**`IMP-M6-03` (account and profile views, `turnbase-frontend`) is unblocked — `IMP-M1-11` is `DONE`.**
+The profile page's statistics/history tabs additionally need `IMP-M5-01`/`M5-02`, which are not `DONE`
+(noted in `IMP-M6-03`). `IMP-M6-04` and `-06` remain `READY` and independent of it.
 
 **Human action needed for the e2e job:** `IMP-M6-02` added a `turnbase-frontend` checkout to
 `turnbase-platform`'s `e2e` job, which needs a fine-grained PAT (read-only on Contents, scoped to
