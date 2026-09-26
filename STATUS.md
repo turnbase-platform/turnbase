@@ -1,37 +1,29 @@
 ## Last Session Summary
 
-**Date:** 2026-09-26 (session 75)
+**Date:** 2026-09-26 (session 76)
 
-**`IMP-M6-02` (shell, routing and auth tiers) is `DONE` — 45 of 61.** Two spec defects found while
-building it, both fixed and closed in the same session: `IMP-GATE-75` (the principal body carried no
-tier — it is now `{userId, username, kind}`, and the login/register request bodies are named in
-`rest-conventions.md`) and `IMP-GATE-76` (`/auth/complete-registration` is a shell route, so nginx
-proxies only `/auth/google` and `/auth/callback`; the frontend learns whether Google is configured from
-the new `GET /api/auth/providers` → `{ "google": bool }`).
+**`IMP-GATE-77` (Redis credentials never reached the monolith) is opened and closed — no work item
+completed, still 45 of 61.** Spring Boot's `spring.data.redis.url` overrides `.password`, so compose
+and Helm (which set both) connected to Redis with no credential and the platform exited on `NOAUTH`.
+The spec now says Redis is addressed by `spring.data.redis.host`/`.port` and never by `url`
+(`local-environment.md` §7.9, `secrets-and-configuration.md` § Redis); `turnbase-platform` follows
+(`application.yml`, compose, Helm configmap, the rate limiter's error text) and gained
+`RedisConnectionConfigTest`, which loads the real `application.yml` so a committed `url` default
+cannot return. Checked on the real compose stack (`--build`, password containing `/+:@`): the
+monolith reaches `UP` with no workaround. Helm template renders `HOST`/`PORT`.
 
-`turnbase-frontend` `9bc005d` and `turnbase-platform` `cdbc78e`, both CI green, refs bumped. The
-Frontend container is now the listener on the platform origin under compose (host port `8080`) and
-Helm (Ingress → Frontend Service). I checked it on the real compose stack: shell, SPA fallback, CSP,
-`/api`, the `/ws` upgrade (101), `x.games.localhost` reaching the monolith.
+**Gotcha worth keeping:** the platform `Dockerfile` copies `target/*.jar`, so `docker compose up
+--build` after an edit ships the *old* code unless `./mvnw package` ran first. I lost one run to it.
 
-**Found, not fixed — the compose stack cannot start the monolith.** `SPRING_DATA_REDIS_URL` and
-`SPRING_DATA_REDIS_PASSWORD` are set separately (`local-environment.md` §7.9, `secrets-and-configuration.md`
-§ Redis), but Spring Boot's `url` property overrides `password`, so Lettuce connects with no credential
-and Redis answers `NOAUTH` — the platform exits during `rateLimitProxyManager`. This predates the item:
-CI's `e2e` job (`continue-on-error`) failed the same way on the previous master run. Helm has the same
-shape. I worked around it locally with `SPRING_DATA_REDIS_URL=redis://:<pw>@redis:6379` and did not commit that.
+**Not done, still open:** the Game Host has no Redis client yet (its `application.yml` carries only
+`redis-unavailable-window`), so the spec's "same three properties" is a promise for whoever builds
+it. `turnbase-platform` `78e19e6`: `build` green. `e2e` still fails, now at its first step — the
+missing `TURNBASE_FRONTEND_PAT` (below) — so it never reaches Redis and the `NOAUTH` fix is not yet
+CI-confirmed; only the local compose run is.
 
 ---
 
 ## Next Priorities
-
-**Redis credentials do not reach the monolith under compose or Helm — file it as a spec defect first**
-(use `spec-defect`; it blocks `make e2e` and any real `docker compose up`, though it gates no item).
-Options: put the password in the URL (`redis://:${TURNBASE_REDIS_PASSWORD}@redis:6379`, needs
-URL-encoding of the secret), or drop `spring.data.redis.url` for `host`/`port`/`password` — `application.yml`
-defaults `url` unconditionally, so that also touches the platform's config and the Testcontainers ITs.
-`secrets-and-configuration.md` § Redis and `local-environment.md` §7.9 say the opposite today, and the
-Game Host's Redis client "applies the same two properties", so check it too.
 
 **Human action needed for the e2e job:** `IMP-M6-02` added a `turnbase-frontend` checkout to
 `turnbase-platform`'s `e2e` job, which needs a fine-grained PAT (read-only on Contents, scoped to
