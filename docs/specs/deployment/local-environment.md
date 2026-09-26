@@ -599,7 +599,8 @@ TLS, per §2's "one network, flat."
 | `spring.datasource.url` | `jdbc:postgresql://postgres:5432/turnbase` | `SPRING_DATASOURCE_URL` |
 | `spring.datasource.username` | `turnbase_app` | `SPRING_DATASOURCE_USERNAME` |
 | `spring.datasource.hikari.maximum-pool-size` | `20` | `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE` |
-| `spring.data.redis.url` | `redis://redis:6379` | `SPRING_DATA_REDIS_URL` |
+| `spring.data.redis.host` | `redis` | `SPRING_DATA_REDIS_HOST` |
+| `spring.data.redis.port` | `6379` | `SPRING_DATA_REDIS_PORT` |
 | `spring.data.redis.password` | **no default** — secret, `secrets-and-configuration.md` § Redis (`TURNBASE_REDIS_PASSWORD`) | `SPRING_DATA_REDIS_PASSWORD` |
 | `turnbase.artifact-store.endpoint` | `http://minio:9000` | `TURNBASE_ARTIFACT_STORE_ENDPOINT` |
 | `turnbase.artifact-store.bucket` | `turnbase-bundles` | `TURNBASE_ARTIFACT_STORE_BUCKET` |
@@ -609,6 +610,14 @@ TLS, per §2's "one network, flat."
 | `management.otlp.tracing.endpoint` | `http://tempo:4317` | `MANAGEMENT_OTLP_TRACING_ENDPOINT` |
 | `management.tracing.sampling.probability` | `0.1` | `MANAGEMENT_TRACING_SAMPLING_PROBABILITY` |
 | `spring.profiles.active` | `local` | `SPRING_PROFILES_ACTIVE` |
+
+**Redis is addressed by `host` + `port`, never by `spring.data.redis.url` (`IMP-GATE-77`).** Spring Boot's `url`
+property takes precedence over `host`, `port`, `username` **and `password`**: with a `url` set, the
+credential comes from the URL's userinfo or is absent, and `SPRING_DATA_REDIS_PASSWORD` is silently
+ignored — Redis then answers `NOAUTH` and the service exits during startup. No committed configuration
+sets `url`. (Integration tests may pass `--spring.data.redis.url` for a password-less Testcontainers
+instance; that is the one legitimate use.) The datasource pair is different — `spring.datasource.url`
+is JDBC and carries no credential, so it and `spring.datasource.password` compose.
 
 Pool size 20 against FR-ALERT-004's 80 % saturation alert means the alert fires at 16 concurrent
 checkouts. The deadline sweep runs every 5 seconds and the reconcile sweep every 60; neither holds a

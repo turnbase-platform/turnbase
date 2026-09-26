@@ -261,9 +261,11 @@ Game Host already has broader capabilities than key access through the gRPC seam
 is the `.env`/compose secret — it already sets the `redis` service's own `requirepass` via its
 `command:` args (`local-environment.md` §7.9's compose file). Each consuming service reaches it as
 `spring.data.redis.password` (`SPRING_DATA_REDIS_PASSWORD`), the standard Spring Data Redis property,
-kept separate from `spring.data.redis.url` the same way `spring.datasource.password` is kept separate
-from `spring.datasource.url` — a connection string is not a secret-bearing value in this corpus. The
-Game Host's Redis client applies the same two properties under its own configuration surface.
+kept separate from the address — `spring.data.redis.host`/`.port` — the same way
+`spring.datasource.password` is kept separate from `spring.datasource.url`. **The address is `host` +
+`port`, not `spring.data.redis.url`:** Spring Boot's `url` overrides `password`, so a service given both
+connects with no credential and Redis answers `NOAUTH` (`IMP-GATE-77`; `local-environment.md` §7.9).
+The Game Host's Redis client applies the same three properties under its own configuration surface.
 
 **No TLS between services.** `platform-operations.md` puts service mesh and internal TLS out of
 scope; NFR-SEC-002's "TLS 1.2+ on all endpoints" is a client-facing requirement, and its extension

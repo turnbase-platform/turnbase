@@ -744,6 +744,15 @@ live incumbent.
 
 **Repo:** `turnbase-platform`, `turnbase-game-host` · **Depends on:** IMP-M0-03, M0-04
 
+**Closed:** IMP-GATE-77 (opened and closed 2026-09-26, session 76, found running the compose stack under
+`IMP-M6-02`) — `IMP-GATE-36`'s fix put the Redis address in `spring.data.redis.url` and the credential in
+`spring.data.redis.password`, but Spring Boot's `url` property overrides `password`, so the monolith
+connected with no credential and exited on `NOAUTH` under compose and Helm (CI's `e2e` job failed
+identically). Fixed: `local-environment.md` §7.9 now names `spring.data.redis.host`/`.port`
+(`SPRING_DATA_REDIS_HOST`/`_PORT`) and states that `url` must not be set; `secrets-and-configuration.md`
+§ Redis says the same and extends it to the Game Host's future Redis client. `IMP-M1-02`'s note above
+that the chart and compose "carry `SPRING_DATA_REDIS_URL`" is superseded.
+
 **Read first:**
 - `docs/specs/deployment/secrets-and-configuration.md` in full — the nine secrets, the two-role
   Postgres split (§4), and §6 *What must never be written down*
