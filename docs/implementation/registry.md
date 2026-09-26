@@ -67,7 +67,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M3 — Game execution** ||||
 | IMP-M3-01 | GDK backend API surface | sdk | M0-02 | DONE |
 | IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | DONE |
-| IMP-M3-03 | GDK host bridge and serialization boundary | game-host | M3-01, M3-02 | WIP (session 70) |
+| IMP-M3-03 | GDK host bridge and serialization boundary | sdk, game-host | M3-01, M3-02 | READY |
 | IMP-M3-04 | gRPC service implementation | game-host | M3-03 | READY |
 | IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | READY |
 | IMP-M3-06 | Game input outbox and delivery | platform | M3-05 | READY |
@@ -75,7 +75,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05, M2-09 | READY |
 | IMP-M3-09 | Game failure handling | platform, game-host | M3-07, M2-09 | READY |
 | IMP-M3-10 | The first official game | sdk consumer | M3-03 | READY |
-| IMP-M3-11 | GDK test harness | sdk | M3-01 | READY |
+| IMP-M3-11 | GDK test harness | sdk | M3-01, M3-03 | READY |
 | IMP-M3-12 | FE GDK client (`@turnbase/gdk`) | sdk | M0-02 | DONE |
 | **M4 — Catalog and upload** ||||
 | IMP-M4-01 | Catalog listing and game detail | platform | M1-01 | DONE (session 61) |
@@ -3182,11 +3182,22 @@ bridge jar carrying the GDK API classes is IMP-M3-03's deliverable (§3.2).
 
 ### IMP-M3-03 — GDK host bridge and serialization boundary
 
-**Repo:** `turnbase-game-host` · **Depends on:** IMP-M3-01, IMP-M3-02
+**Repo:** `turnbase-sdk` (the serialization component), then `turnbase-game-host` (the guest bridge
+and host shim) — two branches, in that order, per `conventions.md` §5 · **Depends on:** IMP-M3-01,
+IMP-M3-02
+
+**Closed:** IMP-GATE-69 (opened and closed 2026-09-26) — `game-host-internals.md` §3.2/§5 call the
+serialization engine "one module reused by" the guest bridge, the harness and the upload validator,
+and no document said which repository builds it or where the guest bridge jar itself is built; the
+item's *Repo* named only `turnbase-game-host`, which the harness (`turnbase-sdk`) cannot depend on.
+`IMP-M4-03` had already hardcoded the capability table for want of an artifact to read it from. Fixed:
+new `game-host-internals.md` §3.6 — `io.turnbase:turnbase-serialization` is built by `turnbase-sdk`;
+the guest bridge JAR is a second, shaded and unrelocated artifact of `turnbase-game-host`;
+`conventions.md` §5 names the new artifact.
 
 **Read first:**
-- `docs/specs/game-host/game-host-internals.md` §3 (the guest bridge and host shim), §5 (the
-  serialization engine), §8 (state representation)
+- `docs/specs/game-host/game-host-internals.md` §3 (the guest bridge and host shim — **including §3.6,
+  where each half is built**), §5 (the serialization engine), §8 (state representation)
 - `docs/specs/gdk-api/backend-gdk-api.md` §10 (relationship to the gRPC contract)
 - `docs/requirements/game-contracts.md` NFR-SEC-001…004, NFR-SIZE-001…002
 
@@ -3194,7 +3205,12 @@ bridge jar carrying the GDK API classes is IMP-M3-03's deliverable (§3.2).
 NFR-SIZE-001…002
 
 **Done when:** every object crossing the Espresso boundary is copied, not shared. A shared mutable
-object across that boundary is a sandbox escape regardless of ADR-0006's trust model.
+object across that boundary is a sandbox escape regardless of ADR-0006's trust model. Also (§3.6):
+`io.turnbase:turnbase-serialization` is built and pinned by exact version in `turnbase-game-host`; the
+guest bridge JAR is a shaded, unrelocated second artifact of `turnbase-game-host` containing
+`io.turnbase.gdk.*`, the serialization component and Jackson, and it — not the Spring Boot fat jar — is
+what `turnbase.gamehost.sdk-jar-path` points at in the image; a test drives §3.3's entrypoint through a
+real Espresso context and the host shim sees only strings, primitives and byte arrays.
 
 ---
 
@@ -3420,7 +3436,9 @@ create → join → start → several turns → outcome → history round trip p
 
 ### IMP-M3-11 — GDK test harness
 
-**Repo:** `turnbase-sdk` · **Depends on:** IMP-M3-01
+**Repo:** `turnbase-sdk` · **Depends on:** IMP-M3-01, IMP-M3-03 (added by IMP-GATE-69: Done-when
+clause 8's "same `ObjectMapper` configuration as the GDK Host" is `io.turnbase:turnbase-serialization`,
+which `IMP-M3-03`'s `turnbase-sdk` half builds — `game-host-internals.md` §3.6)
 
 **Read first:**
 - `docs/specs/gdk-api/test-harness.md` **in full** — §1 is a scope boundary, not a preamble
@@ -3629,6 +3647,12 @@ shape. Submodule ref bumped in this repo.
 ### IMP-M4-03 — Upload pipeline and version state machine
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M4-02
+
+**Follow-up (IMP-GATE-69, not a gate):** `StateSerializabilityAnalyzer` hardcodes the Jackson
+capability table `bundle-format.md` §4.4 says to read from the shared serialization component, because
+that artifact did not exist. Once `io.turnbase:turnbase-serialization` is published
+(`game-host-internals.md` §3.6), replace the hardcoded table with its capability descriptor. Nothing
+else waits on it.
 
 **Closed:** IMP-GATE-61 (opened and closed 2026-09-19, session 55) — `error-handling.md`'s Bundle
 Validation Errors § Synchronous claimed `POST /api/games/{gameId}/versions` is the only endpoint

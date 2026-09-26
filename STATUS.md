@@ -1,71 +1,47 @@
 ## Last Session Summary
 
-**Date:** 2026-09-23 (session 68/69, recovered after an interruption)
+**Date:** 2026-09-26 (session 70)
 
-**`IMP-M3-02` is now `DONE` — 43 of 61.** Espresso context lifecycle, `turnbase-game-host`, picked up
-per session 64/65's recommendation (`READY` off `M0-04`). Session 68 was interrupted before it
-reported completion; session 69 re-established state (nothing had been lost — the code, tests, and
-formatting were already written and uncommitted on `feat/imp-m3-02-espresso-context-lifecycle`),
-finished the build-verification steps, fixed two real bugs the verification turned up, and closed the
-item out.
+**No work item completed — 43 of 61 unchanged. One spec defect found, fixed and closed: `IMP-GATE-69`.**
+Session 70 picked up `IMP-M3-03` (GDK host bridge and serialization boundary), claimed it, read its
+read-list, and found the item could not be built as written: `game-host-internals.md` §3.2/§5 say the
+serialization engine is "one module reused by" the guest bridge, the test harness and the upload
+validator, and **no document said which repository builds it**, nor where the guest bridge JAR itself
+is built. The item's *Repo* was `turnbase-game-host` alone, which the harness (`turnbase-sdk`) cannot
+depend on — `turnbase-sdk` may depend on neither `turnbase-common` nor `turnbase-game-host`. `IMP-M4-03`
+had already hit the same hole and hardcoded the capability table in
+`StateSerializabilityAnalyzer` (its own Javadoc says so).
 
-**Two real bugs found by `./mvnw verify`, not by inspection:**
-1. `EspressoContextFactory` set `java.ExitHost` without `allowExperimentalOptions(true)` — every
-   context construction in every test failed with `IllegalArgumentException` before this was added.
-2. `EspressoIsolationTest.guestSystemExitDoesNotEscapeToTheHost` asserted `isExit()`/`getExitStatus()`
-   on the exception thrown at the `invokeMember` call site. On this GraalVM CE build, the guest exit
-   unwinds the calling thread immediately with a non-exit `PolyglotException`; the exit-status-bearing
-   `PolyglotException` (`isExit() == true`, code 42) is only raised from `Context.close()` once the
-   context finishes tearing down. Restructured the test to assert the first exception is thrown, then
-   assert the exit semantics on the exception `close()` raises.
+**Decision recorded in the spec (owner may overturn — it is an architectural call, made by the agent):**
+new `game-host-internals.md` §3.6.
+- `io.turnbase:turnbase-serialization` (mapper config, round-trip routine, size checks, Jackson-free
+  capability descriptor; package `io.turnbase.serialization`) is built by **`turnbase-sdk`**, as a
+  separate artifact from `io.turnbase:turnbase-sdk` so Jackson never reaches developers' compile
+  classpath.
+- The guest bridge JAR is a **second, shaded, unrelocated artifact of `turnbase-game-host`**
+  (`io.turnbase.gdk.*` + serialization + Jackson + `io.turnbase.gamehost.bridge`); it, not the Spring
+  Boot fat jar, is what `turnbase.gamehost.sdk-jar-path` points at.
+- Rejected homes: `turnbase-common` (SDK may not depend on it), `turnbase-game-host` (harness cannot
+  consume it), inside the public `turnbase-sdk` jar (leaks Jackson into the API).
 
-**Code, `turnbase-game-host` `2e906d5`** (merged `--ff-only` to `master`, branch deleted locally; it
-was never pushed to the remote, so there was nothing to delete there). `./mvnw verify` and
-`./mvnw verify -Pintegration` (Testcontainers MinIO) both green locally and in CI
-(run `35793441689`, 4m41s, image pushed to GHCR).
-
-- `espresso/GuestClasspathBuilder`, `EspressoContextFactory` (rewritten to the full §4.2 spike-locked
-  builder config — `allowNativeAccess(true)`, `allowExperimentalOptions(true)`, `java.ExitHost=false`,
-  `HostAccess.NONE`, no host class loading, no process creation, no environment access),
-  `GameContextManager` (coalesced creation via `ConcurrentHashMap.computeIfAbsent`, idle eviction,
-  memory-pressure LRU eviction with active-session protection), `GameContextManagerConfig`
-  (`@Scheduled` wiring), `ContextKey`, `ManagedContext`.
-- `artifact/` package (new): `ArtifactStore`/`S3ArtifactStore`/`ArtifactStoreConfig`/
-  `ArtifactStoreProperties` (FR-LOAD-001/002, mirrors `turnbase-platform`'s own S3-compatible-only
-  precedent — no separate local-filesystem implementation), `ArtifactCache` (FR-LOAD-003/004, LRU
-  eviction that never evicts a JAR backing a live context), `ArtifactNotFoundException`.
-- Tests: `EspressoIsolationTest` (FR-CTX-001/003/006/008/011 against real Espresso contexts),
-  `GameContextManagerTest` (coalescing/idle/pressure/active-session-protection, fake clock and memory
-  supplier — no real Espresso context needed for the manager's own logic beyond context creation),
-  `GuestClasspathBuilderTest`, `ArtifactCacheTest`, `S3ArtifactStoreIT` (Testcontainers MinIO, pinned
-  `quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z`), plus a guest-side fixture class
-  (`espresso/fixture/EspressoFixtures`).
-
-**No spec defect this session.** Two candidate ambiguities were resolved by reading, not by opening a
-gate: (1) the Done-when clause's "the SDK" on the guest classpath is §3.2's guest bridge jar, whose
-real contents are `IMP-M3-03`'s (a later, dependent item's) deliverable — this item only needed the
-classpath-composition mechanism against a configured `sdkJarPath` placeholder; (2) `local-environment
-.md` §7.8 vs. §7.9 config-key ownership — §7.9's `turnbase.artifact-store.*` keys are already consumed
-by other services without duplication, confirming they're shared/infra keys usable by either service.
-Read-list gap fixed in the same session: `local-environment.md` §7.8/§7.9 added as an explicit citation
-for the artifact-store keys (registry, commit `4802167`).
-
-**FR-CTX-004/005/007 (no filesystem, no network, per-context memory cap) are explicitly out of scope**
-for this item — they're container-owned per §4.1's own framing, and no deployment-manifest work item
-exists yet to provision a container to test against. Recorded as a scope note on the registry row
-rather than silently dropped; not a gate, since the registry's own table already frames these rows as
-belonging to a different mechanism than the ones this item builds.
-
-**Docs:** `local-environment.md` §7.8 gained three rows (`sdk-jar-path`, `artifact-cache-dir`,
-`artifact-cache-size-limit`); registry row flipped `WIP → DONE` with the scope note above.
-`check-corpus.py` clean.
-
-**One git-hook wrinkle:** the sandboxed `git` wrapper in this environment skips character-device mount
-points at the repo root when staging — real files are handled normally; `git add -A` picked up exactly
-the intended 26 files, nothing extra, nothing missing.
+**Docs changed:** `game-host-internals.md` (§3.6 new, §5 bullet), `conventions.md` §5 (names the new
+artifact), `registry.md` — `IMP-M3-03` now spans `sdk` then `game-host`, read-list gains §3.6, *Done
+when* gains the artifact/jar/Espresso-entrypoint clauses; `IMP-M3-11` gains a dependency on `IMP-M3-03`
+(its clause 8 needs the artifact); `IMP-M4-03` gains a non-gating follow-up note. `check-corpus.py`
+clean. No code written; no submodule touched; no branch created.
 
 ---
 ## Next Priorities
+
+**`IMP-M3-03` is `READY` again after `IMP-GATE-69`** — start it in `turnbase-sdk` (the
+`turnbase-serialization` artifact: publish/install and pin it), then `turnbase-game-host` (bridge
+package, shaded bridge jar, host shim, Espresso test through §3.3's entrypoint). Open sub-questions
+the spec leaves to the implementer because they are invisible outside the repos: the sdk repo's
+directory/module layout, and the bridge manifest attribute carrying the GDK version
+(`bundle-format.md` §6.1 requires one but does not name it — if the monolith's startup check
+(`turnbase.gdk.supported-range`) is built before this settles, name it in that spec then). `IMP-M3-11`
+now also depends on `IMP-M3-03`. Other independently `READY` picks: `IMP-M0-12` (see the seed-data
+`SocialService`/`NotificationService` note below).
 
 **`IMP-M3-02` is `DONE` — 43 of 61.** See *Last Session Summary*. Espresso context lifecycle and the
 Artifact Store are complete and green in CI. `IMP-M3-03` (GDK host bridge and serialization boundary,

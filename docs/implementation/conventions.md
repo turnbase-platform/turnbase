@@ -282,7 +282,10 @@ because that round trip costs a full turn to discover and another to fix.
 
 `turnbase-common` publishes `io.turnbase:turnbase-grpc`, consumed by both `turnbase-platform` and
 `turnbase-game-host`. `turnbase-sdk` publishes `io.turnbase:turnbase-sdk`, consumed by
-`turnbase-game-host` and by game developers.
+`turnbase-game-host` and by game developers, and `io.turnbase:turnbase-serialization` — the shared
+serialization component of `game-host-internals.md` §3.6 — consumed by `turnbase-game-host`'s guest
+bridge and by the harness (and, as a follow-up, `turnbase-platform`'s serializability analysis). A
+change to it is a `turnbase-sdk` change first, published and pinned before any consumer moves.
 
 **Consumers pin an exact released version**, through a property:
 

@@ -211,6 +211,39 @@ once at `onInit` and never recomputed, so a changed derivation cannot corrupt a 
 it would make the fixture games of §16 and the harness round trip
 (`../gdk-api/test-harness.md` §6) non-reproducible.
 
+### 3.6 Where the two halves are built
+
+§3.2 and §5 say the serialization engine is "one module reused by" the guest bridge, the test harness
+and the upload validator, and neither says *which repository builds it* — while the repository graph
+(`conventions.md` §5) has three consumers in three repositories and no edge that lets two of them
+share code with the third. Resolved (`IMP-GATE-69`):
+
+| Artifact | Built by | Coordinates | Contents |
+|----------|----------|-------------|----------|
+| **Serialization component** | `turnbase-sdk` | `io.turnbase:turnbase-serialization` | The platform `ObjectMapper` configuration, the serialize → deserialize → re-serialize round-trip routine, the §5 size-limit checks, and a Jackson-free **capability descriptor** (which types the configured mapper can and cannot bind — the table `bundle-format.md` §4.4 reads). Package `io.turnbase.serialization`. |
+| **Guest bridge JAR** | `turnbase-game-host` | none — an image file at `turnbase.gamehost.sdk-jar-path` (`local-environment.md` §7.8), not published | `io.turnbase.gdk.*` (from `turnbase-sdk`), the serialization component, Jackson, and the §3.2 implementations and §3.3 entrypoint. Sources live in package `io.turnbase.gamehost.bridge`, which the host shim must never import. |
+
+**Why the SDK repository.** It is the only repository all three consumers can already depend on:
+`turnbase-game-host` depends on it today, the harness (`io.turnbase:turnbase-harness`) is published
+from it, and `turnbase-sdk` may depend on neither `turnbase-common` nor `turnbase-game-host`
+(its own `CLAUDE.md`), which rules out both of the other homes. It is a **separate artifact from
+`io.turnbase:turnbase-sdk`** because that jar is what developers compile against with `provided`
+scope; Jackson and the engine are not part of the API they are promised (NFR-COMPAT-001) and must not
+arrive on their compile classpath through it.
+
+**The guest bridge is built by the Game Host** because it ships in the Game Host image and versions
+with it (`bundle-format.md` §6.1: the range is a property of the deployed bridge). It is a second
+artifact of the same Maven module — a shaded jar of `io.turnbase.gamehost.bridge`,
+`turnbase-sdk`, `turnbase-serialization` and Jackson — **without relocation**: the game's own classes
+resolve `io.turnbase.gdk.*` and `com.fasterxml.jackson.annotation.*` by their real names, and
+relocating either breaks `implements TurnBaseGame` and `@JsonProperty` (`bundle-format.md` F4 exists
+because that overlap is real). The Spring Boot fat jar must not be what `sdk-jar-path` points at.
+
+**Consequence for the platform.** `StateSerializabilityAnalyzer` (`IMP-M4-03`) currently hardcodes the
+capability knowledge because this artifact did not exist. It should read the capability descriptor
+instead; that follow-up is recorded on `IMP-M4-03`, not scheduled as its own item, and does not gate
+anything.
+
 ---
 
 ## 4. Isolation: FR-CTX requirement → concrete mechanism
@@ -276,7 +309,8 @@ the guest JDK's native methods run against the (container-restricted) host OS.
   plain JSON-serializable records/POJOs; developers write **no** serialization code.
 - **Where it runs:** entirely **guest-side**, inside the bridge, over guest classes.
 - **Shared artifact.** The exact ObjectMapper configuration and the round-trip
-  serialize↔deserialize logic live in **one module** reused by (a) the guest bridge
+  serialize↔deserialize logic live in **one module** — `io.turnbase:turnbase-serialization`,
+  built by `turnbase-sdk` (§3.6) — reused by (a) the guest bridge
   and (b) the local test harness / upload validator. This makes the **GRMP-F4
   round-trip smoke test** structural: a state object that fails to round-trip is
   caught at upload/harness time with the *same* engine that runs in production, so
