@@ -1029,6 +1029,18 @@ because a pipeline that blocks on every advisory stops being run
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M0-06, IMP-M4-03
 
+**Closed:** IMP-GATE-71 (opened and closed 2026-09-26) — the *Done when* ("an official game that can
+actually be started") cannot be met by this item: the only real game is `IMP-M3-10`'s, which this item
+does not depend on and which itself waits on `IMP-M3-03`; and no document said where the seeder gets
+bundle bytes at all — the platform image is a JRE (nothing can compile a game at seed time), the
+monolith has no `turnbase-sdk` dependency, the manifest carries no identity field for §6's "fixed
+UUIDs", and `POST /admin/games` mints a random id. Fixed in `local-environment.md` §6 (new paragraph)
+and §7.10: the seeder *uploads* the ZIPs it finds in `turnbase.seed.bundles-dir`, the file name's stem
+is the fixed `game_id`, an already-`ACTIVE` game is skipped, and an empty directory is a logged no-op.
+The "can actually be started" clause moves to `IMP-M3-10`, the item that produces a real bundle and now
+owns getting it into that directory. This item's clause is narrowed accordingly — the mechanism is
+proven against a fixture bundle, not a real game.
+
 **Closed:** IMP-GATE-66 (opened and closed 2026-09-22) — `local-environment.md` §6's `Notifications`
 row (as left by IMP-GATE-65) still required seeding one `GAME_APPROVED` and one `GAME_REJECTED`
 notification, both of which `AdminReviewService.approve`/`reject` can only produce by deciding a
@@ -1065,7 +1077,13 @@ populate the center on first login.
 
 **Satisfies:** — *(developer experience; `local-environment.md` §6 is the only source)*
 
-**Done when:** a seeded local stack lists at least one official game **that can actually be started**.
+**Done when:** (narrowed by IMP-GATE-71) under the `local`/`e2e` profiles a start seeds the §6 users,
+the `alice`↔`bob` friendship, `carol`'s pending request and the five in-scope notification types; and
+every `<gameId>.zip` in `turnbase.seed.bundles-dir` is driven through the real upload pipeline — an
+integration test with a fixture bundle asserts the game is listed, its version is `ACTIVE`, and
+`/g/{gameId}/{version}/<frontend entry point>` serves `200` (the unpack really happened); a second run
+changes nothing and does not fail; an unset directory seeds no games and does not fail. *"Can actually
+be started" is `IMP-M3-10`'s clause, not this one's.*
 
 **The seed must go through the upload and validation pipeline, not around it.** A seed that inserts
 catalog rows directly produces a game that lists and cannot start — the exact outcome §6 says it is
@@ -3441,6 +3459,9 @@ someone outside the platform team, which ADR-0006 makes the MVP's only game-supp
 failed even if the game runs; it ships a frontend bundle built against the published npm package; it
 is packaged per `bundle-format.md` §2 and published through IMP-M4-03's real pipeline; a full
 create → join → start → several turns → outcome → history round trip passes against the local stack.
+Also (`IMP-GATE-71`): the bundle is placed in the directory `turnbase.seed.bundles-dir` names, as
+`<gameId>.zip` with a fixed UUID (`local-environment.md` §6) — the compose bind mount and the chart
+volume are this item's to add — and a clean `make reset-db` lists the game and it can be started.
 
 ---
 

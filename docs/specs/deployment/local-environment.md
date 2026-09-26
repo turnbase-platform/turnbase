@@ -336,7 +336,7 @@ without tripping a migration checksum.
 | Seeded | Content |
 |---|---|
 | Users | `alice`, `bob`, `carol`, `dave` — password `password`; `alice`↔`bob` friends, `carol`→`alice` request pending |
-| Games | The official games, `badge = 'OFFICIAL'`, `owner_user_id = NULL`, one `ACTIVE` version each with a real bundle in MinIO |
+| Games | The official games, `badge = 'OFFICIAL'`, `owner_user_id = NULL`, one `ACTIVE` version each with a real bundle in MinIO — one game per `<gameId>.zip` in `turnbase.seed.bundles-dir`, below |
 | Rooms | None. A room is cheap to create through the UI, and a seeded room in `LOBBY` would be collected by the idle sweep 30 minutes later, which reads in the logs like a defect |
 | Notifications | One of each type in §3 of [`../platform/data-model-notifications.md`](../platform/data-model-notifications.md) **except `ROOM_INVITATION`, `GAME_APPROVED` and `GAME_REJECTED`**. `ROOM_INVITATION`'s subject is a `room_invitation` row, and `room_invitation.room_id` is a `NOT NULL` foreign key to `room`, which the row above deliberately seeds none of; manufacturing one anyway would need either a live `LOBBY` room (the exact idle-sweep outcome the row above avoids) or a `CLOSED` one carrying a still-pending invitation, a combination the running system can never produce itself — `room_invitation` rows are deleted at closure (`data-model-notifications.md` §6, FR-INV-008). `GAME_APPROVED`/`GAME_REJECTED` can only be produced by [`../api-design/admin-rest-api.md`](../api-design/admin-rest-api.md) §5.3/§5.4 deciding an open `game_review` row, and nothing in the platform ever inserts one — that row comes from FR-PRV-004 (`admin-tooling.md`, the game owner's submit-for-review action), which `admin-rest-api.md` §7 explicitly disclaims building and which no work item has yet claimed. The remaining five types are enough for the center to not be empty on first login; `GAME_APPROVED`/`GAME_REJECTED` seeding belongs with whichever item builds FR-PRV-004 and the review queue it feeds |
 
@@ -357,6 +357,32 @@ would ([`../manifest/bundle-format.md`](../manifest/bundle-format.md)), against 
 `ON CONFLICT DO NOTHING` semantics on the game row. It is slower than inserting rows and it means
 `make seed` exercises the upload pipeline on every developer machine, every day — which is the second
 reason to do it this way.
+
+**Where the bundles come from, and what "fixed UUID" means for a game** (`IMP-GATE-71`). The platform
+image is a JRE and the monolith has no dependency on `turnbase-sdk`, so the seeder can neither compile
+a game nor build a backend JAR; it only *uploads* bundles that already exist. They are the ZIPs in the
+directory named by `turnbase.seed.bundles-dir` (§7.10), one game per file, and **the file name's stem
+is the game's fixed `game_id`** — a UUID, e.g. `7c0e…-….zip`. The manifest has no identity field
+(`manifest-schema.md` § Top-level fields), and `POST /admin/games` mints a random id, so the file name
+is the only place a stable id can live. For each file the seeder:
+
+1. inserts the `game` row with that id — the same row `POST /admin/games` inserts
+   (`badge = 'OFFICIAL'`, `owner_user_id = NULL`, `listed = true`) — `ON CONFLICT DO NOTHING`;
+2. **skips the file if the game already has an `ACTIVE` version.** A bundle whose version is higher
+   than the active one is *not* applied on a later start; `make reset-db` is how a developer re-seeds
+   a changed bundle. (Phase A's ordering check would `422` an equal or lower version anyway; skipping
+   is what keeps a second start quiet rather than an error in the log);
+3. otherwise drives slot → `PUT` to the slot's pre-signed URL → confirm → poll the version resource
+   until `ACTIVE` or `FAILED`, in-process through `upload.VersionUploadService` with
+   `arrivedViaAdminListener = true` — the seeder *is* the official deployment path (E4,
+   `bundle-format.md` §1.1). `FAILED` fails the runner and prints the version's `errors`.
+
+An unset or empty directory seeds no games and logs one `INFO` line saying so; it is not an error. The
+directory is **empty until `IMP-M3-10`** ships the first official game, and that item — which is the
+one that produces a real bundle — owns putting the ZIP where the seeder finds it (the compose bind
+mount and the chart volume) and proving the game starts. Until then a seeded stack has users, the
+friendship and its request, and notifications, but an empty catalog: the "lists and cannot start"
+outcome above is avoided by listing nothing rather than something unplayable.
 
 ---
 
@@ -547,6 +573,12 @@ connection between rows.
 
 Credentials are **not** in this table. They are in
 [`secrets-and-configuration.md`](secrets-and-configuration.md).
+
+### 7.10 Seed data
+
+| Property | Default | Env | Source |
+|---|---|---|---|
+| `turnbase.seed.bundles-dir` | *(unset)* | `TURNBASE_SEED_BUNDLES_DIR` | §6 — read only under the `local` and `e2e` profiles |
 
 ---
 
