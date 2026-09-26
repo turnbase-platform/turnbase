@@ -39,7 +39,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M0-09 | Configuration and secrets wiring | platform, game-host | M0-03, M0-04 | DONE |
 | IMP-M0-10 | Observability baseline | platform, game-host | M0-03, M0-04 | DONE |
 | IMP-M0-11 | CI/CD workflows | all | M0-01…05 | DONE |
-| IMP-M0-12 | Seed data | platform | M0-06, M4-03 | WIP (session 72) |
+| IMP-M0-12 | Seed data | platform | M0-06, M4-03 | BLOCKED |
 | **M1 — Accounts and sessions** ||||
 | IMP-M1-01 | Error model, REST conventions, validation harness | platform | M0-03 | DONE |
 | IMP-M1-02 | Rate limiter (Tiers 1–5) | platform | M1-01 | DONE |
@@ -1028,6 +1028,10 @@ because a pipeline that blocks on every advisory stops being run
 ### IMP-M0-12 — Seed data
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M0-06, IMP-M4-03
+
+**Gate:** IMP-GATE-73 — `local-environment.md` §1 pins MinIO to `quay.io/minio/minio` and `quay.io/minio/mc`, which
+no longer serve anonymous pulls, so every Testcontainers MinIO start and every fresh `docker compose up` fails.
+Opened 2026-09-26. Fix belongs in `local-environment.md`.
 
 **Closed:** IMP-GATE-72 (opened and closed 2026-09-26) — `local-environment.md` §6 still required one
 `BUNDLE_VALIDATION_COMPLETE` notification, which goes to an uploader the v1 system cannot have (only the

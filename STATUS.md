@@ -19,6 +19,9 @@ No code written; no submodule touched; no branch outlives the session.
 ---
 ## Next Priorities
 
+**`IMP-GATE-73` is open on `IMP-M0-12`:** MinIO's `quay.io` images no longer serve anonymous pulls, so
+every integration-test run in CI fails. Fix belongs in `local-environment.md` §1.
+
 **Human action needed before `IMP-M3-03`'s game-host half can merge:** create a fine-grained PAT
 (read-only on Contents, scoped to `turnbase-sdk` only) and store it as `TURNBASE_SDK_PAT` on
 `turnbase-platform/turnbase-game-host` (`IMP-GATE-70`). An agent cannot do this. It does not block
