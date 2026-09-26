@@ -90,7 +90,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M5-04 | Retention purge jobs | platform | M5-01, M5-03 | READY |
 | **M6 — Platform frontend** ||||
 | IMP-M6-01 | Astryx integration and the `ui/` boundary | frontend | M0-05 | DONE |
-| IMP-M6-02 | Shell, routing and auth tiers | frontend, platform | M6-01 | WIP (session 75) |
+| IMP-M6-02 | Shell, routing and auth tiers | frontend, platform | M6-01 | DONE (session 75) |
 | IMP-M6-03 | Account and profile views | frontend | M6-02, M1-07 | READY |
 | IMP-M6-04 | Room views and the STOMP client | frontend | M6-02, M2-08 | READY |
 | IMP-M6-05 | Game iframe host and postMessage relay | frontend | M6-04, M3-07 | READY |
@@ -4183,6 +4183,10 @@ names nginx as the emitter and stops restating the directive. The wiring is this
 - `docs/requirements/user-accounts.md` FR-SESS-001…004, FR-SESS-010…011
 - `docs/specs/api-design/sse-notifications.md`
 - `docs/specs/platform-frontend/design-system.md` §2 — the two providers the shell owns
+- `docs/specs/api-design/notification-rest-api.md` — `GET /api/notifications/unread-count`, the
+  badge the shell refreshes on each pushed notification
+- `docs/specs/api-design/error-handling.md` — the `application/problem+json` shape `apiFetch` parses
+- `docs/specs/platform/data-model-accounts.md` §1 — `app_user.kind`, the value `IMP-GATE-75` exposes
 
 **Satisfies:** `platform-views.md` VW-NAV-001…012, VW-REDIR-001…007, VW-LAND-001…004,
 VW-LOGIN-001…004, VW-REG-001…003, VW-OAUTHCOMP-001…002, NFR-USAB-001…002
@@ -4202,6 +4206,21 @@ container — `/api`, `/ws` (including the upgrade), `/auth/google` and `/auth/c
 `frame-src` equals `game-asset-serving.md` §6.3's derivation for the configured template, and a
 test proves it for both a per-game and a constant (shared-origin) template; the Helm chart gains the
 `frontend-*` templates and its Ingress sends `turnbase.localhost` to the Frontend Service.
+
+**Done 2026-09-26 (session 75).** `turnbase-frontend` `9bc005d`, `turnbase-platform` `cdbc78e`, both CI
+green. Frontend: `react-router` 8.4.0, `appRoutes` table declaring each route's access kind, `RouteGuard`
+(gated elements are removed, never disabled), `safeRedirect`, `AuthProvider` with a 401 listener,
+login/register/OAuth-completion pages, the SSE stream (reopens only when the browser gives up —
+`readyState` CLOSED — with backoff and jitter, dedupes on `notificationId`), and nginx rendered at
+container start with `frame-src` derived from the origin template (`src/deploy/nginx.test.ts` proves
+per-game, constant, multi-occurrence and default templates). Platform: `kind` on all five principal
+responses, `GET /api/auth/providers` (public, Tier 4), a compose `frontend` service that owns host port
+`8080`, Helm `frontend-*` templates with one `origins` values source for both configmaps, e2e smoke
+retargeted. Verified against the real stack (compose with the Redis workaround below): shell + SPA
+fallback + CSP served for `turnbase.localhost`, `/api` and `/ws` (101 upgrade) proxied,
+`/auth/complete-registration` served by the shell, `x.games.localhost` reaching the monolith.
+**Not done in this item, on purpose:** the notification centre, the OAuth link-challenge form and every
+placeholder page belong to later M6 items.
 
 **The shell mounts `<LinkProvider component={Link}>` inside `<Theme>`, once** (`design-system.md`
 §2). Skipping it is the expensive mistake in M6: every Astryx `Link`, and every component that

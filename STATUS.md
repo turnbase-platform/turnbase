@@ -1,39 +1,46 @@
 ## Last Session Summary
 
-**Date:** 2026-09-26 (session 74)
+**Date:** 2026-09-26 (session 75)
 
-**No item completed — 44 of 61 unchanged. One spec defect found, fixed and closed: `IMP-GATE-74`.**
-The session claimed `IMP-M6-02` (shell, routing and auth tiers) — `IMP-M3-03` was the natural pick but
-its game-host half cannot merge without `TURNBASE_SDK_PAT` (`IMP-GATE-70`; `gh secret list` still
-shows only `TURNBASE_COMMON_PAT`). Reading `IMP-M6-02`'s *Done when* ("the CSP is emitted by the
-platform origin") turned up that no document said what serves the shell document there:
-`local-environment.md` §1 had the monolith answering `turnbase.localhost:8080`, and neither compose
-nor the Helm chart deploys `turnbase-frontend`'s image at all. `frame-src`, which `game-asset-serving.md`
-§6.3 owns, was only a literal local value, though it is deployment configuration a static bundle cannot
-know.
+**`IMP-M6-02` (shell, routing and auth tiers) is `DONE` — 45 of 61.** Two spec defects found while
+building it, both fixed and closed in the same session: `IMP-GATE-75` (the principal body carried no
+tier — it is now `{userId, username, kind}`, and the login/register request bodies are named in
+`rest-conventions.md`) and `IMP-GATE-76` (`/auth/complete-registration` is a shell route, so nginx
+proxies only `/auth/google` and `/auth/callback`; the frontend learns whether Google is configured from
+the new `GET /api/auth/providers` → `{ "google": bool }`).
 
-**Fix:** the Frontend container (nginx) is the listener on the platform origin — shell, CSP, and a
-reverse proxy of `/api`, `/ws`, `/auth` to the monolith; every other `Host` falls through to the
-monolith's games origin (`local-environment.md` §1, §4, §7.7; container count is now twelve).
-`game-asset-serving.md` §6.3 derives `frame-src` at container start from
-`turnbase.game-frontend.origin-template` (`{gameId}` → `*`); `shell-architecture.md` §6 names nginx as
-emitter and no longer restates the directive. `IMP-M6-02`'s read-list gained the auth REST docs it
-was missing (`rest-conventions.md`, `oauth-rest-api.md`), its *Repo* now spans `turnbase-frontend` and
-`turnbase-platform` (compose + Helm wiring), and its *Done when* gained the wiring clauses. The item
-is back to `READY`; no code was written and no submodule changed.
+`turnbase-frontend` `9bc005d` and `turnbase-platform` `cdbc78e`, both CI green, refs bumped. The
+Frontend container is now the listener on the platform origin under compose (host port `8080`) and
+Helm (Ingress → Frontend Service). I checked it on the real compose stack: shell, SPA fallback, CSP,
+`/api`, the `/ws` upgrade (101), `x.games.localhost` reaching the monolith.
+
+**Found, not fixed — the compose stack cannot start the monolith.** `SPRING_DATA_REDIS_URL` and
+`SPRING_DATA_REDIS_PASSWORD` are set separately (`local-environment.md` §7.9, `secrets-and-configuration.md`
+§ Redis), but Spring Boot's `url` property overrides `password`, so Lettuce connects with no credential
+and Redis answers `NOAUTH` — the platform exits during `rateLimitProxyManager`. This predates the item:
+CI's `e2e` job (`continue-on-error`) failed the same way on the previous master run. Helm has the same
+shape. I worked around it locally with `SPRING_DATA_REDIS_URL=redis://:<pw>@redis:6379` and did not commit that.
 
 ---
 
 ## Next Priorities
 
-**`IMP-GATE-74` (who serves the shell and emits its CSP) is closed; `IMP-M6-02` is `READY` and now
-larger than its title.** See *Last Session Summary*. It spans two repos — `turnbase-frontend` first
-(shell, `react-router`, nginx `templates/` rendered by `envsubst`), then `turnbase-platform` (a
-`frontend` compose service that takes host port `8080` from the monolith, Helm `frontend-*` templates,
-Ingress `turnbase.localhost` → Frontend Service, e2e smoke retargeted). The login/register request and
-session-response bodies are not in any spec; read them from the platform's OpenAPI document
-(`openapi-documentation.md`). Independent picks unchanged: `IMP-M3-03` (sdk half first; game-host half
-still needs the `TURNBASE_SDK_PAT` human action below).
+**Redis credentials do not reach the monolith under compose or Helm — file it as a spec defect first**
+(use `spec-defect`; it blocks `make e2e` and any real `docker compose up`, though it gates no item).
+Options: put the password in the URL (`redis://:${TURNBASE_REDIS_PASSWORD}@redis:6379`, needs
+URL-encoding of the secret), or drop `spring.data.redis.url` for `host`/`port`/`password` — `application.yml`
+defaults `url` unconditionally, so that also touches the platform's config and the Testcontainers ITs.
+`secrets-and-configuration.md` § Redis and `local-environment.md` §7.9 say the opposite today, and the
+Game Host's Redis client "applies the same two properties", so check it too.
+
+**Human action needed for the e2e job:** `IMP-M6-02` added a `turnbase-frontend` checkout to
+`turnbase-platform`'s `e2e` job, which needs a fine-grained PAT (read-only on Contents, scoped to
+`turnbase-frontend` only) stored as `TURNBASE_FRONTEND_PAT` on `turnbase-platform/turnbase-platform`.
+An agent cannot create it; until it exists the step fails (the job is `continue-on-error`).
+
+**`IMP-M6-03`, `-04` and `-06` are `READY`** now that `IMP-M6-02` is done (`-05` waits on `-04`).
+Independent picks unchanged: `IMP-M3-03` (sdk half first; game-host half still
+needs the `TURNBASE_SDK_PAT` human action below).
 
 **`IMP-M0-12` is `DONE` — 44 of 61; `IMP-GATE-73` (MinIO image source) is closed.** See *Last Session
 Summary*. Two follow-ups, neither gated: (1) CI's `Verify` jobs have no `timeout-minutes`, so a
