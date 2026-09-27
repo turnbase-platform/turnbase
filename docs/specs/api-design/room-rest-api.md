@@ -267,12 +267,12 @@ surface).
 ### The `reservedSlot` field — VW-ROOMS-005, FR-REJOIN-002
 
 The envelope carries one field beyond `pagination-filtering-sorting.md`'s standard shape, a sibling
-of `content` and `page` rather than a per-row value:
+of `content` and `pagination` rather than a per-row value:
 
 ```json
 {
   "content": [ … ],
-  "page": { … },
+  "pagination": { … },
   "reservedSlot": {
     "roomId": "9c1e…",
     "gameName": "Hex Duel",
