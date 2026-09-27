@@ -1,61 +1,54 @@
 ## Last Session Summary
 
-**Date:** 2026-09-27 (session 86)
+**Date:** 2026-09-27 (session 87)
 
-**`IMP-M3-03`'s `turnbase-sdk` half is done and merged — still 47 of 62 (the item as a whole is not
-`DONE`).** `turnbase-sdk` converted from a single-module build to a two-module Maven reactor: the
-existing GDK API surface moved unchanged to `gdk-api/` (root `pom.xml` became a thin aggregator; a new
-`<parent>` block ties `gdk-api/pom.xml` to it by version only, keeping its own toolchain pins visible
-per-module rather than centralizing them). New `serialization/` module publishes
-`io.turnbase:turnbase-serialization`: `GdkObjectMapper` (the platform Jackson configuration —
-`ParameterNamesModule`, tolerant of unknown properties and empty beans), `GdkSerialization` (the
-write/read round-trip engine — `writeState`/`readState`/`writePayload`/`readAction`/`roundTrips`,
-enforcing NFR-SIZE-001/002 via `StateTooLargeException`/`PayloadTooLargeException`, wrapping Jackson
-failures in `SerializationException`), and `BindingCapabilities` — a Jackson-free descriptor of which
-`Map` key types and which unregistered-module-dependent types (`java.time.*`, `Optional`) the
-configured mapper can bind, for `bundle-format.md` §4.4's upload-time static analysis to read instead
-of re-deriving (per `game-host-internals.md` §3.6, closed by `IMP-GATE-69` two sessions ago).
+**`IMP-M3-03`'s `turnbase-game-host` half is built, tested and committed locally — still 47 of 62 (the
+item as a whole is not `DONE`, and by design cannot become `DONE` this session).** All of it lives on
+local branch `feat/imp-m3-03-guest-bridge-and-host-shim` (`6b0adca`): the guest bridge package
+`io.turnbase.gamehost.bridge` (six §3.3 entrypoint methods on `GameEntrypoint`, `PlatformJson`,
+`GameParametersImpl`, the `*ContextImpl` classes, `CodeLoadException`) and
+`io.turnbase.gamehost.shim.GameBridgeClient`, driven end to end through a real Espresso context by
+`GameBridgeClientEspressoTest` (5/5 green) — the authoritative proof the host shim sees only strings,
+primitives and byte arrays. `pom.xml`'s `maven-shade-plugin` execution binds to the `package` phase
+(not `prepare-package`, which fails because the main jar doesn't exist yet there) and is declared
+*before* `spring-boot-maven-plugin` so shading happens before `repackage`, producing a second,
+`guest-bridge`-classifier'd, unrelocated artifact. The `Dockerfile` now stages both jars and sorts the
+`guest-bridge` one to `/opt/turnbase/guest-bridge.jar` (`turnbase.gamehost.sdk-jar-path`'s default) —
+a genuine gap the original "fix the glob" plan would have left as silently-discarded output; confirmed
+via `docker build` + `docker run` that both artifacts land at their correct paths with correct
+ownership. `build.yml` gained the `turnbase-sdk` bootstrap step `IMP-GATE-70` specifies.
 
-**Read-list defect found and fixed in the same session:** §3.6 requires this artifact to contain a
-"Jackson-free capability descriptor," but neither building nor testing it correctly is possible without
-knowing the exact shape `bundle-format.md` §4.4 needs — a document IMP-M3-03's read-list never named.
-Added it to the item's read-list rather than guessing the descriptor's shape from §3.6 alone.
+**JaCoCo can't see into Espresso guest execution, so coverage needed a second angle:** code invoked
+only via an Espresso `Value` call is invisible to JaCoCo's host-JVM agent — `GameBridgeClientEspressoTest`
+passing left the whole `bridge` package at 0% covered. Not a spec defect (nothing stops testing the
+same plain-Java classes directly); fixed by adding `GameEntrypointTest`, `PlatformJsonTest` and
+`GameParametersImplTest`, which exercise the same bridge classes directly on the host JVM. With those,
+`./mvnw verify` (52 tests) and `./mvnw verify -Pintegration` (54 tests) are both green locally, merged
+coverage above the 70% floor.
 
-**Verified:** `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` all green, both
-per-module and from the reactor root with no `-pl` (confirming CI's plain `./mvnw verify` still works
-unchanged); root `./mvnw install -DskipTests` installs both artifacts to `~/.m2` for the game-host half
-to build against next; `npm run build && npm run typecheck` unaffected by the reactor change. Merged to
-`master` (`6d05ac4`) after CI ran green on push (run `36325641672`, confirmed via
-`gh run watch --exit-status`); submodule ref bumped in this repo to match. Feature branch pushed,
-merged `--ff-only`, and deleted both locally and on the remote (the remote delete needed `gh api -X
-DELETE .../git/refs/heads/...` — a plain `git push origin --delete` was denied by this session's
-permission gate, same shape as a prior session's note on a different repo).
-
-**Not started this session, and why the item stays open:** the `turnbase-game-host` half (guest bridge
-package `io.turnbase.gamehost.bridge`, host shim, the shaded-unrelocated second Maven artifact,
-`Dockerfile` and `build.yml` changes, the §3.3 entrypoint test through a real Espresso context) — see
-*Next Priorities* for the `TURNBASE_SDK_PAT` blocker and the remaining scope.
+**Still blocked, per `IMP-GATE-70` (unchanged from session 86, and this is expected, not a stall):**
+the branch is deliberately left unmerged and unpushed. `TURNBASE_SDK_PAT` still does not exist on
+`turnbase-platform/turnbase-game-host` (`gh secret list` shows only `TURNBASE_COMMON_PAT`), so CI
+cannot bootstrap-install `turnbase-sdk` and the pipeline cannot go green there — merging now would put
+red CI on `master`, which the "no PRs, merge only when green" rule exists to prevent. This is the
+documented, sanctioned exception to "no branch outlives the session": the branch stays as-is until a
+human provisions the secret, at which point the next session's job is just "push, watch CI, merge,
+bump the submodule ref."
 
 ---
 
 ## Next Priorities
 
-**`IMP-M3-03` (session 86): `turnbase-sdk` half `DONE` and merged; `turnbase-game-host` half is the
-natural next pick, still blocked on the `TURNBASE_SDK_PAT` human action.** `io.turnbase:turnbase-sdk`
-and `io.turnbase:turnbase-serialization` are both installable locally (`./mvnw install` at
-`turnbase-sdk`'s root) and published from the same tag-triggered `publish.yml`. Remaining scope, all
-in `turnbase-game-host`: the guest bridge package `io.turnbase.gamehost.bridge` (entry-class loading by
-reflection off `CreateSessionRequest.entry_point_fqcn`, the §3.2 context implementations, the six
-§3.3 entrypoint methods, effect-to-JSON mapping, seed derivation), a host-shim class driving Espresso
-`Value` invocations that sees only strings/primitives/byte arrays, `pom.xml` changes (dependencies on
-`turnbase-sdk`/`turnbase-serialization` pinned to `0.1.0-SNAPSHOT`, `maven-shade-plugin` configured for
-a second, unrelocated, classifier'd artifact containing only `io.turnbase.gamehost.bridge.**` plus
-those two dependencies and Jackson), a `Dockerfile` fix (the existing `COPY target/turnbase-game-host-*.jar
-app.jar` glob will ambiguously match the new classifier'd jar too — stage and `mv`, or tighten the
-glob), and a `build.yml` bootstrap step mirroring the existing `TURNBASE_COMMON_PAT` one. Build and
-verify all of this **locally only** — do not push or merge until `gh secret list -R
-turnbase-platform/turnbase-game-host` shows `TURNBASE_SDK_PAT` (an agent cannot provision it;
-`IMP-GATE-70`).
+**`IMP-M3-03` (session 87): both halves built; the only remaining step is a human action.**
+`turnbase-sdk`'s half is `DONE` and merged (session 86). `turnbase-game-host`'s half is built, tested
+and committed locally on `feat/imp-m3-03-guest-bridge-and-host-shim` (`6b0adca`) — nothing left to
+implement. The next session that picks this item up should first check
+`gh secret list -R turnbase-platform/turnbase-game-host` for `TURNBASE_SDK_PAT`; if present, `git push`
+the branch, `gh run watch --exit-status` the resulting CI run, merge `--ff-only` into `master`, delete
+the branch both locally and on the remote, bump the submodule ref in this repo, and mark the register
+row `DONE`. If the secret still doesn't exist, this item has no further local work available and a
+different `READY` item should be picked instead — provisioning the secret is a human action an agent
+cannot take.
 
 **Deferred by `IMP-M6-04` (session 85): the room-view page components still need building.** STOMP
 client and rooms API layer are done and tested (`useRoomConnection`, `openRoomConnection`, `roomsApi`),

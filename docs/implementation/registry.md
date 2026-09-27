@@ -68,7 +68,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M3 — Game execution** ||||
 | IMP-M3-01 | GDK backend API surface | sdk | M0-02 | DONE |
 | IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | DONE |
-| IMP-M3-03 | GDK host bridge and serialization boundary | sdk, game-host | M3-01, M3-02 | WIP (session 86) |
+| IMP-M3-03 | GDK host bridge and serialization boundary | sdk, game-host | M3-01, M3-02 | WIP (session 87) |
 | IMP-M3-04 | gRPC service implementation | game-host | M3-03 | READY |
 | IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | READY |
 | IMP-M3-06 | Game input outbox and delivery | platform | M3-05 | READY |
@@ -3325,13 +3325,30 @@ now a two-module reactor (`gdk-api/`, unchanged; new `serialization/`), publishi
 `io.turnbase:turnbase-serialization` (`GdkSerialization`'s write/read round trip with
 NFR-SIZE-001/002 limits, `GdkObjectMapper`, and the `BindingCapabilities` Jackson-free descriptor
 `bundle-format.md` §4.4 will eventually read, per `IMP-M4-03`'s recorded follow-up). CI green on
-`master`. **Remaining, blocked:** the `turnbase-game-host` half (guest bridge package
-`io.turnbase.gamehost.bridge`, host shim, shaded unrelocated second artifact, Dockerfile and
-`build.yml` changes, the §3.3 entrypoint test) is not started. Per `IMP-GATE-70`, it cannot merge
-until the human-provisioned `TURNBASE_SDK_PAT` secret exists on
-`turnbase-platform/turnbase-game-host` (`gh secret list` still shows only `TURNBASE_COMMON_PAT` as
-of this session) — build and verify it locally against the `turnbase-sdk` artifacts now installed
-to `~/.m2`, and merge only once the secret is present.
+`master`.
+
+**Session 87 progress:** the `turnbase-game-host` half is built, tested and committed on local branch
+`feat/imp-m3-03-guest-bridge-and-host-shim` (`6b0adca`) — `io.turnbase.gamehost.bridge` (six §3.3
+entrypoint methods, `GameEntrypoint`, `PlatformJson`, `GameParametersImpl`, the `*ContextImpl`
+classes, `CodeLoadException`) plus `io.turnbase.gamehost.shim.GameBridgeClient`, driven end to end
+through a real Espresso context by `GameBridgeClientEspressoTest` (5/5 green) — the authoritative
+proof that the host shim sees only strings, primitives and byte arrays. `pom.xml`'s `maven-shade-plugin`
+execution is bound to the `package` phase and declared before `spring-boot-maven-plugin` so
+`default-jar` and then shading both complete before Spring Boot's `repackage` runs, producing the
+`guest-bridge`-classifier artifact (`io.turnbase.gdk.*` + `turnbase-serialization` + Jackson,
+unrelocated) alongside the app jar. The Dockerfile now stages both jars and sorts the `guest-bridge`
+one to `/opt/turnbase/guest-bridge.jar` — `turnbase.gamehost.sdk-jar-path`'s default — which the
+original glob fix would have silently discarded; verified by `docker build` + `docker run` showing
+both artifacts at their correct paths with correct ownership. Because Espresso's guest-side class
+loading is invisible to JaCoCo's host-JVM agent, `GameEntrypointTest`, `PlatformJsonTest` and
+`GameParametersImplTest` exercise the same bridge classes directly on the host JVM so the merged
+coverage floor is measurable; `./mvnw verify` (52 tests) and `./mvnw verify -Pintegration` (54 tests)
+are both green locally. `build.yml` gained the `turnbase-sdk` bootstrap step `IMP-GATE-70` specifies.
+**Still blocked, per `IMP-GATE-70`:** the branch is intentionally left merged nowhere and unpushed —
+`TURNBASE_SDK_PAT` still does not exist on `turnbase-platform/turnbase-game-host`
+(`gh secret list` still shows only `TURNBASE_COMMON_PAT`), so CI cannot bootstrap-install
+`turnbase-sdk` and the pipeline cannot go green there. Merge once the secret is provisioned; nothing
+else remains.
 
 **Read first:**
 - `docs/specs/game-host/game-host-internals.md` §3 (the guest bridge and host shim — **including §3.6,
