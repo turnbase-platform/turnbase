@@ -85,7 +85,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M4-04 | Bundle publication and asset serving | platform | M4-03 | DONE |
 | IMP-M4-05 | Admin API — review queue and badges | platform | M4-03 | DONE (session 60) |
 | **M5 — History, statistics, notifications** ||||
-| IMP-M5-01 | Game history recording | platform | M3-09 | READY |
+| IMP-M5-01 | Game history recording and query API | platform | M3-09 | READY |
 | IMP-M5-02 | Per-game statistics | platform | M5-01 | READY |
 | IMP-M5-03 | Notifications and the SSE stream | platform | M1-06, M1-07 | DONE |
 | IMP-M5-04 | Retention purge jobs | platform | M5-01, M5-03 | READY |
@@ -95,7 +95,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M6-03 | Account and profile views | frontend | M6-02, M1-07, M1-11 | READY |
 | IMP-M6-04 | Room views and the STOMP client | frontend | M6-02, M2-08 | READY |
 | IMP-M6-05 | Game iframe host and postMessage relay | frontend | M6-04, M3-07 | READY |
-| IMP-M6-06 | Catalog and history views | frontend | M6-02, M4-01 | READY |
+| IMP-M6-06 | Catalog and history views | frontend | M6-02, M4-01, M5-01 | READY |
 | ~~IMP-M6-07~~ | ~~Onboarding wizard~~ | frontend | — | CANCELLED |
 
 **62 live items.** IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
@@ -3933,9 +3933,23 @@ rejection stores a plain-text reason and does **not** delete the game or transfe
 
 ## M5 — History, statistics, notifications
 
-### IMP-M5-01 — Game history recording
+### IMP-M5-01 — Game history recording and query API
 
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M3-09
+
+**Closed:** IMP-GATE-81 (opened and closed 2026-09-27, session 81) — this item's own *Satisfies*
+claimed FR-HIST-020…030 (the Profile History Tab's display, search and pagination behaviour) in full,
+but no document gave it a REST surface to build against — `data-model-history.md` §2's own three
+indexes (`ghe_user_recent_idx`, `ghe_user_name_trgm_idx`) exist specifically to answer this tab, yet
+nothing exposed them over HTTP — and this item's own *Done when* clause never tested any of
+FR-HIST-020…030, only the recording transaction. `IMP-M6-06` claims the identical range on the
+frontend side but had no dependency on this item and no endpoint to render. Same shape as
+`IMP-GATE-80`. Fixed: new `docs/specs/api-design/history-rest-api.md` —
+`GET /api/users/{username}/history`, privacy-resolved the same way `social-rest-api.md` §7 resolves
+the friends tab, searchable and paginated per FR-HIST-025…026; registered in that directory's
+`INDEX.md` and in `game-history.md`'s new *Related API Specifications* section. This item retitled
+from *Game history recording* to name the read side it was already claiming; its read-list and
+*Done when* gained the new document.
 
 **Read first:**
 - `docs/requirements/game-history.md` FR-HIST-001…006, FR-HIST-010…013, FR-HIST-020…030
@@ -3943,12 +3957,17 @@ rejection stores a plain-text reason and does **not** delete the game or transfe
   (`game_history_entry`)
 - `docs/requirements/game-contracts.md` FR-OUTCOME-001…004
 - `docs/specs/flows/06-game-end-and-rematch.md`
+- `docs/specs/api-design/history-rest-api.md` (`IMP-GATE-81`) — the read endpoint this item also
+  builds
 
 **Satisfies:** `game-history.md` FR-HIST-001…006, FR-HIST-010…013, FR-HIST-020…030,
 NFR-HIST-001…003; `game-contracts.md` FR-OUTCOME-001, FR-OUTCOME-004
 
 **Done when:** a malformed outcome from game code cannot abort the whole recording transaction with
-no retry path (`ghe_placement_ck`).
+no retry path (`ghe_placement_ck`); `GET /api/users/{username}/history` implements
+`history-rest-api.md` in full — the `visibleSections` privacy re-check, `search`, pagination, and the
+server-computed `outcomeLabel`/`gameLinkable` fields — since that document, not this clause, is what
+makes FR-HIST-020…030 checkable.
 
 **Game code produces the outcome, so the outcome is untrusted input.** Validate it before it reaches
 a `CHECK` constraint; a constraint violation here rolls back a completed game's entire record and
@@ -4412,12 +4431,21 @@ separation ADR-0007 buys comes from the **registrable domain**, not from withhol
 
 ### IMP-M6-06 — Catalog and history views
 
-**Repo:** `turnbase-frontend` · **Depends on:** IMP-M6-02, IMP-M4-01
+**Repo:** `turnbase-frontend` · **Depends on:** IMP-M6-02, IMP-M4-01, IMP-M5-01
+
+**Closed:** IMP-GATE-81 (opened and closed 2026-09-27, session 81) — this item's own *Satisfies*
+claimed `game-history.md` FR-HIST-020…030 (the History tab: cards, search, pagination, empty state,
+visibility), but no REST endpoint existed to render it against, this item's *Depends on* never named
+`IMP-M5-01` (the platform item that owns `game_history_entry`), and its own *Done when* never tested
+any of the range — same shape as `IMP-GATE-80`. Fixed: see `IMP-M5-01`'s closed gate for the new
+`history-rest-api.md`. This item's *Depends on* gained `IMP-M5-01`; its read-list gained the new
+document; its *Done when* gained the clauses below.
 
 **Read first:**
 - `docs/requirements/platform-views.md` VW-CAT-001…003, VW-GDET-001…003, VW-NOTIF-001…004
 - `docs/requirements/game-catalog.md` FR-CAT-001…010, FR-GDET-001…009
 - `docs/requirements/game-history.md` FR-HIST-020…030
+- `docs/specs/api-design/history-rest-api.md` (`IMP-GATE-81`) — the History tab's data source
 - `docs/specs/api-design/input-validation.md` § *Output encoding* — the owner of the Markdown rule
 - `docs/specs/api-design/pagination-filtering-sorting.md`
 
@@ -4428,7 +4456,12 @@ separation ADR-0007 buys comes from the **registrable domain**, not from withhol
 no intermediate HTML string anywhere in the path (IR-19); `dangerouslySetInnerHTML` appears nowhere
 in the repository and a lint rule enforces its absence — the ban is only worth having if nothing can
 quietly re-introduce it; catalog paging uses the shared contract from IMP-M1-01 rather than a
-bespoke one.
+bespoke one; the History tab renders `history-rest-api.md`'s `content` array as cards
+(`gameName`/`gameLinkable`/`outcomeLabel`/`completedAt`), each expandable to its `playerStats`/
+`teamStats` sections when present and collapsed otherwise (FR-HIST-021…022); an empty `content` array
+renders FR-HIST-027's placeholder, not a blank tab; the search input and pagination controls drive
+`history-rest-api.md`'s `search`/`page`/`size` query parameters rather than filtering a client-held
+page.
 
 ---
 

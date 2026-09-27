@@ -2,6 +2,10 @@
 
 This document defines the requirements for recording and displaying a registered user's personal game history — the per-session record of every completed game a user participated in as a player.
 
+## Related API Specifications
+
+- [history-rest-api.md](../specs/api-design/history-rest-api.md) — `GET /api/users/{username}/history`: the paginated, searchable, privacy-resolved Profile History Tab content (implements FR-HIST-020…030)
+
 ## Related Documents
 
 - `user-accounts.md` — profile structure, privacy model (amended alongside this spec)

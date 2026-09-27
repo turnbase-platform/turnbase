@@ -16,6 +16,7 @@ These specifications cover the HTTP REST API, WebSocket protocol, and SSE channe
 | [social-rest-api.md](social-rest-api.md) | Friend graph REST surface: username search, send/accept/cancel/decline a friend request, friend list, unfriend, the `relationshipState` extension to the profile response |
 | [room-invitation-rest-api.md](room-invitation-rest-api.md) | Friends-only platform room invitation REST surface: send, decline — acceptance is the ordinary room-join endpoint, not a route of its own |
 | [oauth-rest-api.md](oauth-rest-api.md) | Google OAuth REST surface: the consent-redirect and callback routes, the pending-registration cookie and JSON endpoints, the FR-AUTH-016 collision-challenge-and-link endpoint |
+| [history-rest-api.md](history-rest-api.md) | Game history REST surface: `GET /api/users/{username}/history` — the paginated, searchable, privacy-resolved Profile History Tab content |
 | [pagination-filtering-sorting.md](pagination-filtering-sorting.md) | List endpoint conventions: pagination, filtering, sorting |
 | [error-handling.md](error-handling.md) | RFC 9457 Problem Details, `@ControllerAdvice`, error taxonomy |
 | [file-uploads.md](file-uploads.md) | Pre-signed URL upload flow for game bundles |

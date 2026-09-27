@@ -1,52 +1,55 @@
 ## Last Session Summary
 
-**Date:** 2026-09-27 (session 80)
+**Date:** 2026-09-27 (session 81)
 
-**`IMP-GATE-80` opened and closed — no code shipped this session.** Picked up `IMP-M6-03` (account
-and profile views, `turnbase-frontend`) and found its own *Done when* clause unsatisfiable: it
-requires VW-PROF-002…003 to render in full for the profile owner, and VW-PROF-002c ("Profile section
-— uploaded games") falls inside that range, but nothing in the corpus gave that section anything to
-call. `catalog-rest-api.md`'s `GET /api/games` had no owner/author filter — confirmed against both the
-spec's query-parameter table and the actual, already-shipped `CatalogController.java`, which matches it
-exactly — and its own "what is deliberately absent" section never named the gap. The requirement that
-actually specifies the section's behaviour is `game-catalog.md` FR-UPROF-001…004 (own-profile view
-shows public and private games plus management actions; other-profile view shows only public games,
-or an empty state), not `user-accounts.md` FR-PROF-001, which only lists "uploaded games" as one of
-five profile contents in passing — and FR-UPROF had no realizing API at all, unlike every other
-FR-CAT/FR-GDET/FR-GAME requirement in that document. Fixed: `catalog-rest-api.md` `GET /api/games`
-gained an `owner` query parameter (username) that composes with the existing §2 visibility predicate
-rather than replacing it — an owner listing their own profile already gets the predicate's owner
-carve-out (sees public and private, Verified and Unverified), any other caller sees only that user's
-listed games, and an unknown username yields an empty page, not `404`, since this is a filter on a
-collection rather than a lookup by id (§3, §6, §7 updated). `game-catalog.md`'s cross-reference to
-`catalog-rest-api.md` updated to match. **FR-UPROF-002's per-game management actions (edit,
-delist/publish, delete) remain unrealized** — no mutation route exists on `/api/games` yet, the same
-pre-existing, already-disclaimed gap `catalog-rest-api.md` §6 names for FR-GAME-001…013 — so
-`IMP-M6-03`'s eventual uploaded-games section can list but not manage. `IMP-M6-03`'s read-list gained
-`catalog-rest-api.md` §3 and `game-catalog.md` FR-UPROF-001…004, which it should have named from the
-start (repaired per the `work-item` skill, no gate needed for that half). `IMP-M6-03` itself is still
-`READY` — the gate blocked one section's data source, not the whole item, and closed in the same
-session it opened, so the register never shows an intermediate `BLOCKED` row (same shape as
-`IMP-GATE-69`/`70`/`78`/`79`).
+**`IMP-GATE-81` opened and closed — no code shipped this session.** Picked up `IMP-M6-06` (catalog and
+history views, `turnbase-frontend`) and found the same shape of defect `IMP-GATE-80` closed last
+session, on the History tab instead of the uploaded-games section. `IMP-M6-06`'s own *Satisfies*
+claimed `game-history.md` FR-HIST-020…030 (the Profile History Tab: cards, search, pagination, empty
+state, visibility) in full, but no document gave it a REST endpoint to render against — no
+`history-rest-api.md`-shaped document existed anywhere in `docs/specs/api-design/`, despite
+`data-model-history.md` §2 having built three indexes (`ghe_user_recent_idx`,
+`ghe_user_name_trgm_idx`) explicitly to answer this tab's default sort and search — and `IMP-M6-06`'s
+own *Done when* clause never tested any of FR-HIST-020…030, only Markdown rendering and catalog
+paging reuse. Worse: `IMP-M5-01` (*Game history recording*, `turnbase-platform`, still `READY`, not
+`DONE`) independently claimed the identical FR-HIST-020…030 range in its own *Satisfies*, also without
+testing it in its *Done when* (which only covers the recording-transaction validation) and without
+`IMP-M6-06` ever depending on it — the same untested double-claim shape as `IMP-GATE-28`/`30`/`32`/`34`,
+this time crossing a platform/frontend pair rather than two items in one repo. Fixed: new
+`docs/specs/api-design/history-rest-api.md` — `GET /api/users/{username}/history`, privacy-resolved
+the same way `social-rest-api.md` §7 resolves the friends tab (owner override, `visibleSections`
+re-check, `200`-with-empty-array rather than `403`/`404`), searchable and paginated per
+FR-HIST-025…026, with server-computed `outcomeLabel` (FR-HIST-010…013) and `gameLinkable`
+(FR-HIST-023) fields so neither the label derivation nor the soft-deleted-game check is duplicated in
+the frontend; registered in `api-design/INDEX.md` and in a new *Related API Specifications* section on
+`game-history.md`. `IMP-M5-01` retitled *Game history recording and query API* to name the read side
+it was already claiming, its read-list and *Done when* gained the new document.
+`IMP-M6-06`'s *Depends on* gained `IMP-M5-01`, its read-list gained the new document, and its *Done
+when* gained explicit clauses for the tab's rendering, empty state, and search/pagination wiring —
+closing the over-claim the same way the gate requires: by making the claimed range actually checkable,
+not by dropping it.
 
-**Why no implementation was attempted:** starting `IMP-M6-03`'s profile page against an uploaded-games
-section with no endpoint to call would have meant either inventing the filter silently in the frontend
-(guessing at a query shape the backend doesn't have) or quietly dropping a *Must* requirement
-(FR-UPROF-001) without recording that a decision was made — exactly what the `spec-defect` skill exists
-to prevent. This repo's docs-only change has no CI workflow of its own to block on (`git ls-files
-.github/workflows` is empty at the top level; the five component repos carry their own).
+**Why no implementation was attempted:** building `IMP-M6-06`'s History tab against an endpoint that
+did not exist would have meant inventing the response shape silently in the frontend — exactly what
+the `spec-defect` skill exists to prevent, same reasoning as `IMP-GATE-80`. This repo's docs-only
+change has no CI workflow of its own to block on (`git ls-files .github/workflows` is empty at the top
+level; the five component repos carry their own).
 
 ---
 
 ## Next Priorities
 
-**`IMP-GATE-80` is closed (session 80) — `IMP-M6-03` is `READY`, its uploaded-games data gap
-resolved.** `catalog-rest-api.md` `GET /api/games` now takes an `owner` username filter that reuses
-the existing visibility predicate; see *Last Session Summary*. Actual implementation is still
-unstarted: Profile, Friends and Settings views in `turnbase-frontend`, per `IMP-M6-03`'s now-repaired
-read-list. The profile page's statistics/history tabs still additionally need `IMP-M5-01`/`M5-02`,
-which are not `DONE` (pre-existing, non-blocking note already on the item). `IMP-M6-04` and `-06`
-remain `READY` and independent of it.
+**`IMP-GATE-81` is closed (session 81) — `IMP-M6-06`'s History tab now has a data source, but the item
+is not startable yet.** `IMP-M6-06`'s *Depends on* gained `IMP-M5-01`, which is `READY`, not `DONE` —
+per the `work-item` skill's step 1, `IMP-M6-06` cannot actually be picked up until `IMP-M5-01` (game
+history recording **and** the new `history-rest-api.md` read endpoint, `turnbase-platform`) is `DONE`.
+`IMP-M5-01`'s own dependency `IMP-M3-09` should be checked `DONE` before claiming it. The catalog half
+of `IMP-M6-06` (VW-CAT/VW-GDET, `game-catalog.md` FR-CAT/FR-GDET) has no such gap and could be split
+out if a future session wants to build only that slice — its own *Done when* clauses don't require the
+History tab to exist. `IMP-M6-03` remains `READY` per session 80's note; its own profile
+statistics/history tabs have the identical `IMP-M5-01`/`M5-02` dependency, now sharper since
+`IMP-M5-01`'s scope is confirmed rather than assumed. `IMP-M6-04` remains `READY` and independent of
+both.
 
 **`IMP-GATE-79` is closed (session 79) — `IMP-M3-03` is `READY`, design gap resolved.** The
 guest-boundary call interface now carries `entryPointFqcn` end-to-end (`gamehost.proto`
