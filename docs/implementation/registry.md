@@ -93,7 +93,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M6-01 | Astryx integration and the `ui/` boundary | frontend | M0-05 | DONE |
 | IMP-M6-02 | Shell, routing and auth tiers | frontend, platform | M6-01 | DONE (session 75) |
 | IMP-M6-03 | Account and profile views | frontend | M6-02, M1-07, M1-11 | DONE |
-| IMP-M6-04 | Room views and the STOMP client | frontend | M6-02, M2-08 | WIP (session 85) |
+| IMP-M6-04 | Room views and the STOMP client | frontend | M6-02, M2-08 | DONE |
 | IMP-M6-05 | Game iframe host and postMessage relay | frontend | M6-04, M3-07 | READY |
 | IMP-M6-06 | Catalog and history views | frontend | M6-02, M4-01, M5-01 | READY |
 | ~~IMP-M6-07~~ | ~~Onboarding wizard~~ | frontend | — | CANCELLED |
@@ -4432,6 +4432,21 @@ FR-CHAN-001…004, FR-SWITCH-001…002
 `X-TurnBase-Room-Instance` hint is honoured when opening the socket; a `503` with `Retry-After` from
 a join is retried after the stated delay rather than surfaced as a failure, because it means "not
 here yet", not "no".
+
+**Done 2026-09-27 (session 85).** `turnbase-frontend`: `roomSocket.ts` (STOMP client —
+`localVersion` assigned, never merged, from `ROOM_STATE`; `reconcileVersion`'s apply/discard/resync
+table; a resync discards every delta until the next snapshot rather than reconciling against a
+stale version; chat's `/topic/room.{roomId}.chat` and `.team.{teamId}` subscriptions never touch
+`reconcileVersion`; `brokerUrl` honours `?instance={hint}`), `roomsApi.ts` (`joinRoom` retries a
+`503`+`retryAfterMs` transparently), `roomReducer.ts` and `useRoomConnection.ts` (the event-to-state
+reducer and the React hook wiring the two together). 36 unit tests, all *Done when* clauses asserted
+directly. `npm run format && lint && typecheck && test && build` green locally and in CI
+(`36323893623`). The room list/join/lobby/game/results views (VW-ROOMS/VW-JOIN/VW-RLOBBY/VW-RGAME/
+VW-RRESULT, `in-room-chat.md` FR-CHAN/FR-SWITCH) are not built by this item — `registry.md`
+INDEX.md's own instruction is to build exactly the *Done when* clause, which names none of them, and
+IMP-GATE-84's closing note already established the precedent of deferring a *Satisfies* entry the
+backend or a later item has to finish first. Tracked in `STATUS.md` *Next Priorities* as the
+remaining work before those requirement IDs are actually satisfied.
 
 **Closed:** IMP-GATE-85 — this item's own *Done when* requires the `X-TurnBase-Room-Instance` hint
 to be "honoured when opening the socket", but no document named a mechanism a browser's native
