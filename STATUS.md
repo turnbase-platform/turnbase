@@ -39,6 +39,10 @@ rights should delete `origin/feat/im-m6-03-account-profile-views` on `turnbase-f
 
 ## Next Priorities
 
+**`IMP-GATE-85` opened and closed (session 85, `IMP-M6-04`)** — no document named how a browser's
+native `WebSocket` (which cannot set handshake headers) carries the `X-TurnBase-Room-Instance` hint
+forward. Fixed: `room-websocket.md` names `/ws?instance={podId}`, a query parameter, as the mechanism.
+
 **`IMP-GATE-84` opened and closed (session 85, `IMP-M6-04`)** — `shell-architecture.md` §8 required
 the `/rooms` reconnection pinned card to be "driven by a field on the rooms list response" that
 `room-rest-api.md` never defined. Fixed: `room-rest-api.md` §3 gained a `reservedSlot` envelope field.

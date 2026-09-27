@@ -4430,6 +4430,14 @@ FR-CHAN-001…004, FR-SWITCH-001…002
 a join is retried after the stated delay rather than surfaced as a failure, because it means "not
 here yet", not "no".
 
+**Closed:** IMP-GATE-85 — this item's own *Done when* requires the `X-TurnBase-Room-Instance` hint
+to be "honoured when opening the socket", but no document named a mechanism a browser's native
+`WebSocket` (which cannot set arbitrary handshake headers) can actually use to carry it, and
+`room-websocket.md` §*Routing on join*'s own illustrative "cookie or header" aside never resolved to
+one either. Opened and closed 2026-09-27: `room-websocket.md` now names the concrete mechanism — the
+client appends the hint as `/ws?instance={podId}`, consumed by an ingress configured for it and
+ignored otherwise (`local-environment.md` §3's round-robin ingress, correctly per FR-DEPLOY-002).
+
 **Closed:** IMP-GATE-84 — `shell-architecture.md` §8 requires the `/rooms` reconnection pinned card
 (VW-ROOMS-005, FR-REJOIN-002) to be "driven by a field on the rooms list response", but
 `room-rest-api.md` §3's `GET /api/rooms` response had no field naming the caller's own held

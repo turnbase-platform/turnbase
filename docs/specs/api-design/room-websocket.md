@@ -23,9 +23,11 @@ All real-time room events for a given room are produced by a single Platform Mon
 
 ### Routing on join
 
-When a player joins or creates a room via the REST endpoint, the server claims the room if it is ownerless (or confirms the existing claim) and sets a routing hint in the response (implementation detail: an HTTP cookie or header, e.g. `X-Room-Pod: {podId}`). The ingress layer uses this hint to route all subsequent requests from that client — including the WebSocket upgrade — to the owning pod.
+When a player joins or creates a room via the REST endpoint, the server claims the room if it is ownerless (or confirms the existing claim) and returns the routing hint as the `X-TurnBase-Room-Instance` response header (`room-rest-api.md` § *The affinity hint is a response header*).
 
-The client establishes its WebSocket connection (`/ws`) **after** receiving the join or create response. Because the routing hint is set before the connection is opened, the WebSocket upgrade goes directly to the owning pod. **In the common case** — the room already has a live owner — no reconnection or migration occurs at room entry; the hint simply names the pod that was already serving the room. This does not hold across a claim change: see Pod failure below.
+**The client carries the hint forward as the `instance` query parameter on the `/ws` connection URL** — `/ws?instance={podId}` — because a browser's native `WebSocket` constructor cannot set arbitrary headers on the handshake request, and the hint must reach the ingress in the one part of that request a client script controls: the URL. An ingress configured for it can route the upgrade by that parameter; `local-environment.md` §3's round-robin ingress is not so configured and ignores it, which is correct per FR-DEPLOY-002 — the hint is advisory and the receiving instance resolves ownership itself either way (§1.2). The client establishes this connection **after** receiving the join or create response, so the parameter is always the freshest hint available.
+
+**In the common case** — the room already has a live owner and the ingress honours the hint — no reconnection or migration occurs at room entry. This does not hold across a claim change: see Pod failure below.
 
 ### Consequences
 
