@@ -3320,11 +3320,27 @@ from the manifest's `backend.entryPoint` the same way it already resolves `param
 table, §6.1 and §7.2 updated to match. `turnbase-common`'s committed proto copy synced and pushed
 (`c04f932`), CI green.
 
+**Session 86 progress:** the `turnbase-sdk` half is done and merged (`6d05ac4`) — `turnbase-sdk` is
+now a two-module reactor (`gdk-api/`, unchanged; new `serialization/`), publishing
+`io.turnbase:turnbase-serialization` (`GdkSerialization`'s write/read round trip with
+NFR-SIZE-001/002 limits, `GdkObjectMapper`, and the `BindingCapabilities` Jackson-free descriptor
+`bundle-format.md` §4.4 will eventually read, per `IMP-M4-03`'s recorded follow-up). CI green on
+`master`. **Remaining, blocked:** the `turnbase-game-host` half (guest bridge package
+`io.turnbase.gamehost.bridge`, host shim, shaded unrelocated second artifact, Dockerfile and
+`build.yml` changes, the §3.3 entrypoint test) is not started. Per `IMP-GATE-70`, it cannot merge
+until the human-provisioned `TURNBASE_SDK_PAT` secret exists on
+`turnbase-platform/turnbase-game-host` (`gh secret list` still shows only `TURNBASE_COMMON_PAT` as
+of this session) — build and verify it locally against the `turnbase-sdk` artifacts now installed
+to `~/.m2`, and merge only once the secret is present.
+
 **Read first:**
 - `docs/specs/game-host/game-host-internals.md` §3 (the guest bridge and host shim — **including §3.6,
   where each half is built**), §5 (the serialization engine), §8 (state representation)
 - `docs/specs/gdk-api/backend-gdk-api.md` §10 (relationship to the gRPC contract)
 - `docs/requirements/game-contracts.md` NFR-SEC-001…004, NFR-SIZE-001…002
+- `docs/specs/manifest/bundle-format.md` §4.4 (the capability-descriptor consumer, for the exact
+  shape `BindingCapabilities` needs to expose — missing from the original read-list; added this
+  session because §3.6's "capability descriptor" line is undecidable without it)
 
 **Satisfies:** `platform-architecture.md` FR-CTX-001…012; `game-contracts.md` NFR-SEC-001…004,
 NFR-SIZE-001…002
