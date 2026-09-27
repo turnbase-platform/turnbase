@@ -2,9 +2,8 @@
 
 **Date:** 2026-09-27 (session 87)
 
-**`IMP-M3-03`'s `turnbase-game-host` half is built, tested and committed locally — still 47 of 62 (the
-item as a whole is not `DONE`, and by design cannot become `DONE` this session).** All of it lives on
-local branch `feat/imp-m3-03-guest-bridge-and-host-shim` (`6b0adca`): the guest bridge package
+**`IMP-M3-03` is `DONE` — 48 of 62.** The `turnbase-game-host` half was built and tested locally on
+branch `feat/imp-m3-03-guest-bridge-and-host-shim` (`6b0adca`): the guest bridge package
 `io.turnbase.gamehost.bridge` (six §3.3 entrypoint methods on `GameEntrypoint`, `PlatformJson`,
 `GameParametersImpl`, the `*ContextImpl` classes, `CodeLoadException`) and
 `io.turnbase.gamehost.shim.GameBridgeClient`, driven end to end through a real Espresso context by
@@ -26,29 +25,28 @@ same plain-Java classes directly); fixed by adding `GameEntrypointTest`, `Platfo
 `./mvnw verify` (52 tests) and `./mvnw verify -Pintegration` (54 tests) are both green locally, merged
 coverage above the 70% floor.
 
-**Still blocked, per `IMP-GATE-70` (unchanged from session 86, and this is expected, not a stall):**
-the branch is deliberately left unmerged and unpushed. `TURNBASE_SDK_PAT` still does not exist on
-`turnbase-platform/turnbase-game-host` (`gh secret list` shows only `TURNBASE_COMMON_PAT`), so CI
-cannot bootstrap-install `turnbase-sdk` and the pipeline cannot go green there — merging now would put
-red CI on `master`, which the "no PRs, merge only when green" rule exists to prevent. This is the
-documented, sanctioned exception to "no branch outlives the session": the branch stays as-is until a
-human provisions the secret, at which point the next session's job is just "push, watch CI, merge,
-bump the submodule ref."
+**`IMP-GATE-70`'s blocker cleared mid-session — caught late, and that's its own lesson.** This
+session initially reported the item `BLOCKED`, restating session 86's note that `TURNBASE_SDK_PAT`
+didn't exist, without re-running `gh secret list` first. It had in fact been provisioned
+(2026-09-27T14:36:43Z, before that report was made). `CLAUDE.md`'s Session Workflow now has a standing
+rule: re-check externally-gated blockers live before reporting `BLOCKED`, never from a prior session's
+note or a compaction summary alone.
+
+**Finishing the merge surfaced a real CI infrastructure defect, unrelated to this item's code:**
+pushing `feat/imp-m3-03-guest-bridge-and-host-shim` `--ff-only` into `master` triggered CI, which
+failed on `Trivy scan — image (report)` with "no space left on device" during the image export —
+`ubuntu-latest`'s disk exhausted by two full bootstrap Maven installs (`turnbase-common`,
+`turnbase-sdk`) plus this module's own image, not any vulnerability finding. Fixed on `master`
+directly across two follow-up commits (both merged `--ff-only` the same way): `7a3f1fb` deletes each
+bootstrap clone right after installing it to `~/.m2`; `24e3398` also removes `ubuntu-latest`'s unused
+preinstalled toolchains (`.NET`, Android SDK, GHC, CodeQL) before the image build — the first fix
+alone wasn't enough. CI green at `24e3398` (run `36342814547`), including the GHCR push. Submodule ref
+bumped in this repo to match; `feat/imp-m3-03-guest-bridge-and-host-shim` deleted both locally and on
+the remote.
 
 ---
 
 ## Next Priorities
-
-**`IMP-M3-03` (session 87): both halves built; the only remaining step is a human action.**
-`turnbase-sdk`'s half is `DONE` and merged (session 86). `turnbase-game-host`'s half is built, tested
-and committed locally on `feat/imp-m3-03-guest-bridge-and-host-shim` (`6b0adca`) — nothing left to
-implement. The next session that picks this item up should first check
-`gh secret list -R turnbase-platform/turnbase-game-host` for `TURNBASE_SDK_PAT`; if present, `git push`
-the branch, `gh run watch --exit-status` the resulting CI run, merge `--ff-only` into `master`, delete
-the branch both locally and on the remote, bump the submodule ref in this repo, and mark the register
-row `DONE`. If the secret still doesn't exist, this item has no further local work available and a
-different `READY` item should be picked instead — provisioning the secret is a human action an agent
-cannot take.
 
 **Deferred by `IMP-M6-04` (session 85): the room-view page components still need building.** STOMP
 client and rooms API layer are done and tested (`useRoomConnection`, `openRoomConnection`, `roomsApi`),

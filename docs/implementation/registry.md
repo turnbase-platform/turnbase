@@ -68,7 +68,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M3 — Game execution** ||||
 | IMP-M3-01 | GDK backend API surface | sdk | M0-02 | DONE |
 | IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | DONE |
-| IMP-M3-03 | GDK host bridge and serialization boundary | sdk, game-host | M3-01, M3-02 | WIP (session 87) |
+| IMP-M3-03 | GDK host bridge and serialization boundary | sdk, game-host | M3-01, M3-02 | DONE |
 | IMP-M3-04 | gRPC service implementation | game-host | M3-03 | READY |
 | IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | READY |
 | IMP-M3-06 | Game input outbox and delivery | platform | M3-05 | READY |
@@ -3344,11 +3344,18 @@ loading is invisible to JaCoCo's host-JVM agent, `GameEntrypointTest`, `Platform
 `GameParametersImplTest` exercise the same bridge classes directly on the host JVM so the merged
 coverage floor is measurable; `./mvnw verify` (52 tests) and `./mvnw verify -Pintegration` (54 tests)
 are both green locally. `build.yml` gained the `turnbase-sdk` bootstrap step `IMP-GATE-70` specifies.
-**Still blocked, per `IMP-GATE-70`:** the branch is intentionally left merged nowhere and unpushed —
-`TURNBASE_SDK_PAT` still does not exist on `turnbase-platform/turnbase-game-host`
-(`gh secret list` still shows only `TURNBASE_COMMON_PAT`), so CI cannot bootstrap-install
-`turnbase-sdk` and the pipeline cannot go green there. Merge once the secret is provisioned; nothing
-else remains.
+`TURNBASE_SDK_PAT` was provisioned on `turnbase-platform/turnbase-game-host` this same session
+(confirmed via `gh secret list`), clearing `IMP-GATE-70`'s human-action blocker. Merged
+`feat/imp-m3-03-guest-bridge-and-host-shim` `--ff-only` into `master` and pushed (`6b0adca`); branch
+deleted both locally and on the remote. The triggered CI run failed once on `Trivy scan — image
+(report)` with "no space left on device" during the image export — a runner disk-space exhaustion
+from the two bootstrap Maven installs plus this module's own image, not a code or vulnerability
+defect. Fixed in two follow-up commits, both merged `--ff-only` directly to `master` to keep it green:
+`7a3f1fb` deletes each bootstrap clone (`turnbase-common`, `turnbase-sdk`) right after installing it
+to `~/.m2`; `24e3398` additionally frees disk by removing `ubuntu-latest`'s unused preinstalled
+toolchains (`.NET`, Android SDK, GHC, CodeQL) before the image build. CI green on `master` at
+`24e3398` (run `36342814547`, confirmed via `gh run watch --exit-status`), including the GHCR image
+push. Submodule ref bumped in this repo to match. **`IMP-M3-03` is `DONE`.**
 
 **Read first:**
 - `docs/specs/game-host/game-host-internals.md` §3 (the guest bridge and host shim — **including §3.6,
