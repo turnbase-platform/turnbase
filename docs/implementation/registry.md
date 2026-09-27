@@ -4411,7 +4411,10 @@ vulnerability.
 **Repo:** `turnbase-frontend` · **Depends on:** IMP-M6-02, IMP-M2-08
 
 **Read first:**
-- `docs/specs/platform-frontend/shell-architecture.md` §4 (the WebSocket client)
+- `docs/specs/platform-frontend/shell-architecture.md` §4 (the WebSocket client) and §8 (the room
+  view's one-component-three-states shape and the global reconnection card)
+- `docs/specs/api-design/websocket.md` — the base connection this protocol extends: `/ws`, the
+  cookie-only `CONNECT` auth with no separate token, and the shared envelope
 - `docs/specs/api-design/room-websocket.md` **in full**, and `room-chat-websocket.md`
 - `docs/specs/api-design/room-rest-api.md` — the affinity hint and the `503` contract
 - `docs/requirements/platform-views.md` VW-ROOMS-001…005, VW-JOIN-001…003, VW-RLOBBY-001…007, VW-RLOBBY-009…017,
@@ -4443,8 +4446,8 @@ ignored otherwise (`local-environment.md` §3's round-robin ingress, correctly p
 `room-rest-api.md` §3's `GET /api/rooms` response had no field naming the caller's own held
 grace-period reservation, and `reconnection-flow.md` never named the wire mechanism either. Opened
 and closed 2026-09-27: added a top-level `reservedSlot` field to the `GET /api/rooms` envelope in
-`room-rest-api.md` §3 (sibling to `content`/`page`, unaffected by filters, `null` when the caller
-holds no live reservation). The backend (`IMP-M2-01`, `IMP-M2-07`, both `DONE`) does not yet
+`room-rest-api.md` §3 (sibling to `content`/`pagination`, unaffected by filters, `null` when the
+caller holds no live reservation). The backend (`IMP-M2-01`, `IMP-M2-07`, both `DONE`) does not yet
 populate it — VW-ROOMS-005 is deferred within this item pending that backend follow-up (tracked
 below, not in this item's *Done when*).
 
