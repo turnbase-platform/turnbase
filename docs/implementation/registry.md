@@ -92,7 +92,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M6 — Platform frontend** ||||
 | IMP-M6-01 | Astryx integration and the `ui/` boundary | frontend | M0-05 | DONE |
 | IMP-M6-02 | Shell, routing and auth tiers | frontend, platform | M6-01 | DONE (session 75) |
-| IMP-M6-03 | Account and profile views | frontend | M6-02, M1-07, M1-11 | WIP (session 83) |
+| IMP-M6-03 | Account and profile views | frontend | M6-02, M1-07, M1-11 | DONE |
 | IMP-M6-04 | Room views and the STOMP client | frontend | M6-02, M2-08 | READY |
 | IMP-M6-05 | Game iframe host and postMessage relay | frontend | M6-04, M3-07 | READY |
 | IMP-M6-06 | Catalog and history views | frontend | M6-02, M4-01, M5-01 | READY |
@@ -4388,6 +4388,17 @@ have set** — private profile, hidden sections and hidden friend list all rende
 FR-PROF-007, VW-PROF-002…003, VW-FREN); a guest profile shows the username and nothing else
 (FR-GUEST-010); a soft-deleted user's profile shows the FR-ACCT-009 placeholder; deletion is a
 confirmed, explicit action (FR-ACCT-004).
+
+**Done (session 84):** Profile, Friends and Settings pages built and wired at `/users/:username`,
+`/friends`, `/settings`; all four *Done when* cases covered by `ProfilePage.test.tsx` and
+`SettingsPage.test.tsx`. Also built, beyond the *Done when* clause but within *Satisfies*: friend
+request send/accept/decline/remove (`FriendsPage.tsx`), password change and add-password
+(`FR-ACCT-010`/`IMP-GATE-83`), auth-method add (Google link, `oauth-rest-api.md` §7a) and remove, and
+the four privacy-visibility toggles. **Deliberately deferred:** the profile page's statistics and
+game-history tabs render nothing yet — `IMP-M5-01`/`M5-02` are not `DONE` and have no REST surface to
+build against, per the still-open note left on `IMP-GATE-78` above; build those tabs when either item
+ships. The `GET /api/users?search=` endpoint (`social-rest-api.md`) was not built into any view — no
+`VW-*` requirement in this item's *Done when*/*Satisfies* calls for a username-search UI.
 
 **The view is not the access control.** Every rule above is already enforced by IMP-M1-07 server-side;
 implementing it here as well is a rendering concern, and implementing it *only* here is a

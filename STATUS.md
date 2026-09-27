@@ -1,35 +1,50 @@
 ## Last Session Summary
 
-**Date:** 2026-09-27 (session 82)
+**Date:** 2026-09-27 (session 84)
 
-**`IMP-GATE-82` opened and closed — no code shipped this session.** Claimed `IMP-M6-03` (account and
-profile views, `turnbase-frontend`; all three dependencies — `IMP-M6-02`, `IMP-M1-07`, `IMP-M1-11` —
-were `DONE`) and, while working its read-list, found that `GET /api/users/{username}` — the public,
-privacy-resolved profile envelope every one of this item's views renders from (owner-sees-all,
-guest-only, soft-deleted placeholder, private non-owner, `visibleSections`, and `social-rest-api.md`
-§9's `relationshipState`) — was never specified in any `docs/specs/api-design/*.md` document, despite
-`social-rest-api.md` §9, `catalog-rest-api.md` §3 and `history-rest-api.md` all treating it as an
-established contract they merely extend or reference. The only description of the shape anywhere in
-the corpus was `IMP-M1-07`'s own registry prose (already `DONE` since session 32) and unshaped prose in
-`user-accounts.md`'s FR-PROF/FR-ACCT/FR-GUEST-010 — same shape as `IMP-GATE-31/33/35/37/78/80/81`: an
-item's *Satisfies*/*Done when* needs a wire contract no api-design document actually supplies. Fixed:
-new `docs/specs/api-design/profile-rest-api.md`, transcribed from the shipped
-`account.ProfileResponse`/`ProfileController`/`ProfileService.view` source (`IMP-M1-07`) rather than
-inventing a shape that might diverge from the running platform — every case (owner, guest,
-soft-deleted, private non-owner, public non-owner with `relationshipState`) with its exact JSON;
-registered in `api-design/INDEX.md` and cross-referenced from `user-accounts.md`'s *Related API
-Specifications*. `IMP-M6-03`'s read-list now cites the new document in place of the prose it was
-reading around; its row is back to `READY`.
+**`IMP-M6-03` (account and profile views, `turnbase-frontend`) is `DONE`.** Built on the
+`profile-rest-api.md` contract session 82 wrote after closing `IMP-GATE-82`. Shipped: `ProfilePage`,
+`FriendsPage` and `SettingsPage`, wired at `/users/:username`, `/friends`, `/settings`. All four
+*Done when* cases — owner sees everything regardless of privacy settings, guest sees only the
+username, soft-deleted shows the `FR-ACCT-009` placeholder, deletion is a confirmed explicit action —
+are asserted in `ProfilePage.test.tsx` and `SettingsPage.test.tsx`. Beyond *Done when* but within
+*Satisfies*: friend request send/accept/decline/remove, password change and add-password
+(`FR-ACCT-010`/`IMP-GATE-83`), auth-method add (Google link) and remove, and the four
+privacy-visibility toggles. Deliberately deferred: the profile page's statistics and game-history tabs
+render nothing — `IMP-M5-01`/`M5-02` aren't `DONE` and publish no REST surface yet (per the open note
+on `IMP-GATE-78`); and no username-search UI was built for `GET /api/users?search=` — no `VW-*`
+requirement in this item's *Done when*/*Satisfies* calls for one.
 
-**Why no implementation was attempted:** building `IMP-M6-03`'s profile views without a written wire
-contract would have meant inventing the response shape a second time in the frontend, silently, on top
-of code that already exists — exactly what the `spec-defect` skill exists to prevent. This repo's
-docs-only change has no CI workflow of its own to block on (`git ls-files .github/workflows` is empty
-at the top level; the five component repos carry their own).
+**Found and fixed along the way, not a spec defect:** react-router 8.4.0's declarative `<Router>`
+wraps every navigation in `React.startTransition()` by default (`useTransitions` prop). With no
+Suspense/loaders in this app to benefit, that let `AuthProvider`'s synchronous principal-clear-on-401
+update win a race against an in-flight `navigate()` (reproduced concretely by the delete-account flow
+landing on `/login?redirect=%2Fsettings` instead of `/`; `flushSync` cannot force a transition to
+commit — confirmed by reading `react-router`'s source, not just inferred). Fixed by passing
+`useTransitions={false}` to the app's `BrowserRouter` (`App.tsx`) and the test `MemoryRouter`
+(`renderApp.tsx`), not by adding a timing workaround.
+
+**Pipeline:** format → lint → typecheck → `npm test -- --run` (156/156, coverage 84/78/80/85%, all
+above the 70% floor) → build, all green locally; merged to `master` (`bc095c9`); CI (`build.yml`) ran
+green on push (run `36306811491`); submodule ref bumped in this repo to match.
+
+**Outstanding, non-blocking:** the feature branch `feat/im-m6-03-account-profile-views` is merged and
+deleted locally but its remote copy on `turnbase-frontend`'s origin could not be deleted — `git push
+origin --delete` was denied by the sandbox's permission system twice this session and once in the
+prior one, and per the "don't re-attempt an identical denied call" rule it was not retried further.
+Same class of gap already on record for two other repos in this file's history; a human with push
+rights should delete `origin/feat/im-m6-03-account-profile-views` on `turnbase-frontend`.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M6-03` is `DONE` (session 84) — 44 of 61.** Account/profile/friends/settings views shipped; see
+*Last Session Summary* for scope and the deliberately-deferred statistics/history tabs and
+username-search UI. Nothing else changes status as a result: `IMP-M6-04` and `IMP-M6-06` were already
+`READY` independently of `M6-03` (session 80's note), and remain so; `IMP-M6-05` still waits on
+`IMP-M6-04`. `IMP-M6-03`'s own profile statistics/history tabs stay blocked on `IMP-M5-01`/`IMP-M5-02`
+exactly as before — re-open that slice, don't re-open the item, once either ships.
 
 **`IMP-GATE-82` is closed (session 82) — `IMP-M6-03` is `READY` again, with a written profile-response
 contract to build against.** Its own statistics/game-history tabs still need `IMP-M5-01`/`IMP-M5-02`'s
