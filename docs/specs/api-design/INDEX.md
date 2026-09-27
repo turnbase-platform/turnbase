@@ -11,6 +11,7 @@ These specifications cover the HTTP REST API, WebSocket protocol, and SSE channe
 | File | Topic |
 |------|-------|
 | [rest-conventions.md](rest-conventions.md) | URL structure, HTTP methods, status codes, versioning and deprecation strategy, CORS/Origin policy and CSRF |
+| [profile-rest-api.md](profile-rest-api.md) | Public profile REST surface: `GET /api/users/{username}` — the privacy-resolved envelope (owner, non-owner, private, guest, soft-deleted cases) every other profile-reading endpoint extends |
 | [room-rest-api.md](room-rest-api.md) | Room membership REST surface: create, list, get, join, leave, invite-code resolution. In-room mutations are STOMP — see `room-websocket.md` |
 | [catalog-rest-api.md](catalog-rest-api.md) | Public catalog REST surface: paginated game listing and single game detail, the Unverified-except-owner visibility rule, the 404/410 split for a game's detail page |
 | [social-rest-api.md](social-rest-api.md) | Friend graph REST surface: username search, send/accept/cancel/decline a friend request, friend list, unfriend, the `relationshipState` extension to the profile response |

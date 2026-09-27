@@ -1,43 +1,42 @@
 ## Last Session Summary
 
-**Date:** 2026-09-27 (session 81)
+**Date:** 2026-09-27 (session 82)
 
-**`IMP-GATE-81` opened and closed — no code shipped this session.** Picked up `IMP-M6-06` (catalog and
-history views, `turnbase-frontend`) and found the same shape of defect `IMP-GATE-80` closed last
-session, on the History tab instead of the uploaded-games section. `IMP-M6-06`'s own *Satisfies*
-claimed `game-history.md` FR-HIST-020…030 (the Profile History Tab: cards, search, pagination, empty
-state, visibility) in full, but no document gave it a REST endpoint to render against — no
-`history-rest-api.md`-shaped document existed anywhere in `docs/specs/api-design/`, despite
-`data-model-history.md` §2 having built three indexes (`ghe_user_recent_idx`,
-`ghe_user_name_trgm_idx`) explicitly to answer this tab's default sort and search — and `IMP-M6-06`'s
-own *Done when* clause never tested any of FR-HIST-020…030, only Markdown rendering and catalog
-paging reuse. Worse: `IMP-M5-01` (*Game history recording*, `turnbase-platform`, still `READY`, not
-`DONE`) independently claimed the identical FR-HIST-020…030 range in its own *Satisfies*, also without
-testing it in its *Done when* (which only covers the recording-transaction validation) and without
-`IMP-M6-06` ever depending on it — the same untested double-claim shape as `IMP-GATE-28`/`30`/`32`/`34`,
-this time crossing a platform/frontend pair rather than two items in one repo. Fixed: new
-`docs/specs/api-design/history-rest-api.md` — `GET /api/users/{username}/history`, privacy-resolved
-the same way `social-rest-api.md` §7 resolves the friends tab (owner override, `visibleSections`
-re-check, `200`-with-empty-array rather than `403`/`404`), searchable and paginated per
-FR-HIST-025…026, with server-computed `outcomeLabel` (FR-HIST-010…013) and `gameLinkable`
-(FR-HIST-023) fields so neither the label derivation nor the soft-deleted-game check is duplicated in
-the frontend; registered in `api-design/INDEX.md` and in a new *Related API Specifications* section on
-`game-history.md`. `IMP-M5-01` retitled *Game history recording and query API* to name the read side
-it was already claiming, its read-list and *Done when* gained the new document.
-`IMP-M6-06`'s *Depends on* gained `IMP-M5-01`, its read-list gained the new document, and its *Done
-when* gained explicit clauses for the tab's rendering, empty state, and search/pagination wiring —
-closing the over-claim the same way the gate requires: by making the claimed range actually checkable,
-not by dropping it.
+**`IMP-GATE-82` opened and closed — no code shipped this session.** Claimed `IMP-M6-03` (account and
+profile views, `turnbase-frontend`; all three dependencies — `IMP-M6-02`, `IMP-M1-07`, `IMP-M1-11` —
+were `DONE`) and, while working its read-list, found that `GET /api/users/{username}` — the public,
+privacy-resolved profile envelope every one of this item's views renders from (owner-sees-all,
+guest-only, soft-deleted placeholder, private non-owner, `visibleSections`, and `social-rest-api.md`
+§9's `relationshipState`) — was never specified in any `docs/specs/api-design/*.md` document, despite
+`social-rest-api.md` §9, `catalog-rest-api.md` §3 and `history-rest-api.md` all treating it as an
+established contract they merely extend or reference. The only description of the shape anywhere in
+the corpus was `IMP-M1-07`'s own registry prose (already `DONE` since session 32) and unshaped prose in
+`user-accounts.md`'s FR-PROF/FR-ACCT/FR-GUEST-010 — same shape as `IMP-GATE-31/33/35/37/78/80/81`: an
+item's *Satisfies*/*Done when* needs a wire contract no api-design document actually supplies. Fixed:
+new `docs/specs/api-design/profile-rest-api.md`, transcribed from the shipped
+`account.ProfileResponse`/`ProfileController`/`ProfileService.view` source (`IMP-M1-07`) rather than
+inventing a shape that might diverge from the running platform — every case (owner, guest,
+soft-deleted, private non-owner, public non-owner with `relationshipState`) with its exact JSON;
+registered in `api-design/INDEX.md` and cross-referenced from `user-accounts.md`'s *Related API
+Specifications*. `IMP-M6-03`'s read-list now cites the new document in place of the prose it was
+reading around; its row is back to `READY`.
 
-**Why no implementation was attempted:** building `IMP-M6-06`'s History tab against an endpoint that
-did not exist would have meant inventing the response shape silently in the frontend — exactly what
-the `spec-defect` skill exists to prevent, same reasoning as `IMP-GATE-80`. This repo's docs-only
-change has no CI workflow of its own to block on (`git ls-files .github/workflows` is empty at the top
-level; the five component repos carry their own).
+**Why no implementation was attempted:** building `IMP-M6-03`'s profile views without a written wire
+contract would have meant inventing the response shape a second time in the frontend, silently, on top
+of code that already exists — exactly what the `spec-defect` skill exists to prevent. This repo's
+docs-only change has no CI workflow of its own to block on (`git ls-files .github/workflows` is empty
+at the top level; the five component repos carry their own).
 
 ---
 
 ## Next Priorities
+
+**`IMP-GATE-82` is closed (session 82) — `IMP-M6-03` is `READY` again, with a written profile-response
+contract to build against.** Its own statistics/game-history tabs still need `IMP-M5-01`/`IMP-M5-02`'s
+REST surface (not `DONE`) per session 80/81's notes — build those tabs against whatever those items
+publish, or leave them for the item that does. The friends-section, uploaded-games-section and core
+profile-envelope rendering (owner/guest/private/soft-deleted cases) have no such gap and are fully
+startable now.
 
 **`IMP-GATE-81` is closed (session 81) — `IMP-M6-06`'s History tab now has a data source, but the item
 is not startable yet.** `IMP-M6-06`'s *Depends on* gained `IMP-M5-01`, which is `READY`, not `DONE` —

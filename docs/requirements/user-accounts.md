@@ -3,6 +3,7 @@
 ## Related API Specifications
 
 - [rest-conventions.md](../specs/api-design/rest-conventions.md) — HTTP methods, status codes, authentication via httpOnly cookie
+- [profile-rest-api.md](../specs/api-design/profile-rest-api.md) — `GET /api/users/{username}` response envelope for every case: owner, non-owner, private, guest, soft-deleted (FR-PROF-001…008, FR-ACCT-009…010, FR-GUEST-010)
 - [error-handling.md](../specs/api-design/error-handling.md) — RFC 9457 Problem Details, validation error format
 - [rate-limiting.md](../specs/api-design/rate-limiting.md) — Tier 1 auth rate limiting (NFR-SEC-003); Tier 5 account-minting throttle (NFR-SEC-007); client-IP derivation
 - [input-validation.md](../specs/api-design/input-validation.md) — username charset and confusable-safe uniqueness (FR-AUTH-003/013/014/015), password and email rules, canonicalization (NFR-SEC-005)

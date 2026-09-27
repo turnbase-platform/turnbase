@@ -92,7 +92,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M6 — Platform frontend** ||||
 | IMP-M6-01 | Astryx integration and the `ui/` boundary | frontend | M0-05 | DONE |
 | IMP-M6-02 | Shell, routing and auth tiers | frontend, platform | M6-01 | DONE (session 75) |
-| IMP-M6-03 | Account and profile views | frontend | M6-02, M1-07, M1-11 | WIP (session 82) |
+| IMP-M6-03 | Account and profile views | frontend | M6-02, M1-07, M1-11 | READY |
 | IMP-M6-04 | Room views and the STOMP client | frontend | M6-02, M2-08 | READY |
 | IMP-M6-05 | Game iframe host and postMessage relay | frontend | M6-04, M3-07 | READY |
 | IMP-M6-06 | Catalog and history views | frontend | M6-02, M4-01, M5-01 | READY |
@@ -4340,8 +4340,22 @@ no mutation route exists yet, same pre-existing gap `catalog-rest-api.md` §6 al
 FR-GAME-001…013 — so this item's owner view renders the list but not those actions. The read-list below
 gained `game-catalog.md` FR-UPROF-001…004, which it should have named from the start.
 
+**Closed:** IMP-GATE-82 (opened and closed 2026-09-27, session 82) — this item's own *Done when* clause
+requires rendering every case of `GET /api/users/{username}` (owner, guest, soft-deleted, private
+non-owner, `relationshipState`), and `social-rest-api.md` §9, `catalog-rest-api.md` §3 and
+`history-rest-api.md` all treat that endpoint as an established contract they extend or reference, but
+no `docs/specs/api-design/*.md` document ever specified it — only `IMP-M1-07`'s own (already-`DONE`)
+registry prose and unshaped prose requirements in `user-accounts.md` described the response, so this
+item had no wire contract to build its views against. Same shape as `IMP-GATE-31/33/35/37/78/80/81`.
+Fixed: new `docs/specs/api-design/profile-rest-api.md`, transcribed from the shipped
+`account.ProfileResponse`/`ProfileService.view` (`IMP-M1-07`, session 32) rather than inventing a
+divergent shape — registered in `api-design/INDEX.md` and cross-referenced from `user-accounts.md`.
+This item's read-list below now cites it in place of the prose it was reading around.
+
 **Read first:**
 - `docs/requirements/platform-views.md` VW-PROF-001…008, VW-SET-001…007, VW-FREN-001…005
+- `docs/specs/api-design/profile-rest-api.md` — the `GET /api/users/{username}` envelope every case
+  below renders from (`IMP-GATE-82`)
 - `docs/specs/api-design/rest-conventions.md` § Authentication — the `/api/users/me` routes and *The
   account representation*: everything Account Settings reads and writes (`IMP-GATE-78`)
 - `docs/specs/api-design/oauth-rest-api.md` §7a — the three-request Google link the Add
