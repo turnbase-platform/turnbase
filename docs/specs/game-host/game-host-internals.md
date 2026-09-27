@@ -142,6 +142,17 @@ The host shim invokes these guest-bridge methods (all arguments and returns are
 | `processPlayerLeft(sessionId, stateJson, playerJson, reason)` | current state + leaver | `InvocationEnvelope` |
 | `resync(sessionId, stateJson, viewerJson, role)` | current state + viewer | `ViewEnvelope` |
 | `disposeSession(sessionId)` | — | `void` |
+| `restoreSession(sessionId, entryPointFqcn)` | entry-class FQCN only, from the Redis record's `entryPointFqcn` (§8.1) | `void` |
+
+**`restoreSession` exists for crash recovery only** (§9.3) — a Game Host that has no live guest-side
+instance for a `sessionId` (a fresh process, or a fresh `ContextKey` context) but finds a session
+record in Redis calls it once before the first `processAction`/`processPlayerJoined`/
+`processPlayerLeft`/`resync` for that session. It instantiates the entry class and populates the
+guest bridge's session map exactly as `createSession` does, but **does not call `onInit`** — the
+state it will operate on is the persisted `stateJson`, not a freshly-initialized one, and re-running
+`onInit` on a session already mid-game would violate the same idempotency guarantee `onInit` itself
+depends on. A host that already holds a live instance for the session (the common case — no crash)
+never calls it.
 
 `teamsJson`, `playerJson`, and the `GameOutcome` in the envelope are **platform
 types** (mirroring the proto `Team`/`PlayerRef`/`GameOutcome`) serialized with a
@@ -419,6 +430,8 @@ idempotency (closes **GAME-B2**):
 // Redis key: session:{sessionId}   (see §13 for the full key map)
 {
   "contextKey":          { "gameId": "…", "gameVersion": "1.4.0" },
+  "entryPointFqcn":      "…",     // set once at CreateSession; needed to reconstruct the guest
+                                  // instance on recovery (§9.3) — never rewritten after
   "stateJson":           "…",     // opaque; the last successfully-applied state
   "lastAppliedSequence": 42,      // highest sequence *consumed* (CreateSession = 0)
   "lastOutcome":         "OK",    // "OK" | "FAILED" — the outcome at lastAppliedSequence
@@ -430,6 +443,11 @@ idempotency (closes **GAME-B2**):
 - Written by the **Game Host** (it computes state + effects).
 - Read by the **Game Host** on recovery, and by the **Orchestration Service** for
   the delivery watermark (§9.2) and terminal cleanup.
+- **`entryPointFqcn` is written once, at `CreateSession`, and is not part of the per-invocation atomic
+  update below** — it never changes for the life of the session, so it carries no torn-write risk.
+  It exists solely so a Game Host recovering the session on a different instance (§9.3) can call
+  `GameBridgeClient.restoreSession` without Orchestration having to resend it, which no RPC after
+  `CreateSession` does (see §3.3).
 - **`lastEffects` retention** enables idempotent replay of the *most recent*
   sequence. It is not a full history; `game_over` results and the game log are
   retained separately by Orchestration for join/reconnect replay (FR-DELIVER-003).
@@ -570,9 +588,11 @@ path room closure uses; the reconciliation sweep
 **Game Host crash (FR-FAIL-002, NFR-REL-002 < 30 s):** the liveness lease (§11)
 expires → Orchestration marks the instance failed, clears `routing:{sessionId}` for
 its sessions, selects a new host, and **re-dispatches the head-of-queue input**. The
-new host has no local state → loads `session:{id}` from Redis (§9.1 step 2),
-recreates the context + instance, sets the state, and proceeds. Because the instance
-is stateless and the record *is* the state, **no history replay is needed**.
+new host has no local state → loads `session:{id}` from Redis (§9.1 step 2), calls
+`GameBridgeClient.restoreSession(sessionId, record.entryPointFqcn)` (§3.3) to recreate
+the guest instance without re-running `onInit`, sets the state, and proceeds. Because
+the instance is stateless and the record *is* the state, **no history replay is
+needed**.
 
 **The in-flight action** (being processed at crash) is still in the queue (never
 dequeued without `OK`). If the dead host had actually applied it (advanced

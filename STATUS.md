@@ -1,52 +1,60 @@
 ## Last Session Summary
 
-**Date:** 2026-09-27 (session 87)
+**Date:** 2026-09-27 (session 88)
 
-**`IMP-M3-03` is `DONE` — 48 of 62.** The `turnbase-game-host` half was built and tested locally on
-branch `feat/imp-m3-03-guest-bridge-and-host-shim` (`6b0adca`): the guest bridge package
-`io.turnbase.gamehost.bridge` (six §3.3 entrypoint methods on `GameEntrypoint`, `PlatformJson`,
-`GameParametersImpl`, the `*ContextImpl` classes, `CodeLoadException`) and
-`io.turnbase.gamehost.shim.GameBridgeClient`, driven end to end through a real Espresso context by
-`GameBridgeClientEspressoTest` (5/5 green) — the authoritative proof the host shim sees only strings,
-primitives and byte arrays. `pom.xml`'s `maven-shade-plugin` execution binds to the `package` phase
-(not `prepare-package`, which fails because the main jar doesn't exist yet there) and is declared
-*before* `spring-boot-maven-plugin` so shading happens before `repackage`, producing a second,
-`guest-bridge`-classifier'd, unrelocated artifact. The `Dockerfile` now stages both jars and sorts the
-`guest-bridge` one to `/opt/turnbase/guest-bridge.jar` (`turnbase.gamehost.sdk-jar-path`'s default) —
-a genuine gap the original "fix the glob" plan would have left as silently-discarded output; confirmed
-via `docker build` + `docker run` that both artifacts land at their correct paths with correct
-ownership. `build.yml` gained the `turnbase-sdk` bootstrap step `IMP-GATE-70` specifies.
+**No item reached `DONE` this session — the deliverable is a spec-defect fix (`IMP-GATE-86`),
+opened and closed the same session per the `spec-defect` skill.** Still 48 of 62; `IMP-M3-04` is
+`READY` again, not `WIP`.
 
-**JaCoCo can't see into Espresso guest execution, so coverage needed a second angle:** code invoked
-only via an Espresso `Value` call is invisible to JaCoCo's host-JVM agent — `GameBridgeClientEspressoTest`
-passing left the whole `bridge` package at 0% covered. Not a spec defect (nothing stops testing the
-same plain-Java classes directly); fixed by adding `GameEntrypointTest`, `PlatformJsonTest` and
-`GameParametersImplTest`, which exercise the same bridge classes directly on the host JVM. With those,
-`./mvnw verify` (52 tests) and `./mvnw verify -Pintegration` (54 tests) are both green locally, merged
-coverage above the 70% floor.
+**Claimed `IMP-M3-04` (gRPC service implementation, `turnbase-game-host`) and read its list in
+full:** `gamehost.proto`, `orchestration-gamehost-protocol.md`, and `game-host-internals.md` §9/§12.
+Drive-by fix, not a gate: `orchestration-gamehost-protocol.md`'s "Open points" paragraph still
+described the proto as copied into `src/main/proto/...` at build time — stale since `IMP-GATE-02`
+(2026-08-20) amended ADR-0012 to a committed copy synced by `scripts/sync-proto.sh`. Corrected to
+match.
 
-**`IMP-GATE-70`'s blocker cleared mid-session — caught late, and that's its own lesson.** This
-session initially reported the item `BLOCKED`, restating session 86's note that `TURNBASE_SDK_PAT`
-didn't exist, without re-running `gh secret list` first. It had in fact been provisioned
-(2026-09-27T14:36:43Z, before that report was made). `CLAUDE.md`'s Session Workflow now has a standing
-rule: re-check externally-gated blockers live before reporting `BLOCKED`, never from a prior session's
-note or a compaction summary alone.
+**Re-reading §3.3 (guest-boundary call interface) and §8.1 (Redis session record) against the actual
+`GameEntrypoint`/`GameBridgeClient` code surfaced a real gap: crash recovery (§9.3, `FR-FAIL-002`,
+explicitly in this item's own *Satisfies*) is unimplementable as specified.** §9.3 requires a fresh
+Game Host recovering a session from Redis alone to "recreate... the instance," but the §8.1 record
+carries no `entryPointFqcn`, no RPC after `CreateSession` sends it again, and `GameEntrypoint` has
+exactly one way to populate its guest-side session map — `createSession`, which unconditionally runs
+`onInit`. Calling it during recovery would re-initialize a session already mid-game.
 
-**Finishing the merge surfaced a real CI infrastructure defect, unrelated to this item's code:**
-pushing `feat/imp-m3-03-guest-bridge-and-host-shim` `--ff-only` into `master` triggered CI, which
-failed on `Trivy scan — image (report)` with "no space left on device" during the image export —
-`ubuntu-latest`'s disk exhausted by two full bootstrap Maven installs (`turnbase-common`,
-`turnbase-sdk`) plus this module's own image, not any vulnerability finding. Fixed on `master`
-directly across two follow-up commits (both merged `--ff-only` the same way): `7a3f1fb` deletes each
-bootstrap clone right after installing it to `~/.m2`; `24e3398` also removes `ubuntu-latest`'s unused
-preinstalled toolchains (`.NET`, Android SDK, GHC, CodeQL) before the image build — the first fix
-alone wasn't enough. CI green at `24e3398` (run `36342814547`), including the GHCR push. Submodule ref
-bumped in this repo to match; `feat/imp-m3-03-guest-bridge-and-host-shim` deleted both locally and on
-the remote.
+**Opened and closed `IMP-GATE-86` in the same session.** `Gate:` line + row set to `BLOCKED` in
+`registry.md`'s `IMP-M3-04` section; fixed `game-host-internals.md`: §8.1 gained a persisted
+`entryPointFqcn` field (written once at `CreateSession`, outside the per-invocation atomic unit, so
+it carries no torn-write risk); §3.3 gained a `restoreSession(sessionId, entryPointFqcn)`
+guest-bridge method, documented as populating the session map without invoking `onInit`; §9.3 now
+names the call explicitly in the recovery flow. `Closed:` line added, row returned to `READY`.
+`check-corpus.py` clean throughout.
+
+**Why no code landed this session:** the outer task allows a spec-defect fix as the session's sole
+deliverable, and this gate directly blocks the crash-recovery half of `IMP-M3-04`'s scope — better to
+land the fix cleanly than to start the gRPC service implementation (four RPCs, the Redis-backed
+atomic record, the single-flight lock, and a from-scratch watchdog/timeout mechanism with no
+precedent elsewhere in the codebase) and cut it off mid-way at the session boundary. `IMP-M3-04`'s
+read-list, the code call sites (`GameHostServiceImpl`, `GameBridgeClient`, `GameContextManager`,
+`ArtifactCache`), and the Redis/lock/watchdog design are all still fresh context for whoever (or
+whichever session) picks it up next — see Next Priorities.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M3-04` is `READY` — `IMP-GATE-86` closed (session 88), no longer blocked.** The spec now says
+how crash recovery reconstructs the guest instance (`restoreSession`, `game-host-internals.md` §3.3/
+§8.1/§9.3); the actual gRPC service implementation (`GameHostServiceImpl`: `CreateSession`,
+`ProcessInput`, `Resync`, `TerminateSession`) is still unbuilt. Needs, per session 88's exploration:
+a Redis client dependency added to `turnbase-game-host/pom.xml` (none exists yet; `StringRedisTemplate`
+via `spring.data.redis.host`/`.port`/`.password`, never `.url` — `IMP-GATE-77`); the §8.1 record
+written as one atomic `SET` of a JSON blob; a per-session `ConcurrentHashMap<String, ReentrantLock>`
+single-flight lock (mirror `RoomEventExecutor`'s pattern in `turnbase-platform`) with
+`TerminateSession` never waiting on it; a 30 s watchdog/interrupt/escalation mechanism (§12) with **no
+existing precedent anywhere in the codebase** — build it fresh; `GrpcServerIntegrationTest`'s current
+`UNIMPLEMENTED` assertion will need rewriting once real dispatch lands. Test with Testcontainers Redis
+(`GenericContainer<>("redis:7-alpine")` + `@Container @ServiceConnection(name = "redis")` — no
+official Testcontainers Redis module exists).
 
 **Deferred by `IMP-M6-04` (session 85): the room-view page components still need building.** STOMP
 client and rooms API layer are done and tested (`useRoomConnection`, `openRoomConnection`, `roomsApi`),

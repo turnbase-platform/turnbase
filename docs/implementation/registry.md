@@ -69,7 +69,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-01 | GDK backend API surface | sdk | M0-02 | DONE |
 | IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | DONE |
 | IMP-M3-03 | GDK host bridge and serialization boundary | sdk, game-host | M3-01, M3-02 | DONE |
-| IMP-M3-04 | gRPC service implementation | game-host | M3-03 | WIP (session 88) |
+| IMP-M3-04 | gRPC service implementation | game-host | M3-03 | READY |
 | IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | READY |
 | IMP-M3-06 | Game input outbox and delivery | platform | M3-05 | READY |
 | IMP-M3-07 | Effect fan-out and spectator filtering | platform | M3-06 | READY |
@@ -3399,6 +3399,17 @@ implementation; `NOT_FOUND` is scoped so a retried teardown does not read as a h
 **A forward gap in the sequence is normal and must be accepted** (IR-16). The three cases — replay of
 a seen sequence, the ordinary next sequence, and a forward gap — are stated at the field in the
 `.proto` precisely because a reader working from generated code never sees the prose table.
+
+**Closed IMP-GATE-86:** 2026-09-27 — `game-host-internals.md` §9.3 required a Game Host recovering a
+session after a crash to reconstruct the guest-side `TurnBaseGame` instance from Redis alone, but the
+§8.1 session record had no `entryPointFqcn` field, no RPC after `CreateSession` carried that value
+again, and the guest bridge (`GameEntrypoint`) had no way to populate its session map other than
+`createSession`, which unconditionally re-runs `onInit` — an idempotency violation for a session
+already mid-game. Blocked FR-FAIL-002, which this item's own *Satisfies* claims. Fixed the same
+session: `game-host-internals.md` §8.1 now has a persisted `entryPointFqcn` field (written once at
+`CreateSession`, outside the per-invocation atomic unit); §3.3 adds a
+`restoreSession(sessionId, entryPointFqcn)` guest-bridge method that populates the session map without
+invoking `onInit`; §9.3 now calls it out explicitly in the recovery flow.
 
 ---
 
