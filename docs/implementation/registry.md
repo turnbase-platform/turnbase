@@ -4305,6 +4305,22 @@ The read-list also lacked `social-rest-api.md` (the Friends views' whole API) an
 history tabs need `IMP-M5-01`/`M5-02`'s REST surface, which is not `DONE`; build those tabs against
 whatever those items publish, or leave them for the item that does.
 
+**Closed:** IMP-GATE-80 (opened and closed 2026-09-27, session 80) — this item's own *Done when*
+requires VW-PROF-002…003 to render for the owner, and VW-PROF-002c ("Profile section — uploaded
+games") is in that range, but no document gave the uploaded-games section anything to call:
+`catalog-rest-api.md`'s `GET /api/games` had no owner/author filter, its own "what is deliberately
+absent" section never named the gap, and `game-catalog.md` FR-UPROF-001…004 (the requirement that
+actually specifies this section's behaviour — not `user-accounts.md` FR-PROF-001, which only names
+"uploaded games" as one of five profile contents) had no realizing API at all. Fixed: `catalog-rest-api.md`
+`GET /api/games` gained an `owner` query parameter that composes with the existing §2 visibility
+predicate — the owner-viewing-own-profile case already falls out of that predicate's owner carve-out,
+a non-owner viewer sees only that user's listed games, an unknown username yields an empty page rather
+than `404` (§3, §6, §7 updated); `game-catalog.md`'s `catalog-rest-api.md` cross-reference updated to
+match. FR-UPROF-002's per-game management actions (edit, delist/publish, delete) remain unrealized —
+no mutation route exists yet, same pre-existing gap `catalog-rest-api.md` §6 already disclaimed for
+FR-GAME-001…013 — so this item's owner view renders the list but not those actions. The read-list below
+gained `game-catalog.md` FR-UPROF-001…004, which it should have named from the start.
+
 **Read first:**
 - `docs/requirements/platform-views.md` VW-PROF-001…008, VW-SET-001…007, VW-FREN-001…005
 - `docs/specs/api-design/rest-conventions.md` § Authentication — the `/api/users/me` routes and *The
@@ -4313,13 +4329,16 @@ whatever those items publish, or leave them for the item that does.
   authentication method action drives
 - `docs/specs/api-design/social-rest-api.md` — the friend list, requests and `relationshipState` the
   Friends and profile views call
+- `docs/specs/api-design/catalog-rest-api.md` §3's `owner` filter — the uploaded-games profile section
+  (`IMP-GATE-80`)
 - `docs/requirements/user-accounts.md` FR-PROF-001…008, FR-ACCT-002…004, FR-ACCT-009…010
+- `docs/requirements/game-catalog.md` FR-UPROF-001…004 — the uploaded-games section's actual behaviour
 - `docs/requirements/social-friends.md` FR-SOC-001…021
 - `docs/specs/platform-frontend/design-system.md` §4 (the component inventory these views compose)
 
 **Satisfies:** `platform-views.md` VW-PROF-001…008, VW-SET-001…007, VW-FREN-001…005;
-`user-accounts.md` FR-PROF-001…008, FR-ACCT-002…004, FR-ACCT-009…010; `social-friends.md`
-FR-SOC-001…021
+`user-accounts.md` FR-PROF-001…008, FR-ACCT-002…004, FR-ACCT-009…010; `game-catalog.md`
+FR-UPROF-001, FR-UPROF-003…004; `social-friends.md` FR-SOC-001…021
 
 **Done when:** **the owner sees their own profile in full regardless of every privacy setting they
 have set** — private profile, hidden sections and hidden friend list all render for them (IR-05,

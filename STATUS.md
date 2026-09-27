@@ -1,44 +1,60 @@
 ## Last Session Summary
 
-**Date:** 2026-09-27 (session 79)
+**Date:** 2026-09-27 (session 80)
 
-**`IMP-GATE-79` opened and closed — no code shipped this session.** Picked up `IMP-M3-03` (GDK host
-bridge and serialization boundary, `turnbase-game-host`) and found the guest-boundary call interface
-unsatisfiable as specified: §3.3 of `game-host-internals.md` gave the bridge's `createSession` no way
-to learn which `TurnBaseGame` implementation to classload, `CreateSessionRequest` carried no such
-field, and §6.1/§7.2 assigned entry-class loading to the bridge without saying how the FQCN crosses
-the boundary. Fixed in the specification, following the existing "Roster and team-name resolution"
-pattern: `gamehost.proto`'s `CreateSessionRequest` gains `entry_point_fqcn` (field 5), resolved by
-Orchestration from the manifest's `backend.entryPoint` the same way it already resolves `parameters`
-(`orchestration-gamehost-protocol.md` new "Entry-point resolution" section);
-`game-host-internals.md` §3.3's table, §6.1 and §7.2 updated to match. `turnbase-common`'s committed
-proto copy synced via `scripts/sync-proto.sh`, built/tested green (`./mvnw verify`, 15/15 tests),
-merged `--ff-only` to `master` (`57f6113..c04f932`), pushed, CI confirmed green
-(`gh run watch 36302913930`). `IMP-M3-03` itself is still `READY` — the gate blocked design, not
-code, and closed in the same session it opened, so the register never shows an intermediate `BLOCKED`
-row (same shape as `IMP-GATE-69`/`70` on this item).
+**`IMP-GATE-80` opened and closed — no code shipped this session.** Picked up `IMP-M6-03` (account
+and profile views, `turnbase-frontend`) and found its own *Done when* clause unsatisfiable: it
+requires VW-PROF-002…003 to render in full for the profile owner, and VW-PROF-002c ("Profile section
+— uploaded games") falls inside that range, but nothing in the corpus gave that section anything to
+call. `catalog-rest-api.md`'s `GET /api/games` had no owner/author filter — confirmed against both the
+spec's query-parameter table and the actual, already-shipped `CatalogController.java`, which matches it
+exactly — and its own "what is deliberately absent" section never named the gap. The requirement that
+actually specifies the section's behaviour is `game-catalog.md` FR-UPROF-001…004 (own-profile view
+shows public and private games plus management actions; other-profile view shows only public games,
+or an empty state), not `user-accounts.md` FR-PROF-001, which only lists "uploaded games" as one of
+five profile contents in passing — and FR-UPROF had no realizing API at all, unlike every other
+FR-CAT/FR-GDET/FR-GAME requirement in that document. Fixed: `catalog-rest-api.md` `GET /api/games`
+gained an `owner` query parameter (username) that composes with the existing §2 visibility predicate
+rather than replacing it — an owner listing their own profile already gets the predicate's owner
+carve-out (sees public and private, Verified and Unverified), any other caller sees only that user's
+listed games, and an unknown username yields an empty page, not `404`, since this is a filter on a
+collection rather than a lookup by id (§3, §6, §7 updated). `game-catalog.md`'s cross-reference to
+`catalog-rest-api.md` updated to match. **FR-UPROF-002's per-game management actions (edit,
+delist/publish, delete) remain unrealized** — no mutation route exists on `/api/games` yet, the same
+pre-existing, already-disclaimed gap `catalog-rest-api.md` §6 names for FR-GAME-001…013 — so
+`IMP-M6-03`'s eventual uploaded-games section can list but not manage. `IMP-M6-03`'s read-list gained
+`catalog-rest-api.md` §3 and `game-catalog.md` FR-UPROF-001…004, which it should have named from the
+start (repaired per the `work-item` skill, no gate needed for that half). `IMP-M6-03` itself is still
+`READY` — the gate blocked one section's data source, not the whole item, and closed in the same
+session it opened, so the register never shows an intermediate `BLOCKED` row (same shape as
+`IMP-GATE-69`/`70`/`78`/`79`).
 
-**Why no implementation was attempted:** `IMP-M3-03`'s real scope (multi-module `turnbase-sdk`
-restructuring for the new `turnbase-serialization` artifact, a shaded guest-bridge JAR, a Jackson
-serialization engine, an Espresso integration test) is large enough that starting it against a
-guest-boundary interface with an unfilled parameter would have meant inventing the FQCN-transport
-mechanism silently in code — exactly what the `spec-defect` skill exists to prevent.
+**Why no implementation was attempted:** starting `IMP-M6-03`'s profile page against an uploaded-games
+section with no endpoint to call would have meant either inventing the filter silently in the frontend
+(guessing at a query shape the backend doesn't have) or quietly dropping a *Must* requirement
+(FR-UPROF-001) without recording that a decision was made — exactly what the `spec-defect` skill exists
+to prevent. This repo's docs-only change has no CI workflow of its own to block on (`git ls-files
+.github/workflows` is empty at the top level; the five component repos carry their own).
 
 ---
 
 ## Next Priorities
 
+**`IMP-GATE-80` is closed (session 80) — `IMP-M6-03` is `READY`, its uploaded-games data gap
+resolved.** `catalog-rest-api.md` `GET /api/games` now takes an `owner` username filter that reuses
+the existing visibility predicate; see *Last Session Summary*. Actual implementation is still
+unstarted: Profile, Friends and Settings views in `turnbase-frontend`, per `IMP-M6-03`'s now-repaired
+read-list. The profile page's statistics/history tabs still additionally need `IMP-M5-01`/`M5-02`,
+which are not `DONE` (pre-existing, non-blocking note already on the item). `IMP-M6-04` and `-06`
+remain `READY` and independent of it.
+
 **`IMP-GATE-79` is closed (session 79) — `IMP-M3-03` is `READY`, design gap resolved.** The
 guest-boundary call interface now carries `entryPointFqcn` end-to-end (`gamehost.proto`
-`CreateSessionRequest.entry_point_fqcn`, resolved by Orchestration from the manifest); see *Last
-Session Summary*. Actual implementation is still unstarted and remains large: `turnbase-sdk` half
-first (root reactor, `turnbase-serialization` artifact), then `turnbase-game-host` (bridge package,
-shaded JAR, host shim, Espresso test) — and the game-host half still needs the `TURNBASE_SDK_PAT`
-human action below before it can merge.
-
-**`IMP-M6-03` (account and profile views, `turnbase-frontend`) is unblocked — `IMP-M1-11` is `DONE`.**
-The profile page's statistics/history tabs additionally need `IMP-M5-01`/`M5-02`, which are not `DONE`
-(noted in `IMP-M6-03`). `IMP-M6-04` and `-06` remain `READY` and independent of it.
+`CreateSessionRequest.entry_point_fqcn`, resolved by Orchestration from the manifest). Actual
+implementation is still unstarted and remains large: `turnbase-sdk` half first (root reactor,
+`turnbase-serialization` artifact), then `turnbase-game-host` (bridge package, shaded JAR, host shim,
+Espresso test) — and the game-host half still needs the `TURNBASE_SDK_PAT` human action below before
+it can merge.
 
 **Human action needed for the e2e job:** `IMP-M6-02` added a `turnbase-frontend` checkout to
 `turnbase-platform`'s `e2e` job, which needs a fine-grained PAT (read-only on Contents, scoped to

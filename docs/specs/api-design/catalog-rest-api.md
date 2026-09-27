@@ -6,8 +6,8 @@ two routes this document defines — everything else `game-catalog.md` FR-GAME-*
 delist, delete) is a mutation on a different surface, built by whichever item eventually opens it
 (`IMP-M4-01`'s own gate history records the gap rather than closing it here).
 
-Realizes `game-catalog.md` FR-CAT-001…010, FR-GDET-001…009, NFR-PERF-001…002, NFR-SCAL-001,
-NFR-SEC-001…002, NFR-USAB-001…002 and `admin-tooling.md` FR-PRV-001.
+Realizes `game-catalog.md` FR-CAT-001…010, FR-GDET-001…009, FR-UPROF-001, FR-UPROF-003…004,
+NFR-PERF-001…002, NFR-SCAL-001, NFR-SEC-001…002, NFR-USAB-001…002 and `admin-tooling.md` FR-PRV-001.
 
 ## Related
 
@@ -83,7 +83,16 @@ Query parameters, all optional:
 | `search` | string | Case-insensitive substring match against title, author username, and tag (FR-CAT-005), via `game_title_trgm_idx`, `app_user_username_trgm_idx`, `game_tag_trgm_idx` |
 | `minPlayers`, `maxPlayers` | integer | Overlap filter against the active version's `min_players`/`max_players` (FR-CAT-006): `min_players <= :maxPlayers AND max_players >= :minPlayers`, each bound applied only when present |
 | `tags` | comma-separated or repeated | Games whose active-version tag projection (`game_tag`) contains **any** of the given tags |
+| `owner` | string (username) | Restricts to games with `owner_user_id` resolving to this username — the "uploaded games" section of a profile (`game-catalog.md` FR-UPROF-001, FR-UPROF-003…004; `platform-views.md` VW-PROF-002c). An unknown username yields zero rows, not `404` — this is a filter on a collection, not a lookup by id. |
 | `page`, `size`, `sort` | per `pagination-filtering-sorting.md` | `size` default 25, max 100 (FR-CAT-004) |
+
+`owner` composes with §2's visibility predicate rather than replacing it: **the profile owner's own
+view is the caller whose principal resolves to the same user as `owner`**, so §2's carve-out already
+waives `listed` and `badge <> 'UNVERIFIED'` for them — an owner listing their own profile sees every
+uploaded game, public or private, Verified or not (FR-UPROF-002's viewing half); any other caller,
+including an anonymous one, sees only that user's `listed`, non-Unverified games (FR-UPROF-003), and
+an empty `content` array — not an error — when there are none. FR-UPROF-002's management actions
+(edit, delist/publish, delete) are **not** realized here: no mutation route exists yet (§6).
 
 `sort` whitelist (FR-CAT-007), each with `game_id` appended as the tiebreaker: `title`, `author`,
 `minPlayers`, `maxPlayers`, `version`, `createdAt`, `updatedAt`. Default: `createdAt,desc`.
@@ -205,6 +214,8 @@ principal rather than enforced as a precondition.
   unclaimed by any item in the registry as of this writing (`admin-rest-api.md` §7 already disclaims
   building it on the Basic-auth surface); it belongs on this listener, session-authenticated, when
   some future item picks it up.
+- **`owner` (§3) lists, it does not manage.** FR-UPROF-002's per-game edit/delist/publish/delete
+  actions are mutation, covered by the first bullet above, not by this filter.
 - **No per-game statistics beyond `activePlayerCount`** — `per-game-statistics.md` is explicitly out of
   scope for `game-catalog.md` (*Out of Scope*).
 
@@ -214,6 +225,7 @@ principal rather than enforced as a precondition.
 |---|---|
 | FR-CAT-001…010 | §3 |
 | FR-GDET-001…009 | §4 |
+| FR-UPROF-001, FR-UPROF-003…004 | §3 — `owner` |
 | NFR-PERF-001, NFR-SCAL-001 | §3 — trigram and btree indexes named per filter |
 | NFR-PERF-002 | §4 — `activePlayerCount` computed once per request |
 | NFR-SEC-001, NFR-SEC-002 | §2, §4 — the visibility predicate and the 404/410 split |

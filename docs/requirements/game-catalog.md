@@ -2,7 +2,7 @@
 
 ## Related API Specifications
 
-- [catalog-rest-api.md](../specs/api-design/catalog-rest-api.md) — `GET /api/games` and `GET /api/games/{gameId}`: the catalog listing and game detail routes, the visibility carve-out, the 404/410 split (implements FR-CAT-001…010, FR-GDET-001…009)
+- [catalog-rest-api.md](../specs/api-design/catalog-rest-api.md) — `GET /api/games` and `GET /api/games/{gameId}`: the catalog listing and game detail routes, the visibility carve-out, the 404/410 split, and the `owner` filter a profile's uploaded-games section calls (implements FR-CAT-001…010, FR-GDET-001…009, FR-UPROF-001, FR-UPROF-003…004; FR-UPROF-002's management actions are not realized there — no mutation route exists yet)
 - [rest-conventions.md](../specs/api-design/rest-conventions.md) — HTTP methods, status codes, public endpoint authentication rules
 - [pagination-filtering-sorting.md](../specs/api-design/pagination-filtering-sorting.md) — Pagination, filtering, and sorting conventions (implements FR-CAT-004–008, NFR-SCAL-001)
 - [file-uploads.md](../specs/api-design/file-uploads.md) — Pre-signed URL upload flow for game bundles (implements FR-GAME-001)
