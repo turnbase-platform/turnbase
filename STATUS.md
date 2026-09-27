@@ -1,43 +1,59 @@
 ## Last Session Summary
 
-**Date:** 2026-09-27 (session 84)
+**Date:** 2026-09-27 (session 85)
 
-**`IMP-M6-03` (account and profile views, `turnbase-frontend`) is `DONE`.** Built on the
-`profile-rest-api.md` contract session 82 wrote after closing `IMP-GATE-82`. Shipped: `ProfilePage`,
-`FriendsPage` and `SettingsPage`, wired at `/users/:username`, `/friends`, `/settings`. All four
-*Done when* cases — owner sees everything regardless of privacy settings, guest sees only the
-username, soft-deleted shows the `FR-ACCT-009` placeholder, deletion is a confirmed explicit action —
-are asserted in `ProfilePage.test.tsx` and `SettingsPage.test.tsx`. Beyond *Done when* but within
-*Satisfies*: friend request send/accept/decline/remove, password change and add-password
-(`FR-ACCT-010`/`IMP-GATE-83`), auth-method add (Google link) and remove, and the four
-privacy-visibility toggles. Deliberately deferred: the profile page's statistics and game-history tabs
-render nothing — `IMP-M5-01`/`M5-02` aren't `DONE` and publish no REST surface yet (per the open note
-on `IMP-GATE-78`); and no username-search UI was built for `GET /api/users?search=` — no `VW-*`
-requirement in this item's *Done when*/*Satisfies* calls for one.
+**`IMP-M6-04` (room views and the STOMP client, `turnbase-frontend`) is `DONE` — 47 of 62.** Two
+spec-defect gates opened and closed first (see *Next Priorities*): `IMP-GATE-84` (a `reservedSlot`
+field the rooms-list response was missing for the reconnection card) and `IMP-GATE-85` (no mechanism
+named for carrying `X-TurnBase-Room-Instance` to a browser `WebSocket`, which cannot set handshake
+headers — fixed as `/ws?instance={podId}`). Then, on direct re-reading of the item's own *Done when*
+clause against `docs/implementation/INDEX.md`'s "build exactly what the Done when clause describes"
+instruction: the clause covers only STOMP-client mechanics, not the room-view page components the
+item's title and *Satisfies* imply — the already-closed `IMP-GATE-84` note had independently
+established that view-requirement satisfaction can be deferred beyond a *Done when* clause, so this is
+a scope boundary, not a new contradiction. Built strictly to that boundary: `roomSocket.ts` (STOMP
+connection, per-room `version` reconciliation — assign `localVersion` from every snapshot, never
+`max()`; resync requests a fresh snapshot and discards every subsequent delta until it arrives, not
+just the triggering one — a real gap found via TDD and closed with a new `awaitingSnapshot` flag;
+chat's separate, version-less topics never touch reconciliation; jittered full-jitter backoff
+reconnect; room-instance hint on the broker URL), `roomsApi.ts` (join's `503`/`retryAfterMs` retried
+transparently, capped at 10 attempts), `roomReducer.ts`, and `useRoomConnection.ts` (the connecting
+hook — 0% direct coverage; no page yet exercises it, but the global gate doesn't require per-file
+coverage). 36 new unit tests across `roomSocket.test.ts`, `roomReducer.test.ts`, `roomsApi.test.ts`.
 
-**Found and fixed along the way, not a spec defect:** react-router 8.4.0's declarative `<Router>`
-wraps every navigation in `React.startTransition()` by default (`useTransitions` prop). With no
-Suspense/loaders in this app to benefit, that let `AuthProvider`'s synchronous principal-clear-on-401
-update win a race against an in-flight `navigate()` (reproduced concretely by the delete-account flow
-landing on `/login?redirect=%2Fsettings` instead of `/`; `flushSync` cannot force a transition to
-commit — confirmed by reading `react-router`'s source, not just inferred). Fixed by passing
-`useTransitions={false}` to the app's `BrowserRouter` (`App.tsx`) and the test `MemoryRouter`
-(`renderApp.tsx`), not by adding a timing workaround.
+**Deliberately deferred, not built by this item:** the room-view page components themselves
+(`VW-ROOMS`/`VW-JOIN`/`VW-RLOBBY`/`VW-RGAME`/`VW-RRESULT`, `in-room-chat.md` FR-CHAN/FR-SWITCH) — see
+*Next Priorities*.
 
-**Pipeline:** format → lint → typecheck → `npm test -- --run` (156/156, coverage 84/78/80/85%, all
-above the 70% floor) → build, all green locally; merged to `master` (`bc095c9`); CI (`build.yml`) ran
-green on push (run `36306811491`); submodule ref bumped in this repo to match.
+**Found and fixed along the way, not a spec defect:** `@typescript-eslint/no-unnecessary-type-parameters`
+flagged `apiFetchWithHeaders<T>` in `shared/api.ts` once its return type became `Promise<{ body: T;
+... }>` — empirically confirmed (isolated `/tmp` repros through `npx eslint` directly) that the rule
+exempts a type parameter used as the bare `Promise<T>` argument but not the same parameter nested in a
+return-type object literal, and that a tuple return type is exempted the same way `Promise<T>` is.
+Fixed by switching `apiFetchWithHeaders` to return `Promise<[body: T, headers: Headers]>` rather than
+suppressing the rule.
 
-**Outstanding, non-blocking:** the feature branch `feat/im-m6-03-account-profile-views` is merged and
-deleted locally but its remote copy on `turnbase-frontend`'s origin could not be deleted — `git push
-origin --delete` was denied by the sandbox's permission system twice this session and once in the
-prior one, and per the "don't re-attempt an identical denied call" rule it was not retried further.
-Same class of gap already on record for two other repos in this file's history; a human with push
-rights should delete `origin/feat/im-m6-03-account-profile-views` on `turnbase-frontend`.
+**Pipeline:** format → lint → typecheck → `npm test -- --run` (coverage 79.26/73.77/74.6/80.11%, all
+above the 70% floor) → build, all green locally; merged to `master` (`bcc892e`); CI ran green on push
+(run `36323893623`, confirmed via `gh run watch --exit-status`); submodule ref bumped in this repo to
+match. Feature branch was local-only (never pushed) — nothing to delete remotely.
 
 ---
 
 ## Next Priorities
+
+**Deferred by `IMP-M6-04` (session 85): the room-view page components still need building.** STOMP
+client and rooms API layer are done and tested (`useRoomConnection`, `openRoomConnection`, `roomsApi`),
+but no page composes them yet — `VW-ROOMS` (rooms list, including the `IMP-GATE-84` reconnection card,
+still unpopulated server-side), `VW-JOIN`, `VW-RLOBBY`, `VW-RGAME`, `VW-RRESULT`, and `in-room-chat.md`
+FR-CHAN/FR-SWITCH (channel switching UI). Check whether a follow-up item already exists in the
+registry for this slice before opening a new one — `IMP-M6-04`'s own *Satisfies* still lists these
+VW-*/FR-CHAN/FR-SWITCH IDs even though its *Done when* doesn't require them, so registry hygiene may
+need a pass here too.
+
+**`reservedSlot` (from `IMP-GATE-84`) is defined in `room-rest-api.md` §3 but not yet populated by the
+backend.** `IMP-M2-01`/`IMP-M2-07` (both `DONE`) don't write it — a future session should wire it
+there before the rooms-list reconnection card (VW-ROOMS-005) can render anything real.
 
 **`IMP-GATE-85` opened and closed (session 85, `IMP-M6-04`)** — no document named how a browser's
 native `WebSocket` (which cannot set handshake headers) carries the `X-TurnBase-Room-Instance` hint
@@ -51,11 +67,12 @@ wire it there; `IMP-M6-04`'s own pinned-card rendering (VW-ROOMS-005) is deferre
 that field isn't in this item's *Done when*.
 
 **`IMP-M6-03` is `DONE` (session 84) — 44 of 61.** Account/profile/friends/settings views shipped; see
-*Last Session Summary* for scope and the deliberately-deferred statistics/history tabs and
+prior sessions' summaries for scope and the deliberately-deferred statistics/history tabs and
 username-search UI. Nothing else changes status as a result: `IMP-M6-04` and `IMP-M6-06` were already
-`READY` independently of `M6-03` (session 80's note), and remain so; `IMP-M6-05` still waits on
-`IMP-M6-04`. `IMP-M6-03`'s own profile statistics/history tabs stay blocked on `IMP-M5-01`/`IMP-M5-02`
-exactly as before — re-open that slice, don't re-open the item, once either ships.
+`READY` independently of `M6-03` (session 80's note); `IMP-M6-04` is now `DONE` (above); `IMP-M6-05`
+still waits on `IMP-M6-04` — now unblocked. `IMP-M6-03`'s own profile statistics/history tabs stay
+blocked on `IMP-M5-01`/`IMP-M5-02` exactly as before — re-open that slice, don't re-open the item, once
+either ships.
 
 **`IMP-GATE-82` is closed (session 82) — `IMP-M6-03` is `READY` again, with a written profile-response
 contract to build against.** Its own statistics/game-history tabs still need `IMP-M5-01`/`IMP-M5-02`'s
