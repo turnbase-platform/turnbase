@@ -4352,6 +4352,16 @@ Fixed: new `docs/specs/api-design/profile-rest-api.md`, transcribed from the shi
 divergent shape — registered in `api-design/INDEX.md` and cross-referenced from `user-accounts.md`.
 This item's read-list below now cites it in place of the prose it was reading around.
 
+**Closed:** IMP-GATE-83 (opened and closed 2026-09-27, session 83) — the Account Settings password
+form this item builds (VW-SET-003) posts to `POST /api/users/me/password`, and `rest-conventions.md`'s
+own entry for that route names only "the current password and the new one" — FR-ACCT-010's "supplying
+their current password and the new password twice" gives a field *count*, not the three field names a
+client actually has to send. Every sibling route on that same table is exact (`login`'s
+`usernameOrEmail`/`password`, the auth-methods `password`/`confirmPassword` body), so this was the one
+gap left in that section. Fixed: `rest-conventions.md`'s password-change row now names the body,
+transcribed from the shipped `account.ChangePasswordRequest` (`IMP-M1-08`) rather than inventing field
+names that might diverge from it — `{ "currentPassword", "newPassword", "confirmNewPassword" }`.
+
 **Read first:**
 - `docs/requirements/platform-views.md` VW-PROF-001…008, VW-SET-001…007, VW-FREN-001…005
 - `docs/specs/api-design/profile-rest-api.md` — the `GET /api/users/{username}` envelope every case
