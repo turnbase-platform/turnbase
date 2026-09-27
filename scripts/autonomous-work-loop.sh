@@ -31,6 +31,13 @@
 # * On the next start the loop resumes an unfinished session instead of
 #   starting a fresh one, and keeps resuming it until it reports a
 #   LOOP_STATUS line. Pass --no-resume to force a fresh session.
+# * A resumed session is mid-work by definition, so a dirty tree or a
+#   feature branch is never a reason to refuse one. Only a fresh session
+#   requires a clean master.
+# * A session that reports LOOP_STATUS but leaves the tree dirty or off
+#   master is recorded as `dirty`, which is resumable: the next start asks
+#   that same session to finish or unwind its own work, rather than
+#   starting a fresh session and refusing to run on that session's leftovers.
 # * A 429 session limit is detected, the quota reset time is read out of the
 #   session transcript, and the loop sleeps until then and resumes the same
 #   session rather than losing the in-progress work item.
@@ -118,6 +125,11 @@ First re-establish where you actually are: check `git status`, the current
 branch, whether your work item was committed/merged, and whether any CI run
 you were waiting on has since finished. Do not assume the work is unstarted
 and do not redo work that is already committed.
+
+A dirty working tree or a feature branch is expected here — it is your own
+in-progress work. The original instruction to stop if the tree was not
+clean applied only when this session first started; it does not apply to
+this resume.
 
 Then either finish the item end-to-end (full "Ending a Session" checklist
 from CLAUDE.md) or, if it cannot be finished safely, unwind it cleanly so the
@@ -253,7 +265,7 @@ while [[ $iteration -lt $MAX_ITERATIONS ]]; do
     prev_status="$(state_field status)"
     prev_session="$(state_field session_id)"
     case "$prev_status" in
-      running|interrupted|rate_limited)
+      running|interrupted|rate_limited|dirty)
         if [[ -n "$prev_session" ]]; then
           mode="resume"
           session_id="$prev_session"
@@ -347,8 +359,12 @@ while [[ $iteration -lt $MAX_ITERATIONS ]]; do
 
   if [[ -n "$(git -C "$REPO_DIR" status --porcelain)" ]] || \
      [[ "$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD)" != "master" ]]; then
-    echo "Tree not clean / not on master after iteration $iteration despite report — halting for manual review." >&2
-    write_state "$session_id" "$iteration" failed
+    # Leave the session resumable: it owns whatever it left behind, and a
+    # fresh session would refuse to start on it.
+    echo "Tree not clean / not on master after iteration $iteration despite report — halting." >&2
+    write_state "$session_id" "$iteration" dirty \
+      "$(jq -n --arg s "$status_line" '{reported:$s}')"
+    echo "Session left resumable; re-run to have it finish or unwind its work, or pass --no-resume after cleaning up by hand." >&2
     exit 1
   fi
 
