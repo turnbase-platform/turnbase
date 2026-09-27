@@ -372,8 +372,11 @@ exceeded. Mitigation:
   created, the canonical `gamehost.proto` should move to a shared, versioned location
   (its own proto module or a `buf` workspace) consumed by both build pipelines.~~
   **Resolved by [ADR-0012](../../decisions/0012-repo-strategy-polyrepo-submodules.md):** no shared
-  workspace. `gamehost.proto` stays authoritative here and `turnbase-common` copies it into
-  `src/main/proto/turnbase/gamehost/v1/` at build time, publishing the stubs as
-  `io.turnbase:turnbase-grpc` — which is what both pipelines consume, so neither needs the proto
-  itself. Editing the copy is a defect; the change belongs here
+  workspace. `gamehost.proto` stays authoritative here and `turnbase-common` holds a **committed
+  copy** at `src/main/proto/turnbase/gamehost/v1/`, kept in sync by `scripts/sync-proto.sh` (checked
+  by `scripts/sync-proto.sh --check` in the parent's `pre-push` hook) rather than generated at build
+  time — a build step reading `../docs/` cannot run in a standalone `turnbase-common` clone
+  (ADR-0012's 2026-08-20 amendment, `IMP-GATE-02`). `turnbase-common` publishes the stubs as
+  `io.turnbase:turnbase-grpc` from its own committed copy — which is what both pipelines consume, so
+  neither needs the proto itself. Editing the copy is a defect; the change belongs here
   ([`conventions.md`](../../implementation/conventions.md) §5).
