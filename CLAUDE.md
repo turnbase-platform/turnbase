@@ -141,6 +141,13 @@ turnbase-frontend — no Maven dependency (postMessage with game FEs only)
 - Use `superpowers:systematic-debugging` when encountering bugs or unexpected behavior
 - Use `superpowers:verification-before-completion` before claiming work is done
 - Use `feature-dev` agents for focused implementation tasks
+- **Re-check externally-gated blockers live before reporting `BLOCKED`.** A blocker like a
+  human-provisioned secret (`TURNBASE_SDK_PAT`, `IMP-GATE-70`) can change state between sessions —
+  or between context-compaction boundaries within one — with no signal to the agent other than the
+  world having moved on. A prior session's note (or a compaction summary) that a secret/dependency/gate
+  "does not exist yet" is a claim about the past, not the present. Before reporting a work item
+  `BLOCKED` on something external, re-run the actual check (`gh secret list`, `gh api`, etc.) rather
+  than restating what an earlier session or the conversation summary said.
 
 ### After any change under `docs/`
 
