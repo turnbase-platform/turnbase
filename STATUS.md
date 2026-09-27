@@ -1,60 +1,76 @@
 ## Last Session Summary
 
-**Date:** 2026-09-27 (session 88)
+**Date:** 2026-09-27 (session 89)
 
-**No item reached `DONE` this session — the deliverable is a spec-defect fix (`IMP-GATE-86`),
-opened and closed the same session per the `spec-defect` skill.** Still 48 of 62; `IMP-M3-04` is
-`READY` again, not `WIP`.
+**`IMP-M3-04` (gRPC service implementation, `turnbase-game-host`) is `DONE` — 49 of 62.** Built
+`SessionDispatcher`, wired into `GameHostServiceImpl`, covering all four RPCs
+(`CreateSession`/`ProcessInput`/`Resync`/`TerminateSession`) per `game-host-internals.md` §9.1: a
+per-session monotonic `sequence` with replay-by-sequence idempotency, the §8.1/§13 Redis-backed
+`session:{sessionId}` record (`SessionRecordStore`, one atomic `SET`/`GET`/`DEL`, 24h TTL), and §9.3
+crash recovery via `restoreSession` (the guest-bridge method `IMP-GATE-86`, session 88, added to the
+spec for exactly this). New `dispatch` package: `SessionDispatcher`, `SessionRecord(Store/Codec)`,
+`EnvelopeCodec`, `TeamsJson`, `GameArtifactResolver`, `GameHostStatusException`. Tested with
+`SessionDispatcherIT` (8 tests, real Espresso context + Testcontainers Redis) and
+`SessionRecordStoreIT` (4 tests); `GrpcServerIntegrationTest` renamed/rewritten to
+`GrpcServerIntegrationIT` now that the service is real, not `UNIMPLEMENTED`.
 
-**Claimed `IMP-M3-04` (gRPC service implementation, `turnbase-game-host`) and read its list in
-full:** `gamehost.proto`, `orchestration-gamehost-protocol.md`, and `game-host-internals.md` §9/§12.
-Drive-by fix, not a gate: `orchestration-gamehost-protocol.md`'s "Open points" paragraph still
-described the proto as copied into `src/main/proto/...` at build time — stale since `IMP-GATE-02`
-(2026-08-20) amended ADR-0012 to a committed copy synced by `scripts/sync-proto.sh`. Corrected to
-match.
+**Scope note recorded in the registry, not silently dropped:** the item's *Done when* clause is
+narrowly `TerminateSession` idempotency plus `NOT_FOUND` scoping — built and tested. Two things the
+read-list's §12 covers are deliberately not built: (1) no watchdog/timeout-interrupt mechanism (a
+hung handler is never escalated to `GameFailureKind.TIMEOUT`, only an in-band exception is caught);
+(2) `ArtifactCache.pin`/`unpin` (`IMP-M3-02`) still isn't wired to `GameContextManager`
+(`IMP-M3-03`), so FR-LOAD-004 (never evict a JAR backing a live context) isn't enforced yet. Neither
+is new to this session or blocks its own clause — see `registry.md`'s `IMP-M3-04` section for the
+full note.
 
-**Re-reading §3.3 (guest-boundary call interface) and §8.1 (Redis session record) against the actual
-`GameEntrypoint`/`GameBridgeClient` code surfaced a real gap: crash recovery (§9.3, `FR-FAIL-002`,
-explicitly in this item's own *Satisfies*) is unimplementable as specified.** §9.3 requires a fresh
-Game Host recovering a session from Redis alone to "recreate... the instance," but the §8.1 record
-carries no `entryPointFqcn`, no RPC after `CreateSession` sends it again, and `GameEntrypoint` has
-exactly one way to populate its guest-side session map — `createSession`, which unconditionally runs
-`onInit`. Calling it during recovery would re-initialize a session already mid-game.
+**Found and fixed a real regression along the way: `ManagedContext`'s constructor eagerly built a
+`GameBridgeClient`,** which spawns a native Espresso isolate — done for every context anywhere in the
+suite, not just ones that dispatch games, and it broke three pre-existing Espresso test classes by
+exhausting isolate capacity in the shared Surefire fork. Fixed by making `bridgeClient()` lazy
+(build on first use, synchronized/memoized) — the right fix per its own doc comment, not a
+workaround: contexts created only to be evicted or coalesced never needed to pay for it.
 
-**Opened and closed `IMP-GATE-86` in the same session.** `Gate:` line + row set to `BLOCKED` in
-`registry.md`'s `IMP-M3-04` section; fixed `game-host-internals.md`: §8.1 gained a persisted
-`entryPointFqcn` field (written once at `CreateSession`, outside the per-invocation atomic unit, so
-it carries no torn-write risk); §3.3 gained a `restoreSession(sessionId, entryPointFqcn)`
-guest-bridge method, documented as populating the session map without invoking `onInit`; §9.3 now
-names the call explicitly in the recovery flow. `Closed:` line added, row returned to `READY`.
-`check-corpus.py` clean throughout.
+**Found and fixed a second, more consequential defect while getting the pipeline green: this
+repo's `build.yml` never ran `-Pintegration`,** so the entire `*IT` suite (not just this session's —
+whatever else existed before, e.g. `S3ArtifactStoreIT`) has never actually executed in CI, and the
+merged JaCoCo check has silently measured unit-only coverage since `IMP-M0-11` set the pipeline up —
+exactly the "fails open" failure the pom's own comment on `check-merged` warns about.
+`turnbase-platform`'s `build.yml` already carries the fix (with an explanatory comment naming the
+same failure mode) for the identical reason; `turnbase-game-host` was just missing it. Discovered
+because this item's own coverage (mostly in `SessionDispatcherIT`) pushed the gap from "quietly
+fine" to "measurably below 70%" the moment CI actually ran plain `verify`. Fixed on its own branch
+(`fix/ci-run-integration-profile`), merged and green before the submodule ref below was bumped.
 
-**Why no code landed this session:** the outer task allows a spec-defect fix as the session's sole
-deliverable, and this gate directly blocks the crash-recovery half of `IMP-M3-04`'s scope — better to
-land the fix cleanly than to start the gRPC service implementation (four RPCs, the Redis-backed
-atomic record, the single-flight lock, and a from-scratch watchdog/timeout mechanism with no
-precedent elsewhere in the codebase) and cut it off mid-way at the session boundary. `IMP-M3-04`'s
-read-list, the code call sites (`GameHostServiceImpl`, `GameBridgeClient`, `GameContextManager`,
-`ArtifactCache`), and the Redis/lock/watchdog design are all still fresh context for whoever (or
-whichever session) picks it up next — see Next Priorities.
+**Both branches (`feat/m3-04-grpc-service-implementation`, `fix/ci-run-integration-profile`) were
+merged `--ff-only` into `turnbase-game-host`'s `master` and deleted (local only — neither was ever
+pushed to the remote, so there was nothing to delete there) in this session; CI is green on
+`master`** (run `36348555563`, all steps including the now-real `-Pintegration` Verify).
 
 ---
 
 ## Next Priorities
 
-**`IMP-M3-04` is `READY` — `IMP-GATE-86` closed (session 88), no longer blocked.** The spec now says
-how crash recovery reconstructs the guest instance (`restoreSession`, `game-host-internals.md` §3.3/
-§8.1/§9.3); the actual gRPC service implementation (`GameHostServiceImpl`: `CreateSession`,
-`ProcessInput`, `Resync`, `TerminateSession`) is still unbuilt. Needs, per session 88's exploration:
-a Redis client dependency added to `turnbase-game-host/pom.xml` (none exists yet; `StringRedisTemplate`
-via `spring.data.redis.host`/`.port`/`.password`, never `.url` — `IMP-GATE-77`); the §8.1 record
-written as one atomic `SET` of a JSON blob; a per-session `ConcurrentHashMap<String, ReentrantLock>`
-single-flight lock (mirror `RoomEventExecutor`'s pattern in `turnbase-platform`) with
-`TerminateSession` never waiting on it; a 30 s watchdog/interrupt/escalation mechanism (§12) with **no
-existing precedent anywhere in the codebase** — build it fresh; `GrpcServerIntegrationTest`'s current
-`UNIMPLEMENTED` assertion will need rewriting once real dispatch lands. Test with Testcontainers Redis
-(`GenericContainer<>("redis:7-alpine")` + `@Container @ServiceConnection(name = "redis")` — no
-official Testcontainers Redis module exists).
+**`IMP-M3-04` is `DONE` (session 89) — 49 of 62. `IMP-M3-05` (Orchestration client and session
+registry, `turnbase-platform`) is `READY` for the first time** — all three of its dependencies
+(`IMP-M3-04`, `IMP-M2-04`, `IMP-M2-06`) are now `DONE`. This is the natural next pick: it's the item
+that replaces `PendingGameSessionStarter` with a real implementation, gives `START_GAME` its
+`GAME_STARTED` broadcast, and is what nearly all of M2/M3's prior sessions have been converging
+toward. Its own read-list will name the actual gRPC client surface against `GameHostService`, now
+real rather than `UNIMPLEMENTED`.
+
+**Two things `IMP-M3-04` deliberately left unbuilt, recorded in `registry.md`'s Scope note, not
+gated — pick up only if a future item's own *Done when* actually needs them:** (1) no
+watchdog/timeout mechanism for a hung game handler (§12) — only in-band exceptions map to
+`GameFailureKind`; (2) `ArtifactCache.pin`/`unpin` (`IMP-M3-02`) still isn't wired to
+`GameContextManager` (`IMP-M3-03`), so FR-LOAD-004 (never evict a JAR backing a live context) isn't
+enforced.
+
+**Worth a dedicated look, not gated to any item: `turnbase-game-host`'s `build.yml` was missing
+`-Pintegration` on the Verify step** (fixed session 89) — the entire `*IT` suite never ran in CI
+before this, for any item, back to whenever the first `*IT` class was added. Nothing else currently
+suggests other repos have the same gap (`turnbase-platform`'s has always carried it;
+`turnbase-common`/`turnbase-sdk`/`turnbase-frontend` not re-checked this session), but it's the kind
+of thing worth one more look before assuming it's isolated.
 
 **Deferred by `IMP-M6-04` (session 85): the room-view page components still need building.** STOMP
 client and rooms API layer are done and tested (`useRoomConnection`, `openRoomConnection`, `roomsApi`),

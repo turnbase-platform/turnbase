@@ -69,7 +69,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-01 | GDK backend API surface | sdk | M0-02 | DONE |
 | IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | DONE |
 | IMP-M3-03 | GDK host bridge and serialization boundary | sdk, game-host | M3-01, M3-02 | DONE |
-| IMP-M3-04 | gRPC service implementation | game-host | M3-03 | WIP (session 89) |
+| IMP-M3-04 | gRPC service implementation | game-host | M3-03 | DONE (session 89) |
 | IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | READY |
 | IMP-M3-06 | Game input outbox and delivery | platform | M3-05 | READY |
 | IMP-M3-07 | Effect fan-out and spectator filtering | platform | M3-06 | READY |
@@ -3410,6 +3410,18 @@ session: `game-host-internals.md` §8.1 now has a persisted `entryPointFqcn` fie
 `CreateSession`, outside the per-invocation atomic unit); §3.3 adds a
 `restoreSession(sessionId, entryPointFqcn)` guest-bridge method that populates the session map without
 invoking `onInit`; §9.3 now calls it out explicitly in the recovery flow.
+
+**Scope note (session 89):** this item's *Done when* clause is narrowly `TerminateSession`
+idempotency plus `NOT_FOUND` scoping, and that is what the implementation (`SessionDispatcher`,
+`GameHostServiceImpl`, the `session:{sessionId}` Redis record) and its tests cover. Two things named
+in the *Read first* §12 material are deliberately not built here, so a later item doesn't discover
+their absence by surprise: (1) no watchdog/timeout-interrupt infrastructure exists — a handler that
+hangs rather than throwing is not detected or escalated to `GameFailureKind.TIMEOUT`; only an
+in-band exception during a handler call is reported as a failure. (2) `ArtifactCache.pin`/`unpin`
+(`IMP-M3-02`) is still not wired to context lifecycle (`IMP-M3-03`'s `GameContextManager`) — neither
+references the other — so FR-LOAD-004 ("never evict a JAR backing a live context") is not yet
+enforced. Neither gap blocks this item's own clause or FR-FAIL-001's in-band-exception path; both
+are pre-existing or orthogonal, not introduced by this session, but are undone.
 
 ---
 
