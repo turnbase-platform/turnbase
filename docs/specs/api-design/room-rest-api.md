@@ -264,6 +264,37 @@ refreshes. This is a list, not a reservation — FR-LIST-005 refreshes only on a
 there is no polling (CON-001 puts real-time on WebSockets, and the room list is not a real-time
 surface).
 
+### The `reservedSlot` field — VW-ROOMS-005, FR-REJOIN-002
+
+The envelope carries one field beyond `pagination-filtering-sorting.md`'s standard shape, a sibling
+of `content` and `page` rather than a per-row value:
+
+```json
+{
+  "content": [ … ],
+  "page": { … },
+  "reservedSlot": {
+    "roomId": "9c1e…",
+    "gameName": "Hex Duel",
+    "graceRemainingSeconds": 42
+  }
+}
+```
+
+`reservedSlot` is `null` when the caller holds no live grace-period reservation (`FR-GRACE-005`) in
+any room, and otherwise names the room and the seconds remaining before the reservation is released.
+It exists because `shell-architecture.md` §8's reconnection pinned card on `/rooms` is global —
+driven by this field, not a per-row flag — and needs to appear for a room that is not itself included
+in the current page: the caller's own reserved room can be filtered out by `search`/`status`, full,
+or on a different page, while the reservation itself is still live.
+
+It is computed from the caller's own `room_participant` rows independently of the `included()`
+predicate above and of the request's filter/sort/page parameters — the same reservation is reported
+regardless of what the rest of the response contains. Removal is not push-driven (FR-LIST-005 has no
+polling and CON-001 keeps real-time on WebSockets, neither of which apply to a room the client is no
+longer attached to): the field simply reflects current state as of each explicit list refresh, and
+goes `null` once the reservation is consumed by rejoining, expires, or the room closes.
+
 ### 3.1 Resolving an invite code — FR-JOIN-003, FR-JOIN-004
 
 ```

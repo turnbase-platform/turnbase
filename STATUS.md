@@ -39,6 +39,13 @@ rights should delete `origin/feat/im-m6-03-account-profile-views` on `turnbase-f
 
 ## Next Priorities
 
+**`IMP-GATE-84` opened and closed (session 85, `IMP-M6-04`)** — `shell-architecture.md` §8 required
+the `/rooms` reconnection pinned card to be "driven by a field on the rooms list response" that
+`room-rest-api.md` never defined. Fixed: `room-rest-api.md` §3 gained a `reservedSlot` envelope field.
+The backend (`IMP-M2-01`/`IMP-M2-07`, both `DONE`) does not populate it yet — a future session should
+wire it there; `IMP-M6-04`'s own pinned-card rendering (VW-ROOMS-005) is deferred until it does, since
+that field isn't in this item's *Done when*.
+
 **`IMP-M6-03` is `DONE` (session 84) — 44 of 61.** Account/profile/friends/settings views shipped; see
 *Last Session Summary* for scope and the deliberately-deferred statistics/history tabs and
 username-search UI. Nothing else changes status as a result: `IMP-M6-04` and `IMP-M6-06` were already

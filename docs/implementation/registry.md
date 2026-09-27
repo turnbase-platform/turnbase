@@ -4430,6 +4430,16 @@ FR-CHAN-001…004, FR-SWITCH-001…002
 a join is retried after the stated delay rather than surfaced as a failure, because it means "not
 here yet", not "no".
 
+**Closed:** IMP-GATE-84 — `shell-architecture.md` §8 requires the `/rooms` reconnection pinned card
+(VW-ROOMS-005, FR-REJOIN-002) to be "driven by a field on the rooms list response", but
+`room-rest-api.md` §3's `GET /api/rooms` response had no field naming the caller's own held
+grace-period reservation, and `reconnection-flow.md` never named the wire mechanism either. Opened
+and closed 2026-09-27: added a top-level `reservedSlot` field to the `GET /api/rooms` envelope in
+`room-rest-api.md` §3 (sibling to `content`/`page`, unaffected by filters, `null` when the caller
+holds no live reservation). The backend (`IMP-M2-01`, `IMP-M2-07`, both `DONE`) does not yet
+populate it — VW-ROOMS-005 is deferred within this item pending that backend follow-up (tracked
+below, not in this item's *Done when*).
+
 ---
 
 ### IMP-M6-05 — Game iframe host and postMessage relay
