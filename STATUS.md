@@ -1,31 +1,40 @@
 ## Last Session Summary
 
-**Date:** 2026-09-26 (session 78)
+**Date:** 2026-09-27 (session 79)
 
-**`IMP-M1-11` is `DONE` — 46 of 62.** `turnbase-platform` `e69b5ed`, `build` green; ref bumped. Built
-`GET /api/users/me`, `POST .../auth-methods/password`, `DELETE .../auth-methods/{method}` and the
-three-request Google link (`GET /auth/google?intent=link` → session-less `/auth/callback` storing only
-`oauth:link:{token}` → `POST .../auth-methods/google`, `403` and not consumed when the record's `userId`
-is not the caller's, `409` on a held `sub`). Tier 1 counts failures on the four routes.
+**`IMP-GATE-79` opened and closed — no code shipped this session.** Picked up `IMP-M3-03` (GDK host
+bridge and serialization boundary, `turnbase-game-host`) and found the guest-boundary call interface
+unsatisfiable as specified: §3.3 of `game-host-internals.md` gave the bridge's `createSession` no way
+to learn which `TurnBaseGame` implementation to classload, `CreateSessionRequest` carried no such
+field, and §6.1/§7.2 assigned entry-class loading to the bridge without saying how the FQCN crosses
+the boundary. Fixed in the specification, following the existing "Roster and team-name resolution"
+pattern: `gamehost.proto`'s `CreateSessionRequest` gains `entry_point_fqcn` (field 5), resolved by
+Orchestration from the manifest's `backend.entryPoint` the same way it already resolves `parameters`
+(`orchestration-gamehost-protocol.md` new "Entry-point resolution" section);
+`game-host-internals.md` §3.3's table, §6.1 and §7.2 updated to match. `turnbase-common`'s committed
+proto copy synced via `scripts/sync-proto.sh`, built/tested green (`./mvnw verify`, 15/15 tests),
+merged `--ff-only` to `master` (`57f6113..c04f932`), pushed, CI confirmed green
+(`gh run watch 36302913930`). `IMP-M3-03` itself is still `READY` — the gate blocked design, not
+code, and closed in the same session it opened, so the register never shows an intermediate `BLOCKED`
+row (same shape as `IMP-GATE-69`/`70` on this item).
 
-**Concurrency:** under READ COMMITTED a guarded `DELETE` alone still races when two *different* rows
-are deleted (each statement's count sees two rows). `AuthMethodRepository.remove` therefore takes
-`FOR NO KEY UPDATE` on the `app_user` row first. The real concurrent test (12 rounds, barrier-started)
-fails when that lock is removed — checked by mutation — and passes with it.
-
-**Decisions made in code, worth a second look:** an `intent` other than `link` is a plain login
-initiation; a `409` on link confirmation does not consume the record (only success does); the callback
-redirects to `/settings?linkGoogle=1` on success and `/settings?linkError=1` for a held `sub` — `IMP-M6-03`
-should read those two query flags. The two spec decisions from session 77 (GOOGLE removal flips
-`email_source` to `SELF`; three-request link) were built as specified and are unchanged.
-
-**CI:** `e2e` fails at *Check out turnbase-frontend* (`Input required and not supplied: token`) — the
-`TURNBASE_FRONTEND_PAT` human action below, not this change. One local `RoomInvitationControllerIT` run
-hit a Testcontainers `redis:7-alpine` startup failure; it passed on rerun.
+**Why no implementation was attempted:** `IMP-M3-03`'s real scope (multi-module `turnbase-sdk`
+restructuring for the new `turnbase-serialization` artifact, a shaded guest-bridge JAR, a Jackson
+serialization engine, an Espresso integration test) is large enough that starting it against a
+guest-boundary interface with an unfilled parameter would have meant inventing the FQCN-transport
+mechanism silently in code — exactly what the `spec-defect` skill exists to prevent.
 
 ---
 
 ## Next Priorities
+
+**`IMP-GATE-79` is closed (session 79) — `IMP-M3-03` is `READY`, design gap resolved.** The
+guest-boundary call interface now carries `entryPointFqcn` end-to-end (`gamehost.proto`
+`CreateSessionRequest.entry_point_fqcn`, resolved by Orchestration from the manifest); see *Last
+Session Summary*. Actual implementation is still unstarted and remains large: `turnbase-sdk` half
+first (root reactor, `turnbase-serialization` artifact), then `turnbase-game-host` (bridge package,
+shaded JAR, host shim, Espresso test) — and the game-host half still needs the `TURNBASE_SDK_PAT`
+human action below before it can merge.
 
 **`IMP-M6-03` (account and profile views, `turnbase-frontend`) is unblocked — `IMP-M1-11` is `DONE`.**
 The profile page's statistics/history tabs additionally need `IMP-M5-01`/`M5-02`, which are not `DONE`

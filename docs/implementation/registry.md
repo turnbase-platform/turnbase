@@ -3309,6 +3309,17 @@ artifacts, a second bootstrap step, a new human-provisioned `TURNBASE_SDK_PAT` s
 first and merge it, verify the game-host half locally, and merge that half only once the secret is
 present (`gh secret list -R turnbase-platform/turnbase-game-host` shows it).
 
+**Closed:** IMP-GATE-79 (opened and closed 2026-09-27) — §3.3's guest-boundary call interface listed
+`createSession(sessionId, teamsJson, parametersJson)` with no way to tell the guest bridge which
+`TurnBaseGame` implementation to classload, and §6.1/§7.2 assigned entry-class loading to the bridge
+without saying how the FQCN crosses the boundary; `CreateSessionRequest` carried no such field either.
+Unsatisfiable as written — a `createSession` call with no entry point cannot instantiate a game. Fixed:
+`gamehost.proto`'s `CreateSessionRequest` gains `entry_point_fqcn` (field 5), resolved by Orchestration
+from the manifest's `backend.entryPoint` the same way it already resolves `parameters`
+(`orchestration-gamehost-protocol.md` new "Entry-point resolution" §); `game-host-internals.md` §3.3's
+table, §6.1 and §7.2 updated to match. `turnbase-common`'s committed proto copy synced and pushed
+(`c04f932`), CI green.
+
 **Read first:**
 - `docs/specs/game-host/game-host-internals.md` §3 (the guest bridge and host shim — **including §3.6,
   where each half is built**), §5 (the serialization engine), §8 (state representation)

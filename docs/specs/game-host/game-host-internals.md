@@ -136,7 +136,7 @@ The host shim invokes these guest-bridge methods (all arguments and returns are
 
 | Method | Inputs (JSON/primitive) | Returns |
 |--------|-------------------------|---------|
-| `createSession(sessionId, teamsJson, parametersJson)` | roster + materialized params | `InvocationEnvelope` |
+| `createSession(sessionId, entryPointFqcn, teamsJson, parametersJson)` | entry-class FQCN + roster + materialized params | `InvocationEnvelope` |
 | `processAction(sessionId, stateJson, playerJson, payloadJson)` | current state + action | `InvocationEnvelope` |
 | `processPlayerJoined(sessionId, stateJson, playerJson)` | current state + joiner | `InvocationEnvelope` |
 | `processPlayerLeft(sessionId, stateJson, playerJson, reason)` | current state + leaver | `InvocationEnvelope` |
@@ -148,6 +148,12 @@ types** (mirroring the proto `Team`/`PlayerRef`/`GameOutcome`) serialized with a
 platform-fixed schema the host also understands. Everything game-defined —
 `stateJson`, action `payloadJson`, effect payloads, `resultsPayload` — is an
 **opaque JSON string** the host copies verbatim into proto `bytes` (UTF-8).
+
+`entryPointFqcn` is a plain string, not JSON — the host shim passes
+`CreateSessionRequest.entry_point_fqcn` straight through unparsed (IMP-GATE-79). It is resolved
+once per `ContextKey` (§6.1) but sent on every `CreateSession` because the bridge, not the host,
+owns the guest classloader that resolves it; a repeated classload of an already-loaded FQCN is a
+cache hit, not re-work.
 
 **`InvocationEnvelope`** (a platform schema, JSON):
 
@@ -330,10 +336,12 @@ the guest JDK's native methods run against the (container-restricted) host OS.
 ### 6.1 Context (per game-version)
 
 - **Creation on demand (FR-CTX-002).** On the first input for a `ContextKey` with no
-  live context, the host fetches the backend JAR (§7), builds the context (§4.2),
-  loads and verifies the entry class (§7.2), then proceeds. Concurrent requests for
-  the same cold `ContextKey` are coalesced behind a single creation (one context,
-  not a race of many).
+  live context, the host fetches the backend JAR (§7), builds the context (§4.2), then
+  calls `bridge.createSession` (§3.3), which loads and verifies the entry class (§7.2)
+  guest-side, keyed by the `entryPointFqcn` the host passes through from
+  `CreateSessionRequest` (IMP-GATE-79). Concurrent requests for the same cold
+  `ContextKey` are coalesced behind a single creation (one context, not a race of
+  many).
 - **Reporting (FR-REG-002).** The set of live `ContextKey`s is reported to
   Orchestration for warm-host selection (§11).
 
@@ -375,7 +383,10 @@ the guest JDK's native methods run against the (container-restricted) host OS.
 
 ### 7.2 Entry class discovery (FR-LOAD-005)
 
-The bridge loads the manifest `backend.entryPoint` FQCN via the guest classloader,
+The bridge receives the manifest `backend.entryPoint` FQCN as `createSession`'s
+`entryPointFqcn` argument (§3.3) — Orchestration resolves it from the manifest and sends it
+in `CreateSessionRequest.entry_point_fqcn`, the same read that materializes `parameters`
+(§3.4, IMP-GATE-79). The bridge loads that FQCN via the guest classloader,
 verifies it implements `TurnBaseGame`, and instantiates it. Missing class or wrong
 type → the session fails with `GAME_FAILURE_KIND_CODE_LOAD_ERROR` (surfaced at
 `CreateSession` as transport `FAILED_PRECONDITION`, per the protocol error model).

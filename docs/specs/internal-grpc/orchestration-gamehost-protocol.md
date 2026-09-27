@@ -88,6 +88,13 @@ index) rather than the bare template name keeps team names unique when a templat
 has `count.max > 1`. The Game Host passes this value through unchanged; the GDK
 surfaces it as `Team.name()` (game-development-experience.md FR-GDK-011).
 
+**Entry-point resolution (IMP-GATE-79).** `CreateSessionRequest.entry_point_fqcn` is the
+manifest's `backend.entryPoint` FQCN (game-development-experience.md FR-MANIFEST-008), resolved by the
+Orchestration Service from the same manifest read that materializes `parameters` above. The
+Game Host passes it through unchanged to the guest bridge, which classloads and instantiates it
+(`../game-host/game-host-internals.md` §3.3/§7.2) — nothing on the Game Host side otherwise
+knows which class a given `(game_id, game_version)` context should run.
+
 ### `GameHostRegistryService` — control path (served by Orchestration)
 
 | RPC | Purpose | Requirements |
