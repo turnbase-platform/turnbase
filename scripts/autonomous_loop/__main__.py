@@ -14,7 +14,8 @@ Usage:
                                    [--model NAME] [--sleep SECONDS]
                                    [--repo DIR] [--stop-file PATH]
                                    [--no-resume] [--state-file PATH]
-                                   [--stall-minutes N]
+                                   [--stall-minutes N] [--no-notify]
+                                   [--no-verify]
 
 Stop it gracefully mid-run by creating the stop file (default:
 .autonomous-loop.stop in the repo root) — it's checked between iterations,
@@ -29,6 +30,33 @@ Progress
 * The live line turns into a stall warning after --stall-minutes (default 15)
   without any activity. Logs are still written to $LOG_DIR
   (default ~/.turnbase-loop-logs), one stream-json file per session.
+* When a session ends, its outcome line shows the duration, cost and number
+  of tool calls, followed by the time spent in each phase. The same figures
+  are appended to $LOG_DIR/history.jsonl, one JSON line per session.
+
+Notifications
+-------------
+The loop rings the terminal bell, and under WSL also shows a Windows toast
+(through powershell.exe, whatever terminal the loop runs in), when it needs
+you: BLOCKED, FINISHED, any halt on an error, a stall warning, a session-limit
+wait and reaching --max. A DONE session is not announced. --no-notify turns
+all of it off.
+
+Post-session checks
+-------------------
+After a session reports DONE, the loop checks the repository and all
+submodules for what CLAUDE.md's "Ending a Session" checklist requires:
+* no branch that the session created is left, locally or on origin
+  (branches that already existed when it started are ignored);
+* master is pushed — not ahead of origin/master;
+* every submodule is checked out at the commit the top repo records;
+* STATUS.md was committed during the session;
+* if the DONE label is a registry item, its row in
+  docs/implementation/registry.md says DONE.
+If any check fails, the session is resumed with the list of failures to fix
+them; if they still fail after that, the loop halts and leaves the session
+resumable. A check that cannot run (e.g. no network) is reported and skipped.
+--no-verify turns the checks off.
 
 Controls
 --------
@@ -80,6 +108,7 @@ from pathlib import Path
 
 from .display import Terminal
 from .loop import Config, run
+from .notify import Notifier
 from .session import Controls
 
 
@@ -96,6 +125,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--no-resume", action="store_true", help="never resume an unfinished session")
     p.add_argument("--stall-minutes", type=float, default=15,
                    help="warn after this many minutes without activity (default 15)")
+    p.add_argument("--no-notify", action="store_true", help="no bell and no desktop toasts")
+    p.add_argument("--no-verify", action="store_true", help="skip the post-session checks")
     return p.parse_args(argv)
 
 
@@ -105,7 +136,8 @@ def main(argv: list[str] | None = None) -> int:
     log_dir = Path(os.environ.get("LOG_DIR") or Path.home() / ".turnbase-loop-logs")
     cfg = Config(repo_dir=repo, log_dir=log_dir, max_iterations=args.max, model=args.model,
                  sleep_seconds=args.sleep, stop_file=args.stop_file, state_file=args.state_file,
-                 resume=not args.no_resume, once=args.once, stall_minutes=args.stall_minutes)
+                 resume=not args.no_resume, once=args.once, stall_minutes=args.stall_minutes,
+                 verify=not args.no_verify)
 
     if shutil.which(cfg.claude_bin) is None:
         print("claude CLI not found on PATH", file=sys.stderr)
@@ -115,14 +147,16 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     terminal = Terminal()
+    notifier = Notifier(bell=terminal.bell, enabled=not args.no_notify)
     try:
         with Controls() as controls:
-            return run(cfg, controls=controls, terminal=terminal)
+            return run(cfg, controls=controls, terminal=terminal, notify=notifier)
     except KeyboardInterrupt:
         return 130
     finally:
         terminal.clear_live()
         terminal.reset_title()
+        notifier.flush()
 
 
 if __name__ == "__main__":

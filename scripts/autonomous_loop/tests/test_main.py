@@ -24,6 +24,9 @@ class MainTest(unittest.TestCase):
         d = parse_args([])
         self.assertEqual((d.once, d.max, d.model, d.sleep, d.no_resume, d.stall_minutes),
                          (False, 20, "sonnet", 10.0, False, 15.0))
+        self.assertEqual((d.no_notify, d.no_verify), (False, False))
+        b = parse_args(["--no-notify", "--no-verify"])
+        self.assertEqual((b.no_notify, b.no_verify), (True, True))
 
     def run_main(self, env, *argv):
         out, err = io.StringIO(), io.StringIO()

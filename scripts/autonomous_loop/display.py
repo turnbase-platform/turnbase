@@ -147,6 +147,10 @@ class Terminal:
             self._write("\x1b]0;\x07")
             self._titled = False
 
+    def bell(self) -> None:
+        if self.tty:
+            self._write("\a")
+
     def _width_now(self) -> int:
         return self._width or shutil.get_terminal_size((100, 24)).columns
 

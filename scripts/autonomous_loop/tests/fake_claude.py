@@ -10,11 +10,13 @@ Scenario keys, all optional:
   exit: process exit code                           touch / remove: paths to create / delete
   stderr: text written to stderr at the end
   resets_at: epoch written to the transcript in FAKE_CLAUDE_TRANSCRIPT_DIR
+  commit: {path: text} written and committed in the cwd     cost: total_cost_usd of the result
 """
 
 import json
 import os
 import signal
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -62,6 +64,13 @@ for path in scenario.get("touch", []):
 for path in scenario.get("remove", []):
     Path(path).unlink(missing_ok=True)
 
+if "commit" in scenario:
+    for path, text in scenario["commit"].items():
+        Path(path).write_text(text)
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "core.hooksPath=/dev/null"]
+    subprocess.run(git + ["add", "-A"], check=True)
+    subprocess.run(git + ["commit", "-q", "-m", "fake session"], check=True)
+
 if "resets_at" in scenario:
     sid = argv[argv.index("--session-id" if "--session-id" in argv else "--resume") + 1]
     tdir = Path(os.environ["FAKE_CLAUDE_TRANSCRIPT_DIR"])
@@ -76,6 +85,8 @@ else:
     text = "work done"
 result = {"type": "result", "subtype": "success", "is_error": scenario.get("is_error", False),
           "result": text}
+if "cost" in scenario:
+    result["total_cost_usd"] = scenario["cost"]
 if "api_error_status" in scenario:
     result["api_error_status"] = scenario["api_error_status"]
 emit(json.dumps(result))

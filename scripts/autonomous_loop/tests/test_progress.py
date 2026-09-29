@@ -10,6 +10,7 @@ from autonomous_loop.progress import (
     apply,
     idle,
     infer_phase,
+    phase_totals,
     summarize,
 )
 
@@ -224,6 +225,28 @@ class LastActionTest(unittest.TestCase):
         p = Progress.start(0.0)
         apply(p, tool("t1", "Read", {"file_path": "/a/b.md"}), 7.0)
         self.assertEqual((p.last_action, p.last_action_at), ("Read b.md", 7.0))
+
+
+class PhaseTotalsTest(unittest.TestCase):
+    def test_time_per_phase_includes_current_stint_in_phase_order(self):
+        p = Progress.start(0.0)
+        apply(p, text("LOOP_PHASE: testing"), 100.0)
+        apply(p, text("LOOP_PHASE: reading"), 160.0)
+        apply(p, text("LOOP_PHASE: testing again"), 200.0)
+        self.assertEqual(phase_totals(p, 230.0),
+                         {"starting": 100.0, "reading": 40.0, "testing": 90.0})
+
+    def test_unknown_phase_sorts_last(self):
+        p = Progress.start(0.0)
+        apply(p, text("LOOP_PHASE: pondering"), 10.0)
+        self.assertEqual(list(phase_totals(p, 20.0)), ["starting", "pondering"])
+
+    def test_counts_tool_calls(self):
+        p = Progress.start(0.0)
+        apply(p, tool("t1", "Read", {"file_path": "/a"}), 1.0)
+        apply(p, tool("t2", "Bash", {"command": "ls"}), 2.0)
+        apply(p, text("no tool"), 3.0)
+        self.assertEqual(p.tool_calls, 2)
 
 
 class IdleTest(unittest.TestCase):

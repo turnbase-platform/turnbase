@@ -109,6 +109,25 @@ class PhaseLineTest(unittest.TestCase):
         self.assertEqual(title_text(p), "IMP-M3-04 · testing")
 
 
+class StallNotificationTest(unittest.TestCase):
+    def test_notifies_once_per_stall(self):
+        from autonomous_loop.view import SessionDisplay
+
+        now, notes = [0.0], []
+        view = SessionDisplay(Terminal(io.StringIO(), tty=False), iteration=1, max_iterations=2,
+                              resumed=False, stall_seconds=900, clock=lambda: now[0],
+                              notify=lambda title, body: notes.append(body))
+        for t in (100.0, 950.0, 1000.0, 2000.0):
+            now[0] = t
+            view.on_tick()
+        self.assertEqual(notes, ["Session · starting · no activity for 15m"])
+        now[0] = 2010.0
+        view.on_lines(['{"type":"assistant","message":{"content":[{"type":"text","text":"hi"}]}}'])
+        now[0] = 3000.0
+        view.on_tick()
+        self.assertEqual(len(notes), 2)
+
+
 class TerminalTest(unittest.TestCase):
     def test_print_clears_and_redraws_live_line(self):
         out = io.StringIO()
@@ -145,6 +164,13 @@ class TerminalTest(unittest.TestCase):
             self.assertFalse(Terminal(io.StringIO(), tty=True).color)
         with mock.patch.dict(os.environ, {"TERM": "dumb"}):
             self.assertFalse(Terminal(io.StringIO(), tty=True).color)
+
+    def test_bell_only_on_a_tty(self):
+        out = io.StringIO()
+        Terminal(out, tty=False).bell()
+        self.assertEqual(out.getvalue(), "")
+        Terminal(out, tty=True).bell()
+        self.assertEqual(out.getvalue(), "\a")
 
     def test_clock_format(self):
         at = time.mktime((2026, 9, 27, 7, 5, 9, 0, 0, -1))

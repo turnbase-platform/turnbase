@@ -17,13 +17,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+from . import checks
 from .display import BOLD, DIM, GREEN, RED, YELLOW, Segment, Terminal, fmt_duration
-from .prompts import PROMPT, RESUME_PROMPT
+from .progress import Progress, phase_totals
+from .prompts import PROMPT, RESUME_PROMPT, verify_prompt
 from .session import Outcome, SessionResult, WaitResult, run_session
 from .state import StateFile
 from .view import SessionDisplay
 
-RESUMABLE = {"running", "interrupted", "rate_limited", "dirty"}
+RESUMABLE = {"running", "interrupted", "rate_limited", "dirty", "unverified"}
+# A session whose DONE fails the post-session checks is resumed this many times, then the loop halts.
+VERIFY_RETRIES = 1
+TITLE = "TurnBase loop"
 EXIT_OK, EXIT_FAIL, EXIT_INT, EXIT_TERM = 0, 1, 130, 143
 _LIMIT_TEXT = re.compile(r"hit your (?:session|weekly|monthly) limit", re.IGNORECASE)
 _RESETS_AT = re.compile(r'"resetsAt":\s*(\d+)')
@@ -45,6 +50,7 @@ class Config:
     claude_projects_dir: Path = field(default_factory=lambda: Path.home() / ".claude" / "projects")
     quota_grace_seconds: float = 30
     quota_fallback_seconds: float = 900
+    verify: bool = True  # post-session checks after DONE (see checks.py)
 
     def __post_init__(self) -> None:
         self.repo_dir, self.log_dir = Path(self.repo_dir), Path(self.log_dir)
@@ -58,8 +64,8 @@ class Config:
         return self.repo_dir / "scripts" / "autonomous-loop.settings.json"
 
 
-def command(cfg: Config, sid: str, resumed: bool) -> list[str]:
-    return [cfg.claude_bin, "-p", RESUME_PROMPT if resumed else PROMPT,
+def command(cfg: Config, sid: str, resumed: bool, prompt: str | None = None) -> list[str]:
+    return [cfg.claude_bin, "-p", prompt or (RESUME_PROMPT if resumed else PROMPT),
             "--resume" if resumed else "--session-id", sid,
             "--model", cfg.model, "--output-format", "stream-json", "--verbose",
             "--dangerously-skip-permissions", "--settings", str(cfg.settings_file)]
@@ -106,15 +112,40 @@ def _tail(path: Path, lines: int = 10) -> list[str]:
     return [l for l in text.splitlines() if l.strip()][-lines:]
 
 
-def run(cfg: Config, *, controls, terminal: Terminal, now: Callable[[], float] = time.time) -> int:
-    return _Loop(cfg, controls, terminal, now).run()
+def _cost(event: dict) -> float | None:
+    cost = event.get("total_cost_usd")
+    return round(float(cost), 4) if isinstance(cost, (int, float)) and not isinstance(cost, bool) else None
+
+
+def outcome_segments(status_line: str, elapsed: float, cost: float | None,
+                     tool_calls: int) -> list[Segment]:
+    if status_line.startswith(("LOOP_STATUS: DONE", "LOOP_STATUS: FINISHED")):
+        mark, color = "✔", GREEN
+    elif status_line.startswith("LOOP_STATUS: BLOCKED"):
+        mark, color = "■", YELLOW
+    else:
+        mark, color = "✖", RED
+    tail = fmt_duration(elapsed) + (f" · ${cost:.2f}" if cost is not None else "")
+    tail += f" · {tool_calls} tool call{'s' if tool_calls != 1 else ''}"
+    return [(f"  {mark} ", color), (status_line, BOLD), (f" · {tail}", DIM)]
+
+
+def run(cfg: Config, *, controls, terminal: Terminal, now: Callable[[], float] = time.time,
+        notify: Callable[[str, str], None] | None = None) -> int:
+    return _Loop(cfg, controls, terminal, now, notify or (lambda title, body: None)).run()
 
 
 class _Loop:
-    def __init__(self, cfg: Config, controls, terminal: Terminal, now: Callable[[], float]) -> None:
-        self.cfg, self.controls, self.t, self.now = cfg, controls, terminal, now
+    def __init__(self, cfg: Config, controls, terminal: Terminal, now: Callable[[], float],
+                 notify: Callable[[str, str], None]) -> None:
+        self.cfg, self.controls, self.t, self.now, self.notify = cfg, controls, terminal, now, notify
         cfg.log_dir.mkdir(parents=True, exist_ok=True)
         self.state = StateFile(cfg.state_file)
+        # Carried through every state write for the session: what the post-session checks
+        # compare against (HEAD and the branches that already existed when it started).
+        self.session_facts: dict = {}
+        self.verify_attempts: dict[str, int] = {}
+        self.status_line = ""
 
     def run(self) -> int:
         cfg = self.cfg
@@ -130,12 +161,14 @@ class _Loop:
                 cfg.stop_file.unlink(missing_ok=True)
                 return EXIT_OK
 
-            sid, resumed = self._choose_session()
+            sid, resumed, prompt = self._choose_session()
             if not resumed:
                 refusal = self._fresh_refusal(i)
                 if refusal:
                     self._say(refusal, RED)
+                    self.notify(TITLE, f"Refused to start iteration {i}: {refusal}")
                     return EXIT_FAIL
+                self.session_facts = self._facts_at_start()
 
             ts = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime(self.now()))
             out_file = cfg.log_dir / f"{ts}-iter{i}.jsonl"
@@ -143,31 +176,49 @@ class _Loop:
                           (f" — {'resume' if resumed else 'fresh'} session {sid} ", ""),
                           (f"(log: {out_file})", DIM)])
             # Recorded before the run so a hard kill still leaves a resumable id behind.
-            self.state.write(sid, i, "running", log_file=str(out_file))
+            self._write(sid, i, "running", log_file=str(out_file))
 
             view = SessionDisplay(self.t, iteration=i, max_iterations=cfg.max_iterations,
                                   resumed=resumed, stall_seconds=cfg.stall_minutes * 60,
-                                  clock=self.now)
+                                  clock=self.now, notify=self.notify)
             started = self.now()
-            result = run_session(command(cfg, sid, resumed), out_file, controls=self.controls,
+            result = run_session(command(cfg, sid, resumed, prompt), out_file, controls=self.controls,
                                  view=view, cwd=cfg.repo_dir)
             sessions += 1
-            code = self._after_session(i, sid, out_file, result, self.now() - started)
+            self.status_line = ""
+            code = self._after_session(i, sid, out_file, result, view.progress, started)
+            self._record_history(i, sid, out_file, view.progress, started)
             if code is not None:
                 return code
 
         self._say(f"Reached max iterations ({cfg.max_iterations}). Stopping.")
+        self.notify(TITLE, f"Loop stopped: reached max iterations ({cfg.max_iterations}).")
         return EXIT_OK
 
     # --- before a session -----------------------------------------------------------
 
-    def _choose_session(self) -> tuple[str, bool]:
+    def _choose_session(self) -> tuple[str, bool, str | None]:
+        """(session id, resumed?, prompt override)."""
         if self.cfg.resume:
             prev = self.state.read()
             sid = prev.get("session_id")
             if prev.get("status") in RESUMABLE and isinstance(sid, str) and sid:
-                return sid, True
-        return str(uuid.uuid4()), False
+                self.session_facts = {k: prev[k] for k in ("start_head", "known_branches") if k in prev}
+                problems = prev.get("problems")
+                if prev.get("status") == "unverified" and isinstance(problems, list) and problems:
+                    return sid, True, verify_prompt([str(p) for p in problems])
+                return sid, True, None
+        self.session_facts = {}
+        return str(uuid.uuid4()), False, None
+
+    def _facts_at_start(self) -> dict:
+        if not self.cfg.verify:
+            return {}
+        facts: dict = {"start_head": self._git("rev-parse", "HEAD")}
+        known, complete = checks.branches(self.cfg.repo_dir)
+        if complete:  # a partial snapshot would make old remote branches look new
+            facts["known_branches"] = sorted(known)
+        return facts
 
     def _fresh_refusal(self, i: int) -> str | None:
         """A fresh session's contract is a clean master; a resumed one is mid-work by
@@ -182,12 +233,12 @@ class _Loop:
     # --- after a session ------------------------------------------------------------
 
     def _after_session(self, i: int, sid: str, out_file: Path, result: SessionResult,
-                       elapsed: float) -> int | None:
+                       progress: Progress, started: float) -> int | None:
         """Returns the loop's exit code, or None to go on to the next iteration."""
         if result.outcome is not Outcome.EXITED:
             name = "SIGINT" if result.outcome is Outcome.INTERRUPTED else "SIGTERM"
             self._say(f"Received {name} — forwarded to claude; stopping the loop.", YELLOW)
-            self.state.write(sid, i, "interrupted")
+            self._write(sid, i, "interrupted")
             self._say(f"Session {sid} left resumable.")
             self._say(f"Re-run this script to continue it, or: claude --resume {sid}")
             return EXIT_INT if result.outcome is Outcome.INTERRUPTED else EXIT_TERM
@@ -199,20 +250,27 @@ class _Loop:
         if str(event.get("api_error_status", "")) == "429" or _LIMIT_TEXT.search(text):
             resets_at = quota_reset_epoch(transcript_path(self.cfg, sid))
             self._say(f"  → session limit reached: {text.strip() or '429'}", YELLOW)
-            self.state.write(sid, i, "rate_limited",
-                             resets_at=str(resets_at) if resets_at is not None else "")
+            self._write(sid, i, "rate_limited",
+                        resets_at=str(resets_at) if resets_at is not None else "")
             if result.stop_scheduled:
                 return self._operator_stop()
+            until = (f"until {time.strftime('%H:%M', time.localtime(resets_at))}"
+                     if resets_at is not None and resets_at > self.now() else "before retrying")
+            self.notify(TITLE, f"Session limit reached — waiting {until}.")
             waited = self._wait_for_quota(resets_at)
             return None if waited is WaitResult.DONE else self._stopped(waited)
 
         if result.exit_code != 0:
             self._say(f"claude exited with code {result.exit_code} on iteration {i} — see {out_file}.", RED)
-            for line in _tail(Path(f"{out_file}.stderr")):
+            tail = _tail(Path(f"{out_file}.stderr"))
+            for line in tail:
                 self._say(f"  {line}", DIM)
+            self.notify(TITLE, f"claude exited with code {result.exit_code}"
+                        + (f": {tail[-1]}" if tail else "") + " — loop halted.")
             return self._halt_resumable(sid, i)
         if event.get("is_error") is True:
             self._say(f"claude reported an error on iteration {i} — see {out_file}.", RED)
+            self.notify(TITLE, f"claude reported an error on iteration {i} — loop halted.")
             return self._halt_resumable(sid, i)
 
         status_lines = [l for l in text.splitlines() if l.startswith("LOOP_STATUS:")]
@@ -220,48 +278,106 @@ class _Loop:
             # The Stop hook should make this unreachable; if it happens anyway the
             # session is unfinished, not failed, so leave it resumable.
             self._say(f"No LOOP_STATUS line in iteration {i} — treating the session as unfinished.", YELLOW)
-            self.state.write(sid, i, "interrupted")
+            self._write(sid, i, "interrupted")
             return self._operator_stop() if result.stop_scheduled else None
-        status_line = status_lines[-1].rstrip()
-        self.t.print(self._outcome_segments(status_line, elapsed))
+        status_line = self.status_line = status_lines[-1].rstrip()
+        self._print_summary(status_line, event, progress, started)
 
         if self._git("status", "--porcelain") or self._git("rev-parse", "--abbrev-ref", "HEAD") != "master":
             # The session owns whatever it left behind, and a fresh one would refuse to start on it.
             self._say(f"Tree not clean / not on master after iteration {i} despite report — halting.", RED)
-            self.state.write(sid, i, "dirty", reported=status_line)
+            self._write(sid, i, "dirty", reported=status_line)
             self._say("Session left resumable; re-run to have it finish or unwind its work, "
                       "or pass --no-resume after cleaning up by hand.")
+            self.notify(TITLE, f"Tree not clean or not on master after iteration {i} — loop halted.")
             return EXIT_FAIL
 
+        label = status_line.split(":", 1)[1].strip()
         if status_line.startswith("LOOP_STATUS: BLOCKED"):
-            self.state.write(sid, i, "blocked")
+            self._write(sid, i, "blocked")
             self._say("Session reported BLOCKED — halting loop for manual review.", YELLOW)
+            self.notify(TITLE, label)
             return EXIT_OK
         if status_line.startswith("LOOP_STATUS: FINISHED"):
-            self.state.write(sid, i, "finished")
+            self._write(sid, i, "finished")
             self._say("Session reported FINISHED — all work items complete. Stopping loop.", GREEN)
+            self.notify(TITLE, "All work items complete — loop finished.")
             return EXIT_OK
         if not status_line.startswith("LOOP_STATUS: DONE"):
-            self.state.write(sid, i, "failed")
+            self._write(sid, i, "failed")
             self._say(f"Unrecognized LOOP_STATUS value: '{status_line}' — halting for manual review.", RED)
+            self.notify(TITLE, f"Unrecognized status '{label}' — loop halted.")
             return EXIT_FAIL
-        self.state.write(sid, i, "done")
+        if self.cfg.verify:
+            passed, code = self._verify(i, sid, label.removeprefix("DONE").strip(), result.stop_scheduled)
+            if not passed:
+                return code
+        self._write(sid, i, "done")
         return self._operator_stop() if result.stop_scheduled else None
 
+    def _verify(self, i: int, sid: str, label: str, stop_scheduled: bool) -> tuple[bool, int | None]:
+        """(passed, what _after_session returns if not): a failing session is resumed to
+        fix what the checks found, and the loop halts once that has already been tried."""
+        known = self.session_facts.get("known_branches")
+        if known is None:
+            # No snapshot (an older session, or origin was unreachable when it started):
+            # every branch that exists now counts as pre-existing, so none is flagged.
+            self._say("  branch check skipped: no complete snapshot from the session's start", DIM)
+            known, _ = checks.branches(self.cfg.repo_dir)
+        report = checks.verify(self.cfg.repo_dir, start_head=self.session_facts.get("start_head"),
+                               label=label, known_branches=set(known))
+        for warning in report.warnings:
+            self._say(f"  check skipped: {warning}", DIM)
+        if not report.problems:
+            self.verify_attempts.pop(sid, None)
+            return True, None
+        self._say("Post-session checks failed:", RED)
+        for problem in report.problems:
+            self._say(f"  ✖ {problem}", RED)
+        self._write(sid, i, "unverified", problems=report.problems)
+        attempts = self.verify_attempts[sid] = self.verify_attempts.get(sid, 0) + 1
+        if attempts > VERIFY_RETRIES:
+            self._say("Still failing after the session was asked to fix them — halting. "
+                      "Re-run to try again, or fix by hand and pass --no-resume.", RED)
+            self.notify(TITLE, f"{label}: post-session checks still failing — loop halted. "
+                        + report.problems[0])
+            return False, EXIT_FAIL
+        if stop_scheduled:
+            return False, self._operator_stop()
+        self._say("Resuming the session to fix them.", YELLOW)
+        return False, None
+
     def _halt_resumable(self, sid: str, i: int) -> int:
-        self.state.write(sid, i, "interrupted")
+        self._write(sid, i, "interrupted")
         self._say("Session left resumable; re-run to continue it. Halting.")
         return EXIT_FAIL
 
-    @staticmethod
-    def _outcome_segments(status_line: str, elapsed: float) -> list[Segment]:
-        if status_line.startswith(("LOOP_STATUS: DONE", "LOOP_STATUS: FINISHED")):
-            mark, color = "✔", GREEN
-        elif status_line.startswith("LOOP_STATUS: BLOCKED"):
-            mark, color = "■", YELLOW
-        else:
-            mark, color = "✖", RED
-        return [(f"  {mark} ", color), (status_line, BOLD), (f" · {fmt_duration(elapsed)}", DIM)]
+    def _print_summary(self, status_line: str, event: dict, progress: Progress, started: float) -> None:
+        now = self.now()
+        self.t.print(outcome_segments(status_line, now - started, _cost(event), progress.tool_calls))
+        phases = [f"{ph} {fmt_duration(sec)}" for ph, sec in phase_totals(progress, now).items()
+                  if sec >= 1]
+        if phases:
+            self.t.print([("    " + " · ".join(phases), DIM)])
+
+    def _record_history(self, i: int, sid: str, out_file: Path, progress: Progress,
+                        started: float) -> None:
+        """One JSON line per session in <log dir>/history.jsonl, for looking back across items."""
+        now = self.now()
+        entry = {
+            "ended_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now)),
+            "iteration": i, "session_id": sid, "item": progress.item,
+            "status": self.state.read().get("status"), "reported": self.status_line or None,
+            "seconds": round(now - started), "cost_usd": _cost(result_event(out_file)),
+            "tool_calls": progress.tool_calls,
+            "phases": {ph: round(sec) for ph, sec in phase_totals(progress, now).items()},
+            "log": str(out_file),
+        }
+        try:
+            with open(self.cfg.log_dir / "history.jsonl", "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry) + "\n")
+        except OSError:
+            pass
 
     # --- waiting and stopping ------------------------------------------------------------
 
@@ -305,6 +421,9 @@ class _Loop:
             self.t.clear_live()
 
     # --- helpers --------------------------------------------------------------------
+
+    def _write(self, sid: str, i: int, status: str, **extra) -> None:
+        self.state.write(sid, i, status, **self.session_facts, **extra)
 
     def _say(self, text: str, sgr: str = "") -> None:
         self.t.print([(text, sgr)])

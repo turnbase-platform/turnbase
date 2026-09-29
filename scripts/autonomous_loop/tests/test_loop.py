@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import tempfile
 import time
@@ -23,8 +24,10 @@ class LoopTest(unittest.TestCase):
 
     def run_loop(self, controls=None, **cfg):
         self.controls = controls or FakeControls()
+        self.notes = []
         return run(self.fx.config(**cfg), controls=self.controls,
-                   terminal=Terminal(self.out, tty=False, color=False))
+                   terminal=Terminal(self.out, tty=False, color=False),
+                   notify=lambda title, body: self.notes.append(body))
 
     # --- outcomes -------------------------------------------------------------
 
@@ -80,6 +83,86 @@ class LoopTest(unittest.TestCase):
         self.assertEqual(self.run_loop(max_iterations=2), 0)
         first, second = self.fx.calls()
         self.assertEqual(session_id(second), ("--resume", session_id(first)[1]))
+
+    # --- summary, history and notifications ---------------------------------------
+
+    def test_summary_line_and_history(self):
+        tool = {"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "ls"}}]}}
+        self.fx.scenarios({"status": "DONE IMP-A-01", "cost": 4.2619, "events": [tool]})
+        self.assertEqual(self.run_loop(max_iterations=1), 0)
+        self.assertIn("LOOP_STATUS: DONE IMP-A-01 · 0s · $4.26 · 1 tool call", self.out.getvalue())
+        [entry] = [json.loads(l) for l in (self.fx.logs / "history.jsonl").read_text().splitlines()]
+        self.assertEqual((entry["status"], entry["reported"], entry["cost_usd"], entry["tool_calls"]),
+                         ("done", "LOOP_STATUS: DONE IMP-A-01", 4.2619, 1))
+        self.assertIn("starting", entry["phases"])
+
+    def test_history_records_sessions_without_a_status_line(self):
+        self.fx.scenarios({"exit": 2})
+        self.run_loop()
+        [entry] = [json.loads(l) for l in (self.fx.logs / "history.jsonl").read_text().splitlines()]
+        self.assertEqual((entry["status"], entry["reported"], entry["cost_usd"]), ("interrupted", None, None))
+
+    def test_done_is_not_announced_blocked_is(self):
+        self.fx.scenarios({"status": "DONE a"}, {"status": "BLOCKED needs a secret"})
+        self.run_loop(max_iterations=3)
+        self.assertEqual(self.notes, ["BLOCKED needs a secret"])
+
+    def test_halts_and_max_iterations_are_announced(self):
+        self.fx.scenarios({"exit": 2, "stderr": "Invalid API key"})
+        self.run_loop()
+        self.assertEqual(self.notes, ["claude exited with code 2: Invalid API key — loop halted."])
+        self.fx.scenarios({"status": "DONE a"})
+        (self.fx.fake / "count").unlink()
+        self.run_loop(max_iterations=1)
+        self.assertEqual(self.notes, ["Loop stopped: reached max iterations (1)."])
+
+    # --- post-session checks ------------------------------------------------------------
+
+    def with_status_md(self):
+        (self.fx.repo / "STATUS.md").write_text("session 1\n")
+        self.fx.git("add", "STATUS.md")
+        self.fx.git("commit", "-q", "-m", "status")
+
+    def test_failed_check_resumes_the_session_with_the_failures(self):
+        self.with_status_md()
+        self.fx.scenarios({"status": "DONE a"},
+                          {"status": "DONE a", "commit": {"STATUS.md": "session 2\n"}})
+        self.assertEqual(self.run_loop(max_iterations=2), 0)
+        first, second = self.fx.calls()
+        self.assertEqual(session_id(second), ("--resume", session_id(first)[1]))
+        prompt = second[second.index("-p") + 1]
+        self.assertIn("- STATUS.md was not updated and committed during the session", prompt)
+        self.assertEqual(self.fx.state()["status"], "done")
+        self.assertIn("Resuming the session to fix them.", self.out.getvalue())
+        self.assertEqual(self.notes, ["Loop stopped: reached max iterations (2)."])
+
+    def test_check_still_failing_after_resume_halts(self):
+        self.with_status_md()
+        self.fx.scenarios({"status": "DONE a"}, {"status": "DONE a"})
+        self.assertEqual(self.run_loop(max_iterations=5), 1)
+        self.assertEqual(len(self.fx.calls()), 2)
+        state = self.fx.state()
+        self.assertEqual((state["status"], state["problems"]),
+                         ("unverified", ["STATUS.md was not updated and committed during the session"]))
+        self.assertEqual(len(self.notes), 1)
+        self.assertIn("post-session checks still failing", self.notes[0])
+
+    def test_unverified_session_is_resumed_on_the_next_run(self):
+        self.with_status_md()
+        self.fx.scenarios({"status": "DONE a"}, {"status": "DONE a"},
+                          {"status": "DONE a", "commit": {"STATUS.md": "fixed\n"}})
+        self.assertEqual(self.run_loop(max_iterations=5), 1)
+        self.assertEqual(self.run_loop(max_iterations=1), 0)
+        third = self.fx.calls()[2]
+        self.assertIn("post-session checks", third[third.index("-p") + 1])
+        self.assertEqual(self.fx.state()["status"], "done")
+
+    def test_no_verify_skips_checks(self):
+        self.with_status_md()
+        self.fx.scenarios({"status": "DONE a"})
+        self.assertEqual(self.run_loop(max_iterations=1, verify=False), 0)
+        self.assertEqual(self.fx.state()["status"], "done")
 
     # --- preconditions and dirty tree ----------------------------------------
 

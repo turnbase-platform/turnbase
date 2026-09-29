@@ -16,7 +16,7 @@ class StateFile:
     def __init__(self, path: Path) -> None:
         self.path = path
 
-    def write(self, session_id: str, iteration: int, status: str, **extra: str) -> None:
+    def write(self, session_id: str, iteration: int, status: str, **extra: object) -> None:
         doc = {
             "session_id": session_id,
             "iteration": iteration,

@@ -83,6 +83,8 @@ class Progress:
     last_action_at: float | None = None
     last_activity_at: float = 0.0
     in_flight: dict[str, InFlight] = field(default_factory=dict)
+    tool_calls: int = 0
+    phase_seconds: dict[str, float] = field(default_factory=dict)  # finished stints only
 
     @classmethod
     def start(cls, now: float, resumed: bool = False) -> Progress:
@@ -117,6 +119,17 @@ def apply(p: Progress, line: str, now: float) -> list[PhaseChange]:
             if isinstance(tid, str):
                 p.in_flight.pop(tid, None)
     return changes
+
+
+def phase_totals(p: Progress, now: float) -> dict[str, float]:
+    """Seconds spent in each phase so far, the current stint included, in PHASES order."""
+    totals = dict(p.phase_seconds)
+    totals[p.phase] = totals.get(p.phase, 0.0) + max(0.0, now - p.phase_since)
+    return {ph: totals[ph] for ph in sorted(totals, key=_phase_order)}
+
+
+def _phase_order(phase: str) -> int:
+    return PHASES.index(phase) if phase in PHASES else len(PHASES)
 
 
 def infer_phase(name: str, inp: dict) -> str | None:
@@ -206,6 +219,7 @@ def _tool_use(p: Progress, block: dict, now: float) -> list[PhaseChange]:
     if isinstance(block.get("id"), str):
         p.in_flight[block["id"]] = InFlight(command, now)
     p.last_action, p.last_action_at = summarize(name, inp), now
+    p.tool_calls += 1
     if p.item is None and command:
         claim = _CLAIM.search(command)
         if claim:
@@ -226,6 +240,7 @@ def _set_phase(p: Progress, phase: str, note: str, now: float, *, reported: bool
     if phase == p.phase and note == p.note:
         return []
     if phase != p.phase:
+        p.phase_seconds[p.phase] = p.phase_seconds.get(p.phase, 0.0) + max(0.0, now - p.phase_since)
         p.phase_since = now
     p.phase, p.note = phase, note
     return [PhaseChange(now, phase, note, reported)]

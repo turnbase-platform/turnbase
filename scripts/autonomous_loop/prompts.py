@@ -68,3 +68,21 @@ to check back later.
 {_PHASES}
 
 {_STATUS}"""
+
+
+def verify_prompt(problems: list[str]) -> str:
+    """Resumes a session that reported DONE when the repository does not bear it out."""
+    listed = "\n".join(f"- {p}" for p in problems)
+    return f"""You reported LOOP_STATUS: DONE, but the loop's post-session checks of the
+repository found the "Ending a Session" checklist from CLAUDE.md incomplete:
+
+{listed}
+
+Fix each of these now. If the item is in fact only partly done, do not mark it
+DONE: record what landed in STATUS.md, commit that, and report BLOCKED with
+the reason. Do not delete a branch you did not create. Block synchronously on
+anything you need, as before.
+
+{_PHASES}
+
+{_STATUS}"""
