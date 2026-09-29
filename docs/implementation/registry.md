@@ -70,7 +70,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | DONE |
 | IMP-M3-03 | GDK host bridge and serialization boundary | sdk, game-host | M3-01, M3-02 | DONE |
 | IMP-M3-04 | gRPC service implementation | game-host | M3-03 | DONE (session 89) |
-| IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | WIP (session 91) |
+| IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | READY |
 | IMP-M3-06 | Game input outbox and delivery | platform | M3-05 | READY |
 | IMP-M3-07 | Effect fan-out and spectator filtering | platform | M3-06 | READY |
 | IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05, M2-09 | READY |
@@ -3492,6 +3492,23 @@ but session creation fails (no eligible Game Host, or `CreateSession` errors); t
 registry had no code for it and this item's clause says only that the room must not advance.
 `room-websocket.md` now defines `GAME_START_FAILED` (`details.reason` `NO_HOST_AVAILABLE` |
 `SESSION_CREATION_FAILED`), unicast to the host, room left in Lobby.
+
+**Scope note (session 91) — partly landed, not `DONE`.** In `turnbase-platform`: the
+`GameHostRegistryService` server (Register, the bidi Heartbeat, ReportContexts, Deregister) on the
+monolith's own listener over h2c through `grpc-servlet-jakarta`, backed by the `hosts` / `host:` /
+`hostlease:` / `contexts:` keys of `game-host-internals.md` §13 with the §11 selection rule; the
+`turnbase.orchestration.*` config; `GameSessionService.create` (host selection, the
+`routing:`/`seq:`/`delivered:`/`failcount:` writes, `CreateSession` under the dispatch deadline);
+the real `START_GAME` (`GAME_START_FAILED` per IMP-GATE-88, else `active_session_id` +
+`GAME_STARTED`); and `GET /play/{sessionId}`, each covered by an integration test against a fake
+in-process Game Host. **Still owed:** (1) the real `GameInputDispatcher` — `SubmitInput`/`ProcessInput`
+dispatch, effect delivery (including the `CreateSession` result's initial effects, which the starter
+does not yet deliver), failure counting and retry; (2) the two cross-repo end-to-end checks below
+(`Register` within 60 s against a live Game Host; one trace in Tempo); (3) `TerminateSession` teardown
+belongs to `IMP-M3-08`. Two transport facts found on the way: grpc-servlet on Tomcat loses the status
+of a trailers-only response (the client sees `INTERNAL`), so the registry sends one message before
+`NOT_FOUND`; and with h2c on, Tomcat buffers the body of an `Upgrade: h2c` request up to
+`maxSavePostSize`, so the connector raises it to 1 MiB to keep the problem-details 413.
 
 **Closes IMP-GATE-08's cross-repo half:** this item gives `GameHostRegistryService` its real server
 implementation, so it also carries the end-to-end check `IMP-M0-04` could not — a `turnbase-game-host`
