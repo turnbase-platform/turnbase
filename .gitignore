@@ -105,4 +105,4 @@ jacoco/
 *.bak
 *.orig
 .worktrees
-scripts/__pycache__/
+__pycache__/
