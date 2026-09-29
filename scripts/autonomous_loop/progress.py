@@ -45,6 +45,10 @@ _SHELL_WRITE = re.compile(
     r"|\btee\b(?:[ \t]+-a)?[ \t]+(?!" + _SCRATCH + r")[\w./-]"          # tee file
 )
 _SCRIPT_WRITE = re.compile(r"\.write(?:_text|_bytes)?\(")
+_SHELL_READ = re.compile(r"\b(?:cat|head|tail|less|grep|rg|sed -n|awk|find|ls)\b")
+# What an agent reads while working out an item: specs and docs, or code in a submodule.
+_READ_TARGET = re.compile(r"\bdocs/(?!implementation/registry\.md)|\bturnbase-(?:common|sdk|platform|game-host|frontend)\b|\bsrc/(?:main|test)/")
+REGISTRY = "registry.md"
 # A Bash command matching this may legitimately run for a long time without output.
 LONG_WAIT = re.compile(r"gh run watch|mvnw|\bmvn\s|\bnpm\b|\bgradle")
 
@@ -137,30 +141,48 @@ def infer_phase(name: str, inp: dict) -> str | None:
     command = inp.get("command") if isinstance(inp.get("command"), str) else ""
     if name == "Skill" and "work-item" in str(inp.get("skill", "")):
         return "claiming"
-    if name in ("Edit", "Write") and os.path.basename(path) == "STATUS.md":
-        return "wrapping-up"
-    if name == "Bash":
-        if "gh run watch" in command:
-            return "ci-wait"
-        if _GIT_MERGE.search(command):
-            return "merging"
-        if _TESTS.search(command):
-            return "testing"
-    if name in ("Edit", "Write") and _SUBMODULE.search(path):
-        return "implementing"
-    if name == "Bash" and _bash_writes(command):
-        return "wrapping-up" if "STATUS.md" in command else "implementing"
-    if name == "Read" and "/docs/" in path:
+    if name in ("Edit", "Write"):
+        base = os.path.basename(path)
+        if base == "STATUS.md":
+            return "wrapping-up"
+        if base == REGISTRY:
+            return _registry_edit(str(inp.get("new_string") or inp.get("content") or ""))
+        return "implementing" if _SUBMODULE.search(path) else None
+    if name == "Read":
+        return "reading" if "/docs/" in path and os.path.basename(path) != REGISTRY else None
+    if name != "Bash":
+        return None
+    # Heredoc bodies are data (code, commit messages): a tool name or git command in
+    # one is not run, so only the shell part is matched.
+    shell, bodies = _split_heredocs(command)
+    if "gh run watch" in shell:
+        return "ci-wait"
+    if _GIT_MERGE.search(shell):
+        return "merging"
+    if _TESTS.search(shell):
+        return "testing"
+    if _bash_writes(shell, bodies):
+        if "STATUS.md" in command:
+            return "wrapping-up"
+        return _registry_edit(command) if REGISTRY in command else "implementing"
+    if _SHELL_READ.search(shell) and _READ_TARGET.search(shell):
         return "reading"
     return None
 
 
-def _bash_writes(command: str) -> bool:
-    """True when a shell command edits files. Heredoc bodies are data (code, commit
-    messages), so shell syntax is only looked for outside them; a body counts as an
-    edit only when it is a script that writes."""
+def _registry_edit(text: str) -> str:
+    """Claiming marks the item WIP in the registry; closing it marks it DONE."""
+    return "claiming" if "WIP" in text else "wrapping-up"
+
+
+def _split_heredocs(command: str) -> tuple[str, list[str]]:
     bodies = [m.group(3) for m in _HEREDOC.finditer(command)]
-    shell = _HEREDOC.sub("<<HEREDOC\n", command)
+    return _HEREDOC.sub("<<HEREDOC\n", command), bodies
+
+
+def _bash_writes(shell: str, bodies: list[str]) -> bool:
+    """True when a shell command edits files: shell syntax outside heredocs, or a
+    heredoc that is a script which writes."""
     if _SHELL_WRITE.search(shell):
         return True
     return bool(re.search(r"\b(?:python3?|node|ruby)\b", shell)) and any(
@@ -228,10 +250,15 @@ def _tool_use(p: Progress, block: dict, now: float) -> list[PhaseChange]:
         reported = _command_markers(p, command, now)
         if reported:
             return reported
-    if p.reported and p.marker_at is not None and now - p.marker_at < STALE_MARKER_SECONDS:
-        return []
     guess = infer_phase(name, inp)
     if guess is None or guess == p.phase:
+        return []
+    # A fresh marker wins over a guess that goes back (testing -> implementing is a fix
+    # loop the agent may not report), but not over one that goes forward: an agent that
+    # reported claiming and is now writing code has moved on without saying so.
+    fresh = p.reported and p.marker_at is not None and now - p.marker_at < STALE_MARKER_SECONDS
+    # Reading is how an item starts; mid-implementation greps are not a return to it.
+    if (fresh or guess == "reading") and _phase_order(guess) <= _phase_order(p.phase):
         return []
     return _set_phase(p, guess, "", now, reported=False)
 

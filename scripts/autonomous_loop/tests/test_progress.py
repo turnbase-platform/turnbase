@@ -147,6 +147,22 @@ class FallbackTest(unittest.TestCase):
             ("Bash", {"command": "python3 - <<'E'\nimport json\nprint(1 > 0)\nE"}, None),
             ("Bash", {"command": "sed -n 1,40p src/Foo.java"}, None),
             ("Read", {"file_path": f"{REPO}/turnbase-sdk/pom.xml"}, None),
+            # The registry is edited to claim an item and again to close it.
+            ("Bash", {"command": "sed -i '73s/| READY |/| WIP (session 92) |/' "
+                                 "docs/implementation/registry.md"}, "claiming"),
+            ("Edit", {"file_path": f"{REPO}/docs/implementation/registry.md",
+                      "new_string": "| DONE |"}, "wrapping-up"),
+            ("Read", {"file_path": f"{REPO}/docs/implementation/registry.md"}, None),
+            # Heredoc bodies are data: tool names or git commands in them are not run.
+            ("Bash", {"command": "python3 - <<'EOF'\np='src/test/FooIT.java'\ns=open(p).read()\n"
+                                 "s=s.replace('a','./mvnw verify; git push')\nopen(p,'w').write(s)\nEOF"},
+             "implementing"),
+            # Bash reads of specs and source code.
+            ("Bash", {"command": "cat docs/specs/internal-grpc/protocol.md | head -300"}, "reading"),
+            ("Bash", {"command": "cd /r/turnbase-platform; grep -n x src/main/java/A.java | head"},
+             "reading"),
+            ("Bash", {"command": "sed -n 1,80p STATUS.md; grep -n IMP docs/implementation/registry.md"},
+             None),
         ]
         for name, inp, expected in cases:
             with self.subTest(name=name, inp=inp):
@@ -158,11 +174,28 @@ class FallbackTest(unittest.TestCase):
         self.assertEqual([(c.phase, c.reported) for c in changes], [("claiming", False)])
         self.assertFalse(p.reported)
 
-    def test_fallback_disabled_while_marker_is_fresh(self):
+    def test_fresh_marker_blocks_backward_guesses(self):
         p = Progress.start(0.0)
-        apply(p, text("LOOP_PHASE: implementing bridge"), 1.0)
-        self.assertEqual(apply(p, tool("t1", "Bash", {"command": "gh run watch 1"}), 2.0), [])
+        apply(p, text("LOOP_PHASE: testing verify"), 1.0)
+        self.assertEqual(apply(p, tool("t1", "Read", {"file_path": f"{REPO}/docs/specs/a.md"}), 2.0), [])
+        self.assertEqual(apply(p, tool("t2", "Write", {"file_path": f"{REPO}/turnbase-sdk/A.java"}), 3.0),
+                         [])
+        self.assertEqual(p.phase, "testing")
+
+    def test_reading_is_never_inferred_backwards(self):
+        p = Progress.start(0.0)
+        apply(p, tool("t1", "Bash", {"command": "cat > Foo.java <<'E'\nx\nE"}), 1.0)
+        grep = {"command": "grep -n x turnbase-sdk/src/main/java/A.java"}
+        self.assertEqual(apply(p, tool("t2", "Bash", grep), 2.0), [])
         self.assertEqual(p.phase, "implementing")
+
+    def test_fresh_marker_allows_forward_guesses(self):
+        """An agent that reported claiming and is now writing code forgot to say so."""
+        p = Progress.start(0.0)
+        apply(p, text("LOOP_PHASE: claiming IMP-M3-05"), 1.0)
+        changes = apply(p, tool("t1", "Bash", {"command": "cat > Foo.java <<'E'\nx\nE"}), 2.0)
+        self.assertEqual([(c.phase, c.reported) for c in changes], [("implementing", False)])
+        self.assertEqual(p.item, "IMP-M3-05")
 
     def test_fallback_resumes_once_marker_is_stale(self):
         p = Progress.start(0.0)
