@@ -119,11 +119,6 @@ implementation is still unstarted and remains large: `turnbase-sdk` half first (
 Espresso test) — and the game-host half still needs the `TURNBASE_SDK_PAT` human action below before
 it can merge.
 
-**Human action needed for the e2e job:** `IMP-M6-02` added a `turnbase-frontend` checkout to
-`turnbase-platform`'s `e2e` job, which needs a fine-grained PAT (read-only on Contents, scoped to
-`turnbase-frontend` only) stored as `TURNBASE_FRONTEND_PAT` on `turnbase-platform/turnbase-platform`.
-An agent cannot create it; until it exists the step fails (the job is `continue-on-error`).
-
 **`IMP-M6-03`, `-04` and `-06` are `READY`** now that `IMP-M6-02` is done (`-05` waits on `-04`).
 Independent picks unchanged: `IMP-M3-03` (sdk half first; game-host half still
 needs the `TURNBASE_SDK_PAT` human action below).
