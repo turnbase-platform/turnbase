@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stop hook for scripts/autonomous-work-loop.sh.
+# Stop hook for the autonomous work loop (scripts/autonomous-work-loop.sh → scripts/autonomous_loop/).
 #
 # The loop requires every automated session to end with a LOOP_STATUS line;
 # without one it cannot tell a finished work item from a session that stopped
