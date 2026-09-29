@@ -34,7 +34,9 @@ class LoopTest(unittest.TestCase):
         calls = self.fx.calls()
         self.assertEqual(len(calls), 2)
         self.assertEqual(session_id(calls[0])[0], "--session-id")
-        self.assertIn("LOOP_PHASE: <phase>", calls[0][calls[0].index("-p") + 1])
+        prompt = calls[0][calls[0].index("-p") + 1]
+        self.assertIn("LOOP_PHASE: <phase>", prompt)
+        self.assertIn("not inside a command or\ntool call", prompt)
         self.assertIn("--dangerously-skip-permissions", calls[0])
         self.assertEqual(self.fx.state()["status"], "finished")
         self.assertIn("LOOP_STATUS: DONE IMP-A-01", self.out.getvalue())

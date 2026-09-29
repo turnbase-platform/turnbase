@@ -5,8 +5,10 @@ LOOP_PHASE: <phase> <optional short note>
 where <phase> is one of: starting, claiming, reading, implementing, testing,
 ci-wait, merging, wrapping-up. When claiming, put the item id in the note
 (e.g. `LOOP_PHASE: claiming IMP-M3-04`). Keep notes under 80 characters.
-These lines are progress markers for the operator only; they never replace
-the final LOOP_STATUS line."""
+Write each marker as plain text in your message, not inside a command or
+tool call, and report every phase you enter, including implementing and
+testing. These lines are progress markers for the operator only; they never
+replace the final LOOP_STATUS line."""
 
 _STATUS = """End your final message with exactly one line, and nothing after it, in one of
 these three exact forms:

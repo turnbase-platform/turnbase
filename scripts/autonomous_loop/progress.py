@@ -21,10 +21,14 @@ PHASES = (
     "wrapping-up",
 )
 NOTE_MAX = 80
+# After this long without a marker, tool calls may move the phase again (shown as inferred).
+STALE_MARKER_SECONDS = 600.0
 SUMMARY_MAX = 60
 
 _CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 _MARKER = re.compile(r"^LOOP_PHASE:[ \t]+(\S+)[ \t]*(.*?)[ \t]*$", re.MULTILINE)
+# The same marker echoed inside a Bash command, e.g. `echo "LOOP_PHASE: testing verify"; ./mvnw …`.
+_COMMAND_MARKER = re.compile(r"LOOP_PHASE:[ \t]+([a-z-]+)[ \t]*([^\"'`;&|\n]*)")
 _ITEM = re.compile(r"\bIMP-[A-Z0-9]+-[0-9]+\b")
 _CLAIM = re.compile(r"\bclaim\b[^\n]*?\b(IMP-[A-Z0-9]+-[0-9]+)\b")
 _SUBMODULE = re.compile(r"/turnbase-(?:common|sdk|platform|game-host|frontend)/")
@@ -62,6 +66,7 @@ class Progress:
     note: str = ""
     phase_since: float = 0.0
     reported: bool = False
+    marker_at: float | None = None
     item: str | None = None
     last_action: str | None = None
     last_action_at: float | None = None
@@ -150,15 +155,23 @@ def idle(p: Progress, now: float, threshold: float) -> Idle | None:
 
 
 def _markers(p: Progress, text: str, now: float) -> list[PhaseChange]:
-    changes: list[PhaseChange] = []
-    for match in _MARKER.finditer(text):
-        note = _truncate(_printable(match.group(2)), NOTE_MAX)
-        p.reported = True
-        item = _ITEM.search(note)
-        if item:
-            p.item = item.group(0)
-        changes += _set_phase(p, _printable(match.group(1)), note, now, reported=True)
-    return changes
+    return [c for m in _MARKER.finditer(text) for c in _marker(p, m.group(1), m.group(2), now)]
+
+
+def _command_markers(p: Progress, command: str, now: float) -> list[PhaseChange]:
+    """Agents sometimes echo the marker from a command instead of writing it as text.
+    Only known phases count here, so a grep for the marker text is not taken for one."""
+    return [c for m in _COMMAND_MARKER.finditer(command) if m.group(1) in PHASES
+            for c in _marker(p, m.group(1), m.group(2), now)]
+
+
+def _marker(p: Progress, phase: str, note: str, now: float) -> list[PhaseChange]:
+    note = _truncate(_printable(note.strip()), NOTE_MAX)
+    p.reported, p.marker_at = True, now
+    item = _ITEM.search(note)
+    if item:
+        p.item = item.group(0)
+    return _set_phase(p, _printable(phase), note, now, reported=True)
 
 
 def _tool_use(p: Progress, block: dict, now: float) -> list[PhaseChange]:
@@ -172,7 +185,11 @@ def _tool_use(p: Progress, block: dict, now: float) -> list[PhaseChange]:
         claim = _CLAIM.search(command)
         if claim:
             p.item = claim.group(1)
-    if p.reported:
+    if command:
+        reported = _command_markers(p, command, now)
+        if reported:
+            return reported
+    if p.reported and p.marker_at is not None and now - p.marker_at < STALE_MARKER_SECONDS:
         return []
     guess = infer_phase(name, inp)
     if guess is None or guess == p.phase:

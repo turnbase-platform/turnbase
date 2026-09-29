@@ -3,6 +3,7 @@ import re
 import unittest
 
 from autonomous_loop.progress import (
+    STALE_MARKER_SECONDS,
     InFlight,
     Idle,
     Progress,
@@ -139,11 +140,38 @@ class FallbackTest(unittest.TestCase):
         self.assertEqual([(c.phase, c.reported) for c in changes], [("claiming", False)])
         self.assertFalse(p.reported)
 
-    def test_fallback_disabled_after_first_marker(self):
+    def test_fallback_disabled_while_marker_is_fresh(self):
         p = Progress.start(0.0)
         apply(p, text("LOOP_PHASE: implementing bridge"), 1.0)
         self.assertEqual(apply(p, tool("t1", "Bash", {"command": "gh run watch 1"}), 2.0), [])
         self.assertEqual(p.phase, "implementing")
+
+    def test_fallback_resumes_once_marker_is_stale(self):
+        p = Progress.start(0.0)
+        apply(p, text("LOOP_PHASE: reading registry"), 1.0)
+        later = 1.0 + STALE_MARKER_SECONDS
+        changes = apply(p, tool("t1", "Bash", {"command": "./mvnw verify"}), later)
+        self.assertEqual([(c.phase, c.reported) for c in changes], [("testing", False)])
+        self.assertTrue(p.reported)
+        changes = apply(p, text("LOOP_PHASE: merging"), later + 1)
+        self.assertEqual([(c.phase, c.reported) for c in changes], [("merging", True)])
+        self.assertEqual(apply(p, tool("t2", "Bash", {"command": "./mvnw verify"}), later + 2), [])
+
+
+class CommandMarkerTest(unittest.TestCase):
+    def test_marker_echoed_in_bash_command_counts_as_reported(self):
+        p = Progress.start(0.0)
+        cmd = 'cd x; echo "LOOP_PHASE: testing full verify + integration"; (./mvnw verify > /tmp/it.log)'
+        changes = apply(p, tool("t1", "Bash", {"command": cmd}), 1.0)
+        self.assertEqual([(c.phase, c.note, c.reported) for c in changes],
+                         [("testing", "full verify + integration", True)])
+
+    def test_unknown_phase_in_command_is_ignored(self):
+        p = Progress.start(0.0)
+        apply(p, text("LOOP_PHASE: reading"), 0.5)
+        cmd = "grep -n 'LOOP_PHASE: <phase>' scripts/autonomous_loop/prompts.py"
+        self.assertEqual(apply(p, tool("t1", "Bash", {"command": cmd}), 1.0), [])
+        self.assertEqual(p.phase, "reading")
 
 
 class ItemTest(unittest.TestCase):
