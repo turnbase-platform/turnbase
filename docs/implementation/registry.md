@@ -3493,22 +3493,23 @@ registry had no code for it and this item's clause says only that the room must 
 `room-websocket.md` now defines `GAME_START_FAILED` (`details.reason` `NO_HOST_AVAILABLE` |
 `SESSION_CREATION_FAILED`), unicast to the host, room left in Lobby.
 
-**Scope note (session 91) — partly landed, not `DONE`.** In `turnbase-platform`: the
-`GameHostRegistryService` server (Register, the bidi Heartbeat, ReportContexts, Deregister) on the
-monolith's own listener over h2c through `grpc-servlet-jakarta`, backed by the `hosts` / `host:` /
-`hostlease:` / `contexts:` keys of `game-host-internals.md` §13 with the §11 selection rule; the
-`turnbase.orchestration.*` config; `GameSessionService.create` (host selection, the
-`routing:`/`seq:`/`delivered:`/`failcount:` writes, `CreateSession` under the dispatch deadline);
-the real `START_GAME` (`GAME_START_FAILED` per IMP-GATE-88, else `active_session_id` +
-`GAME_STARTED`); and `GET /play/{sessionId}`, each covered by an integration test against a fake
-in-process Game Host. **Still owed:** (1) the real `GameInputDispatcher` — `SubmitInput`/`ProcessInput`
-dispatch, effect delivery (including the `CreateSession` result's initial effects, which the starter
-does not yet deliver), failure counting and retry; (2) the two cross-repo end-to-end checks below
-(`Register` within 60 s against a live Game Host; one trace in Tempo); (3) `TerminateSession` teardown
-belongs to `IMP-M3-08`. Two transport facts found on the way: grpc-servlet on Tomcat loses the status
-of a trailers-only response (the client sees `INTERNAL`), so the registry sends one message before
-`NOT_FOUND`; and with h2c on, Tomcat buffers the body of an `Upgrade: h2c` request up to
-`maxSavePostSize`, so the connector raises it to 1 MiB to keep the problem-details 413.
+**Scope note (session 92) — partly landed, not `DONE`.** Session 91's list (registry server,
+`GameSessionService.create`, real `START_GAME`, `/play`) plus, in `turnbase-platform`:
+`GameInputService` (per-session `seq:` `INCR`, `ProcessInput` against the host `routing:` names,
+the `delivered:` watermark so effects reach `EffectDelivery` once per sequence, `failcount:` counting
+consecutive failures with the `turnbase.gamehost.retry-limit` limit, transport statuses mapped per the
+protocol's *Error model*); the real `GameInputDispatcher` (outbox `player_left` → `ProcessInput`,
+`NOT_FOUND` conditional on `room.active_session_id`, sequence from `seq:` rather than the row id);
+`CreateSession`'s initial effects handed to `EffectDelivery`. `EffectDelivery` is the seam to
+`IMP-M3-07`; until then a logging stub delivers to no client. **Still owed:** (1) the two cross-repo
+end-to-end checks below — no compose stack or Tempo exists in any repository yet, so they need one
+built first; (2) `ACTION_REJECTED` unicast to the acting player and the player-facing failure notice
+at the retry limit — the acting-player action path (`GAME_ACTION` → `ProcessInput`) has no caller
+yet, so `GameInputService.process` is exercised only by the outbox; (3) reassigning a session to
+another host on `UNAVAILABLE` (FR-ORCH-005) — the call is left for retry with the failure counted, but
+`routing:` is not rewritten, because the game key needed to re-select a host is not in Redis;
+(4) `TerminateSession` at the retry limit belongs to `IMP-M3-08`. Transport facts from session 91
+stand (trailers-only status lost under grpc-servlet; `maxSavePostSize` raised to 1 MiB for h2c).
 
 **Closes IMP-GATE-08's cross-repo half:** this item gives `GameHostRegistryService` its real server
 implementation, so it also carries the end-to-end check `IMP-M0-04` could not — a `turnbase-game-host`

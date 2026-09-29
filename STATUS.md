@@ -1,33 +1,29 @@
 ## Last Session Summary
 
-**Date:** 2026-09-29 (session 91 — `IMP-M3-05` partly landed; still 49 of 62 by the registry count)
+**Date:** 2026-09-29 (session 92 — `IMP-M3-05` dispatch half landed; still 49 of 62 by the registry count)
 
-**`IMP-M3-05` is `READY` with a scope note: the registry server, real `START_GAME` and `/play` are on
-`turnbase-platform` `master` (CI green); dispatch and the two cross-repo e2e checks are not.**
+**`IMP-M3-05` stays `READY` with an updated scope note: input dispatch is on `turnbase-platform`
+`master`; the two cross-repo e2e checks are not, because no compose stack or Tempo exists yet.**
 
-- **Landed:** `GameHostRegistryService` on the monolith listener (gRPC over `grpc-servlet-jakarta`,
-  h2c, bidi `Heartbeat` spiked and working); `hosts`/`host:`/`hostlease:`/`contexts:` registry and
-  the §11 selection rule; `turnbase.orchestration.*`; `GameSessionService.create`; the real
-  `START_GAME` (`GAME_START_FAILED` or `active_session_id` + `GAME_STARTED`); `GET /play/{sessionId}`
-  with the `Host`/`gameId` cross-check. ITs run against a fake in-process Game Host.
-- **`IMP-GATE-88` opened and closed:** `START_GAME` had no outcome when session creation fails;
-  `room-websocket.md` now defines `GAME_START_FAILED` (`NO_HOST_AVAILABLE` | `SESSION_CREATION_FAILED`).
-- **Transport findings:** grpc-servlet on Tomcat drops the status of trailers-only responses (client
-  sees `INTERNAL`); with h2c on, Tomcat 413s any `Upgrade: h2c` body over `maxSavePostSize` in HTML,
-  so the connector raises it to 1 MiB. `RoomCommandControllerIT` now widens the WS command bucket.
-- **Still owed:** real `GameInputDispatcher` (`ProcessInput`, effect delivery incl. the
-  `CreateSession` initial effects, failure counting); the IMP-GATE-08 (`Register` <= 60 s) and
-  IMP-GATE-18 (one trace in Tempo) cross-repo checks. See the item's scope note in `registry.md`.
-
-`check-corpus.py` is clean. `feat/imp-m3-05-orchestration` merged `--ff-only` and deleted; no PR.
+- **Landed:** `GameInputService` (`seq:` allocation, `ProcessInput`, `delivered:` watermark →
+  effects delivered once per sequence, consecutive-failure counting against
+  `turnbase.gamehost.retry-limit`, transport-status mapping); the real outbox `GameInputDispatcher`
+  replacing `PendingGameInputDispatcher` (sequence now from `seq:`, `NOT_FOUND` conditional on
+  `room.active_session_id`); `CreateSession`'s initial effects handed to the new `EffectDelivery`
+  seam (logging stub until `IMP-M3-07`). `GameInputServiceIT` runs against a fake in-process host.
+- **Still owed** (registry scope note): the IMP-GATE-08 (`Register` <= 60 s) and IMP-GATE-18 (one
+  trace in Tempo) checks — need a stack built first; `ACTION_REJECTED` unicast (no `GAME_ACTION`
+  caller yet); host reassignment on `UNAVAILABLE`; `TerminateSession` at the limit is `IMP-M3-08`.
 
 ---
 
 ## Next Priorities
 
-**`IMP-M3-05` is `READY` — finish it (session 91 scope note in `registry.md`):** the real
-`GameInputDispatcher`, initial-effect delivery after `CreateSession`, and the two cross-repo e2e
-checks. The registry server, `START_GAME` and `/play` are already on `turnbase-platform` `master`.
+**`IMP-M3-05` is `READY` — only the two cross-repo e2e checks remain that the *Done when* needs
+(session 92 scope note in `registry.md`):** build a local stack (Platform + Game Host + Tempo) and
+prove `Register` <= 60 s and one trace. Alternatively mark the item `DONE` and move those two checks
+to an explicit e2e item — a decision for the user. `IMP-M3-06`/`07`/`08` are otherwise unblocked in
+spirit but depend on `IMP-M3-05` being `DONE`.
 
 **`IMP-GATE-87` opened and closed (session 90, `IMP-M3-05`) — `IMP-M3-05` is `READY`, build it
 next.** Read the new `game-host-internals.md` §11/§13 material first. Risk not settled by the gate:
