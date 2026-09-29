@@ -75,6 +75,29 @@ class VerifyTest(unittest.TestCase):
         self.assertEqual(self.verify().problems,
                          ["docs/implementation/registry.md: IMP-M3-05 is marked 'READY', not DONE"])
 
+    def finish_partly(self, status="PARTIAL", section="**Remaining:** the e2e checks.\n"):
+        self.repo.write("STATUS.md", "session 2\n")
+        self.repo.write("docs/implementation/registry.md", REGISTRY_ROW.format(status)
+                        + "\n### IMP-M3-05 — Orchestration client\n\n" + section
+                        + "\n### IMP-M3-06 — Next\n\n**Remaining:** not this one\n")
+        self.repo.commit("partial")
+        self.repo.git("push", "-q", "origin", "master")
+        return verify(self.repo.path, start_head=self.start, label="IMP-M3-05 e2e owed",
+                      known_branches=self.known, partial=True)
+
+    def test_a_properly_recorded_partial_passes(self):
+        report = self.finish_partly()
+        self.assertEqual((report.problems, report.warnings), ([], []))
+
+    def test_partial_needs_the_partial_status(self):
+        self.assertEqual(self.finish_partly(status="READY").problems,
+                         ["docs/implementation/registry.md: IMP-M3-05 is marked 'READY', not PARTIAL"])
+
+    def test_partial_needs_a_remaining_line_in_its_own_section(self):
+        self.assertEqual(self.finish_partly(section="Scope note: some of it.\n").problems,
+                         ["docs/implementation/registry.md: IMP-M3-05's section has no **Remaining:** "
+                          "line saying what is still owed"])
+
     def test_labels_that_are_not_registry_rows_are_not_checked(self):
         self.repo.write("STATUS.md", "session 2\n")
         self.repo.commit("status")

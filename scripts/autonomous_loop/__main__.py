@@ -39,24 +39,32 @@ Notifications
 The loop rings the terminal bell, and under WSL also shows a Windows toast
 (through powershell.exe, whatever terminal the loop runs in), when it needs
 you: BLOCKED, FINISHED, any halt on an error, a stall warning, a session-limit
-wait and reaching --max. A DONE session is not announced. --no-notify turns
-all of it off.
+wait, reaching --max and an item stuck PARTIAL. A DONE or PARTIAL session is
+not announced. --no-notify turns all of it off.
 
 Post-session checks
 -------------------
-After a session reports DONE, the loop checks the repository and all
-submodules for what CLAUDE.md's "Ending a Session" checklist requires:
+After a session reports DONE or PARTIAL, the loop checks the repository and
+all submodules for what CLAUDE.md's "Ending a Session" checklist requires:
 * no branch that the session created is left, locally or on origin
   (branches that already existed when it started are ignored);
 * master is pushed — not ahead of origin/master;
 * every submodule is checked out at the commit the top repo records;
 * STATUS.md was committed during the session;
 * if the DONE label is a registry item, its row in
-  docs/implementation/registry.md says DONE.
+  docs/implementation/registry.md says DONE; for PARTIAL, the row says
+  PARTIAL and the item's section has a **Remaining:** line.
 If any check fails, the session is resumed with the list of failures to fix
 them; if they still fail after that, the loop halts and leaves the session
 resumable. A check that cannot run (e.g. no network) is reported and skipped.
 --no-verify turns the checks off.
+
+Partly done items
+-----------------
+A session that lands part of an item reports LOOP_STATUS: PARTIAL <item>.
+The loop goes on, and the next fresh session is told to continue that item
+rather than pick another. After PARTIAL_LIMIT (3) PARTIAL reports in a row
+for the same item, the loop halts and notifies: the item is not converging.
 
 Controls
 --------

@@ -45,7 +45,7 @@ allow_stop() {
 
 last_line="$(printf '%s\n' "$last_message" | sed '/^[[:space:]]*$/d' | tail -n1)"
 
-if [[ "$last_line" =~ ^LOOP_STATUS:[[:space:]]+(DONE|BLOCKED|FINISHED)([[:space:]]|$) ]]; then
+if [[ "$last_line" =~ ^LOOP_STATUS:[[:space:]]+(DONE|PARTIAL|BLOCKED|FINISHED)([[:space:]]|$) ]]; then
   allow_stop
 fi
 
@@ -71,6 +71,7 @@ blocked and cannot proceed, say so with the appropriate status.
 
 Then end your final message with exactly one line, and nothing after it:
 LOOP_STATUS: DONE <item-id-or-short-label>
+LOOP_STATUS: PARTIAL <item-id> <what is still owed>
 LOOP_STATUS: BLOCKED <one-line reason>
 LOOP_STATUS: FINISHED <all items complete>
 

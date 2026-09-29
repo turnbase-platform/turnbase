@@ -164,6 +164,52 @@ class LoopTest(unittest.TestCase):
         self.assertEqual(self.run_loop(max_iterations=1, verify=False), 0)
         self.assertEqual(self.fx.state()["status"], "done")
 
+    # --- partly done items ------------------------------------------------------------
+
+    def prompt(self, call):
+        return call[call.index("-p") + 1]
+
+    def test_partial_item_is_continued_by_the_next_fresh_session(self):
+        self.fx.scenarios({"status": "PARTIAL IMP-A-01 e2e checks owed"}, {"status": "DONE IMP-A-01"},
+                          {"status": "DONE IMP-A-02"})
+        self.assertEqual(self.run_loop(max_iterations=3), 0)
+        first, second, third = self.fx.calls()
+        self.assertEqual(session_id(second)[0], "--session-id")
+        self.assertIn("left IMP-A-01 PARTIAL. Continue IMP-A-01", self.prompt(second))
+        self.assertNotIn("Continue IMP-A-01", self.prompt(third))
+        self.assertIn("◐ LOOP_STATUS: PARTIAL IMP-A-01 e2e checks owed", self.out.getvalue())
+        self.assertIn("IMP-A-01 left PARTIAL — the next session continues it.", self.out.getvalue())
+        history = [json.loads(l) for l in (self.fx.logs / "history.jsonl").read_text().splitlines()]
+        self.assertEqual([(e["status"], e["item"]) for e in history],
+                         [("partial", "IMP-A-01"), ("done", None), ("done", None)])
+        self.assertEqual(self.notes, ["Loop stopped: reached max iterations (3)."])
+
+    def test_partial_streak_halts_across_runs(self):
+        self.fx.scenarios(*[{"status": "PARTIAL IMP-A-01 more owed"}] * 3)
+        self.assertEqual(self.run_loop(max_iterations=2), 0)
+        self.assertEqual(self.run_loop(max_iterations=5), 0)
+        calls = self.fx.calls()
+        self.assertEqual(len(calls), 3)
+        self.assertIn("Continue IMP-A-01", self.prompt(calls[2]))
+        self.assertEqual(self.notes, ["IMP-A-01: PARTIAL 3 sessions in a row — loop halted."])
+        self.assertEqual(self.fx.state()["status"], "partial")
+
+    def test_another_item_in_between_resets_the_streak(self):
+        self.fx.scenarios({"status": "PARTIAL IMP-A-01 x"}, {"status": "PARTIAL IMP-A-01 x"},
+                          {"status": "PARTIAL IMP-B-01 y"}, {"status": "PARTIAL IMP-A-01 x"})
+        self.assertEqual(self.run_loop(max_iterations=4), 0)
+        self.assertEqual(self.notes, ["Loop stopped: reached max iterations (4)."])
+
+    def test_partial_failing_checks_resumes_with_a_partial_prompt(self):
+        self.with_status_md()
+        self.fx.scenarios({"status": "PARTIAL IMP-A-01 x"},
+                          {"status": "PARTIAL IMP-A-01 x", "commit": {"STATUS.md": "session 2\n"}})
+        self.assertEqual(self.run_loop(max_iterations=2), 0)
+        first, second = self.fx.calls()
+        self.assertEqual(session_id(second), ("--resume", session_id(first)[1]))
+        self.assertIn("You reported LOOP_STATUS: PARTIAL", self.prompt(second))
+        self.assertEqual(self.fx.state()["status"], "partial")
+
     # --- preconditions and dirty tree ----------------------------------------
 
     def test_dirty_after_report_is_resumable(self):

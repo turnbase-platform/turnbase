@@ -52,7 +52,9 @@ def branches(repo: Path, git: Git = run_git) -> tuple[set[str], bool]:
 
 
 def verify(repo: Path, *, start_head: str | None, label: str, known_branches: set[str],
-           git: Git = run_git) -> Report:
+           partial: bool = False, git: Git = run_git) -> Report:
+    """`partial`: the session reported PARTIAL, so the item's row must say PARTIAL and its
+    section carry a Remaining: line, instead of saying DONE."""
     report = Report()
     with ThreadPoolExecutor(max_workers=8) as pool:
         for part in pool.map(lambda r: _branches(*r, git), _repos(repo, git)):
@@ -60,7 +62,7 @@ def verify(repo: Path, *, start_head: str | None, label: str, known_branches: se
             report.warnings += part.warnings
     _submodule_refs(repo, git, report)
     _status_md(repo, start_head, git, report)
-    _registry(repo, label, report)
+    _registry(repo, label, partial, report)
     return report
 
 
@@ -120,13 +122,31 @@ def _status_md(repo: Path, start_head: str | None, git: Git, report: Report) -> 
         report.problems.append("STATUS.md was not updated and committed during the session")
 
 
-def _registry(repo: Path, label: str, report: Report) -> None:
+def _registry(repo: Path, label: str, partial: bool, report: Report) -> None:
     """Only a registry item is checked; gate items and spec-defect fixes are not rows."""
     item = label.split()[0] if label.split() else ""
     path = repo / REGISTRY
     if not _ITEM.match(item) or not path.is_file():
         return
-    row = re.search(rf"^\|\s*{re.escape(item)}\s*\|.*\|\s*([^|]*?)\s*\|\s*$",
-                    path.read_text(encoding="utf-8", errors="replace"), re.MULTILINE)
-    if row and not row.group(1).startswith("DONE"):
-        report.problems.append(f"{REGISTRY}: {item} is marked '{row.group(1)}', not DONE")
+    text = path.read_text(encoding="utf-8", errors="replace")
+    row = re.search(rf"^\|\s*{re.escape(item)}\s*\|.*\|\s*([^|]*?)\s*\|\s*$", text, re.MULTILINE)
+    if not row:
+        return
+    status = row.group(1)
+    if not partial:
+        if not status.startswith("DONE"):
+            report.problems.append(f"{REGISTRY}: {item} is marked '{status}', not DONE")
+        return
+    if not status.startswith("PARTIAL"):
+        report.problems.append(f"{REGISTRY}: {item} is marked '{status}', not PARTIAL")
+    if not re.search(r"^\*\*Remaining:\*\*\s*\S", _section(text, item), re.MULTILINE):
+        report.problems.append(f"{REGISTRY}: {item}'s section has no **Remaining:** line "
+                               "saying what is still owed")
+
+
+def _section(text: str, item: str) -> str:
+    head = re.search(rf"^###\s+.*\b{re.escape(item)}\b.*$", text, re.MULTILINE)
+    if not head:
+        return ""
+    nxt = re.search(r"^###\s", text[head.end():], re.MULTILINE)
+    return text[head.end(): head.end() + nxt.start()] if nxt else text[head.end():]

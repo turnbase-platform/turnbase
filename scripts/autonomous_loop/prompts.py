@@ -10,16 +10,23 @@ tool call, and report every phase you enter, including implementing and
 testing. These lines are progress markers for the operator only; they never
 replace the final LOOP_STATUS line."""
 
-_STATUS = """End your final message with exactly one line, and nothing after it, in one of
-these three exact forms:
+_STATUS = """PARTIAL means work on the item landed (merged, pushed, ref bumped) but its
+"Done when" clause does not hold yet: the register row says PARTIAL and the
+item's section has a `**Remaining:**` line, as `work-item` describes. The
+next session continues it. Never write DONE for an item that is not DONE.
+
+End your final message with exactly one line, and nothing after it, in one of
+these four exact forms:
 LOOP_STATUS: DONE <item-id-or-short-label>
+LOOP_STATUS: PARTIAL <item-id> <what is still owed, in a few words>
 LOOP_STATUS: BLOCKED <one-line reason>
 LOOP_STATUS: FINISHED <all items complete>"""
 
 PROMPT = f"""Pick up the next TurnBase Phase 1 work item and implement it, following the
 `work-item` skill exactly (claim it, read exactly its read-list, build to the
-"Done when" clause). If a specification defect blocks you, use the
-`spec-defect` skill instead of guessing — filing/fixing the defect is a valid
+"Done when" clause). A PARTIAL item in the register comes before any READY
+one: continue it from its `**Remaining:**` line. If a specification defect
+blocks you, use the `spec-defect` skill instead of guessing — filing/fixing the defect is a valid
 unit of work for this session.
 
 Do exactly ONE item (or one spec-defect fix) this session, then stop — do not
@@ -42,6 +49,12 @@ anything else, "once it completes".
 {_PHASES}
 
 {_STATUS}"""
+
+def continue_prompt(item: str) -> str:
+    """A fresh session after one that reported PARTIAL: the same item comes next."""
+    return PROMPT.replace("Pick up the next TurnBase Phase 1 work item", f"""The previous session
+left {item} PARTIAL. Continue {item} — not a different item —""", 1)
+
 
 RESUME_PROMPT = f"""This session was interrupted before it reported a LOOP_STATUS line — it was
 killed, cut off by a session limit, or it stopped early. Nothing has been
@@ -70,18 +83,19 @@ to check back later.
 {_STATUS}"""
 
 
-def verify_prompt(problems: list[str]) -> str:
-    """Resumes a session that reported DONE when the repository does not bear it out."""
+def verify_prompt(problems: list[str], reported: str = "DONE") -> str:
+    """Resumes a session whose DONE or PARTIAL the repository does not bear out."""
     listed = "\n".join(f"- {p}" for p in problems)
-    return f"""You reported LOOP_STATUS: DONE, but the loop's post-session checks of the
+    return f"""You reported LOOP_STATUS: {reported}, but the loop's post-session checks of the
 repository found the "Ending a Session" checklist from CLAUDE.md incomplete:
 
 {listed}
 
 Fix each of these now. If the item is in fact only partly done, do not mark it
-DONE: record what landed in STATUS.md, commit that, and report BLOCKED with
-the reason. Do not delete a branch you did not create. Block synchronously on
-anything you need, as before.
+DONE: set its register row to PARTIAL, put a `**Remaining:**` line in its
+section saying what is still owed, record what landed in STATUS.md, commit and
+push that, and report PARTIAL. Do not delete a branch you did not create. Block
+synchronously on anything you need, as before.
 
 {_PHASES}
 
