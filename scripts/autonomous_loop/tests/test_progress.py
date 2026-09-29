@@ -128,6 +128,23 @@ class FallbackTest(unittest.TestCase):
             ("Write", {"file_path": f"{REPO}/turnbase-game-host/src/Foo.java"}, "implementing"),
             ("Read", {"file_path": f"{REPO}/docs/specs/INDEX.md"}, "reading"),
             ("Bash", {"command": "ls"}, None),
+            # Bash edits: under --dangerously-skip-permissions agents edit through Bash, not Edit.
+            ("Bash", {"command": "cd x && cat > Foo.java <<'E'\npackage a;\nE"}, "implementing"),
+            ("Bash", {"command": "sed -i 's/a/b/' src/Foo.java"}, "implementing"),
+            ("Bash", {"command": "python3 - <<'E'\np='Foo.java'\ns=open(p).read()\n"
+                                 "open(p,'w').write(s)\nE"}, "implementing"),
+            ("Bash", {"command": "python3 - <<'E'\nfrom pathlib import Path\n"
+                                 "Path('a').write_text('x')\nE"}, "implementing"),
+            ("Bash", {"command": "printf 'x' | tee -a notes.txt"}, "implementing"),
+            ("Bash", {"command": "perl -pi -e 's/a/b/' x.java"}, "implementing"),
+            ("Bash", {"command": "python3 - <<'E'\np='STATUS.md'\ns=open(p).read()\n"
+                                 "open(p,'w').write(s)\nE"}, "wrapping-up"),
+            # Not edits: scratch output, commit messages, reads, comparisons inside heredocs.
+            ("Bash", {"command": "grep -c x a.log > /tmp/n.txt 2>/dev/null"}, None),
+            ("Bash", {"command": "echo hi >&2; ls 2>&1"}, None),
+            ("Bash", {"command": "git add a && git commit -m \"$(cat <<'EOF'\nfeat: x > y\nEOF\n)\""}, None),
+            ("Bash", {"command": "python3 - <<'E'\nimport json\nprint(1 > 0)\nE"}, None),
+            ("Bash", {"command": "sed -n 1,40p src/Foo.java"}, None),
             ("Read", {"file_path": f"{REPO}/turnbase-sdk/pom.xml"}, None),
         ]
         for name, inp, expected in cases:

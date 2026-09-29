@@ -34,6 +34,17 @@ _CLAIM = re.compile(r"\bclaim\b[^\n]*?\b(IMP-[A-Z0-9]+-[0-9]+)\b")
 _SUBMODULE = re.compile(r"/turnbase-(?:common|sdk|platform|game-host|frontend)/")
 _GIT_MERGE = re.compile(r"\bgit\s+(?:merge|push)\b")
 _TESTS = re.compile(r"mvnw|\bmvn\s|\bnpm\s+(?:run\s+)?test\b|\bvitest\b|\bpytest\b")
+# Bash edits. Agents running under --dangerously-skip-permissions edit files through Bash
+# (heredocs, sed -i, python scripts) far more than through Edit/Write.
+_HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1[^\n]*\n(.*?)^[ \t]*\2[ \t]*$", re.DOTALL | re.MULTILINE)
+_SCRATCH = r"(?:/tmp/|/dev/)"
+_SHELL_WRITE = re.compile(
+    r"(?<![0-9&>])>>?[ \t]*(?![&>])['\"]?(?!" + _SCRATCH + r")[\w./-]"  # > file, >> file
+    r"|\bsed\b[^|;&\n]*[ \t]-i"                                     # sed -i
+    r"|\bperl\b[^|;&\n]*[ \t]-p?i"                                   # perl -pi
+    r"|\btee\b(?:[ \t]+-a)?[ \t]+(?!" + _SCRATCH + r")[\w./-]"          # tee file
+)
+_SCRIPT_WRITE = re.compile(r"\.write(?:_text|_bytes)?\(")
 # A Bash command matching this may legitimately run for a long time without output.
 LONG_WAIT = re.compile(r"gh run watch|mvnw|\bmvn\s|\bnpm\b|\bgradle")
 
@@ -124,9 +135,23 @@ def infer_phase(name: str, inp: dict) -> str | None:
             return "testing"
     if name in ("Edit", "Write") and _SUBMODULE.search(path):
         return "implementing"
+    if name == "Bash" and _bash_writes(command):
+        return "wrapping-up" if "STATUS.md" in command else "implementing"
     if name == "Read" and "/docs/" in path:
         return "reading"
     return None
+
+
+def _bash_writes(command: str) -> bool:
+    """True when a shell command edits files. Heredoc bodies are data (code, commit
+    messages), so shell syntax is only looked for outside them; a body counts as an
+    edit only when it is a script that writes."""
+    bodies = [m.group(3) for m in _HEREDOC.finditer(command)]
+    shell = _HEREDOC.sub("<<HEREDOC\n", command)
+    if _SHELL_WRITE.search(shell):
+        return True
+    return bool(re.search(r"\b(?:python3?|node|ruby)\b", shell)) and any(
+        _SCRIPT_WRITE.search(b) for b in bodies)
 
 
 def summarize(name: str, inp: dict) -> str:
