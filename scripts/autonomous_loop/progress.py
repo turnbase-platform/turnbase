@@ -23,6 +23,7 @@ PHASES = (
 NOTE_MAX = 80
 SUMMARY_MAX = 60
 
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 _MARKER = re.compile(r"^LOOP_PHASE:[ \t]+(\S+)[ \t]*(.*?)[ \t]*$", re.MULTILINE)
 _ITEM = re.compile(r"\bIMP-[A-Z0-9]+-[0-9]+\b")
 _CLAIM = re.compile(r"\bclaim\b[^\n]*?\b(IMP-[A-Z0-9]+-[0-9]+)\b")
@@ -96,7 +97,9 @@ def apply(p: Progress, line: str, now: float) -> list[PhaseChange]:
         elif kind == "assistant" and btype == "tool_use":
             changes += _tool_use(p, block, now)
         elif kind == "user" and btype == "tool_result":
-            p.in_flight.pop(block.get("tool_use_id"), None)
+            tid = block.get("tool_use_id")
+            if isinstance(tid, str):
+                p.in_flight.pop(tid, None)
     return changes
 
 
@@ -132,7 +135,7 @@ def summarize(name: str, inp: dict) -> str:
         text = f"{name} {inp['description']}"
     else:
         text = name
-    return _truncate(" ".join(str(text).split()), SUMMARY_MAX)
+    return _truncate(_printable(" ".join(str(text).split())), SUMMARY_MAX)
 
 
 def idle(p: Progress, now: float, threshold: float) -> Idle | None:
@@ -149,12 +152,12 @@ def idle(p: Progress, now: float, threshold: float) -> Idle | None:
 def _markers(p: Progress, text: str, now: float) -> list[PhaseChange]:
     changes: list[PhaseChange] = []
     for match in _MARKER.finditer(text):
-        note = _truncate(match.group(2), NOTE_MAX)
+        note = _truncate(_printable(match.group(2)), NOTE_MAX)
         p.reported = True
         item = _ITEM.search(note)
         if item:
             p.item = item.group(0)
-        changes += _set_phase(p, match.group(1), note, now, reported=True)
+        changes += _set_phase(p, _printable(match.group(1)), note, now, reported=True)
     return changes
 
 
@@ -184,6 +187,11 @@ def _set_phase(p: Progress, phase: str, note: str, now: float, *, reported: bool
         p.phase_since = now
     p.phase, p.note = phase, note
     return [PhaseChange(now, phase, note, reported)]
+
+
+def _printable(text: str) -> str:
+    """Agent text is drawn on the terminal: no escape sequences, bells or tabs."""
+    return _CONTROL.sub(" ", text)
 
 
 def _truncate(text: str, limit: int) -> str:

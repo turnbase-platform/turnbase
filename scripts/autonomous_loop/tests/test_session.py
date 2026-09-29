@@ -10,6 +10,7 @@ import termios
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from autonomous_loop.display import Terminal
 from autonomous_loop.session import (
@@ -22,6 +23,18 @@ from autonomous_loop.session import (
 )
 from autonomous_loop.tests.helpers import FakeControls, RecordingView
 from autonomous_loop.view import SessionDisplay
+
+
+def _alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    try:  # a zombie still answers kill(0); count it as dead
+        return os.waitpid(pid, os.WNOHANG) == (0, 0)
+    except ChildProcessError:
+        with open(f"/proc/{pid}/stat") as f:
+            return f.read().split()[2] != "Z"
 
 
 def py(code):
@@ -48,6 +61,13 @@ class LogFollowerTest(unittest.TestCase):
             out.write(b':2}\n')
         self.assertEqual(f.read_lines(), ['{"b":2}'])
         self.assertEqual(f.read_lines(), [])
+
+    def test_flush_returns_the_unterminated_tail(self):
+        f = self.follower()
+        self.path.write_bytes(b'{"a":1}\n{"b":2}')
+        self.assertEqual(f.read_lines(), ['{"a":1}'])
+        self.assertEqual(f.flush(), ['{"b":2}'])
+        self.assertEqual(f.flush(), [])
 
     def test_invalid_utf8_is_replaced_not_raised(self):
         self.path.write_bytes(b"\xff\xfe bad\n")
@@ -84,6 +104,23 @@ class ControlsTest(unittest.TestCase):
             while Event.ENTER not in events and time.monotonic() < deadline:
                 events += c.poll(0.1)
             self.assertIn(Event.ENTER, events)
+        os.close(master)
+
+    def test_sighup_and_sigquit_become_term(self):
+        with Controls(stdin=io.StringIO()) as c:
+            for sig in (signal.SIGHUP, signal.SIGQUIT):
+                os.kill(os.getpid(), sig)
+                self.assertIn(Event.TERM, c.poll(1.0))
+
+    def test_failed_enter_restores_signal_handlers(self):
+        master, slave = pty.openpty()
+        before = signal.getsignal(signal.SIGINT)
+        with os.fdopen(slave, "rb", buffering=0) as stdin, \
+                mock.patch("termios.tcgetattr", side_effect=termios.error("boom")):
+            with self.assertRaises(termios.error):
+                Controls(stdin=stdin).__enter__()
+        self.assertIs(signal.getsignal(signal.SIGINT), before)
+        self.assertEqual(signal.set_wakeup_fd(-1), -1)
         os.close(master)
 
     def test_tty_mode_restored(self):
@@ -154,6 +191,53 @@ class RunSessionTest(unittest.TestCase):
     def test_enter_without_scheduled_stop_is_ignored(self):
         result, view = self.run_it("import time; time.sleep(0.3)", FakeControls({2: [Event.ENTER]}))
         self.assertEqual(view.stops, [])
+
+    def test_final_unterminated_line_reaches_view(self):
+        _, view = self.run_it("import sys; sys.stdout.write('{\"a\":1}')")
+        self.assertEqual(view.lines, ['{"a":1}'])
+
+    def test_stderr_goes_to_a_sibling_file(self):
+        self.run_it("import sys; sys.stderr.write('oops\\n')")
+        self.assertEqual(Path(str(self.log) + ".stderr").read_text(), "oops\n")
+
+    def test_interrupt_reaches_the_whole_process_group(self):
+        pidfile = self.log.with_name("grandchild.pid")
+        code = ("import subprocess, sys, time\n"
+                f"p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+                f"open({str(pidfile)!r}, 'w').write(str(p.pid))\n"
+                "print('{}', flush=True)\n"
+                "time.sleep(60)")
+        result, _ = self.run_it(code, FakeControls({15: [Event.INT, Event.INT]}))
+        self.assertEqual(result.outcome, Outcome.INTERRUPTED)
+        grandchild = int(pidfile.read_text())
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and _alive(grandchild):
+            time.sleep(0.05)
+        self.assertFalse(_alive(grandchild))
+
+    def test_child_that_ignores_sigint_is_killed_after_grace(self):
+        code = ("import signal, time\n"
+                "signal.signal(signal.SIGINT, signal.SIG_IGN)\n"
+                "print('{}', flush=True)\n"
+                "time.sleep(60)")
+        started = time.monotonic()
+        result = run_session(py(code), self.log, controls=FakeControls({15: [Event.INT, Event.INT]}),
+                             view=RecordingView(), kill_grace_seconds=0.5)
+        self.assertEqual((result.outcome, result.exit_code), (Outcome.INTERRUPTED, -signal.SIGKILL))
+        self.assertLess(time.monotonic() - started, 10)
+
+    def test_exception_in_poll_does_not_orphan_child(self):
+        class Boom(FakeControls):
+            def poll(self, timeout):
+                if self._polls == 10:
+                    raise RuntimeError("poll failed")
+                return super().poll(timeout)
+        pidfile = self.log.with_name("child.pid")
+        code = f"import os, time\nopen({str(pidfile)!r}, 'w').write(str(os.getpid()))\ntime.sleep(60)"
+        with self.assertRaises(RuntimeError):
+            run_session(py(code), self.log, controls=Boom(), view=RecordingView(),
+                        kill_grace_seconds=0.5)
+        self.assertFalse(_alive(int(pidfile.read_text())))
 
     def test_term_terminates_child(self):
         code = "import time\nprint('{}', flush=True)\ntime.sleep(30)"

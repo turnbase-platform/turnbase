@@ -1,4 +1,5 @@
 import json
+import re
 import unittest
 
 from autonomous_loop.progress import (
@@ -229,12 +230,24 @@ class RobustnessTest(unittest.TestCase):
             '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":"x"}]}}',
             '{"type":"assistant","message":{"content":[{"type":"text","text":null}]}}',
             '{"type":"user","message":{"content":[{"type":"tool_result"}]}}',
+            '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":[]}]}}',
+            '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":{}}]}}',
         ]
         p = Progress.start(0.0)
         for line in bad:
             with self.subTest(line=line):
                 apply(p, line, 1.0)
         self.assertEqual(p.phase, "starting")
+
+    def test_control_characters_never_reach_the_terminal(self):
+        p = Progress.start(0.0)
+        text = {"type": "assistant", "message": {"content": [
+            {"type": "text", "text": "LOOP_PHASE: read\x1bing IMP-A-01\tnote\x07"},
+            {"type": "tool_use", "id": "t", "name": "Bash",
+             "input": {"command": "ls", "description": "list\x1b[2Jfiles"}}]}}
+        changes = apply(p, json.dumps(text), 1.0)
+        for s in (changes[0].phase, changes[0].note, p.last_action):
+            self.assertIsNone(re.search(r"[\x00-\x1f\x7f]", s), repr(s))
 
 
 if __name__ == "__main__":

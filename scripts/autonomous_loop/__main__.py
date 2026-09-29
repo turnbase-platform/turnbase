@@ -38,7 +38,11 @@ Controls
   claude as SIGINT) and exits with 130.
 * Between sessions there is a --sleep second countdown (none before the
   first); Ctrl+C during it stops the loop.
-* SIGTERM interrupts the session and exits with 143.
+* SIGTERM, SIGHUP (terminal closed) and SIGQUIT (Ctrl+\\) interrupt the
+  session and exit with 143. An interrupt reaches claude's whole process
+  group; anything still running 10 seconds later is killed.
+* claude's stderr is kept next to its log as <log>.stderr; its tail is
+  shown when claude exits with an error.
 
 Resumability
 ------------

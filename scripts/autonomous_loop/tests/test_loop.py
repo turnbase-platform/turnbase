@@ -63,6 +63,11 @@ class LoopTest(unittest.TestCase):
         first, second = self.fx.calls()
         self.assertEqual(session_id(second), ("--resume", session_id(first)[1]))
 
+    def test_nonzero_exit_shows_claude_stderr(self):
+        self.fx.scenarios({"exit": 2, "stderr": "Invalid API key"})
+        self.assertEqual(self.run_loop(), 1)
+        self.assertIn("Invalid API key", self.out.getvalue())
+
     def test_is_error_leaves_session_resumable(self):
         self.fx.scenarios({"is_error": True, "status": "DONE a"})
         self.assertEqual(self.run_loop(), 1)

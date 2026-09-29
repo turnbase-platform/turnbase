@@ -8,6 +8,7 @@ Scenario keys, all optional:
   status: LOOP_STATUS payload, e.g. "DONE IMP-X-01" result: literal result text (overrides status)
   is_error, api_error_status: copied into the result event
   exit: process exit code                           touch / remove: paths to create / delete
+  stderr: text written to stderr at the end
   resets_at: epoch written to the transcript in FAKE_CLAUDE_TRANSCRIPT_DIR
 """
 
@@ -78,4 +79,6 @@ result = {"type": "result", "subtype": "success", "is_error": scenario.get("is_e
 if "api_error_status" in scenario:
     result["api_error_status"] = scenario["api_error_status"]
 emit(json.dumps(result))
+if "stderr" in scenario:
+    sys.stderr.write(scenario["stderr"] + "\n")
 sys.exit(scenario.get("exit", 0))

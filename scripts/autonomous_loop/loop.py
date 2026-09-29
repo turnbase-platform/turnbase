@@ -98,6 +98,14 @@ def quota_reset_epoch(path: Path) -> int | None:
     return int(matches[-1]) if matches else None
 
 
+def _tail(path: Path, lines: int = 10) -> list[str]:
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    return [l for l in text.splitlines() if l.strip()][-lines:]
+
+
 def run(cfg: Config, *, controls, terminal: Terminal, now: Callable[[], float] = time.time) -> int:
     return _Loop(cfg, controls, terminal, now).run()
 
@@ -200,6 +208,8 @@ class _Loop:
 
         if result.exit_code != 0:
             self._say(f"claude exited with code {result.exit_code} on iteration {i} — see {out_file}.", RED)
+            for line in _tail(Path(f"{out_file}.stderr")):
+                self._say(f"  {line}", DIM)
             return self._halt_resumable(sid, i)
         if event.get("is_error") is True:
             self._say(f"claude reported an error on iteration {i} — see {out_file}.", RED)

@@ -1,4 +1,4 @@
-"""Runs one claude session while owning the keyboard and SIGINT/SIGTERM.
+"""Runs one claude session while owning the keyboard and the stop signals.
 
 claude is started in its own session (no controlling terminal), so a Ctrl+C in the
 terminal reaches only this process, which decides what it means: the first press
@@ -23,6 +23,10 @@ from pathlib import Path
 from typing import Callable, Protocol
 
 DOUBLE_PRESS_SECONDS = 3.0
+KILL_GRACE_SECONDS = 10.0
+# SIGHUP (terminal closed) and SIGQUIT (Ctrl+\\) are treated like SIGTERM: claude runs
+# outside the terminal's process group, so nothing else would stop it.
+_SIGNALS = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGQUIT)
 TICK_SECONDS = 0.5
 
 
@@ -72,28 +76,32 @@ class Controls:
         self._key_fd: int | None = None
         self._saved_tty = None
         self._old_handlers: dict[int, object] = {}
-        self._old_wakeup = -1
+        self._old_wakeup: int | None = None
 
     def __enter__(self) -> Controls:
         self._r, self._w = os.pipe()
-        os.set_blocking(self._r, False)
-        os.set_blocking(self._w, False)
-        self._old_wakeup = signal.set_wakeup_fd(self._w, warn_on_full_buffer=False)
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            self._old_handlers[sig] = signal.signal(sig, _ignore)
-        self._sel.register(self._r, selectors.EVENT_READ, "signal")
-        fd = self._tty_fd()
-        if fd is not None:
-            self._saved_tty = termios.tcgetattr(fd)
-            tty.setcbreak(fd)  # no echo, no line buffering; ISIG stays on so Ctrl+C still signals
-            self._key_fd = fd
-            self._sel.register(fd, selectors.EVENT_READ, "key")
+        try:
+            os.set_blocking(self._r, False)
+            os.set_blocking(self._w, False)
+            self._old_wakeup = signal.set_wakeup_fd(self._w, warn_on_full_buffer=False)
+            for sig in _SIGNALS:
+                self._old_handlers[sig] = signal.signal(sig, _ignore)
+            self._sel.register(self._r, selectors.EVENT_READ, "signal")
+            fd = self._tty_fd()
+            if fd is not None:
+                self._saved_tty = termios.tcgetattr(fd)
+                tty.setcbreak(fd)  # no echo, no line buffering; ISIG stays on so Ctrl+C still signals
+                self._key_fd = fd
+                self._sel.register(fd, selectors.EVENT_READ, "key")
+        except BaseException:
+            self.__exit__()
+            raise
         return self
 
     def __exit__(self, *exc) -> None:
         if self._saved_tty is not None and self._key_fd is not None:
             termios.tcsetattr(self._key_fd, termios.TCSADRAIN, self._saved_tty)
-        signal.set_wakeup_fd(self._old_wakeup)
+        signal.set_wakeup_fd(self._old_wakeup if self._old_wakeup is not None else -1)
         for sig, handler in self._old_handlers.items():
             signal.signal(sig, handler)
         self._sel.close()
@@ -111,7 +119,7 @@ class Controls:
                 for signum in data:
                     if signum == signal.SIGINT:
                         events.append(Event.INT)
-                    elif signum == signal.SIGTERM:
+                    elif signum in _SIGNALS:
                         events.append(Event.TERM)
             else:
                 try:
@@ -143,7 +151,14 @@ class Controls:
             fd = self._stdin.fileno()
         except (AttributeError, ValueError, OSError):
             return None
-        return fd if os.isatty(fd) else None
+        if not os.isatty(fd):
+            return None
+        try:
+            if os.tcgetpgrp(fd) != os.getpgrp():
+                return None  # started in the background: touching the tty would stop us (SIGTTOU)
+        except OSError:
+            pass  # not our controlling terminal, so job control does not apply
+        return fd
 
 
 class LogFollower:
@@ -165,6 +180,11 @@ class LogFollower:
             return []
         *complete, self._partial = (self._partial + chunk).split(b"\n")
         return [c.decode("utf-8", "replace") for c in complete if c.strip()]
+
+    def flush(self) -> list[str]:
+        """The unterminated tail, once the writer is known to be done."""
+        tail, self._partial = self._partial, b""
+        return [tail.decode("utf-8", "replace")] if tail.strip() else []
 
     def close(self) -> None:
         if self._file is not None:
@@ -205,9 +225,11 @@ def run_session(
     cwd: Path | None = None,
     double_press_seconds: float = DOUBLE_PRESS_SECONDS,
     tick_seconds: float = TICK_SECONDS,
+    kill_grace_seconds: float = KILL_GRACE_SECONDS,
 ) -> SessionResult:
-    with open(log_path, "wb") as log:
-        proc = subprocess.Popen(cmd, stdout=log, stdin=subprocess.DEVNULL, cwd=cwd,
+    """claude's stdout goes to log_path and its stderr to log_path + ".stderr"."""
+    with open(log_path, "wb") as log, open(f"{log_path}.stderr", "wb") as err:
+        proc = subprocess.Popen(cmd, stdout=log, stderr=err, stdin=subprocess.DEVNULL, cwd=cwd,
                                 start_new_session=True)
     follower = LogFollower(Path(log_path))
     guarded = _Guarded(view)
@@ -218,13 +240,13 @@ def run_session(
         while outcome is Outcome.EXITED:
             for event in controls.poll(tick_seconds):
                 if event is Event.TERM:
-                    proc.send_signal(signal.SIGTERM)
+                    _signal_group(proc, signal.SIGTERM)
                     outcome = Outcome.TERMINATED
                     break
                 if event is Event.INT:
                     now = controls.clock()
                     if stop_scheduled and last_int is not None and now - last_int < double_press_seconds:
-                        proc.send_signal(signal.SIGINT)
+                        _signal_group(proc, signal.SIGINT)
                         outcome = Outcome.INTERRUPTED
                         break
                     last_int = now
@@ -241,11 +263,39 @@ def run_session(
                 break
             if outcome is Outcome.EXITED:
                 guarded("on_tick")
+        if outcome is not Outcome.EXITED:
+            _await_exit(proc, controls, kill_grace_seconds)
         exit_code = proc.wait()
-        lines = follower.read_lines()
+        lines = follower.read_lines() + follower.flush()
         if lines:
             guarded("on_lines", lines)
     finally:
+        if proc.poll() is None:  # only reached when something above raised
+            _signal_group(proc, signal.SIGTERM)
+            try:
+                proc.wait(kill_grace_seconds)
+            except subprocess.TimeoutExpired:
+                _signal_group(proc, signal.SIGKILL)
+                proc.wait()
         follower.close()
         guarded("close")
     return SessionResult(outcome, exit_code, stop_scheduled)
+
+
+def _signal_group(proc: subprocess.Popen, sig: int) -> None:
+    """claude leads its own process group (start_new_session), so this reaches its tools too."""
+    try:
+        os.killpg(proc.pid, sig)
+    except ProcessLookupError:
+        pass
+
+
+def _await_exit(proc: subprocess.Popen, controls, grace: float) -> None:
+    """After an interrupt: wait for claude, but SIGKILL its group after `grace` seconds
+    or on any further Ctrl+C/SIGTERM, so the loop can never hang here."""
+    deadline = time.monotonic() + grace
+    while proc.poll() is None:
+        if controls.poll(min(TICK_SECONDS, grace)) or time.monotonic() >= deadline:
+            _signal_group(proc, signal.SIGKILL)
+            proc.wait()
+            return
