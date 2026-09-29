@@ -1,50 +1,35 @@
 ## Last Session Summary
 
-**Date:** 2026-09-27 (session 89)
+**Date:** 2026-09-29 (meta-work — not an IMP item; still 49 of 62)
 
-**`IMP-M3-04` (gRPC service implementation, `turnbase-game-host`) is `DONE` — 49 of 62.** Built
-`SessionDispatcher`, wired into `GameHostServiceImpl`, covering all four RPCs
-(`CreateSession`/`ProcessInput`/`Resync`/`TerminateSession`) per `game-host-internals.md` §9.1: a
-per-session monotonic `sequence` with replay-by-sequence idempotency, the §8.1/§13 Redis-backed
-`session:{sessionId}` record (`SessionRecordStore`, one atomic `SET`/`GET`/`DEL`, 24h TTL), and §9.3
-crash recovery via `restoreSession` (the guest-bridge method `IMP-GATE-86`, session 88, added to the
-spec for exactly this). New `dispatch` package: `SessionDispatcher`, `SessionRecord(Store/Codec)`,
-`EnvelopeCodec`, `TeamsJson`, `GameArtifactResolver`, `GameHostStatusException`. Tested with
-`SessionDispatcherIT` (8 tests, real Espresso context + Testcontainers Redis) and
-`SessionRecordStoreIT` (4 tests); `GrpcServerIntegrationTest` renamed/rewritten to
-`GrpcServerIntegrationIT` now that the service is real, not `UNIMPLEMENTED`.
+**The autonomous work loop now shows live progress and has operator controls.**
+`scripts/autonomous-work-loop.sh` is now a thin wrapper around a stdlib-only Python package,
+`scripts/autonomous_loop/`. The Python version keeps the bash loop's behaviour: `state.json`
+statuses, resume rules, 429 handling and exit codes. It adds:
 
-**Scope note recorded in the registry, not silently dropped:** the item's *Done when* clause is
-narrowly `TerminateSession` idempotency plus `NOT_FOUND` scoping — built and tested. Two things the
-read-list's §12 covers are deliberately not built: (1) no watchdog/timeout-interrupt mechanism (a
-hung handler is never escalated to `GameFailureKind.TIMEOUT`, only an in-band exception is caught);
-(2) `ArtifactCache.pin`/`unpin` (`IMP-M3-02`) still isn't wired to `GameContextManager`
-(`IMP-M3-03`), so FR-LOAD-004 (never evict a JAR backing a live context) isn't enforced yet. Neither
-is new to this session or blocks its own clause — see `registry.md`'s `IMP-M3-04` section for the
-full note.
+- **Progress:**
+  - a one-line live status: iteration, work item, phase, time in phase and last action;
+  - a permanent line at each phase change;
+  - the phase in the terminal title;
+  - a stall warning after `--stall-minutes` (default 15) with no activity.
+- **Phase reporting:** sessions now report their phase themselves with `LOOP_PHASE: <phase>` lines
+  (the prompts ask for them). Until the first one, the phase is guessed from tool calls.
+- **Controls:**
+  - A 10 s countdown runs between sessions (Ctrl+C stops).
+  - The first Ctrl+C during a session schedules a stop after it, and Enter cancels that.
+  - A second Ctrl+C within 3 s interrupts the session and exits 130.
+  - SIGTERM, SIGHUP or SIGQUIT exit 143.
+  - An interrupt reaches claude's whole process group, with SIGKILL 10 s later.
+- **Logs:** claude's stderr is kept as `<log>.stderr`, and its tail is printed when claude fails.
 
-**Found and fixed a real regression along the way: `ManagedContext`'s constructor eagerly built a
-`GameBridgeClient`,** which spawns a native Espresso isolate — done for every context anywhere in the
-suite, not just ones that dispatch games, and it broke three pre-existing Espresso test classes by
-exhausting isolate capacity in the shared Surefire fork. Fixed by making `bridgeClient()` lazy
-(build on first use, synchronized/memoized) — the right fix per its own doc comment, not a
-workaround: contexts created only to be evicted or coalesced never needed to pay for it.
+There are 106 unit and PTY tests:
+`python3 -B -m unittest discover -s scripts/autonomous_loop/tests -t scripts`. An Opus whole-branch
+review found 2 Important and 6 Minor issues, all fixed except one deferred minor: `render()` counts
+characters, not terminal columns, so CJK or emoji in agent text could wrap the live line. A known
+limitation is that the guessed phase flips back and forth before the first `LOOP_PHASE` marker.
 
-**Found and fixed a second, more consequential defect while getting the pipeline green: this
-repo's `build.yml` never ran `-Pintegration`,** so the entire `*IT` suite (not just this session's —
-whatever else existed before, e.g. `S3ArtifactStoreIT`) has never actually executed in CI, and the
-merged JaCoCo check has silently measured unit-only coverage since `IMP-M0-11` set the pipeline up —
-exactly the "fails open" failure the pom's own comment on `check-merged` warns about.
-`turnbase-platform`'s `build.yml` already carries the fix (with an explanatory comment naming the
-same failure mode) for the identical reason; `turnbase-game-host` was just missing it. Discovered
-because this item's own coverage (mostly in `SessionDispatcherIT`) pushed the gap from "quietly
-fine" to "measurably below 70%" the moment CI actually ran plain `verify`. Fixed on its own branch
-(`fix/ci-run-integration-profile`), merged and green before the submodule ref below was bumped.
-
-**Both branches (`feat/m3-04-grpc-service-implementation`, `fix/ci-run-integration-profile`) were
-merged `--ff-only` into `turnbase-game-host`'s `master` and deleted (local only — neither was ever
-pushed to the remote, so there was nothing to delete there) in this session; CI is green on
-`master`** (run `36348555563`, all steps including the now-real `-Pintegration` Verify).
+Branch `chore/loop-progress` was merged `--ff-only` into `master` and deleted. It was never pushed,
+and no PR was opened.
 
 ---
 
