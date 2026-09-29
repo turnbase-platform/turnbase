@@ -1,29 +1,34 @@
 ## Last Session Summary
 
-**Date:** 2026-09-29 (session 92 — `IMP-M3-05` dispatch half landed; still 49 of 62 by the registry count)
+**Date:** 2026-09-29 (loop tooling, between work sessions — still 49 of 62 by the registry count)
 
-**`IMP-M3-05` stays `READY` with an updated scope note: input dispatch is on `turnbase-platform`
-`master`; the two cross-repo e2e checks are not, because no compose stack or Tempo exists yet.**
+**New register status `PARTIAL`: an item with work merged but its *Done when* clause not yet holding.
+`IMP-M3-05` is the first one.** Session 92 left `IMP-M3-05` `READY` with a prose note, which the
+loop's post-session check flagged against its `DONE` report. `READY` hides the remainder from whoever
+picks by status, and `DONE` would unblock `IMP-M3-06`/`07`/`08` too early.
 
-- **Landed:** `GameInputService` (`seq:` allocation, `ProcessInput`, `delivered:` watermark →
-  effects delivered once per sequence, consecutive-failure counting against
-  `turnbase.gamehost.retry-limit`, transport-status mapping); the real outbox `GameInputDispatcher`
-  replacing `PendingGameInputDispatcher` (sequence now from `seq:`, `NOT_FOUND` conditional on
-  `room.active_session_id`); `CreateSession`'s initial effects handed to the new `EffectDelivery`
-  seam (logging stub until `IMP-M3-07`). `GameInputServiceIT` runs against a fake in-process host.
-- **Still owed** (registry scope note): the IMP-GATE-08 (`Register` <= 60 s) and IMP-GATE-18 (one
-  trace in Tempo) checks — need a stack built first; `ACTION_REJECTED` unicast (no `GAME_ACTION`
-  caller yet); host reassignment on `UNAVAILABLE`; `TerminateSession` at the limit is `IMP-M3-08`.
+- **Rule** (`docs/implementation/INDEX.md` *Partly done items*): `PARTIAL` requires a
+  `**Remaining:**` line in the item's section, and `check-corpus.py registry` enforces it.
+  A `PARTIAL` item is picked before any `READY` one. A remainder that nothing inside the item can
+  unblock goes through `spec-defect` instead.
+- **`work-item` skill** gains step 9. **Loop:** a new `LOOP_STATUS: PARTIAL <item> <owed>`,
+  checked like DONE. The next fresh session is told to continue the item, and the loop halts after
+  3 `PARTIAL` reports in a row for the same item.
+- **Correction:** session 92 said no compose stack or Tempo exists, but `IMP-M0-07` built both in
+  `turnbase-platform/deploy/compose/`. The e2e checks can be run now.
+- Session 92's landed work (input dispatch, `GameInputService`, the outbox `GameInputDispatcher`) is
+  in `registry.md`'s `IMP-M3-05` scope note and commit `1cc69d4`.
 
 ---
 
 ## Next Priorities
 
-**`IMP-M3-05` is `READY` — only the two cross-repo e2e checks remain that the *Done when* needs
-(session 92 scope note in `registry.md`):** build a local stack (Platform + Game Host + Tempo) and
-prove `Register` <= 60 s and one trace. Alternatively mark the item `DONE` and move those two checks
-to an explicit e2e item — a decision for the user. `IMP-M3-06`/`07`/`08` are otherwise unblocked in
-spirit but depend on `IMP-M3-05` being `DONE`.
+**`IMP-M3-05` is `PARTIAL` — continue it before anything else.** Its `**Remaining:**` line in
+`registry.md` lists what is owed. First, the two end-to-end checks (`Register` <= 60 s, and one
+trace in Tempo), run against `IMP-M0-07`'s compose stack. Second, decide whether `ACTION_REJECTED`
+and host reassignment on `UNAVAILABLE` belong to this item or to `IMP-M3-06`/`IMP-M3-08`.
+The old e2e CI failure noted further down (`compose-platform-1` exit 1) may be the first thing in
+the way.
 
 **`IMP-GATE-87` opened and closed (session 90, `IMP-M3-05`) — `IMP-M3-05` is `READY`, build it
 next.** Read the new `game-host-internals.md` §11/§13 material first. Risk not settled by the gate:

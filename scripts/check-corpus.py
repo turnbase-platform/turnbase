@@ -228,14 +228,16 @@ def check_index(files: list[str]) -> list[str]:
 
 REGISTRY = os.path.join(DOCS, "implementation", "registry.md")
 ITEM = r"IMP-M\d+-\d+"
-STATUSES = {"BLOCKED", "READY", "WIP", "REVIEW", "DONE", "CANCELLED"}
+STATUSES = {"BLOCKED", "READY", "WIP", "PARTIAL", "REVIEW", "DONE", "CANCELLED"}
 
 
 def check_registry(_files: list[str]) -> list[str]:
-    """The two invariants of docs/implementation/INDEX.md 'Where status lives'.
+    """The three invariants of docs/implementation/INDEX.md 'Where status lives'.
 
     1. Every ID in the register table has a section, and every section a row.
     2. BLOCKED in the table <=> a `Gate:` line in the section.
+    3. PARTIAL in the table => a `Remaining:` line in the section, which only a
+       PARTIAL, WIP or BLOCKED item may carry.
     """
     if not os.path.exists(REGISTRY):
         return [f"{rel(REGISTRY)}: missing"]
@@ -275,6 +277,11 @@ def check_registry(_files: list[str]) -> list[str]:
             bad.append(f"{rel(REGISTRY)}: {iid} has a Gate: line but is not BLOCKED")
         if blocked and not gated:
             bad.append(f"{rel(REGISTRY)}: {iid} is BLOCKED with no Gate: line")
+        remaining = re.search(r"^\*\*Remaining:\*\*", body, re.M) is not None
+        if rows.get(iid) == "PARTIAL" and not remaining:
+            bad.append(f"{rel(REGISTRY)}: {iid} is PARTIAL with no Remaining: line")
+        if remaining and rows.get(iid) not in ("PARTIAL", "WIP", "BLOCKED"):
+            bad.append(f"{rel(REGISTRY)}: {iid} has a Remaining: line but is {rows.get(iid)}")
     return bad
 
 

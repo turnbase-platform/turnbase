@@ -22,15 +22,20 @@ steps below are actually for.
 
 Open `docs/implementation/registry.md`. Read the item's section and its row in the register table.
 
+**When choosing, a `PARTIAL` item comes before any `READY` one.** It is half-built, and starting
+something new beside it is how an item stays half-built for good. Its `**Remaining:**` line is where
+you start. Check that line against the repository before trusting it, because it is one session's
+account of what exists. Session 92's said no compose stack existed when `IMP-M0-07` had built one.
+
 Every ID under *Depends on* must be `DONE`. If one is not, say so and stop rather than working around
 it — the dependency graph is the reason the milestones are ordered as they are, and an item built
 against a missing dependency usually looks finished until the dependency lands and contradicts it.
 
 ### 2. Claim it in the register
 
-Change the row's status `READY` → `WIP (session N)`. **Commit that with your first real change, not
-at the end.** A status written from memory hours later is a guess, and the register is the only
-protection against two sessions picking up the same item.
+Change the row's status `READY` (or `PARTIAL`) → `WIP (session N)`. **Commit that with your first
+real change, not at the end.** A status written from memory hours later is a guess, and the
+register is the only protection against two sessions picking up the same item.
 
 ### 3. Read exactly the read-list — and nothing else
 
@@ -93,6 +98,34 @@ marker.
 
 If the item changed anything under `docs/`, `python3 scripts/check-corpus.py` before committing.
 
+### 9. Or `PARTIAL`: when the session ends before the item does
+
+One session often cannot build a whole item. That is fine, and it is not `DONE`. Marking it `DONE`
+would make every dependent look ready to start on work that does not exist. When the clause does not
+hold by the end of the session:
+
+1. Merge what is green, exactly as for `DONE`: pipeline green, ref bumped, branches deleted. Leave
+   anything that is not green unmerged and unpushed.
+2. Set the register row to `PARTIAL` and drop the session marker.
+3. Write, or replace, the one `**Remaining:**` line in the item's section: what the *Done when*
+   clause still lacks, concretely enough that the next session can start on it without
+   re-deriving it. Format in `INDEX.md` *Partly done items*.
+4. Record it in `STATUS.md` like any other session, and report `LOOP_STATUS: PARTIAL <item> <what is
+   owed>` when running under the loop.
+
+Do not leave the item `READY` with a prose note instead. A `READY` row says nothing is owed, and a
+note is invisible to whoever picks by status.
+
+**If something outside the item stops what is still owed from being built,** do not end on
+`PARTIAL`: nothing a later session can do would change the outcome. That is a registry defect.
+Examples are a missing environment, a clause another item also claims, or a caller only a later item
+builds. Use `spec-defect`: either open a gate (`BLOCKED`), or move the remainder to the item that
+owns it, rewire *Depends on*, and mark this one `DONE` if its own clause now holds. First check that
+the missing thing really is missing. `IMP-M0-07`'s compose stack was reported absent while it
+existed.
+
+When the item finally becomes `DONE`, delete its `**Remaining:**` line.
+
 ## When the documents fail you
 
 Two documents contradict each other, or the item leaves you a decision that should have been made —
@@ -112,6 +145,7 @@ the contradiction is still there for the next person to resolve the other way.
 | Fixing a spec inconsistency quietly in code | The next item hits the same inconsistency and fixes it the other way. Now two subsystems disagree and neither is wrong. |
 | Adding a REST route "just for this" in M2 | A second writer outside the per-room serialization destroys the ordering guarantee the whole milestone rests on. |
 | Skipping `spotless:apply` because the diff is small | Format failures are the cheapest possible CI failure and the most annoying to round-trip. |
+| Leaving an unfinished item `READY` with a note, or calling it `DONE` | `READY` hides the leftovers from whoever picks by status, and `DONE` unblocks dependents early. Use `PARTIAL` with a `**Remaining:**` line. |
 | Leaving the branch unmerged "to finish next session" | That is exactly how eight PRs and eleven dead branches accumulated by 2026-09-05. Merge it or leave it unpushed. |
 
 ## Quick reference

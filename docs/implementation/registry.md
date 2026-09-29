@@ -14,6 +14,8 @@ Every item below carries:
   [`../specs/INDEX.md`](../specs/INDEX.md).
 - **Done when** — checkable without judgement.
 - **Gate** — present only when a finding is open against the item. No item is gated today.
+- **Remaining** — present only while an item is `PARTIAL` (or being continued): what its *Done when*
+  clause still lacks. See INDEX.md *Partly done items*.
 
 Paths in *Read first* are relative to the repository root.
 
@@ -70,7 +72,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | DONE |
 | IMP-M3-03 | GDK host bridge and serialization boundary | sdk, game-host | M3-01, M3-02 | DONE |
 | IMP-M3-04 | gRPC service implementation | game-host | M3-03 | DONE (session 89) |
-| IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | READY |
+| IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | PARTIAL |
 | IMP-M3-06 | Game input outbox and delivery | platform | M3-05 | READY |
 | IMP-M3-07 | Effect fan-out and spectator filtering | platform | M3-06 | READY |
 | IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05, M2-09 | READY |
@@ -3502,14 +3504,23 @@ protocol's *Error model*); the real `GameInputDispatcher` (outbox `player_left` 
 `NOT_FOUND` conditional on `room.active_session_id`, sequence from `seq:` rather than the row id);
 `CreateSession`'s initial effects handed to `EffectDelivery`. `EffectDelivery` is the seam to
 `IMP-M3-07`; until then a logging stub delivers to no client. **Still owed:** (1) the two cross-repo
-end-to-end checks below — no compose stack or Tempo exists in any repository yet, so they need one
-built first; (2) `ACTION_REJECTED` unicast to the acting player and the player-facing failure notice
+end-to-end checks below; (2) `ACTION_REJECTED` unicast to the acting player and the player-facing failure notice
 at the retry limit — the acting-player action path (`GAME_ACTION` → `ProcessInput`) has no caller
 yet, so `GameInputService.process` is exercised only by the outbox; (3) reassigning a session to
 another host on `UNAVAILABLE` (FR-ORCH-005) — the call is left for retry with the failure counted, but
 `routing:` is not rewritten, because the game key needed to re-select a host is not in Redis;
 (4) `TerminateSession` at the retry limit belongs to `IMP-M3-08`. Transport facts from session 91
 stand (trailers-only status lost under grpc-servlet; `maxSavePostSize` raised to 1 MiB for h2c).
+
+**Remaining:** (1) the two end-to-end checks below, run against the stack `IMP-M0-07` already built —
+`turnbase-platform/deploy/compose/docker-compose.yml` plus `docker-compose.observability.yml` (Tempo
+included), with `deploy/compose/e2e-smoke.sh` and the CI `e2e` job as the starting point; session 92's
+note that no compose stack or Tempo existed was wrong. (2) `ACTION_REJECTED` to the acting player and
+the player-facing notice at the retry limit. (3) Moving a session to another host on `UNAVAILABLE`
+(FR-ORCH-005). For (2) and (3), first settle whether they are this item's at all: the `GAME_ACTION`
+caller looks like `IMP-M3-06`'s, and `IMP-M3-08` also claims FR-ORCH-005. If they belong to a later
+item, move them there with the `spec-defect` skill rather than building them here. (session 92,
+corrected 2026-09-29)
 
 **Closes IMP-GATE-08's cross-repo half:** this item gives `GameHostRegistryService` its real server
 implementation, so it also carries the end-to-end check `IMP-M0-04` could not — a `turnbase-game-host`

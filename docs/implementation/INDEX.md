@@ -50,6 +50,7 @@ through rather than renumbered, and its number is never reused.
 | `BLOCKED` | A gate is open. The item cannot start. The gate is named in the item's *Gate* field. |
 | `READY` | All gates closed, all dependencies `DONE`. An agent may pick this up now. |
 | `WIP` | In progress. The owning session or agent is named. |
+| `PARTIAL` | Part of the item is merged, but its *Done when* clause does not hold yet. The item's `**Remaining:**` line says what is still owed. It is picked up before any `READY` item. |
 | `REVIEW` | Code complete, awaiting a passing pipeline. |
 | `DONE` | Merged, tests green, and — if the item touches a submodule — the submodule ref in this repo is updated. |
 | `CANCELLED` | The requirement it implemented was cut. The heading is struck through and kept; the number is never reused. |
@@ -65,20 +66,44 @@ as the work.** Not at the end of the session, and not from memory afterwards:
 | Transition | When | Also do |
 |---|---|---|
 | `READY` → `WIP` | Before the first edit, not after | Append ` (session N)` to the status cell |
+| `WIP` → `PARTIAL` | The session ends with work merged but the *Done when* clause not yet holding | Drop the session marker; add or replace the `**Remaining:**` line in the item's section |
+| `PARTIAL` → `WIP` | Before the first edit of the session that continues it | Append ` (session N)`; keep the `**Remaining:**` line until the item is `DONE` |
 | `WIP` → `REVIEW` | Code complete, merged to `master`, pipeline running | — |
-| `REVIEW` → `DONE` | Pipeline green **and** the submodule ref bumped here | Drop the session marker |
+| `REVIEW` → `DONE` | Pipeline green **and** the submodule ref bumped here | Drop the session marker and any `**Remaining:**` line |
 | any → `BLOCKED` | The moment a gate opens | Add the `Gate:` line to the item's section |
 
 A status is a claim about the world, so the same rule applies to it as to a *Done when* clause: do
 not write `DONE` because the code exists. Write it when the pipeline is green and the ref is bumped.
 
-**Two invariants, checked mechanically by `scripts/check-corpus.py registry`:**
+**Three invariants, checked mechanically by `scripts/check-corpus.py registry`:**
 
 1. Every ID in the register table has a section below, and every section has a table row.
 2. `BLOCKED` in the table ⟺ a `Gate:` line in the section. Neither can exist without the other.
+3. `PARTIAL` in the table ⟹ a `**Remaining:**` line in the section, and a `**Remaining:**` line
+   exists only on a `PARTIAL`, `WIP` or `BLOCKED` item. A `DONE` item owes nothing.
 
 The second one is what stops a gate from being carried in someone's head, and it is why the `Gate:`
 line is a format rather than a note.
+
+### Partly done items
+
+An item often takes more than one session. Ending a session with part of it merged is normal; marking
+it `DONE` early is not, because its dependents then look ready to start on work that does not exist
+yet. So the session sets the item to `PARTIAL` and says, in one line in the item's section, what is
+still owed:
+
+```
+**Remaining:** <what the Done when clause still lacks, concrete enough to start on>. (session <N>)
+```
+
+There is one such line per item. The next session replaces it rather than adding another, and the
+line is removed when the item becomes `DONE`. The whole history belongs in commits and `STATUS.md`,
+not here.
+
+A `PARTIAL` item is picked up before any `READY` one, so that no item stays half-built while others
+are started. If what is still owed cannot be built because something outside the item is missing,
+that is a gap in the registry, not a reason to leave the item `PARTIAL`: open a gate (below), or add
+the missing item and make this one depend on it.
 
 ### The `DONE` bar
 
