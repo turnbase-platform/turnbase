@@ -3487,6 +3487,12 @@ contradicting flow 02 §A step 3 and `game-catalog.md` FR-GAME-010/011 (the vers
 creation) and naming a record the platform does not own; §4.1 and this clause now say
 `room.game_version`, reached through `room.active_session_id`.
 
+**Closed IMP-GATE-88:** 2026-09-29 — `START_GAME` had no defined outcome when the preconditions hold
+but session creation fails (no eligible Game Host, or `CreateSession` errors); the WebSocket error
+registry had no code for it and this item's clause says only that the room must not advance.
+`room-websocket.md` now defines `GAME_START_FAILED` (`details.reason` `NO_HOST_AVAILABLE` |
+`SESSION_CREATION_FAILED`), unicast to the host, room left in Lobby.
+
 **Closes IMP-GATE-08's cross-repo half:** this item gives `GameHostRegistryService` its real server
 implementation, so it also carries the end-to-end check `IMP-M0-04` could not — a `turnbase-game-host`
 instance pointed at a running Platform Monolith completes `Register` within `local-environment.md`

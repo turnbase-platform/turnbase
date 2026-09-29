@@ -607,6 +607,14 @@ to a button it may still render disabled.
 
 **`START_GAME`:** Preconditions are evaluated atomically under the room lock. If a condition fails at lock time (e.g., a player un-readied between the host's UI check and the command arrival), the command is rejected with `START_CONDITIONS_NOT_MET` listing the failed conditions.
 
+A `START_GAME` whose preconditions hold but whose session cannot be created — no Game Host is eligible
+to take it (`game-host-internals.md` §11's selection finds none), or `CreateSession` fails at the
+transport or in-band (`orchestration-gamehost-protocol.md` *Error model*) — is rejected with
+`GAME_START_FAILED`, unicast to the host. `details.reason` is `NO_HOST_AVAILABLE` or
+`SESSION_CREATION_FAILED`; the failure's own message is never forwarded (it can be text from game
+code). Nothing about the room changes: it stays in Lobby with `active_session_id` unset, no
+`GAME_STARTED` is broadcast, and the host may send `START_GAME` again (`IMP-GATE-88`).
+
 **`TRANSFER_HOST`:** The former host retains their player slot and remains in the room as a regular player (FR-XFER-004).
 
 ---
@@ -717,6 +725,7 @@ errors use the envelope above, and REST errors use [error-handling.md](error-han
 | `TEMPLATE_MAX_TEAMS` | `ADD_TEAM` would exceed `count.max` for the template |
 | `SIZE_OUT_OF_RANGE` | `configuredSize` outside `[size.min, size.max]` |
 | `START_CONDITIONS_NOT_MET` | `START_GAME` when FR-TEAM-009 conditions are not satisfied; `details` lists the unmet conditions |
+| `GAME_START_FAILED` | `START_GAME` when the preconditions hold but the session could not be created; `details.reason` is `NO_HOST_AVAILABLE` or `SESSION_CREATION_FAILED`. The room stays in Lobby |
 | `TARGET_NOT_PLAYER` | `TRANSFER_HOST` targeting a spectator or AI player |
 | `SPECTATOR_CAPACITY_FULL` | `SWITCH_TO_SPECTATOR` when spectator limit is reached |
 | `SPECTATING_NOT_ENABLED` | `SWITCH_TO_SPECTATOR` when spectating is disabled for the room |
