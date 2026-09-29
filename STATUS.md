@@ -1,27 +1,33 @@
 ## Last Session Summary
 
-**Date:** 2026-09-29 (session 90 — spec-defect work on `IMP-M3-05`; still 49 of 62)
+**Date:** 2026-09-29 (session 91 — `IMP-M3-05` partly landed; still 49 of 62 by the registry count)
 
-**`IMP-M3-05` was claimed, read, and stopped on three specification gaps, closed as `IMP-GATE-87`.
-No code was written; the item is back to `READY`.**
+**`IMP-M3-05` is `READY` with a scope note: the registry server, real `START_GAME` and `/play` are on
+`turnbase-platform` `master` (CI green); dispatch and the two cross-repo e2e checks are not.**
 
-- **Registry Redis shape was undefined.** `game-host-internals.md` §13 had `hostlease:` and
-  `contexts:` but no key for the advertised address, runtime types, load or the instance list. §13 and
-  §11 now define `hosts`, `host:{instanceId}` and a deterministic host-selection rule, and say the
-  Game Host never writes those keys (Orchestration does, on its behalf).
-- **No values for heartbeat interval, lease TTL or dispatch deadline.** `local-environment.md` §7.8
-  gained `turnbase.orchestration.heartbeat-interval` (5s), `.lease-ttl` (15s), `.dispatch-deadline`
-  (35s).
-- **Version pinning contradicted itself.** `game-asset-serving.md` §4.1 and the item said the version
-  is resolved at session start and stored on "the session record"; flow 02 and FR-GAME-010/011 pin it
-  at room creation, and no such record exists. Both now say `room.game_version`, reached via
-  `room.active_session_id`.
+- **Landed:** `GameHostRegistryService` on the monolith listener (gRPC over `grpc-servlet-jakarta`,
+  h2c, bidi `Heartbeat` spiked and working); `hosts`/`host:`/`hostlease:`/`contexts:` registry and
+  the §11 selection rule; `turnbase.orchestration.*`; `GameSessionService.create`; the real
+  `START_GAME` (`GAME_START_FAILED` or `active_session_id` + `GAME_STARTED`); `GET /play/{sessionId}`
+  with the `Host`/`gameId` cross-check. ITs run against a fake in-process Game Host.
+- **`IMP-GATE-88` opened and closed:** `START_GAME` had no outcome when session creation fails;
+  `room-websocket.md` now defines `GAME_START_FAILED` (`NO_HOST_AVAILABLE` | `SESSION_CREATION_FAILED`).
+- **Transport findings:** grpc-servlet on Tomcat drops the status of trailers-only responses (client
+  sees `INTERNAL`); with h2c on, Tomcat 413s any `Upgrade: h2c` body over `maxSavePostSize` in HTML,
+  so the connector raises it to 1 MiB. `RoomCommandControllerIT` now widens the WS command bucket.
+- **Still owed:** real `GameInputDispatcher` (`ProcessInput`, effect delivery incl. the
+  `CreateSession` initial effects, failure counting); the IMP-GATE-08 (`Register` <= 60 s) and
+  IMP-GATE-18 (one trace in Tempo) cross-repo checks. See the item's scope note in `registry.md`.
 
-`check-corpus.py` is clean. Branch `chore/claim-imp-m3-05` was merged `--ff-only` and deleted; no PR.
+`check-corpus.py` is clean. `feat/imp-m3-05-orchestration` merged `--ff-only` and deleted; no PR.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M3-05` is `READY` — finish it (session 91 scope note in `registry.md`):** the real
+`GameInputDispatcher`, initial-effect delivery after `CreateSession`, and the two cross-repo e2e
+checks. The registry server, `START_GAME` and `/play` are already on `turnbase-platform` `master`.
 
 **`IMP-GATE-87` opened and closed (session 90, `IMP-M3-05`) — `IMP-M3-05` is `READY`, build it
 next.** Read the new `game-host-internals.md` §11/§13 material first. Risk not settled by the gate:
