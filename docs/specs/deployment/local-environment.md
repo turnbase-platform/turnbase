@@ -592,6 +592,18 @@ shares the monolith's HTTP listener rather than opening a second port). The defa
 `minio:9000`); under Kubernetes it resolves to the Platform Monolith's Service DNS name instead. No
 TLS, per §2's "one network, flat."
 
+**Platform side — the Orchestration Service** (`IMP-GATE-87`). These are the monolith's own properties;
+the Game Host does not read them.
+
+| Property | Default | Env | Source |
+|---|---|---|---|
+| `turnbase.orchestration.heartbeat-interval` | `5s` | `TURNBASE_ORCHESTRATION_HEARTBEAT_INTERVAL` | `RegisterResponse.heartbeat_interval_seconds` |
+| `turnbase.orchestration.lease-ttl` | `15s` | `TURNBASE_ORCHESTRATION_LEASE_TTL` | `RegisterResponse.lease_ttl_seconds`; three intervals, under NFR-REL-002's 30 s |
+| `turnbase.orchestration.dispatch-deadline` | `35s` | `TURNBASE_ORCHESTRATION_DISPATCH_DEADLINE` | deadline on `CreateSession`/`ProcessInput`/`Resync`; must exceed `turnbase.gamehost.handler-timeout` (30s) by the transport overhead (`orchestration-gamehost-protocol.md` *Error model*) |
+
+`TerminateSession`'s deadline is not configurable: it is a fixed 2 s
+(`orchestration-gamehost-protocol.md` *Processing semantics*), because it executes no game code.
+
 ### 7.9 Infrastructure
 
 | Property | Default | Env |

@@ -705,6 +705,25 @@ The Game Host is the **client** of `GameHostRegistryService`:
 - **Health endpoint** — liveness/readiness for Kubernetes and the failure detector
   (FR-REG-003).
 
+**Host selection (FR-ORCH-001/004).** The keys are in §13. To place a new session, any Orchestration
+replica takes the members of `hosts` and keeps those that (1) have a live `hostlease:{instanceId}`,
+(2) are not `draining`, and (3) list `jvm` in `runtimeTypes`. Among them it prefers instances whose
+`contexts:{instanceId}` contains `{gameId}:{gameVersion}` (warm); ties — and the no-warm-host case,
+where any candidate will create the context on demand — break on lowest `activeSessions`, then on
+`instanceId` in lexical order, so the choice is deterministic for a given Redis state. No candidate
+left is a transport-level `UNAVAILABLE` for the caller (session creation fails; nothing is written to
+the room). The chosen `instanceId` is written to `routing:{sessionId}`; the dial address is always
+re-read from `host:{instanceId}`, never copied into the routing key, so a host that re-registers at a
+new address needs no routing rewrite. `Register` sets the `hosts` member, the `host:` hash and the
+lease in that order and is idempotent for an `instanceId` already present; `Deregister` deletes the
+lease first, then the `host:` hash, the `contexts:` set and the `hosts` member, so a concurrent
+selection never sees a routable instance whose entry is half gone.
+
+**Liveness timing.** `RegisterResponse` hands the Game Host `turnbase.orchestration.heartbeat-interval`
+and `turnbase.orchestration.lease-ttl` (`../deployment/local-environment.md` §7.8); the lease TTL must
+exceed the interval by at least a factor of two so a single delayed heartbeat does not fail a healthy
+host, and stay under NFR-REL-002's 30 s detection bound.
+
 For the single-instance MVP these are implemented but trivially satisfied
 (host selection always resolves to the one instance); the machinery exists so
 scale-out is a config change, not a redesign (ADR-0001).
@@ -759,8 +778,10 @@ by reassignment. This is the two-tier model of the protocol doc, realized.
 | `seq:{sessionId}` | counter | Orchestration | monotonic `sequence` allocator (§9.2). **TTL 24h, refreshed on every write.** |
 | `delivered:{sessionId}` | string | Orchestration | delivery watermark (§9.2). **TTL 24h, refreshed on every write.** |
 | `failcount:{sessionId}` | counter | Orchestration | consecutive-failure counter (§9.4). **TTL 24h, refreshed on every write.** |
-| `hostlease:{instanceId}` | string + TTL | Game Host (via heartbeat) | liveness lease; expiry ⇒ failed (§11). |
-| `contexts:{instanceId}` | set | Game Host | reported live `ContextKey`s for warm selection (§11). |
+| `hosts` | set | Orchestration | `instanceId`s that have registered and not deregistered — the enumeration point for host selection (§11). No TTL; a member whose `host:{instanceId}` has expired is `SREM`ed when next read. |
+| `host:{instanceId}` | hash | Orchestration (in `Register`, `Heartbeat`, `Deregister`) | the instance's registry entry: `address` (the dialable `RegisterRequest.address`, which every replica dials — `orchestration-gamehost-protocol.md` *Addressing the Game Host pods*), `runtimeTypes` (comma-separated), `activeSessions`, `activeContexts`, `memoryUsedPercent` (the latest heartbeat's load signals) and `draining` (`true`/`false`). **TTL 24h, refreshed on every write.** Liveness is *not* read from this key — that is `hostlease`. |
+| `hostlease:{instanceId}` | string + TTL | Orchestration, on the Game Host's behalf (each `Register` and `Heartbeat` sets it) | liveness lease; the value is the `instanceId`, the TTL is `turnbase.orchestration.lease-ttl`; expiry ⇒ failed (§11). The Game Host never touches Redis's registry keys — it reaches them only through `GameHostRegistryService`. |
+| `contexts:{instanceId}` | set | Orchestration, from `ReportContexts` (replaced atomically with each full snapshot) | live `ContextKey`s for warm selection (§11), one member per key, formatted `{gameId}:{gameVersion}`. **TTL 24h, refreshed on every write.** |
 | `pod:{podId}:alive` | string + TTL | Platform Monolith pod (self) | pod liveness lease, TTL 10s renewed every 3s; gates room-ownership takeover ([ADR-0008](../../decisions/0008-room-ownership-lifecycle.md)). |
 | `room:{roomId}:pod` | string | claim/release scripts only | owning pod for the room. No TTL — ownership is released explicitly or taken over under the liveness gate (ADR-0008). |
 | `platform:sentinel` | string | Platform Monolith (at startup) | no TTL. Its absence while Redis is *reachable* proves the datastore was reset, letting reconciliation report one mass-loss event instead of N per-room warnings (`platform-operations.md` FR-JOB-008). |

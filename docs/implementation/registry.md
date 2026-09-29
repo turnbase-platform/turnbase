@@ -70,7 +70,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | DONE |
 | IMP-M3-03 | GDK host bridge and serialization boundary | sdk, game-host | M3-01, M3-02 | DONE |
 | IMP-M3-04 | gRPC service implementation | game-host | M3-03 | DONE (session 89) |
-| IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | WIP (session 90) |
+| IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | READY |
 | IMP-M3-06 | Game input outbox and delivery | platform | M3-05 | READY |
 | IMP-M3-07 | Effect fan-out and spectator filtering | platform | M3-06 | READY |
 | IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05, M2-09 | READY |
@@ -3460,8 +3460,9 @@ state and not the knowledge that a session exists.
 
 **The real `GameSessionStarter` implementation replaces `IMP-M2-06`'s stub**: on a successful
 `START_GAME`, it creates the session via the orchestration client, persists `room.active_session_id`
-**and the `(gameId, version)` pinned for that session** (FR-ASSET-007 — resolved once, at start, from
-the game's then-current `ACTIVE` version, never re-resolved for the session's lifetime), and
+(the session's `(gameId, version)` is `room.game_version`, pinned at room creation per flow 02 §A
+step 3 and never rewritten — FR-ASSET-007 holds because that column is immutable, not because the
+version is re-resolved at start; `IMP-GATE-87`), and
 broadcasts `GAME_STARTED` with the live `sessionId` and the server-composed `gameFrontendUrl`
 (`room-websocket.md`) — not before, since a failed session creation must never advance the room to
 In Progress.
@@ -3471,6 +3472,20 @@ In Progress.
 `gameId` does not match the session's own (§4.1's *Validation*) — never serving game A's code from
 game B's origin. A reconnecting player and every other participant receive the identical bundle
 regardless of any republish in between (FR-ASSET-007).
+
+**Closed IMP-GATE-87:** 2026-09-29 — three things this item needs that no document supplied, found
+while reading its read-list, none of which the code could settle without a silent choice. (1) The
+Redis shape of the Game Host registry: `game-host-internals.md` §13 named `hostlease:` and `contexts:`
+but no key for the advertised address, runtime types, load signals or the enumeration of instances,
+though the protocol doc says the address "is stored in the Redis registry" and host selection needs to
+enumerate them; §13 and §11 now define `hosts`, `host:{instanceId}` and the selection rule, and
+correct `hostlease:`'s writer (the Game Host never touches Redis directly). (2) The heartbeat
+interval, lease TTL and dispatch deadline had no values or config keys — `local-environment.md` §7.8
+now carries `turnbase.orchestration.*`. (3) `game-asset-serving.md` §4.1 and this item's own *Done
+when* said the session's version is resolved at session start and stored on "the session record",
+contradicting flow 02 §A step 3 and `game-catalog.md` FR-GAME-010/011 (the version is pinned at room
+creation) and naming a record the platform does not own; §4.1 and this clause now say
+`room.game_version`, reached through `room.active_session_id`.
 
 **Closes IMP-GATE-08's cross-repo half:** this item gives `GameHostRegistryService` its real server
 implementation, so it also carries the end-to-end check `IMP-M0-04` could not — a `turnbase-game-host`

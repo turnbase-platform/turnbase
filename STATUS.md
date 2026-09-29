@@ -1,39 +1,35 @@
 ## Last Session Summary
 
-**Date:** 2026-09-29 (meta-work — not an IMP item; still 49 of 62)
+**Date:** 2026-09-29 (session 90 — spec-defect work on `IMP-M3-05`; still 49 of 62)
 
-**The autonomous work loop now shows live progress and has operator controls.**
-`scripts/autonomous-work-loop.sh` is now a thin wrapper around a stdlib-only Python package,
-`scripts/autonomous_loop/`. The Python version keeps the bash loop's behaviour: `state.json`
-statuses, resume rules, 429 handling and exit codes. It adds:
+**`IMP-M3-05` was claimed, read, and stopped on three specification gaps, closed as `IMP-GATE-87`.
+No code was written; the item is back to `READY`.**
 
-- **Progress:**
-  - a one-line live status: iteration, work item, phase, time in phase and last action;
-  - a permanent line at each phase change;
-  - the phase in the terminal title;
-  - a stall warning after `--stall-minutes` (default 15) with no activity.
-- **Phase reporting:** sessions now report their phase themselves with `LOOP_PHASE: <phase>` lines
-  (the prompts ask for them). Until the first one, the phase is guessed from tool calls.
-- **Controls:**
-  - A 10 s countdown runs between sessions (Ctrl+C stops).
-  - The first Ctrl+C during a session schedules a stop after it, and Enter cancels that.
-  - A second Ctrl+C within 3 s interrupts the session and exits 130.
-  - SIGTERM, SIGHUP or SIGQUIT exit 143.
-  - An interrupt reaches claude's whole process group, with SIGKILL 10 s later.
-- **Logs:** claude's stderr is kept as `<log>.stderr`, and its tail is printed when claude fails.
+- **Registry Redis shape was undefined.** `game-host-internals.md` §13 had `hostlease:` and
+  `contexts:` but no key for the advertised address, runtime types, load or the instance list. §13 and
+  §11 now define `hosts`, `host:{instanceId}` and a deterministic host-selection rule, and say the
+  Game Host never writes those keys (Orchestration does, on its behalf).
+- **No values for heartbeat interval, lease TTL or dispatch deadline.** `local-environment.md` §7.8
+  gained `turnbase.orchestration.heartbeat-interval` (5s), `.lease-ttl` (15s), `.dispatch-deadline`
+  (35s).
+- **Version pinning contradicted itself.** `game-asset-serving.md` §4.1 and the item said the version
+  is resolved at session start and stored on "the session record"; flow 02 and FR-GAME-010/011 pin it
+  at room creation, and no such record exists. Both now say `room.game_version`, reached via
+  `room.active_session_id`.
 
-There are 106 unit and PTY tests:
-`python3 -B -m unittest discover -s scripts/autonomous_loop/tests -t scripts`. An Opus whole-branch
-review found 2 Important and 6 Minor issues, all fixed except one deferred minor: `render()` counts
-characters, not terminal columns, so CJK or emoji in agent text could wrap the live line. A known
-limitation is that the guessed phase flips back and forth before the first `LOOP_PHASE` marker.
-
-Branch `chore/loop-progress` was merged `--ff-only` into `master` and deleted. It was never pushed,
-and no PR was opened.
+`check-corpus.py` is clean. Branch `chore/claim-imp-m3-05` was merged `--ff-only` and deleted; no PR.
 
 ---
 
 ## Next Priorities
+
+**`IMP-GATE-87` opened and closed (session 90, `IMP-M3-05`) — `IMP-M3-05` is `READY`, build it
+next.** Read the new `game-host-internals.md` §11/§13 material first. Risk not settled by the gate:
+`local-environment.md` §7.8 says `GameHostRegistryService` shares the monolith's HTTP listener
+(`platform:8080`), so it needs gRPC-over-servlet on Tomcat with h2c, including the bidi `Heartbeat`
+stream — spike that before building the rest. The item is large (registry server, dispatch client,
+real `GameSessionStarter`, `/play/{sessionId}`, two cross-repo e2e checks); consider building the
+registry server and its Game Host round trip first.
 
 **`IMP-M3-04` is `DONE` (session 89) — 49 of 62. `IMP-M3-05` (Orchestration client and session
 registry, `turnbase-platform`) is `READY` for the first time** — all three of its dependencies

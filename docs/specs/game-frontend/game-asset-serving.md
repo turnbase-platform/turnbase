@@ -128,8 +128,14 @@ Enforcing this in one filter is what makes the invariants of §9 auditable rathe
 Assets are immutable because the path is version-pinned. All game responses carry
 `X-Content-Type-Options: nosniff` and the CSP of §6.
 
-**Version pinning.** The game version is resolved once, when the session is created, and stored on
-the session record. `/play/{sessionId}` serves *that* version. A game republished mid-session cannot
+**Version pinning.** The game version is resolved once, when the *room* is created
+(`flows/02-room-to-game-start.md` §A step 3) and is `room.game_version` from then on — a text snapshot
+that is never rewritten, so every session the room runs, including a rematch, runs that version.
+`/play/{sessionId}` resolves the session through the room row that claims it (`room WHERE
+active_session_id = :sessionId`, served by `room_active_session_idx`) and serves *that* version; a
+session no room claims — unknown, or ended and detached — has no row and 404s. No column on any
+session record carries the version, because no session record the platform owns exists (`session:{id}`
+is the Game Host's, `game-host-internals.md` §13). A game republished mid-session cannot
 swap the code under a live game, and a reconnecting player is guaranteed the same bundle their
 opponents are running.
 
