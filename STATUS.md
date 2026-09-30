@@ -1,21 +1,24 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 94) — **`IMP-M3-06` is `DONE`; 51 of 62.**
+**Date:** 2026-09-30 (session 95) — **`IMP-M3-07` is `DONE`; 52 of 62.**
 
-- **`GameActionController`** (`turnbase-platform`, `room` package) admits `SUBMIT_ACTION` on
-  `/app/game.{sessionId}.action`: the sender must be a current player of the room whose active session
-  it is; identity comes from durable state, never the payload. Failures are `NOT_MEMBER` /
-  `ROLE_NOT_ELIGIBLE` (`room-websocket.md` now says so).
-- **`GameInputService.submitAction`** serialises sequence allocation and dispatch per session, so
-  concurrent actions cannot reach the Game Host out of order (the host would drop the late one as a
-  replay). Tested with 40 concurrent submits against a fake host.
-- The outbox drain was already unpartitioned by ownership; no change needed.
-- Local `CatalogControllerIT` / `RoomReconnectIT` failed on Testcontainers (Ryuk/redis startup) both
-  with and without this change; the other 254 ITs passed. CI is the arbiter.
+- **`game.EffectFanOut`** (`turnbase-platform`) replaces the logging stub: `broadcast`/`log`/`game_over`
+  to `/topic/game.{id}`, `send_to_player` to `/user/queue/game`, `send_to_team` to the team topic, in
+  list order with `(sequence, index)`.
+- **IR-17:** every `send_to_player`/`send_to_team` address is checked against durable session
+  membership (`SessionRosterSource`, implemented in `room`); rejects are dropped, WARNed and counted
+  in `turnbase.effect.address_rejected.total{kind}`. Spectators are not valid player targets.
+- **`room.GameSubscriptionAuthorizer`**: channel-level fast-fail for `game.*` topics (spectators refused
+  team topics). Initial (`CreateSession`) effects use the roster from the create command.
+- Platform CI green on `eb2fee8`. Not built (deliberately): `GAME_SYNC`, `GAME_PLAYER_*`,
+  `SESSION_FAILED`, game-log retention — check which item owns them before `IMP-M3-09`/`IMP-M6-05`.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M3-07` is `DONE` (session 95).** `IMP-M3-08`, `IMP-M3-09`, `IMP-M3-10`, `IMP-M3-11`,
+`IMP-M6-05` are `READY`.
 
 **`IMP-M3-06` is `DONE` (session 94).** `IMP-M3-07` (effect fan-out; also owns the `game.*`
 subscription authorizer) is next; `IMP-M3-08`, `IMP-M3-10`, `IMP-M3-11` are also `READY`.
