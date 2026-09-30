@@ -1,16 +1,19 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 99) — **spec-defect only; `IMP-M5-02` stays `READY`; 55 of 62.**
+**Date:** 2026-09-30 (session 100) — **`IMP-M5-02` DONE; 56 of 62.**
 
-- `IMP-GATE-90` opened and closed: `IMP-M5-02`'s FR-STATS-010…012 / 020…027 had no route or response
-  field anywhere. New `docs/specs/api-design/statistics-rest-api.md`: `completedSessionCount` on game
-  detail (also in `catalog-rest-api.md`) and `GET /api/users/{username}/statistics`
-  (`totalPlayed`, `mostPlayedGame`, zero-state `200` when hidden). Read-list of `IMP-M5-02` gained it.
-- No code changed. The counter's single writer already exists from `IMP-M5-01`.
+- `GET /api/users/{username}/statistics` (`totalPlayed`, `mostPlayedGame`, zero-state `200` when hidden,
+  guest or erased) and `completedSessionCount` on game detail. Public-read exemptions in
+  `SessionAuthenticationInterceptor` and `RateLimitInterceptor` gained the `/statistics` suffix.
+- Counter writer unchanged (single writer from `IMP-M5-01`). Platform CI green.
+- Full `-Pintegration` run had two environmental failures (Redis container start, `GuestPurgeJobIT`);
+  both passed on rerun.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M5-02` is `DONE` (session 100).** `IMP-M5-04`, `IMP-M6-06`, `IMP-M3-10`, `IMP-M3-11`, `IMP-M6-05` are `READY`.
 
 **`IMP-GATE-90` closed (session 99).** `IMP-M5-02` is `READY` — build the two reads from `statistics-rest-api.md`; the writer exists.
 
