@@ -77,7 +77,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-07 | Effect fan-out and spectator filtering | platform | M3-06 | DONE |
 | IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05, M2-09 | DONE |
 | IMP-M3-09 | Game failure handling | platform, game-host | M3-07, M2-09 | DONE |
-| IMP-M3-10 | The first official game | sdk consumer | M3-03, M3-05 | WIP (session 111) |
+| IMP-M3-10 | The first official game | sdk consumer | M3-03, M3-05 | PARTIAL |
 | IMP-M3-11 | GDK test harness | sdk | M3-01, M3-03, M3-13 | DONE |
 | IMP-M3-12 | FE GDK client (`@turnbase/gdk`) | sdk | M0-02 | DONE |
 | IMP-M3-13 | Shared bundle validator module | sdk, platform | M4-03, M3-03 | DONE |
@@ -3723,20 +3723,32 @@ Also (`IMP-GATE-71`): the bundle is placed in the directory `turnbase.seed.bundl
 `<gameId>.zip` with a fixed UUID (`local-environment.md` §6) — the compose bind mount and the chart
 volume are this item's to add — and a clean `make reset-db` lists the game and it can be started.
 
-**Remaining:** (1) **The Game Host never heartbeats.** `RegistrationLifecycle` calls `Register` and
-stops (its Javadoc defers the heartbeat loop to "IMP-M3-04", which did not build it), so the
-`hostlease:` key expires after 15 s and `HostRegistry.selectHost` returns empty: `START_GAME` fails
-with `GAME_START_FAILED / NO_HOST_AVAILABLE`. Build the `Heartbeat` loop (and `ReportContexts`,
-`Deregister` on shutdown) per `game-host-internals.md` §11 in `turnbase-game-host`. (2) Then run
-`turnbase-game-tictactoe/scripts/e2e-roundtrip.mjs` against the compose stack (it is verified through
-login, create, join and `READINESS_CHANGED`; the remaining steps are unexercised) and fix what it
-finds. (3) One action as a single trace in Tempo (`docker-compose.observability.yml`). (4) `make
-reset-db` listing the game. (5) CI green in the game repo: `TURNBASE_SDK_PAT` must exist on it (human
-action); until the SDK is released the game pins `0.1.0-SNAPSHOT` (conventions §5 bootstrap
-exception) and "published SDK artifact" / "IMP-M4-03's real pipeline" are met only through the
-seeder, which runs the same upload pipeline. **Done so far:** repo + submodule, backend (11 tests),
-frontend (vitest ≥95%), bundle packaging accepted by the harness and the seeder on the running stack
-(`gdkApiVersion` must be `0.3.0`, the platform's only supported range), compose and Helm seed mounts.
+**Closed:** IMP-GATE-93 (opened and closed 2026-09-30, session 111) — no work item owned the
+platform's `REQUEST_GAME_SYNC` handler (`/app/game.{sessionId}.sync` → `GAME_SYNC` on
+`/user/queue/game`, `websocket.md` § Game Session Protocol): `IMP-M3-07` listed `GAME_SYNC` as "not
+built here — `IMP-M3-08`/`09`", and neither of those (teardown, failure handling) claims it, so the
+round trip cannot pass. Fixed by giving the handler to this item, the first whose clause needs it
+(remaining item 2 below).
+
+**Remaining:** (1) **`REQUEST_GAME_SYNC` / `GAME_SYNC` in `turnbase-platform`** (`IMP-GATE-93`):
+handler on `game.{sessionId}.sync` — participant check, init context from room state, read-only
+`Resync` dispatch under the session lock (`asOfSequence = lastAppliedSequence`), retained game log,
+unicast `GAME_SYNC` (`websocket.md` § Game Session Protocol, `game-contracts.md`). (2) Then run
+`turnbase-game-tictactoe/scripts/e2e-roundtrip.mjs` against the compose stack: it now passes
+login, create, join, ready and `START_GAME` → `GAME_STARTED`; it stops at `GAME_SYNC`. Turns, outcome and
+history are unexercised; fix what they find. (3) One action as a single trace in Tempo
+(`docker-compose.observability.yml`): both services log `Failed to export spans … Connection
+reset` to `http://tempo:4317` (OkHttp HTTP exporter against a gRPC port — check
+`OTEL_EXPORTER_OTLP_PROTOCOL` is honoured by the agent, or point at 4318 with `http/protobuf`).
+(4) `make reset-db` listing the game. (5) CI green in the game repo: `TURNBASE_SDK_PAT` must exist on
+it (human action); until the SDK is released the game pins `0.1.0-SNAPSHOT` (conventions §5
+bootstrap exception) and "published SDK artifact" / "IMP-M4-03's real pipeline" are met only through
+the seeder. **Done so far:** repo + submodule, backend (11 tests), frontend (vitest ≥95%), bundle
+packaging, compose and Helm seed mounts; **session 111:** Game Host `HostLivenessLoop`
+(Register/Heartbeat/ReportContexts/Deregister, re-registers on `NOT_FOUND`), `guest-bridge` jar now
+actually contains `io.turnbase.gamehost.bridge.*` (it shipped only the SDK; `GuestBridgeJarIT`
+guards it), the image's artifact-cache dir is writable, the platform logs why a session creation
+failed. `START_GAME` works on the compose stack.
 
 ---
 

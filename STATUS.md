@@ -1,15 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 110) — **`IMP-M3-10` PARTIAL (60 of 63 done).**
+**Date:** 2026-09-30 (session 111) — **`IMP-M3-10` still PARTIAL (60 of 63 done).**
 
-- New repo `turnbase-game-tictactoe` (submodule; ADR-0012 and `CLAUDE.md` tables updated): Java backend against `turnbase-sdk` only (11 tests), TS frontend on the vendored `@turnbase/gdk` pack (vitest ≥95%), `scripts/package.sh` → `target/seed/<gameId>.zip`, `scripts/e2e-roundtrip.mjs`. `gdkApiVersion` must be `0.3.0`.
-- `turnbase-platform`: compose bind mount and Helm `platform.seed.bundlesHostPath` for `turnbase.seed.bundles-dir`. The seeder activated the real bundle on the running compose stack.
-- **Found:** the Game Host registers but never heartbeats, so its lease expires in 15 s and `START_GAME` fails with `NO_HOST_AVAILABLE`. Nothing owns the loop (`IMP-M3-04` deferred to itself). Owed first — see `IMP-M3-10`'s `**Remaining:**`.
-- Registry: `IMP-M3-10` read-list gained `websocket.md`, `room-websocket.md`, `room-rest-api.md`.
+- `turnbase-game-host`: `HostLivenessLoop` (Register → Heartbeat stream → ReportContexts → Deregister, re-register on `NOT_FOUND`); the `guest-bridge` shaded jar was missing the bridge classes (fixed in `pom.xml`, `GuestBridgeJarIT`); artifact-cache dir writable in the image. `turnbase-platform`: logs the cause of a failed session creation.
+- On the compose stack the round trip now reaches `GAME_STARTED`. **Found (`IMP-GATE-93`, closed):** nothing built the platform's `REQUEST_GAME_SYNC` handler; it is now owed by `IMP-M3-10` (Remaining 1).
+- Also found: span export to `tempo:4317` fails with `Connection reset` in both services (Remaining 3).
 
 ---
 
 ## Next Priorities
+
+**`IMP-M3-10` is `PARTIAL` — continue it first**, from its `**Remaining:**` line: build the platform's `REQUEST_GAME_SYNC` handler (`IMP-GATE-93`, closed), then rerun `e2e-roundtrip.mjs`, fix the Tempo export, `make reset-db`. `TURNBASE_SDK_PAT` on the game repo is a human action. No other item is `READY`. Ignore older notes below.
 
 **`IMP-M3-10` is `PARTIAL` — continue it first.** Build the Game Host heartbeat/`ReportContexts`/`Deregister` loop, then run `e2e-roundtrip.mjs` and the Tempo check; `TURNBASE_SDK_PAT` on the game repo is a human action. No other item is `READY`.
 
