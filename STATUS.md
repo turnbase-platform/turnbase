@@ -1,14 +1,17 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 106) — **`IMP-M3-11` DONE (59 of 63).**
+**Date:** 2026-09-30 (session 107) — **`IMP-M6-06` PARTIAL (59 of 63 done).**
 
-- Clause 4: `MockOrchestration` speaks the real STOMP-over-WebSocket game session protocol (sync/`asOfSequence`, `sequence`/`index`, effect-address validation, spectator broadcast-only) over a hand-rolled RFC 6455 endpoint; the shell relays STOMP↔`postMessage`.
-- Clauses 3, 5–7: FE GDK injected by import map (built `dist/index.js` bundled into the jar; `publish.yml` runs the npm build first), roster/parameters/debug panel, `DebugCommand` for panel/scenario/CLI, locked-down log Markdown. Checked in a real browser; sdk CI green, ref bumped.
-- Left out, not in *Done when*: log colour annotations (`game-contracts.md` OQ-001), CSP report / audit-hook warnings, FR-HARNESS-008.
+- `turnbase-frontend`: `/games` catalog (server-side search, player-count filter, sort, shared paging envelope, one-row-at-a-time expansion, badges, Create Room hidden for Unauth), `/games/:id` (metadata, 404/410 split, info document, counts), and the profile History section (cards, expandable stats, search, paging, empty state). CI green, ref bumped.
+- Info document renders through Astryx `Markdown` with `link`/`image` overrides (https-only, hardened `rel`, lazy/no-referrer images) — no `react-markdown` dependency added. Local `no-danger` ESLint rule bans `dangerouslySetInnerHTML` (there is no `eslint-plugin-react`).
+- Owed: the notifications panel (VW-NOTIF-001…004) — not in *Done when* and no spec on the read-list; `**Remaining:**` line written and `notification-rest-api.md` added to the read-list.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M6-06` is `PARTIAL` — continue it first** (notifications panel; see its `**Remaining:**` line). `IMP-M3-10`
+(creates a sixth repo), `IMP-M6-05` are `READY`.
 
 **`IMP-M3-11` is `DONE` (session 106).** `IMP-M3-10`, `IMP-M6-06`, `IMP-M6-05` are `READY`.
 

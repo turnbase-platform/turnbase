@@ -98,7 +98,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M6-03 | Account and profile views | frontend | M6-02, M1-07, M1-11 | DONE |
 | IMP-M6-04 | Room views and the STOMP client | frontend | M6-02, M2-08 | DONE |
 | IMP-M6-05 | Game iframe host and postMessage relay | frontend | M6-04, M3-07 | READY |
-| IMP-M6-06 | Catalog and history views | frontend | M6-02, M4-01, M5-01 | WIP (session 107) |
+| IMP-M6-06 | Catalog and history views | frontend | M6-02, M4-01, M5-01 | PARTIAL |
 | ~~IMP-M6-07~~ | ~~Onboarding wizard~~ | frontend | — | CANCELLED |
 
 **63 live items.** IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
@@ -4765,9 +4765,19 @@ document; its *Done when* gained the clauses below.
 - `docs/specs/api-design/history-rest-api.md` (`IMP-GATE-81`) — the History tab's data source
 - `docs/specs/api-design/input-validation.md` § *Output encoding* — the owner of the Markdown rule
 - `docs/specs/api-design/pagination-filtering-sorting.md`
+- `docs/specs/api-design/notification-rest-api.md` — the notifications panel (VW-NOTIF); added
+  session 107, the list named no document for a range the item claims
 
 **Satisfies:** `platform-views.md` VW-CAT-001…003, VW-GDET-001…003, VW-NOTIF-001…004;
 `game-catalog.md` FR-CAT-001…010, FR-GDET-001…009; `game-history.md` FR-HIST-020…030
+
+**Remaining:** the notifications panel (`platform-views.md` VW-NOTIF-001…004). The *Done when* clause
+below holds and is built (session 107: `/games`, `/games/:id`, the profile History section, the
+Astryx-`Markdown` info document with its https-only link/image allow-list, the local `no-danger` lint
+rule), but `NotificationBell` still only refreshes the unread count — there is no list, no Accept /
+Decline on room-invite and friend-request rows, and no dismiss / mark-read. Build it from
+`notification-rest-api.md` (not on this item's read-list; add it) and `sse-notifications.md`, and
+give *Done when* a clause for it so the item can close.
 
 **Done when:** game descriptions are parsed from Markdown into **React elements**, client-side, with
 no intermediate HTML string anywhere in the path (IR-19); `dangerouslySetInnerHTML` appears nowhere
