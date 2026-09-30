@@ -129,6 +129,7 @@ Named elsewhere in the corpus and collected here so nothing owns them only in pa
 | Metric | Named by | Alert |
 |---|---|---|
 | `turnbase.teardown.owed` | `room-lifecycle.md` §4 | FR-ALERT-007 |
+| `turnbase.teardown.owed.age` (exported `turnbase_teardown_owed_age_seconds`) | `room-lifecycle.md` §6 | FR-ALERT-007 |
 | `turnbase.effect.address_rejected.total{kind}` | [`../api-design/websocket.md`](../api-design/websocket.md) § `GAME_EVENT` | none — WARN log only |
 | Per-duty reconciliation counters | `platform-operations.md` FR-JOB-011 | FR-ALERT-006 |
 

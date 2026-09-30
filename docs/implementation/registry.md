@@ -75,7 +75,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | DONE (session 93) |
 | IMP-M3-06 | Game input outbox and delivery | platform | M3-05 | DONE |
 | IMP-M3-07 | Effect fan-out and spectator filtering | platform | M3-06 | DONE |
-| IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05, M2-09 | READY |
+| IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05, M2-09 | DONE |
 | IMP-M3-09 | Game failure handling | platform, game-host | M3-07, M2-09 | READY |
 | IMP-M3-10 | The first official game | sdk consumer | M3-03, M3-05 | READY |
 | IMP-M3-11 | GDK test harness | sdk | M3-01, M3-03 | READY |
@@ -3629,6 +3629,15 @@ rule; `platform-operations.md` FR-ALERT-007 defines it, deferred here by `IMP-M0
 'LOBBY'`, no `closed_reason`) — the game backend's `game_over` notification, once this item's own
 session-completion handling recognizes it, calls `RoomSessionDetacher#detach` exactly as
 `GraceDeadlineSweepJob` already does for the closure paths.
+
+**Built (session 96):** `game.SessionTerminationClient` (`TerminateSession`, 2 s deadline, reason mapped
+onto the proto enum, whole key family deleted on confirmation) behind `room.SessionTerminatorImpl`, which
+deletes the `session_teardown` row on success and backs off on failure; `game.GameEndListener`
+implemented by `room.RoomGameEndListener` (first delivered `game_over` → `detachSession(..., 'GAME_OVER',
+'LOBBY')`); `turnbase.teardown.owed.age` gauge. **Game key decision:** `gamekey:{sessionId}` =
+`{gameId}:{gameVersion}`, written with `routing:` (`game-host-internals.md` §13); `GameInputService`
+uses it to reassign `routing:` on `UNAVAILABLE` or a vanished host. History recording on `game_over`
+is `IMP-M5-01`'s; the retry-limit caller is `IMP-M3-09`'s.
 
 ---
 

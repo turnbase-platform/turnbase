@@ -1,21 +1,24 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 95) — **`IMP-M3-07` is `DONE`; 52 of 62.**
+**Date:** 2026-09-30 (session 96) — **`IMP-M3-08` is `DONE`; 53 of 62.**
 
-- **`game.EffectFanOut`** (`turnbase-platform`) replaces the logging stub: `broadcast`/`log`/`game_over`
-  to `/topic/game.{id}`, `send_to_player` to `/user/queue/game`, `send_to_team` to the team topic, in
-  list order with `(sequence, index)`.
-- **IR-17:** every `send_to_player`/`send_to_team` address is checked against durable session
-  membership (`SessionRosterSource`, implemented in `room`); rejects are dropped, WARNed and counted
-  in `turnbase.effect.address_rejected.total{kind}`. Spectators are not valid player targets.
-- **`room.GameSubscriptionAuthorizer`**: channel-level fast-fail for `game.*` topics (spectators refused
-  team topics). Initial (`CreateSession`) effects use the roster from the create command.
-- Platform CI green on `eb2fee8`. Not built (deliberately): `GAME_SYNC`, `GAME_PLAYER_*`,
-  `SESSION_FAILED`, game-log retention — check which item owns them before `IMP-M3-09`/`IMP-M6-05`.
+- **`game.SessionTerminationClient`** (`turnbase-platform`): real `TerminateSession` (2 s deadline, reason
+  mapped to the proto enum), then deletes the whole key family. `room.SessionTerminatorImpl` deletes the
+  `session_teardown` row on confirmation and backs off otherwise; the 60 s sweep re-drives it.
+- **Normal game end:** `game.GameEndListener` (implemented by `room.RoomGameEndListener`) — the first
+  delivered `game_over` calls `detachSession(…, 'GAME_OVER', 'LOBBY')`. History recording is `IMP-M5-01`'s.
+- **Host reassignment (FR-ORCH-005):** new `gamekey:{sessionId}` Redis key (`game-host-internals.md` §13,
+  spec updated); `GameInputService` rewrites `routing:` on `UNAVAILABLE` / vanished host.
+- **`turnbase.teardown.owed.age`** gauge (`…_seconds`) feeds the `TeardownOwed` alert; specs updated.
+- Platform CI green on `be90cec`. Test gotcha: test-source `@Configuration`s are component-scanned into
+  every IT context (`GameInputServiceIT`'s `@Primary` `GameEndListener`) — look beans up by class.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M3-08` is `DONE` (session 96).** `IMP-M3-09` (failure handling: `ACTION_REJECTED`, retry-limit
+caller), `IMP-M3-10`, `IMP-M3-11`, `IMP-M6-05` are `READY`.
 
 **`IMP-M3-07` is `DONE` (session 95).** `IMP-M3-08`, `IMP-M3-09`, `IMP-M3-10`, `IMP-M3-11`,
 `IMP-M6-05` are `READY`.

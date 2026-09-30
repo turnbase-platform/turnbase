@@ -561,7 +561,7 @@ detachSession(roomId, sessionId, reason, nextState):
 ```
 terminateAndCleanup(sessionId, reason):
   a. TerminateSession(sessionId, reason), deadline 2s
-  b. on OK:  delete session:/routing:/queue:/seq:/delivered:/failcount:{sessionId}
+  b. on OK:  delete session:/routing:/gamekey:/queue:/seq:/delivered:/failcount:{sessionId}
              DELETE FROM session_teardown WHERE session_id = :sessionId
   c. on any error: log WARN, record attempts++ / last_error / next_attempt_at on the
      session_teardown row, and leave it for the sweep. Never throw to the caller.
@@ -762,6 +762,7 @@ repairs proceed, but are reported as **one** mass-loss event rather than one war
 | `turnbase.rooms.in_progress_without_session` | gauge | — | the prototype's "stuck IN_PROGRESS" class, directly observable |
 | `turnbase.grace.expiry_lag.seconds` | timer | — | `now − deadline` at repair; validates NFR-JOB-001 |
 | `turnbase.teardown.owed` | gauge | — | outstanding teardown debt; drives FR-ALERT-007 |
+| `turnbase.teardown.owed.age` (`_seconds`) | gauge | — | age of the oldest `session_teardown` row, 0 when none; `TeardownOwed` fires past 900 (FR-ALERT-007) |
 | `turnbase.room.ownership.takeovers.total` | counter | `kind=adopt_free\|takeover\|drain_release` | distinguishes clean deploys from crash takeovers |
 | `turnbase.job.aborted.total` | counter | `job`, `reason` | proves the §5.4 guards fire rather than being silently disabled |
 
