@@ -416,7 +416,7 @@ v1 on one classpath, because both consumers will run them side by side through a
 `manifest.schema.json` is authoritative in [`../specs/manifest/`](../specs/manifest/) —
 `manifest-schema.md` calls it "the contract consumed by both the platform upload validator and the
 local test harness ... so the two cannot drift," which is exactly the proto's problem restated for a
-JSON Schema file. `turnbase-platform` (and, when `IMP-M3-11` builds the harness, `turnbase-sdk`) each
+JSON Schema file. `turnbase-platform` (and `turnbase-sdk`, whose `turnbase-bundle-validator` module — `IMP-M3-13`, IMP-GATE-91 — the harness reuses) each
 hold a **committed copy**, not a path read out of the superproject checkout, for the identical reason:
 each repository's CI checks out that repository alone.
 

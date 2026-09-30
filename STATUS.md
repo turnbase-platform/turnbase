@@ -1,19 +1,21 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 101) — **`IMP-M5-04` DONE; 57 of 62.**
+**Date:** 2026-09-30 (session 102) — **`IMP-GATE-91` opened and closed; no item completed (57 of 63).**
 
-- FR-JOB-002 `NotificationPurgeJob` (subjectless rows only, predicate = `notification_purge_idx`) and
-  FR-JOB-013 `ExpiredSubjectPurgeJob` (expired `friend_request`/`room_invitation`; the cascade removes
-  their notifications — the only path that does). Both in `notification/`, ShedLock-guarded, windows from
-  `turnbase.retention.*`.
-- FR-JOB-008(a): `JobsProperties.initialDelay` = max(interval, startup-suppression); applied to the new
-  jobs and to guest, room and upload-slot schedules (guest cleanup previously fired at boot).
-- Guest (FR-RET-002) and closed-room (FR-RET-006) purges already existed from earlier items.
-- Platform CI green; `NotificationPurgeJobsIT` added.
+- Claimed `IMP-M3-11` (GDK test harness); its clause 2 needs a bundle validator "shared with the upload
+  pipeline", but the validator lives only inside `turnbase-platform` (Spring-coupled) and no item
+  extracts it. Its read-list also omitted `bundle-format.md` and `game-contracts.md`.
+- Fix in the spec: new item **`IMP-M3-13`** (extract `io.turnbase:turnbase-bundle-validator` into
+  `turnbase-sdk`, platform consumes it); `IMP-M3-11` now depends on it, read-list repaired, back to
+  `READY`. Live item count 62 → 63; `conventions.md` §manifest-schema paragraph updated.
+- No code written.
 
 ---
 
 ## Next Priorities
+
+**`IMP-GATE-91` closed (session 102).** Do **`IMP-M3-13` before `IMP-M3-11`.** `IMP-M3-10`, `IMP-M6-06`,
+`IMP-M6-05` are also `READY`.
 
 **`IMP-M5-04` is `DONE` (session 101).** `IMP-M6-06`, `IMP-M3-10`, `IMP-M3-11`, `IMP-M6-05` are `READY`.
 

@@ -78,8 +78,9 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05, M2-09 | DONE |
 | IMP-M3-09 | Game failure handling | platform, game-host | M3-07, M2-09 | DONE |
 | IMP-M3-10 | The first official game | sdk consumer | M3-03, M3-05 | READY |
-| IMP-M3-11 | GDK test harness | sdk | M3-01, M3-03 | WIP (session 102) |
+| IMP-M3-11 | GDK test harness | sdk | M3-01, M3-03, M3-13 | READY |
 | IMP-M3-12 | FE GDK client (`@turnbase/gdk`) | sdk | M0-02 | DONE |
+| IMP-M3-13 | Shared bundle validator module | sdk, platform | M4-03, M3-03 | READY |
 | **M4 — Catalog and upload** ||||
 | IMP-M4-01 | Catalog listing and game detail | platform | M1-01 | DONE (session 61) |
 | IMP-M4-02 | Manifest schema validation | platform | M0-06 | DONE |
@@ -100,10 +101,10 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M6-06 | Catalog and history views | frontend | M6-02, M4-01, M5-01 | READY |
 | ~~IMP-M6-07~~ | ~~Onboarding wizard~~ | frontend | — | CANCELLED |
 
-**62 live items.** IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
+**63 live items.** IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
 `onboarding-wizard.md`'s FR-ONB-* and NFR-ONB-* have no implementing item by design. The heading is
 kept below so the number is never reused. `IMP-M3-12` was added 2026-08-22, closing IMP-GATE-05 — see
-its section under M3. `IMP-M1-10` was added 2026-09-06, closing IMP-GATE-26, and `IMP-M1-11` on
+its section under M3. `IMP-M3-13` was added 2026-09-30, closing IMP-GATE-91 — see its section under M3. `IMP-M1-10` was added 2026-09-06, closing IMP-GATE-26, and `IMP-M1-11` on
 2026-09-26, closing IMP-GATE-78 — see their sections under M1.
 
 Statuses are seeded as `READY`. **No item is gated** — the 2026-08-16 audit's 23 blockers are all
@@ -3725,10 +3726,18 @@ volume are this item's to add — and a clean `make reset-db` lists the game and
 
 **Repo:** `turnbase-sdk` · **Depends on:** IMP-M3-01, IMP-M3-03 (added by IMP-GATE-69: Done-when
 clause 8's "same `ObjectMapper` configuration as the GDK Host" is `io.turnbase:turnbase-serialization`,
-which `IMP-M3-03`'s `turnbase-sdk` half builds — `game-host-internals.md` §3.6)
+which `IMP-M3-03`'s `turnbase-sdk` half builds — `game-host-internals.md` §3.6), IMP-M3-13 (added by
+IMP-GATE-91: clause 2's "shared bundle validator" is `io.turnbase:turnbase-bundle-validator`)
+
+**Closed:** IMP-GATE-91 (opened and closed 2026-09-30, session 102) — clause 2 required a validator
+artifact shared with the upload pipeline, but the pipeline's validator existed only inside
+`turnbase-platform` (Spring-coupled, unpublishable) and no item extracted it. Fixed by `IMP-M3-13`.
 
 **Read first:**
 - `docs/specs/gdk-api/test-harness.md` **in full** — §1 is a scope boundary, not a preamble
+- `docs/specs/manifest/bundle-format.md` §2.4, §3 and `docs/requirements/game-contracts.md` — the
+  validator's entry point and the WebSocket protocol clause 4 speaks (added by IMP-GATE-91; the
+  list previously named neither)
 - `docs/requirements/game-development-experience.md` FR-HARNESS-001…008, FR-HARNESS-010,
   NFR-UPLOAD-002
 
@@ -3800,6 +3809,41 @@ and no `parentOrigin` override was supplied; calling `sendAction` before `init` 
 **The trusted origin is never derived from a received message** — only from the shell bootstrap
 (§9) or the explicit test-harness override — because inferring it from message traffic is circular
 and is exactly the mistake the origin check exists to prevent.
+
+---
+
+### IMP-M3-13 — Shared bundle validator module
+
+**Repo:** `turnbase-sdk`, then `turnbase-platform` · **Depends on:** IMP-M4-03, IMP-M3-03
+
+Opened by IMP-GATE-91 (`IMP-M3-11`, 2026-09-30): `bundle-format.md` §2.4 and `game-development-experience.md` FR-HARNESS-002 say the
+archive reader and validator are one component consumed by the upload pipeline, the unpacker and the
+test harness. It was built inside `turnbase-platform` (`upload.ArchiveReader`, `ManifestValidator`,
+`BackendJarAnalyzer`, `StateSerializabilityAnalyzer`, `ClassFileUtil`, and the pipeline body of
+`BundleValidationService`), where the Spring stereotypes and `platform.common.CheckError` make it
+unusable by the harness. Same lesson as the serialization engine (`game-host-internals.md` §3.6):
+extract it, or the harness reimplements it and drifts.
+
+**Read first:**
+- `docs/specs/manifest/bundle-format.md` §2.4, §3, §4 and `manifest-schema.md`
+- `docs/implementation/conventions.md` §5 (cross-repo artifacts) and the *manifest schema is copied*
+  paragraph — the schema copy moves to this module
+- `turnbase-platform/src/main/java/io/turnbase/platform/upload/` — the code being extracted
+
+**Satisfies:** `game-development-experience.md` FR-HARNESS-002 (the artifact half)
+
+**Done when:**
+1. `turnbase-sdk` builds a third module, `io.turnbase:turnbase-bundle-validator`, from the same root
+   `./mvnw install`, at the shared version. It has no Spring, no `turnbase-common`, no
+   `turnbase-game-host` dependency (the enforcer's banned list applies) and carries its own committed
+   copy of `manifest.schema.json` (`scripts/sync-manifest-schema.sh` learns the new path).
+2. It exposes the reader, manifest validation, backend JAR analysis and static serializability
+   analysis behind one entry point returning framework-free findings (severity, code, message), reusing
+   `turnbase-serialization` where the analysis needs it.
+3. `turnbase-platform` depends on it (pinned per `conventions.md` §5), its `upload` package keeps only
+   the Spring wiring, persistence and async orchestration, and its existing upload unit and integration
+   tests pass unchanged.
+4. The moved classes' tests move with them and the module meets the JaCoCo gate.
 
 ---
 
