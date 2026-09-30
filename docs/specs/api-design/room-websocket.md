@@ -742,7 +742,7 @@ errors use the envelope above, and REST errors use [error-handling.md](error-han
 | `MESSAGE_TOO_LARGE` | Frame exceeds the per-destination size cap (input-validation.md § Size limits) |
 | `RATE_LIMIT_EXCEEDED` | Frame dropped by the Tier 6 rate limiter ([rate-limiting.md](rate-limiting.md)); carries `retryAfterMs`. Emitted from the channel interceptor without a `correlationId`, since the payload was never deserialized |
 | `ACTION_TOO_LARGE` | **Game session.** A `/app/game.*.action` frame exceeds the 256 KB `setMessageSizeLimit` cap ([websocket.md](websocket.md) § *Client→server command catalogue*). Rejected at admission; the game never sees it |
-| `ACTION_REJECTED` | **Game session.** An admitted action failed *inside* the game handler — threw, timed out in-context, or produced malformed output (`PROCESS_STATUS_FAILED`). Carries `correlationId` and the failure **kind**, never the failure message, which is text from untrusted game code ([websocket.md](websocket.md)) |
+| `ACTION_REJECTED` | **Game session.** An admitted action failed *inside* the game handler — threw, timed out in-context, or produced malformed output (`PROCESS_STATUS_FAILED`). Carries `correlationId` and the failure **kind**, never the failure message, which is text from untrusted game code ([websocket.md](websocket.md)). `kind` is the `GameFailureKind` name without its prefix (`HANDLER_EXCEPTION`, `TIMEOUT`, …), or `UNAVAILABLE` when the input was dropped for an infrastructure reason (host unreachable, session unservable) — never re-dispatched either way |
 
 **Game-session admission reuses two room codes** (`websocket.md` § `SUBMIT_ACTION`, `IMP-M3-06`): a
 `SUBMIT_ACTION` from someone who is not a current participant of the session — or for a session that

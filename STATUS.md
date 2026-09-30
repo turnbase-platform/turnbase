@@ -1,21 +1,23 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 96) — **`IMP-M3-08` is `DONE`; 53 of 62.**
+**Date:** 2026-09-30 (session 97) — **`IMP-M3-09` is `DONE`; 54 of 62.**
 
-- **`game.SessionTerminationClient`** (`turnbase-platform`): real `TerminateSession` (2 s deadline, reason
-  mapped to the proto enum), then deletes the whole key family. `room.SessionTerminatorImpl` deletes the
-  `session_teardown` row on confirmation and backs off otherwise; the 60 s sweep re-drives it.
-- **Normal game end:** `game.GameEndListener` (implemented by `room.RoomGameEndListener`) — the first
-  delivered `game_over` calls `detachSession(…, 'GAME_OVER', 'LOBBY')`. History recording is `IMP-M5-01`'s.
-- **Host reassignment (FR-ORCH-005):** new `gamekey:{sessionId}` Redis key (`game-host-internals.md` §13,
-  spec updated); `GameInputService` rewrites `routing:` on `UNAVAILABLE` / vanished host.
-- **`turnbase.teardown.owed.age`** gauge (`…_seconds`) feeds the `TeardownOwed` alert; specs updated.
-- Platform CI green on `be90cec`. Test gotcha: test-source `@Configuration`s are component-scanned into
-  every IT context (`GameInputServiceIT`'s `@Primary` `GameEndListener`) — look beans up by class.
+- **`ACTION_REJECTED`** (`room.GameActionController`): unicast on `/user/queue/errors` with
+  `correlationId` and `kind` (the `GameFailureKind` name, or `UNAVAILABLE` for infrastructure drops) —
+  never the message. `GameInputService.submitAction` now returns `Result(outcome, failureKind)`.
+- **Retry limit:** `game.SessionFailureListener` (implemented by `room.RoomSessionFailureListener`)
+  broadcasts `SESSION_FAILED` on `/topic/game.{id}` then `detach(…, "RETRY_LIMIT", "LOBBY")` — fires
+  from both the action and outbox paths; idempotent because `failcount:` stays at the limit.
+- Game Host already had `lastOutcome`/`lastFailure` (M3-04). Spec fixes: `game-contracts.md`
+  NFR-REL-001 (said first failure terminates; now matches FR-FAIL-001/003), `room-websocket.md`
+  `ACTION_REJECTED` `kind` values.
+- Platform CI green on `d823128`. Local IT run: only 2 MinIO container-start errors (environmental).
 
 ---
 
 ## Next Priorities
+
+**`IMP-M3-09` is `DONE` (session 97).** `IMP-M3-10`, `IMP-M3-11`, `IMP-M5-01`, `IMP-M6-05` are `READY`.
 
 **`IMP-M3-08` is `DONE` (session 96).** `IMP-M3-09` (failure handling: `ACTION_REJECTED`, retry-limit
 caller), `IMP-M3-10`, `IMP-M3-11`, `IMP-M6-05` are `READY`.
