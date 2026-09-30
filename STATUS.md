@@ -1,27 +1,25 @@
 ## Last Session Summary
 
-**Date:** 2026-09-29 (loop tooling, between work sessions — still 49 of 62 by the registry count)
+**Date:** 2026-09-30 (session 93) — **`IMP-M3-05` is `DONE`; 50 of 62.**
 
-**New register status `PARTIAL`: an item with work merged but its *Done when* clause not yet holding.
-`IMP-M3-05` is the first one.** Session 92 left `IMP-M3-05` `READY` with a prose note, which the
-loop's post-session check flagged against its `DONE` report. `READY` hides the remainder from whoever
-picks by status, and `DONE` would unblock `IMP-M3-06`/`07`/`08` too early.
-
-- **Rule** (`docs/implementation/INDEX.md` *Partly done items*): `PARTIAL` requires a
-  `**Remaining:**` line in the item's section, and `check-corpus.py registry` enforces it.
-  A `PARTIAL` item is picked before any `READY` one. A remainder that nothing inside the item can
-  unblock goes through `spec-defect` instead.
-- **`work-item` skill** gains step 9. **Loop:** a new `LOOP_STATUS: PARTIAL <item> <owed>`,
-  checked like DONE. The next fresh session is told to continue the item, and the loop halts after
-  3 `PARTIAL` reports in a row for the same item.
-- **Correction:** session 92 said no compose stack or Tempo exists, but `IMP-M0-07` built both in
-  `turnbase-platform/deploy/compose/`. The e2e checks can be run now.
-- Session 92's landed work (input dispatch, `GameInputService`, the outbox `GameInputDispatcher`) is
-  in `registry.md`'s `IMP-M3-05` scope note and commit `1cc69d4`.
+- **Register check landed and green in CI:** `turnbase-platform/deploy/compose/e2e-smoke.sh` now fails
+  unless a Game Host is in Redis's `hosts` set within 60 s of the monolith becoming ready (locally 27 s
+  from a cold `up`; the budget starts at `up --wait` returning, since a first attempt that started at
+  `compose up` failed on a cold CI runner by counting image builds).
+- **`IMP-GATE-89` (opened and closed) moved what was still owed to the items that own it**, because
+  none of it could be built inside `IMP-M3-05`: the one-trace-in-Tempo check → `IMP-M3-10` (needs a
+  game a Game Host can run; it now depends on `IMP-M3-05`); `/app/game.*.action` handler →
+  `IMP-M3-06`; `ACTION_REJECTED` and retry-limit notice → `IMP-M3-09`; host reassignment on
+  `UNAVAILABLE` (needs a game key in Redis) → `IMP-M3-08`.
+- Session 92's dispatch work (`GameInputService`, `GameInputDispatcher`) stands as in `registry.md`.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M3-05` is `DONE` (session 93).** `IMP-M3-06` (input outbox and the `GAME_ACTION` admission
+handler) and `IMP-M3-08` are now `READY`; `IMP-M3-10` (first official game) also carries the Tempo
+trace check. Ignore the older `IMP-M3-05` notes below.
 
 **`IMP-M3-05` is `PARTIAL` — continue it before anything else.** Its `**Remaining:**` line in
 `registry.md` lists what is owed. First, the two end-to-end checks (`Register` <= 60 s, and one

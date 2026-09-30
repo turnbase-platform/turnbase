@@ -72,12 +72,12 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | DONE |
 | IMP-M3-03 | GDK host bridge and serialization boundary | sdk, game-host | M3-01, M3-02 | DONE |
 | IMP-M3-04 | gRPC service implementation | game-host | M3-03 | DONE (session 89) |
-| IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | WIP (session 93) |
+| IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | DONE (session 93) |
 | IMP-M3-06 | Game input outbox and delivery | platform | M3-05 | READY |
 | IMP-M3-07 | Effect fan-out and spectator filtering | platform | M3-06 | READY |
 | IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05, M2-09 | READY |
 | IMP-M3-09 | Game failure handling | platform, game-host | M3-07, M2-09 | READY |
-| IMP-M3-10 | The first official game | sdk consumer | M3-03 | READY |
+| IMP-M3-10 | The first official game | sdk consumer | M3-03, M3-05 | READY |
 | IMP-M3-11 | GDK test harness | sdk | M3-01, M3-03 | READY |
 | IMP-M3-12 | FE GDK client (`@turnbase/gdk`) | sdk | M0-02 | DONE |
 | **M4 — Catalog and upload** ||||
@@ -3512,25 +3512,25 @@ another host on `UNAVAILABLE` (FR-ORCH-005) — the call is left for retry with 
 (4) `TerminateSession` at the retry limit belongs to `IMP-M3-08`. Transport facts from session 91
 stand (trailers-only status lost under grpc-servlet; `maxSavePostSize` raised to 1 MiB for h2c).
 
-**Remaining:** (1) the two end-to-end checks below, run against the stack `IMP-M0-07` already built —
-`turnbase-platform/deploy/compose/docker-compose.yml` plus `docker-compose.observability.yml` (Tempo
-included), with `deploy/compose/e2e-smoke.sh` and the CI `e2e` job as the starting point; session 92's
-note that no compose stack or Tempo existed was wrong. (2) `ACTION_REJECTED` to the acting player and
-the player-facing notice at the retry limit. (3) Moving a session to another host on `UNAVAILABLE`
-(FR-ORCH-005). For (2) and (3), first settle whether they are this item's at all: the `GAME_ACTION`
-caller looks like `IMP-M3-06`'s, and `IMP-M3-08` also claims FR-ORCH-005. If they belong to a later
-item, move them there with the `spec-defect` skill rather than building them here. (session 92,
-corrected 2026-09-29)
+**Closed IMP-GATE-89:** 2026-09-30 — what session 92 left owed was not all this item's. (1) The
+trace check needs a session that a Game Host can actually run, and the only loadable game is
+`IMP-M3-10`'s (it already owns "can actually be started"); `TestBundles`' Chess is an empty-interface
+stub. It moves there. (2) `ACTION_REJECTED` and the retry-limit notice are `IMP-M3-09`'s own clause
+("the acting player is told why"), and the `/app/game.*.action` admission handler that would feed
+`GameInputService.process` is `IMP-M3-06`'s (FR-IN-003). (3) Host reassignment on `UNAVAILABLE` is
+FR-ORCH-005, which `IMP-M3-08` satisfies; it also needs the game key that `routing:` lacks, which is a
+design question for that item. The `Register` half of IMP-GATE-08 was checkable now and is:
+`deploy/compose/e2e-smoke.sh` fails unless a Game Host is in the `hosts` set within 60 s of
+`compose up` (measured 27 s).
 
 **Closes IMP-GATE-08's cross-repo half:** this item gives `GameHostRegistryService` its real server
 implementation, so it also carries the end-to-end check `IMP-M0-04` could not — a `turnbase-game-host`
 instance pointed at a running Platform Monolith completes `Register` within `local-environment.md`
 §3's 60-second budget.
 
-**Closes IMP-GATE-18's cross-repo half:** this is the first item where a live REST-triggered request
-chain crosses into a gRPC call to a running Game Host, so it carries the real check
-`observability.md` FR-TRACE-002 wants and `IMP-M0-10` could only prove against a controlled call — one
-trace spanning client → WebSocket → Orchestration → gRPC → Game Host, visible as one trace in Tempo.
+**IMP-GATE-18's cross-repo half moved to `IMP-M3-10`** (`IMP-GATE-89`): this item builds the chain
+client → WebSocket → Orchestration → gRPC → Game Host, but nothing that a Game Host can run exists
+until the first official game does, so the one-trace-in-Tempo check is that item's clause.
 
 ---
 
@@ -3545,6 +3545,10 @@ trace spanning client → WebSocket → Orchestration → gRPC → Game Host, vi
 - `docs/specs/flows/03-game-turn.md`
 
 **Satisfies:** `platform-architecture.md` FR-DELIVER-001…006; `game-contracts.md` FR-IN-001…006
+
+**Also owns the acting-player path** (`IMP-GATE-89`): the `/app/game.*.action` handler that admits a
+`GAME_ACTION` frame and calls `game.GameInputService#process`. `IMP-M3-05` built the service and only
+the outbox calls it; this item is its second caller.
 
 **Done when:** the outbox drain is **not** ownership-partitioned — it is a gRPC call needing no
 ownership, and partitioning it leaves an unowned room's `player_left` undelivered, with the game
@@ -3589,6 +3593,11 @@ game-end caller into `room.RoomSessionDetacher#detach`, whose real implementatio
 
 **Satisfies:** `game-rooms.md` FR-XFER-005; `platform-architecture.md` FR-ORCH-005…007
 
+**Also owns host reassignment on `UNAVAILABLE`** (FR-ORCH-005, `IMP-GATE-89`): `IMP-M3-05` counts the
+failure and leaves the call for retry, but does not rewrite `routing:`, because the game key needed to
+re-select a host is not in Redis. Deciding where that key lives is this item's, in
+`game-host-internals.md` §13, before code.
+
 **Done when:** the to-do is keyed by `sessionId`, **not** by a flag on the room — a rematch would
 overwrite the previous session's owed teardown. Any rule testing whether a teardown was recorded must
 test `room.active_session_id = :sessionId`, a durable fact, rather than the presence of the
@@ -3622,6 +3631,10 @@ retry-limit-failure caller into `room.RoomSessionDetacher#detach`, whose real im
 
 **Satisfies:** `platform-architecture.md` FR-FAIL-001…007; `game-contracts.md` FR-FA-001…003,
 NFR-REL-001…002
+
+**Also owns the two notices `IMP-M3-05` left** (`IMP-GATE-89`): the unicast `ACTION_REJECTED` on
+`/user/queue/errors` (kind, never message) and the player-facing notice at the retry limit.
+`GameInputService` already counts `failcount:` and exposes the failure; this item delivers it.
 
 **Done when:** the acting player is told why. `platform-architecture.md` FR-FAIL-001 and FR-FAIL-003
 must be coherent about first-failure versus three-failure termination, and the failed input has a
@@ -3668,7 +3681,11 @@ someone outside the platform team, which ADR-0006 makes the MVP's only game-supp
 `turnbase-game-host` or `turnbase-common` means the contract is not self-sufficient and the item has
 failed even if the game runs; it ships a frontend bundle built against the published npm package; it
 is packaged per `bundle-format.md` §2 and published through IMP-M4-03's real pipeline; a full
-create → join → start → several turns → outcome → history round trip passes against the local stack.
+create → join → start → several turns → outcome → history round trip passes against the local stack,
+**and one game action shows as a single trace in Tempo spanning client → WebSocket → Orchestration →
+gRPC → Game Host** (`observability.md` FR-TRACE-002; the cross-repo half of `IMP-GATE-18`, moved here
+from `IMP-M3-05` by `IMP-GATE-89` because it needs a game a Game Host can run). `IMP-M3-05` is a
+dependency for that reason.
 Also (`IMP-GATE-71`): the bundle is placed in the directory `turnbase.seed.bundles-dir` names, as
 `<gameId>.zip` with a fixed UUID (`local-environment.md` §6) — the compose bind mount and the chart
 volume are this item's to add — and a clean `make reset-db` lists the game and it can be started.
