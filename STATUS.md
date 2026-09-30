@@ -1,14 +1,15 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 107) — **`IMP-M6-06` PARTIAL (59 of 63 done).**
+**Date:** 2026-09-30 (session 108) — **`IMP-M6-06` DONE (60 of 63 done).**
 
-- `turnbase-frontend`: `/games` catalog (server-side search, player-count filter, sort, shared paging envelope, one-row-at-a-time expansion, badges, Create Room hidden for Unauth), `/games/:id` (metadata, 404/410 split, info document, counts), and the profile History section (cards, expandable stats, search, paging, empty state). CI green, ref bumped.
-- Info document renders through Astryx `Markdown` with `link`/`image` overrides (https-only, hardened `rel`, lazy/no-referrer images) — no `react-markdown` dependency added. Local `no-danger` ESLint rule bans `dangerouslySetInnerHTML` (there is no `eslint-plugin-react`).
-- Owed: the notifications panel (VW-NOTIF-001…004) — not in *Done when* and no spec on the read-list; `**Remaining:**` line written and `notification-rest-api.md` added to the read-list.
+- `turnbase-frontend`: notifications panel — `NotificationBell` opens an Astryx `Popover` holding `NotificationPanel` (list from `GET /api/notifications`, not marked read on open; Accept/Decline on room-invite and friend-request rows; mark read, mark all read, dismiss; load-more paging; payloads rendered as text). 231 tests, lint/typecheck clean, CI green.
+- `IMP-GATE-92` opened and closed: `FRIEND_REQUEST` payload was unspecified and carries no request id. `notification-rest-api.md` §2 now documents the payload shapes and that the client resolves the id from `GET /api/friend-requests` (INCOMING, matching username). `IMP-M6-06` *Done when* gained the panel clause; `**Remaining:**` removed.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M6-06` is `DONE` (session 108).** No item is `PARTIAL`; `IMP-M3-10` (creates a sixth repo) and `IMP-M6-05` are `READY`.
 
 **`IMP-M6-06` is `PARTIAL` — continue it first** (notifications panel; see its `**Remaining:**` line). `IMP-M3-10`
 (creates a sixth repo), `IMP-M6-05` are `READY`.

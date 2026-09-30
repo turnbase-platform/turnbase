@@ -98,7 +98,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M6-03 | Account and profile views | frontend | M6-02, M1-07, M1-11 | DONE |
 | IMP-M6-04 | Room views and the STOMP client | frontend | M6-02, M2-08 | DONE |
 | IMP-M6-05 | Game iframe host and postMessage relay | frontend | M6-04, M3-07 | READY |
-| IMP-M6-06 | Catalog and history views | frontend | M6-02, M4-01, M5-01 | WIP (session 108) |
+| IMP-M6-06 | Catalog and history views | frontend | M6-02, M4-01, M5-01 | DONE (session 108) |
 | ~~IMP-M6-07~~ | ~~Onboarding wizard~~ | frontend | — | CANCELLED |
 
 **63 live items.** IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
@@ -4771,13 +4771,7 @@ document; its *Done when* gained the clauses below.
 **Satisfies:** `platform-views.md` VW-CAT-001…003, VW-GDET-001…003, VW-NOTIF-001…004;
 `game-catalog.md` FR-CAT-001…010, FR-GDET-001…009; `game-history.md` FR-HIST-020…030
 
-**Remaining:** the notifications panel (`platform-views.md` VW-NOTIF-001…004). The *Done when* clause
-below holds and is built (session 107: `/games`, `/games/:id`, the profile History section, the
-Astryx-`Markdown` info document with its https-only link/image allow-list, the local `no-danger` lint
-rule), but `NotificationBell` still only refreshes the unread count — there is no list, no Accept /
-Decline on room-invite and friend-request rows, and no dismiss / mark-read. Build it from
-`notification-rest-api.md` (not on this item's read-list; add it) and `sse-notifications.md`, and
-give *Done when* a clause for it so the item can close.
+**Closed:** IMP-GATE-92 (opened and closed 2026-09-30, session 108) — no document stated the payload of `FRIEND_REQUEST` or how its Accept/Decline reaches a request id; `notification-rest-api.md` §2 now has a *Payload shapes* table and the resolution rule.
 
 **Done when:** game descriptions are parsed from Markdown into **React elements**, client-side, with
 no intermediate HTML string anywhere in the path (IR-19); `dangerouslySetInnerHTML` appears nowhere
@@ -4788,7 +4782,10 @@ bespoke one; the History tab renders `history-rest-api.md`'s `content` array as 
 `teamStats` sections when present and collapsed otherwise (FR-HIST-021…022); an empty `content` array
 renders FR-HIST-027's placeholder, not a blank tab; the search input and pagination controls drive
 `history-rest-api.md`'s `search`/`page`/`size` query parameters rather than filtering a client-held
-page.
+page; the notifications panel opens from the bell, lists `notification-rest-api.md`'s `content` without
+marking anything read on open, offers Accept / Decline on `ROOM_INVITATION` (join / decline the room invitation)
+and `FRIEND_REQUEST` (accept / delete the request, its id resolved from `GET /api/friend-requests`) rows, and
+drives mark-read, mark-all-read and dismiss through the PATCH / POST / DELETE endpoints (VW-NOTIF-001…004).
 
 ---
 

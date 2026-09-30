@@ -75,6 +75,24 @@ exists instead of sequence arithmetic).
 wrote. `payload` is rendered as plain text by the client (`input-validation.md`'s output-encoding
 rules, per `data-model-notifications.md` §1) — never as markup.
 
+### Payload shapes
+
+`payload` is typed by convention (`data-model-notifications.md` §1). The shapes the notification center
+relies on (`IMP-GATE-92`; as written by the platform):
+
+| `type` | `payload` | Actions |
+|---|---|---|
+| `ROOM_INVITATION` | `{ "roomId", "hostUsername", "gameName" }` | Accept = `POST /api/rooms/{roomId}/participants` (`room-rest-api.md` §5); Decline = `DELETE /api/rooms/{roomId}/invitations/me` (`room-invitation-rest-api.md` §3) |
+| `FRIEND_REQUEST` | `{ "userId", "username" }` — the **sender** | Accept = `POST /api/friend-requests/{id}/accept`; Decline = `DELETE /api/friend-requests/{id}` (`social-rest-api.md` §5, §6) |
+| `FRIEND_REQUEST_ACCEPTED`, `FRIEND_REQUEST_DECLINED`, `FRIEND_ADDED` | `{ "userId", "username" }` — the **other** user | none |
+
+The list item carries no subject id, so a `FRIEND_REQUEST`'s `{id}` is resolved by the client from
+`GET /api/friend-requests` (`social-rest-api.md` §4): the `INCOMING` entry whose `counterpartUsername`
+equals `payload.username`. No entry means the request already resolved or expired — the row is stale,
+and the client deletes the notification (§6) rather than offering an action. Accepting or declining a
+`ROOM_INVITATION` or `FRIEND_REQUEST` removes its notification server-side (cascade,
+`data-model-notifications.md` §2), so the client refetches the list afterwards.
+
 **This is the only read path.** Opening the list does not implicitly mark anything read — FR-NOTIF-003
 ties the transition to the user clicking or tapping a specific notification, not to it entering view.
 
