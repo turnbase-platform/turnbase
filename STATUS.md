@@ -1,21 +1,25 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 97) — **`IMP-M3-09` is `DONE`; 54 of 62.**
+**Date:** 2026-09-30 (session 98) — **`IMP-M5-01` is `DONE`; 55 of 62.**
 
-- **`ACTION_REJECTED`** (`room.GameActionController`): unicast on `/user/queue/errors` with
-  `correlationId` and `kind` (the `GameFailureKind` name, or `UNAVAILABLE` for infrastructure drops) —
-  never the message. `GameInputService.submitAction` now returns `Result(outcome, failureKind)`.
-- **Retry limit:** `game.SessionFailureListener` (implemented by `room.RoomSessionFailureListener`)
-  broadcasts `SESSION_FAILED` on `/topic/game.{id}` then `detach(…, "RETRY_LIMIT", "LOBBY")` — fires
-  from both the action and outbox paths; idempotent because `failcount:` stays at the limit.
-- Game Host already had `lastOutcome`/`lastFailure` (M3-04). Spec fixes: `game-contracts.md`
-  NFR-REL-001 (said first failure terminates; now matches FR-FAIL-001/003), `room-websocket.md`
-  `ACTION_REJECTED` `kind` values.
-- Platform CI green on `d823128`. Local IT run: only 2 MinIO container-start errors (environmental).
+- **Recording:** `game.GameOutcomeRecorder` seam (implemented by `history.HistoryRecordingService`);
+  `GameInputService` reads the roster and `gamekey:` *before* detach and calls it for the first
+  `game_over`. One transaction: completion row `ON CONFLICT DO NOTHING`, counter `+1`, entries for
+  registered players only. Invalid outcomes (empty `teamResults`, placement outside `[1, n]`,
+  non-participant player, playing team missing) still count the session, write no entries, log ERROR
+  and bump `turnbase.history.invalid_outcome.total`. Recording failures are logged, never block detach.
+- **Read:** `GET /api/users/{username}/history` (`history` package) — privacy re-check (owner exempt,
+  private/HIDDEN/guest/erased → empty `200`), `search` (LIKE metacharacters escaped), pagination,
+  `outcomeLabel`, `gameLinkable`; the public-read exemption in `SessionAuthenticationInterceptor` and
+  `RateLimitInterceptor` gained the `/history` suffix.
+- Platform CI green on `0f12d40`. Local IT run: only environmental errors (MinIO container start; one
+  port-bind flake in `AccountDeletionControllerIT` that passes alone).
 
 ---
 
 ## Next Priorities
+
+**`IMP-M5-01` is `DONE` (session 98).** `IMP-M5-02`, `IMP-M5-04`, `IMP-M6-06`, `IMP-M3-10`, `IMP-M3-11`, `IMP-M6-05` are `READY`.
 
 **`IMP-M3-09` is `DONE` (session 97).** `IMP-M3-10`, `IMP-M3-11`, `IMP-M5-01`, `IMP-M6-05` are `READY`.
 

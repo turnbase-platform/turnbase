@@ -15,7 +15,7 @@ TurnBase is a platform for hosting and playing multiplayer games online. It prov
 
 ## Current Phase
 
-**Phase 1 — Implementation** (under way, **54 of 62 work items done**). Phase 0 is complete and has
+**Phase 1 — Implementation** (under way, **55 of 62 work items done**). Phase 0 is complete and has
 been audited for implementation-readiness — but the first item to actually compile against the corpus
 found three contradictions in its own read-list, so treat "audited" as meaning *no known* defects
 rather than *no* defects.
