@@ -77,7 +77,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-07 | Effect fan-out and spectator filtering | platform | M3-06 | DONE |
 | IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05, M2-09 | DONE |
 | IMP-M3-09 | Game failure handling | platform, game-host | M3-07, M2-09 | DONE |
-| IMP-M3-10 | The first official game | sdk consumer | M3-03, M3-05 | WIP (session 110) |
+| IMP-M3-10 | The first official game | sdk consumer | M3-03, M3-05 | PARTIAL |
 | IMP-M3-11 | GDK test harness | sdk | M3-01, M3-03, M3-13 | DONE |
 | IMP-M3-12 | FE GDK client (`@turnbase/gdk`) | sdk | M0-02 | DONE |
 | IMP-M3-13 | Shared bundle validator module | sdk, platform | M4-03, M3-03 | DONE |
@@ -3703,6 +3703,9 @@ point of the item, so it does not become a sixth first-class component.
 - `docs/specs/gdk-api/frontend-gdk-api.md` §§3–7, §11
 - `docs/specs/manifest/bundle-format.md` §2 (the archive), `manifest-schema.md`
 - `docs/decisions/0006-game-trust-model-java-official-only.md`
+- `docs/specs/api-design/websocket.md`, `room-websocket.md`, `room-rest-api.md` (the round-trip driver
+  speaks them: login → `POST /api/rooms` → `POST …/participants {role}` → `TOGGLE_READY` /
+  `START_GAME` → `REQUEST_GAME_SYNC` / `SUBMIT_ACTION`)
 
 **Satisfies:** — *(no requirement. This item exists to prove the GDK contract is implementable by
 someone outside the platform team, which ADR-0006 makes the MVP's only game-supply mechanism.)*
@@ -3719,6 +3722,21 @@ dependency for that reason.
 Also (`IMP-GATE-71`): the bundle is placed in the directory `turnbase.seed.bundles-dir` names, as
 `<gameId>.zip` with a fixed UUID (`local-environment.md` §6) — the compose bind mount and the chart
 volume are this item's to add — and a clean `make reset-db` lists the game and it can be started.
+
+**Remaining:** (1) **The Game Host never heartbeats.** `RegistrationLifecycle` calls `Register` and
+stops (its Javadoc defers the heartbeat loop to "IMP-M3-04", which did not build it), so the
+`hostlease:` key expires after 15 s and `HostRegistry.selectHost` returns empty: `START_GAME` fails
+with `GAME_START_FAILED / NO_HOST_AVAILABLE`. Build the `Heartbeat` loop (and `ReportContexts`,
+`Deregister` on shutdown) per `game-host-internals.md` §11 in `turnbase-game-host`. (2) Then run
+`turnbase-game-tictactoe/scripts/e2e-roundtrip.mjs` against the compose stack (it is verified through
+login, create, join and `READINESS_CHANGED`; the remaining steps are unexercised) and fix what it
+finds. (3) One action as a single trace in Tempo (`docker-compose.observability.yml`). (4) `make
+reset-db` listing the game. (5) CI green in the game repo: `TURNBASE_SDK_PAT` must exist on it (human
+action); until the SDK is released the game pins `0.1.0-SNAPSHOT` (conventions §5 bootstrap
+exception) and "published SDK artifact" / "IMP-M4-03's real pipeline" are met only through the
+seeder, which runs the same upload pipeline. **Done so far:** repo + submodule, backend (11 tests),
+frontend (vitest ≥95%), bundle packaging accepted by the harness and the seeder on the running stack
+(`gdkApiVersion` must be `0.3.0`, the platform's only supported range), compose and Helm seed mounts.
 
 ---
 

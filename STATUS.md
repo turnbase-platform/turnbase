@@ -1,14 +1,17 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 109) — **`IMP-M6-05` DONE (61 of 63 done).**
+**Date:** 2026-09-30 (session 110) — **`IMP-M3-10` PARTIAL (60 of 63 done).**
 
-- `turnbase-frontend`: `features/game/` — `GameFrame` (iframe with `allow-scripts allow-same-origin`, `allow=""`, `no-referrer`; inbound check of exact `event.origin` + `event.source` + shape; outbound always to the exact game origin; ready-timeout banner; `SESSION_FAILED` banner), `GameRelay` (sync+ready gates, `(sequence, index)` dedup, no gap detection, translation table of `websocket.md`), `trustedGameOrigin`. `roomSocket` gained `attachGame` (subscribe → `REQUEST_GAME_SYNC`, redone on reconnect) and `submitGameAction`. 259 tests, lint/typecheck/build clean, CI green.
-- Registry: `IMP-M6-05` read-list gained `websocket.md` (game stream) — it named no document for the STOMP half.
-- **Not mounted yet:** `/rooms/:id` is still a `PlaceholderPage`, so `GameFrame` has no caller; the room page (VW-RGAME-002…008 panels) is owned by no remaining item's *Done when* — decide whether it needs a work item.
+- New repo `turnbase-game-tictactoe` (submodule; ADR-0012 and `CLAUDE.md` tables updated): Java backend against `turnbase-sdk` only (11 tests), TS frontend on the vendored `@turnbase/gdk` pack (vitest ≥95%), `scripts/package.sh` → `target/seed/<gameId>.zip`, `scripts/e2e-roundtrip.mjs`. `gdkApiVersion` must be `0.3.0`.
+- `turnbase-platform`: compose bind mount and Helm `platform.seed.bundlesHostPath` for `turnbase.seed.bundles-dir`. The seeder activated the real bundle on the running compose stack.
+- **Found:** the Game Host registers but never heartbeats, so its lease expires in 15 s and `START_GAME` fails with `NO_HOST_AVAILABLE`. Nothing owns the loop (`IMP-M3-04` deferred to itself). Owed first — see `IMP-M3-10`'s `**Remaining:**`.
+- Registry: `IMP-M3-10` read-list gained `websocket.md`, `room-websocket.md`, `room-rest-api.md`.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M3-10` is `PARTIAL` — continue it first.** Build the Game Host heartbeat/`ReportContexts`/`Deregister` loop, then run `e2e-roundtrip.mjs` and the Tempo check; `TURNBASE_SDK_PAT` on the game repo is a human action. No other item is `READY`.
 
 **`IMP-M6-05` is `DONE` (session 109).** Only `IMP-M3-10` (creates a sixth repo) is `READY`. Ignore older notes below.
 

@@ -30,12 +30,13 @@ All repos live under the `turnbase-platform` GitHub organisation (`github.com/tu
 | `turnbase-platform` | Platform Monolith (Spring Boot 3.5+) | Docker image |
 | `turnbase-game-host` | Game Host (GraalVM CE for JDK 21 + Truffle) | Docker image |
 | `turnbase-frontend` | Platform frontend (React 19, TypeScript) | Docker image / static assets |
+| `turnbase-game-tictactoe` | First official game — a **consumer** of the published GDK, not a platform component (`IMP-M3-10`; ADR-0006) | Game bundle (`<gameId>.zip`, `bundle-format.md` §2) |
 
 All repos are **private** during Phase 0. Visibility may be changed to public when the project is ready to showcase.
 
 ### Submodule policy
 
-All five component repos are registered as git submodules in `turnbase`. Cloning with `--recurse-submodules` pulls everything. Each component repo is independently usable without the root. Submodule refs in `turnbase` are updated only after the submodule's build and tests pass.
+All five component repos, and the first official game (a consumer, not a component), are registered as git submodules in `turnbase`. Cloning with `--recurse-submodules` pulls everything. Each component repo is independently usable without the root. Submodule refs in `turnbase` are updated only after the submodule's build and tests pass.
 
 ### No shared state between repos at the git level
 

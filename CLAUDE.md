@@ -62,6 +62,7 @@ TurnBase lives under the **[turnbase-platform](https://github.com/turnbase-platf
 | [`turnbase-platform`](https://github.com/turnbase-platform/turnbase-platform) | Platform Monolith (Spring Boot 3.5+) | Docker image |
 | [`turnbase-game-host`](https://github.com/turnbase-platform/turnbase-game-host) | Game Host (GraalVM CE for JDK 21 + Truffle) | Docker image |
 | [`turnbase-frontend`](https://github.com/turnbase-platform/turnbase-frontend) | Platform frontend (React 19, TypeScript) | Docker image / static assets |
+| [`turnbase-game-tictactoe`](https://github.com/turnbase-platform/turnbase-game-tictactoe) | First official game (`IMP-M3-10`) — a **consumer** of the published SDK, not a platform component | Game bundle (`<gameId>.zip`) |
 
 ```
 turnbase/                    # This repo (landing + docs)
@@ -80,7 +81,8 @@ turnbase/                    # This repo (landing + docs)
 ├── turnbase-sdk/            # git submodule
 ├── turnbase-platform/       # git submodule
 ├── turnbase-game-host/      # git submodule
-└── turnbase-frontend/       # git submodule
+├── turnbase-frontend/       # git submodule
+└── turnbase-game-tictactoe/ # git submodule — first official game (a consumer of the SDK)
 ```
 
 **Dependency graph:**

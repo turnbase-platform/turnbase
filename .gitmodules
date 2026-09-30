@@ -13,3 +13,6 @@
 [submodule "turnbase-frontend"]
 	path = turnbase-frontend
 	url = git@github.com:turnbase-platform/turnbase-frontend.git
+[submodule "turnbase-game-tictactoe"]
+	path = turnbase-game-tictactoe
+	url = git@github.com:turnbase-platform/turnbase-game-tictactoe.git
