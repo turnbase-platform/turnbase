@@ -1,14 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 112) — **`IMP-M3-10` still PARTIAL (60 of 63 done).**
+**Date:** 2026-09-30 (session 113) — **`IMP-M3-10` is `DONE` (61 of 63).**
 
-- `turnbase-platform`: `GAME_SYNC` handler on `game.{sessionId}.sync` (`GameSyncService` → Game Host `Resync`, retained `gamelog:` entries, init context from room state); `WebSocketTraceInterceptor` makes a `STOMP SEND` span from the `traceparent` frame header; Micrometer trace export moved to OTLP HTTP (`tempo:4318`, also Helm). `turnbase-game-host`: same endpoint fix, artifact cache re-fetches a jar left by a previous process.
-- `e2e-roundtrip.mjs` now passes end to end on compose (login → create → join → ready → start → sync → 5 turns → `GAME_OVER` → history) and sends `traceparent`; one trace in Tempo holds the platform `STOMP SEND` span and the Game Host `ProcessInput` spans.
-- Platform and Game Host CI green, refs bumped. Game repo CI red only on the missing `TURNBASE_SDK_PAT` secret (human action; `gh secret list` empty); its ref is bumped on a local pass.
+- `turnbase-platform`: `make reset-db` (stop clients → recreate `public` with grants/extensions → flush Redis → restart) and `make seed` (restart the monolith). Verified on the compose stack: after a reset the game is `ACTIVE` and `e2e-roundtrip.mjs` passes (create → join → start → 5 turns → outcome → history). Build job green; the informational `e2e` job was still running at wrap-up.
+- `TURNBASE_SDK_PAT` now exists on the game repo and its CI is green.
+- Not built (outside the clause): the browser frontend sends no `traceparent` on STOMP frames.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M3-10` is `DONE` (session 113).** No item is `PARTIAL`; check the registry for `READY` items. Ignore older notes below.
 
 **`IMP-M3-10` is `PARTIAL` — continue it first**, from its `**Remaining:**` line: build `make reset-db`/`make seed` so a clean reset lists the game. `TURNBASE_SDK_PAT` on the game repo is a human action (game CI red until then). No other item is `READY`. Ignore older notes below.
 
