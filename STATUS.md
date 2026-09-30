@@ -1,17 +1,21 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 100) — **`IMP-M5-02` DONE; 56 of 62.**
+**Date:** 2026-09-30 (session 101) — **`IMP-M5-04` DONE; 57 of 62.**
 
-- `GET /api/users/{username}/statistics` (`totalPlayed`, `mostPlayedGame`, zero-state `200` when hidden,
-  guest or erased) and `completedSessionCount` on game detail. Public-read exemptions in
-  `SessionAuthenticationInterceptor` and `RateLimitInterceptor` gained the `/statistics` suffix.
-- Counter writer unchanged (single writer from `IMP-M5-01`). Platform CI green.
-- Full `-Pintegration` run had two environmental failures (Redis container start, `GuestPurgeJobIT`);
-  both passed on rerun.
+- FR-JOB-002 `NotificationPurgeJob` (subjectless rows only, predicate = `notification_purge_idx`) and
+  FR-JOB-013 `ExpiredSubjectPurgeJob` (expired `friend_request`/`room_invitation`; the cascade removes
+  their notifications — the only path that does). Both in `notification/`, ShedLock-guarded, windows from
+  `turnbase.retention.*`.
+- FR-JOB-008(a): `JobsProperties.initialDelay` = max(interval, startup-suppression); applied to the new
+  jobs and to guest, room and upload-slot schedules (guest cleanup previously fired at boot).
+- Guest (FR-RET-002) and closed-room (FR-RET-006) purges already existed from earlier items.
+- Platform CI green; `NotificationPurgeJobsIT` added.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M5-04` is `DONE` (session 101).** `IMP-M6-06`, `IMP-M3-10`, `IMP-M3-11`, `IMP-M6-05` are `READY`.
 
 **`IMP-M5-02` is `DONE` (session 100).** `IMP-M5-04`, `IMP-M6-06`, `IMP-M3-10`, `IMP-M3-11`, `IMP-M6-05` are `READY`.
 

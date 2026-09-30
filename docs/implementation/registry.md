@@ -90,7 +90,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M5-01 | Game history recording and query API | platform | M3-09 | DONE |
 | IMP-M5-02 | Per-game statistics | platform | M5-01 | DONE |
 | IMP-M5-03 | Notifications and the SSE stream | platform | M1-06, M1-07 | DONE |
-| IMP-M5-04 | Retention purge jobs | platform | M5-01, M5-03 | WIP (session 101) |
+| IMP-M5-04 | Retention purge jobs | platform | M5-01, M5-03 | DONE |
 | **M6 — Platform frontend** ||||
 | IMP-M6-01 | Astryx integration and the `ui/` boundary | frontend | M0-05 | DONE |
 | IMP-M6-02 | Shell, routing and auth tiers | frontend, platform | M6-01 | DONE (session 75) |
