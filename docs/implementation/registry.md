@@ -78,7 +78,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05, M2-09 | DONE |
 | IMP-M3-09 | Game failure handling | platform, game-host | M3-07, M2-09 | DONE |
 | IMP-M3-10 | The first official game | sdk consumer | M3-03, M3-05 | READY |
-| IMP-M3-11 | GDK test harness | sdk | M3-01, M3-03, M3-13 | WIP (session 105) |
+| IMP-M3-11 | GDK test harness | sdk | M3-01, M3-03, M3-13 | PARTIAL |
 | IMP-M3-12 | FE GDK client (`@turnbase/gdk`) | sdk | M0-02 | DONE |
 | IMP-M3-13 | Shared bundle validator module | sdk, platform | M4-03, M3-03 | DONE |
 | **M4 — Catalog and upload** ||||
@@ -3791,13 +3791,22 @@ an unpacked bundle, zipped in memory — `test-harness.md` §8 now says so), cla
 `equals` round trip after `onInit` and every handler, strict/non-strict) hold, with tests. The E5
 `gdkApiVersion` check accepts any version and a warning says so (`test-harness.md` §7).
 
-**Remaining:** clause 1 (`maven-plugin` packaging with an `io.turnbase:turnbase-harness:run` goal that
-calls `PreLaunchCheck` → `GameLoader` → server; it must resolve from a game project with no Docker),
-clause 3 (two-origin HTTP server, bootstrap document, `window.__TURNBASE__` before the game's JS),
-clause 4 (mock Orchestration on the real STOMP protocol — read `websocket.md` first — with session,
-roster, sequence allocation, spectator-broadcast-only fan-out), clause 5's `harness.json` parameter
-overrides reaching the shell UI, clause 6 (CLI flags and debug panel for `action`/`player_joined`/
-`player_left`/`resync`; `LocalGame` already has the four handlers), clause 7 (log Markdown rendering).
+**Built (session 105):** the module is now `maven-plugin` packaging: `RunMojo` (`io.turnbase:turnbase-harness:run`,
+`-Dturnbase.harness.dir`/`.port`, no project model needed — verified from a bare directory through Maven,
+offline of Docker/Redis/DB) → `HarnessLauncher` (pre-launch check → `GameLoader` → `onInit` → server), also
+`HarnessMain`. `HarnessServer` (clause 3): JDK `HttpServer`, both origins on one port told apart by `Host`
+(`localhost` shell, `game.localhost` game, anything else 421); the game origin serves the §5 bootstrap with
+`window.__TURNBASE__` ahead of the entry-point script, `parentOrigin` fixed from the shell origin, and
+serves project files except `manifest.json`, `harness.json`, the backend JAR and anything outside the root.
+Clauses 1, 2, 3 (server side) and 8 hold, with tests (`LaunchTest`).
+
+**Remaining:** clause 4 (mock Orchestration on the real STOMP-over-WebSocket protocol — the JDK has no
+WebSocket server, so this needs a dependency or a hand-rolled RFC 6455 handler; plus the shell's
+STOMP↔`postMessage` relay, `GAME_SYNC`/`GAME_EVENT` envelopes with `sequence`/`index`, spectator-broadcast-
+only fan-out), clause 3's FE GDK injection (the shell is currently a bare iframe, no relay), clause 5's
+`harness.json` parameters/players reaching the shell UI, clause 6 (CLI flags and debug panel for
+`action`/`player_joined`/`player_left`/`resync`; `LocalGame` already has the four handlers), clause 7 (log
+Markdown rendering).
 
 ---
 

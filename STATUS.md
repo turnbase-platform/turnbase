@@ -1,22 +1,22 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 104) — **`IMP-M3-11` PARTIAL (still 58 of 63).**
+**Date:** 2026-09-30 (session 105) — **`IMP-M3-11` PARTIAL (still 58 of 63).**
 
-- `turnbase-sdk` gained a fourth module, `io.turnbase:turnbase-harness`: `PreLaunchCheck` (shared
-  validator over a project directory zipped in memory; fatal stops, warnings print, `failOnWarnings`),
-  `RosterSynthesizer` + `HarnessConfig` (`harness.json`), `GameLoader`/`LocalGame` (in-process game,
-  executing `equals` round trip after `onInit` and every handler, strict/non-strict). 10 tests; sdk CI green.
-- Decision recorded in `test-harness.md` §8: a project directory is an unpacked bundle.
-- Read-list gap repaired: clause 3/4 need `websocket.md` § Game Session Protocol, `frontend-gdk-api.md`
-  §8–§10 and `game-asset-serving.md` §5.
-- Owed (the item's `**Remaining:**` line): maven-plugin `run` goal, two-origin server + bootstrap, mock
-  Orchestration on STOMP, CLI/debug panel, log Markdown rendering.
+- `turnbase-harness` is now `maven-plugin` packaging: `mvn io.turnbase:turnbase-harness:run` (verified from a
+  bare project directory) → `HarnessLauncher`: shared validator, load, `onInit`, serve. `HarnessMain` does
+  the same without Maven.
+- `HarnessServer`: one port, two origins by `Host` (`localhost` shell, `game.localhost` game); the game
+  origin serves the `game-asset-serving.md` §5 bootstrap with `window.__TURNBASE__` before the entry script
+  and withholds manifest, `harness.json` and the backend JAR. 5 new tests; sdk CI green, ref bumped.
+- Owed (the item's `**Remaining:**` line): clause 4 mock Orchestration on real STOMP (needs a WebSocket
+  server — the JDK has none) plus the shell relay, FE GDK injection, debug panel/CLI (clause 6), log Markdown.
 
 ---
 
 ## Next Priorities
 
-**`IMP-M3-11` is `PARTIAL` — continue it before anything else** (see its `**Remaining:**` line).
+**`IMP-M3-11` is `PARTIAL` — continue it before anything else** (see its `**Remaining:**` line; start with the
+WebSocket/STOMP server choice for clause 4).
 
 **`IMP-M3-13` is `DONE` (session 103).** Do **`IMP-M3-11`** (GDK test harness) next — its dependency is
 now met. `IMP-M3-10`, `IMP-M6-06`, `IMP-M6-05` are also `READY`.
