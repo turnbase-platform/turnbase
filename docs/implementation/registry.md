@@ -72,7 +72,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | DONE |
 | IMP-M3-03 | GDK host bridge and serialization boundary | sdk, game-host | M3-01, M3-02 | DONE |
 | IMP-M3-04 | gRPC service implementation | game-host | M3-03 | DONE (session 89) |
-| IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | PARTIAL |
+| IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | WIP (session 93) |
 | IMP-M3-06 | Game input outbox and delivery | platform | M3-05 | READY |
 | IMP-M3-07 | Effect fan-out and spectator filtering | platform | M3-06 | READY |
 | IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05, M2-09 | READY |
