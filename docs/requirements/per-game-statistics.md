@@ -1,5 +1,9 @@
 # Per-Game Statistics Requirements
 
+## Related API Specifications
+
+- [statistics-rest-api.md](../specs/api-design/statistics-rest-api.md) — `completedSessionCount` on game detail and `GET /api/users/{username}/statistics` (implements FR-STATS-010…012, FR-STATS-020…027)
+
 ## Stakeholders
 
 | Role | Description |

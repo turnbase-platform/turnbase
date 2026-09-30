@@ -1,23 +1,18 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 98) — **`IMP-M5-01` is `DONE`; 55 of 62.**
+**Date:** 2026-09-30 (session 99) — **spec-defect only; `IMP-M5-02` stays `READY`; 55 of 62.**
 
-- **Recording:** `game.GameOutcomeRecorder` seam (implemented by `history.HistoryRecordingService`);
-  `GameInputService` reads the roster and `gamekey:` *before* detach and calls it for the first
-  `game_over`. One transaction: completion row `ON CONFLICT DO NOTHING`, counter `+1`, entries for
-  registered players only. Invalid outcomes (empty `teamResults`, placement outside `[1, n]`,
-  non-participant player, playing team missing) still count the session, write no entries, log ERROR
-  and bump `turnbase.history.invalid_outcome.total`. Recording failures are logged, never block detach.
-- **Read:** `GET /api/users/{username}/history` (`history` package) — privacy re-check (owner exempt,
-  private/HIDDEN/guest/erased → empty `200`), `search` (LIKE metacharacters escaped), pagination,
-  `outcomeLabel`, `gameLinkable`; the public-read exemption in `SessionAuthenticationInterceptor` and
-  `RateLimitInterceptor` gained the `/history` suffix.
-- Platform CI green on `0f12d40`. Local IT run: only environmental errors (MinIO container start; one
-  port-bind flake in `AccountDeletionControllerIT` that passes alone).
+- `IMP-GATE-90` opened and closed: `IMP-M5-02`'s FR-STATS-010…012 / 020…027 had no route or response
+  field anywhere. New `docs/specs/api-design/statistics-rest-api.md`: `completedSessionCount` on game
+  detail (also in `catalog-rest-api.md`) and `GET /api/users/{username}/statistics`
+  (`totalPlayed`, `mostPlayedGame`, zero-state `200` when hidden). Read-list of `IMP-M5-02` gained it.
+- No code changed. The counter's single writer already exists from `IMP-M5-01`.
 
 ---
 
 ## Next Priorities
+
+**`IMP-GATE-90` closed (session 99).** `IMP-M5-02` is `READY` — build the two reads from `statistics-rest-api.md`; the writer exists.
 
 **`IMP-M5-01` is `DONE` (session 98).** `IMP-M5-02`, `IMP-M5-04`, `IMP-M6-06`, `IMP-M3-10`, `IMP-M3-11`, `IMP-M6-05` are `READY`.
 

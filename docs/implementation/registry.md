@@ -88,7 +88,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M4-05 | Admin API — review queue and badges | platform | M4-03 | DONE (session 60) |
 | **M5 — History, statistics, notifications** ||||
 | IMP-M5-01 | Game history recording and query API | platform | M3-09 | DONE |
-| IMP-M5-02 | Per-game statistics | platform | M5-01 | WIP (session 99) |
+| IMP-M5-02 | Per-game statistics | platform | M5-01 | READY |
 | IMP-M5-03 | Notifications and the SSE stream | platform | M1-06, M1-07 | DONE |
 | IMP-M5-04 | Retention purge jobs | platform | M5-01, M5-03 | READY |
 | **M6 — Platform frontend** ||||
@@ -4140,8 +4140,18 @@ there is nothing left to retry from.
 
 **Read first:**
 - `docs/requirements/per-game-statistics.md` FR-STATS-001…004, FR-STATS-010…012, FR-STATS-020…027
+- `docs/specs/api-design/statistics-rest-api.md` (`IMP-GATE-90`) — the two read surfaces
 - `docs/specs/platform/data-model-history.md` §3 — *The per-game counter and its writer*
 - `docs/requirements/user-accounts.md` FR-GUEST-009, FR-ACCT-008
+
+**Closed:** IMP-GATE-90 (opened and closed 2026-09-30, session 99) — the item claims FR-STATS-010…012
+and FR-STATS-020…027, but no document defined a route or response field for either:
+`catalog-rest-api.md` §6 excluded per-game statistics from game detail, and `profile-rest-api.md` has
+no statistics content. `IMP-M5-01` already shipped the single counter writer, so what is left is
+the two reads. Fixed: new `statistics-rest-api.md` — `completedSessionCount` on `GET
+/api/games/{gameId}` (also added to `catalog-rest-api.md` §4/§6) and `GET
+/api/users/{username}/statistics` (`totalPlayed`, `mostPlayedGame`), privacy-resolved like `/history`
+with a zero-state `200`. Registered in `api-design/INDEX.md` and `per-game-statistics.md`.
 
 **Satisfies:** `per-game-statistics.md` FR-STATS-001…004, FR-STATS-010…012, FR-STATS-020…027,
 NFR-STATS-001…003; `user-accounts.md` FR-GUEST-009, FR-ACCT-008

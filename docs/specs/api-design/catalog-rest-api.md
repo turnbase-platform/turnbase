@@ -167,6 +167,7 @@ rest of §2's predicate for this caller → `404`.
   "version": "1.0.0",
   "badge": "OFFICIAL",
   "activePlayerCount": 4,
+  "completedSessionCount": 1284,
   "createdAt": "2026-08-01T10:00:00Z",
   "updatedAt": "2026-09-01T10:00:00Z"
 }
@@ -186,6 +187,9 @@ participant in grace still counts — `left_at IS NULL` is the same "still holds
 room lifecycle spec uses elsewhere, and a player who stepped away for a few seconds has not stopped
 being in the room. It is computed once per request (NFR-PERF-002 — "no real-time update mechanism is
 required"), never pushed.
+
+`completedSessionCount` (FR-STATS-010, FR-STATS-012) is `game.completed_session_count`, read live from
+the row this endpoint already loads; see `statistics-rest-api.md` §1.
 
 `tags` is the full `game_tag` projection for this game, ordered by insertion is not guaranteed —
 returned alphabetically for a stable response.
@@ -216,8 +220,9 @@ principal rather than enforced as a precondition.
   some future item picks it up.
 - **`owner` (§3) lists, it does not manage.** FR-UPROF-002's per-game edit/delist/publish/delete
   actions are mutation, covered by the first bullet above, not by this filter.
-- **No per-game statistics beyond `activePlayerCount`** — `per-game-statistics.md` is explicitly out of
-  scope for `game-catalog.md` (*Out of Scope*).
+- **No per-game statistics beyond `activePlayerCount` and `completedSessionCount`** — the latter is
+  specified in `statistics-rest-api.md` §1; nothing else per-game is exposed (`per-game-statistics.md`
+  *Out of Scope*).
 
 ## 7. Requirements traceability
 
