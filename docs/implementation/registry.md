@@ -73,7 +73,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-03 | GDK host bridge and serialization boundary | sdk, game-host | M3-01, M3-02 | DONE |
 | IMP-M3-04 | gRPC service implementation | game-host | M3-03 | DONE (session 89) |
 | IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | DONE (session 93) |
-| IMP-M3-06 | Game input outbox and delivery | platform | M3-05 | WIP (session 94) |
+| IMP-M3-06 | Game input outbox and delivery | platform | M3-05 | DONE |
 | IMP-M3-07 | Effect fan-out and spectator filtering | platform | M3-06 | READY |
 | IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05, M2-09 | READY |
 | IMP-M3-09 | Game failure handling | platform, game-host | M3-07, M2-09 | READY |
@@ -3553,6 +3553,15 @@ the outbox calls it; this item is its second caller.
 **Done when:** the outbox drain is **not** ownership-partitioned — it is a gRPC call needing no
 ownership, and partitioning it leaves an unowned room's `player_left` undelivered, with the game
 sitting on a turn that never comes.
+
+**Built (session 94):** the drain (`GraceDeadlineSweepJob` duty 4, `GameInputDispatcherImpl`) already
+existed from `IMP-M2-09`/`IMP-M3-05` and is not ownership-partitioned; this item added
+`GameActionController` (`/app/game.{sessionId}.action`: handler-level admission read from durable room
+state, the `PlayerRef` built server-side, `NOT_MEMBER` / `ROLE_NOT_ELIGIBLE` per `room-websocket.md`)
+and `GameInputService.submitAction`, which serialises allocate-plus-dispatch per session — without it
+two concurrent actions could reach the Game Host as 44, 43 and the first would be dropped as a replay.
+A non-`DELIVERED` outcome is only logged; telling the player is `IMP-M3-09`. The channel-level
+fast-fail (`game.*` `SubscriptionAuthorizer`) is `IMP-M3-07`'s, with the subscriptions it guards.
 
 ---
 

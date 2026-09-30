@@ -744,6 +744,12 @@ errors use the envelope above, and REST errors use [error-handling.md](error-han
 | `ACTION_TOO_LARGE` | **Game session.** A `/app/game.*.action` frame exceeds the 256 KB `setMessageSizeLimit` cap ([websocket.md](websocket.md) § *Client→server command catalogue*). Rejected at admission; the game never sees it |
 | `ACTION_REJECTED` | **Game session.** An admitted action failed *inside* the game handler — threw, timed out in-context, or produced malformed output (`PROCESS_STATUS_FAILED`). Carries `correlationId` and the failure **kind**, never the failure message, which is text from untrusted game code ([websocket.md](websocket.md)) |
 
+**Game-session admission reuses two room codes** (`websocket.md` § `SUBMIT_ACTION`, `IMP-M3-06`): a
+`SUBMIT_ACTION` from someone who is not a current participant of the session — or for a session that
+is unknown, ended or not In Progress, which the sender is not told apart from the first — draws
+`NOT_MEMBER`; one from a spectator draws `ROLE_NOT_ELIGIBLE`. The frame carries `sessionId` where a
+room error carries `roomId`.
+
 The last two are the only codes here that a room client never sees. They are listed anyway because
 the point of a registry is that the enum is complete — and they are the two that were previously
 stated in prose only, with no table entry anywhere.

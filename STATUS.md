@@ -1,21 +1,24 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 93) — **`IMP-M3-05` is `DONE`; 50 of 62.**
+**Date:** 2026-09-30 (session 94) — **`IMP-M3-06` is `DONE`; 51 of 62.**
 
-- **Register check landed and green in CI:** `turnbase-platform/deploy/compose/e2e-smoke.sh` now fails
-  unless a Game Host is in Redis's `hosts` set within 60 s of the monolith becoming ready (locally 27 s
-  from a cold `up`; the budget starts at `up --wait` returning, since a first attempt that started at
-  `compose up` failed on a cold CI runner by counting image builds).
-- **`IMP-GATE-89` (opened and closed) moved what was still owed to the items that own it**, because
-  none of it could be built inside `IMP-M3-05`: the one-trace-in-Tempo check → `IMP-M3-10` (needs a
-  game a Game Host can run; it now depends on `IMP-M3-05`); `/app/game.*.action` handler →
-  `IMP-M3-06`; `ACTION_REJECTED` and retry-limit notice → `IMP-M3-09`; host reassignment on
-  `UNAVAILABLE` (needs a game key in Redis) → `IMP-M3-08`.
-- Session 92's dispatch work (`GameInputService`, `GameInputDispatcher`) stands as in `registry.md`.
+- **`GameActionController`** (`turnbase-platform`, `room` package) admits `SUBMIT_ACTION` on
+  `/app/game.{sessionId}.action`: the sender must be a current player of the room whose active session
+  it is; identity comes from durable state, never the payload. Failures are `NOT_MEMBER` /
+  `ROLE_NOT_ELIGIBLE` (`room-websocket.md` now says so).
+- **`GameInputService.submitAction`** serialises sequence allocation and dispatch per session, so
+  concurrent actions cannot reach the Game Host out of order (the host would drop the late one as a
+  replay). Tested with 40 concurrent submits against a fake host.
+- The outbox drain was already unpartitioned by ownership; no change needed.
+- Local `CatalogControllerIT` / `RoomReconnectIT` failed on Testcontainers (Ryuk/redis startup) both
+  with and without this change; the other 254 ITs passed. CI is the arbiter.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M3-06` is `DONE` (session 94).** `IMP-M3-07` (effect fan-out; also owns the `game.*`
+subscription authorizer) is next; `IMP-M3-08`, `IMP-M3-10`, `IMP-M3-11` are also `READY`.
 
 **`IMP-M3-05` is `DONE` (session 93).** `IMP-M3-06` (input outbox and the `GAME_ACTION` admission
 handler) and `IMP-M3-08` are now `READY`; `IMP-M3-10` (first official game) also carries the Tempo
