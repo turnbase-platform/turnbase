@@ -97,7 +97,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M6-02 | Shell, routing and auth tiers | frontend, platform | M6-01 | DONE (session 75) |
 | IMP-M6-03 | Account and profile views | frontend | M6-02, M1-07, M1-11 | DONE |
 | IMP-M6-04 | Room views and the STOMP client | frontend | M6-02, M2-08 | DONE |
-| IMP-M6-05 | Game iframe host and postMessage relay | frontend | M6-04, M3-07 | READY |
+| IMP-M6-05 | Game iframe host and postMessage relay | frontend | M6-04, M3-07 | WIP (session 109) |
 | IMP-M6-06 | Catalog and history views | frontend | M6-02, M4-01, M5-01 | DONE (session 108) |
 | ~~IMP-M6-07~~ | ~~Onboarding wizard~~ | frontend | — | CANCELLED |
 
