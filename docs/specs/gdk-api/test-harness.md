@@ -214,6 +214,11 @@ validation failure the harness structurally cannot pre-empt.
 | `strictSerialization` | `true` | Fail the run on a round-trip mismatch rather than warn |
 | `failOnWarnings` | `false` | Treat validator warnings as fatal, for CI |
 
+**A project directory is an unpacked bundle** (decided in `IMP-M3-11`, session 104): `manifest.json` at
+its root plus every path the manifest declares — `backend.path` already built, `frontend.entryPoint`
+already bundled. The harness zips it in memory and hands it to the shared validator, so what it checks is
+byte-for-byte what upload would receive. `harness.json` is not part of the bundle and is left out.
+
 `failOnWarnings` is what makes the harness usable as a game developer's own CI step, which is the
 posture the platform would like third-party games to arrive in.
 

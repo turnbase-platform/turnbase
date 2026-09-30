@@ -1,19 +1,22 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 103) — **`IMP-M3-13` DONE (58 of 63).**
+**Date:** 2026-09-30 (session 104) — **`IMP-M3-11` PARTIAL (still 58 of 63).**
 
-- `turnbase-sdk` gained a third module, `io.turnbase:turnbase-bundle-validator` (reader, manifest
-  validation, backend JAR + state serializability analysis behind `BundleValidator.validate`,
-  framework-free `Finding`s). Own committed `manifest.schema.json`; `sync-manifest-schema.sh` and the
-  pre-push hook now target it. SDK CI green.
-- `turnbase-platform` consumes it (`<turnbase-sdk.version>` pin, CI bootstrap-installs the sdk with
-  `TURNBASE_SDK_PAT`, confirmed present); its `upload` package keeps wiring/persistence/orchestration.
-  Moved classes' tests moved too; 625 tests green locally, platform CI (build + e2e) green.
-- Details and decisions: the item's *Built* note in `registry.md`.
+- `turnbase-sdk` gained a fourth module, `io.turnbase:turnbase-harness`: `PreLaunchCheck` (shared
+  validator over a project directory zipped in memory; fatal stops, warnings print, `failOnWarnings`),
+  `RosterSynthesizer` + `HarnessConfig` (`harness.json`), `GameLoader`/`LocalGame` (in-process game,
+  executing `equals` round trip after `onInit` and every handler, strict/non-strict). 10 tests; sdk CI green.
+- Decision recorded in `test-harness.md` §8: a project directory is an unpacked bundle.
+- Read-list gap repaired: clause 3/4 need `websocket.md` § Game Session Protocol, `frontend-gdk-api.md`
+  §8–§10 and `game-asset-serving.md` §5.
+- Owed (the item's `**Remaining:**` line): maven-plugin `run` goal, two-origin server + bootstrap, mock
+  Orchestration on STOMP, CLI/debug panel, log Markdown rendering.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M3-11` is `PARTIAL` — continue it before anything else** (see its `**Remaining:**` line).
 
 **`IMP-M3-13` is `DONE` (session 103).** Do **`IMP-M3-11`** (GDK test harness) next — its dependency is
 now met. `IMP-M3-10`, `IMP-M6-06`, `IMP-M6-05` are also `READY`.

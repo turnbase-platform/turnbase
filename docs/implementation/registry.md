@@ -78,7 +78,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05, M2-09 | DONE |
 | IMP-M3-09 | Game failure handling | platform, game-host | M3-07, M2-09 | DONE |
 | IMP-M3-10 | The first official game | sdk consumer | M3-03, M3-05 | READY |
-| IMP-M3-11 | GDK test harness | sdk | M3-01, M3-03, M3-13 | WIP (session 104) |
+| IMP-M3-11 | GDK test harness | sdk | M3-01, M3-03, M3-13 | PARTIAL |
 | IMP-M3-12 | FE GDK client (`@turnbase/gdk`) | sdk | M0-02 | DONE |
 | IMP-M3-13 | Shared bundle validator module | sdk, platform | M4-03, M3-03 | DONE |
 | **M4 — Catalog and upload** ||||
@@ -3740,6 +3740,10 @@ artifact shared with the upload pipeline, but the pipeline's validator existed o
   list previously named neither)
 - `docs/requirements/game-development-experience.md` FR-HARNESS-001…008, FR-HARNESS-010,
   NFR-UPLOAD-002
+- `docs/specs/api-design/websocket.md` § Game Session Protocol, `docs/specs/gdk-api/frontend-gdk-api.md`
+  §8–§10 and `docs/specs/game-frontend/game-asset-serving.md` §5 — the wire clause 4 must speak and the
+  bootstrap clause 3 must populate (added by session 104: `game-contracts.md` says only that the
+  client-facing wire is defined elsewhere, and names neither)
 
 **Satisfies:** `game-development-experience.md` FR-HARNESS-001…008, FR-HARNESS-010
 
@@ -3779,6 +3783,21 @@ rows.
    (serialize, deserialize, compare) using the same `ObjectMapper` configuration as the GDK Host;
    `strictSerialization: true` (the default) fails the run on a mismatch, `false` warns and continues
    (FR-HARNESS-010).
+
+**Built (session 104):** module `harness` (`io.turnbase:turnbase-harness`, `io.turnbase.harness`),
+plain jar for now. Clause 2 (`PreLaunchCheck`, over the shared `BundleValidator`; a project directory is
+an unpacked bundle, zipped in memory — `test-harness.md` §8 now says so), clause 5's roster half
+(`RosterSynthesizer`, `HarnessConfig` for `harness.json`) and clause 8 (`LocalGame`: in-process game,
+`equals` round trip after `onInit` and every handler, strict/non-strict) hold, with tests. The E5
+`gdkApiVersion` check accepts any version and a warning says so (`test-harness.md` §7).
+
+**Remaining:** clause 1 (`maven-plugin` packaging with an `io.turnbase:turnbase-harness:run` goal that
+calls `PreLaunchCheck` → `GameLoader` → server; it must resolve from a game project with no Docker),
+clause 3 (two-origin HTTP server, bootstrap document, `window.__TURNBASE__` before the game's JS),
+clause 4 (mock Orchestration on the real STOMP protocol — read `websocket.md` first — with session,
+roster, sequence allocation, spectator-broadcast-only fan-out), clause 5's `harness.json` parameter
+overrides reaching the shell UI, clause 6 (CLI flags and debug panel for `action`/`player_joined`/
+`player_left`/`resync`; `LocalGame` already has the four handlers), clause 7 (log Markdown rendering).
 
 ---
 
