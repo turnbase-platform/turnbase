@@ -1,13 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 108) — **`IMP-M6-06` DONE (60 of 63 done).**
+**Date:** 2026-09-30 (session 109) — **`IMP-M6-05` DONE (61 of 63 done).**
 
-- `turnbase-frontend`: notifications panel — `NotificationBell` opens an Astryx `Popover` holding `NotificationPanel` (list from `GET /api/notifications`, not marked read on open; Accept/Decline on room-invite and friend-request rows; mark read, mark all read, dismiss; load-more paging; payloads rendered as text). 231 tests, lint/typecheck clean, CI green.
-- `IMP-GATE-92` opened and closed: `FRIEND_REQUEST` payload was unspecified and carries no request id. `notification-rest-api.md` §2 now documents the payload shapes and that the client resolves the id from `GET /api/friend-requests` (INCOMING, matching username). `IMP-M6-06` *Done when* gained the panel clause; `**Remaining:**` removed.
+- `turnbase-frontend`: `features/game/` — `GameFrame` (iframe with `allow-scripts allow-same-origin`, `allow=""`, `no-referrer`; inbound check of exact `event.origin` + `event.source` + shape; outbound always to the exact game origin; ready-timeout banner; `SESSION_FAILED` banner), `GameRelay` (sync+ready gates, `(sequence, index)` dedup, no gap detection, translation table of `websocket.md`), `trustedGameOrigin`. `roomSocket` gained `attachGame` (subscribe → `REQUEST_GAME_SYNC`, redone on reconnect) and `submitGameAction`. 259 tests, lint/typecheck/build clean, CI green.
+- Registry: `IMP-M6-05` read-list gained `websocket.md` (game stream) — it named no document for the STOMP half.
+- **Not mounted yet:** `/rooms/:id` is still a `PlaceholderPage`, so `GameFrame` has no caller; the room page (VW-RGAME-002…008 panels) is owned by no remaining item's *Done when* — decide whether it needs a work item.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M6-05` is `DONE` (session 109).** Only `IMP-M3-10` (creates a sixth repo) is `READY`. Ignore older notes below.
 
 **`IMP-M6-06` is `DONE` (session 108).** No item is `PARTIAL`; `IMP-M3-10` (creates a sixth repo) and `IMP-M6-05` are `READY`.
 
