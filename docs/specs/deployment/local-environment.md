@@ -30,7 +30,7 @@ operating it is a stated learning goal. The observability set is wired in
 | Prometheus | `prom/prometheus` | `9090` | — |
 | Grafana | `grafana/grafana` | `3000` | Prometheus, Loki, Tempo |
 | Loki | `grafana/loki` | `3100` | — |
-| Tempo | `grafana/tempo` | `4317` OTLP gRPC, `3200` HTTP | — |
+| Tempo | `grafana/tempo` | `4317` OTLP gRPC, `4318` OTLP HTTP, `3200` HTTP | — |
 | Promtail | `grafana/promtail` | — | Loki. Tails the container log directory (`observability.md` §3) |
 | Alertmanager | `prom/alertmanager` | `9093` | — |
 
@@ -619,7 +619,7 @@ the Game Host does not read them.
 | `management.server.port` | `8081` | `MANAGEMENT_SERVER_PORT` |
 | `management.server.address` | **unset**, both profiles (§1 — compose restricts by publishing the port to `127.0.0.1` on the host, not by the app's own bind address) | `MANAGEMENT_SERVER_ADDRESS` |
 | `logging.level.root` | `INFO` | `LOGGING_LEVEL_ROOT` |
-| `management.otlp.tracing.endpoint` | `http://tempo:4317` | `MANAGEMENT_OTLP_TRACING_ENDPOINT` |
+| `management.otlp.tracing.endpoint` | `http://tempo:4318/v1/traces` (OTLP/HTTP — Micrometer's exporter cannot speak gRPC, so it must not be pointed at `4317`) | `MANAGEMENT_OTLP_TRACING_ENDPOINT` |
 | `management.tracing.sampling.probability` | `0.1` | `MANAGEMENT_TRACING_SAMPLING_PROBABILITY` |
 | `spring.profiles.active` | `local` | `SPRING_PROFILES_ACTIVE` |
 

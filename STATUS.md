@@ -1,16 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 111) — **`IMP-M3-10` still PARTIAL (60 of 63 done).**
+**Date:** 2026-09-30 (session 112) — **`IMP-M3-10` still PARTIAL (60 of 63 done).**
 
-- `turnbase-game-host`: `HostLivenessLoop` (Register → Heartbeat stream → ReportContexts → Deregister, re-register on `NOT_FOUND`); the `guest-bridge` shaded jar was missing the bridge classes (fixed in `pom.xml`, `GuestBridgeJarIT`); artifact-cache dir writable in the image. `turnbase-platform`: logs the cause of a failed session creation.
-- On the compose stack the round trip now reaches `GAME_STARTED`. **Found (`IMP-GATE-93`, closed):** nothing built the platform's `REQUEST_GAME_SYNC` handler; it is now owed by `IMP-M3-10` (Remaining 1).
-- Also found: span export to `tempo:4317` fails with `Connection reset` in both services (Remaining 3).
+- `turnbase-platform`: `GAME_SYNC` handler on `game.{sessionId}.sync` (`GameSyncService` → Game Host `Resync`, retained `gamelog:` entries, init context from room state); `WebSocketTraceInterceptor` makes a `STOMP SEND` span from the `traceparent` frame header; Micrometer trace export moved to OTLP HTTP (`tempo:4318`, also Helm). `turnbase-game-host`: same endpoint fix, artifact cache re-fetches a jar left by a previous process.
+- `e2e-roundtrip.mjs` now passes end to end on compose (login → create → join → ready → start → sync → 5 turns → `GAME_OVER` → history) and sends `traceparent`; one trace in Tempo holds the platform `STOMP SEND` span and the Game Host `ProcessInput` spans.
+- Platform and Game Host CI green, refs bumped. Game repo CI red only on the missing `TURNBASE_SDK_PAT` secret (human action; `gh secret list` empty); its ref is bumped on a local pass.
 
 ---
 
 ## Next Priorities
 
-**`IMP-M3-10` is `PARTIAL` — continue it first**, from its `**Remaining:**` line: build the platform's `REQUEST_GAME_SYNC` handler (`IMP-GATE-93`, closed), then rerun `e2e-roundtrip.mjs`, fix the Tempo export, `make reset-db`. `TURNBASE_SDK_PAT` on the game repo is a human action. No other item is `READY`. Ignore older notes below.
+**`IMP-M3-10` is `PARTIAL` — continue it first**, from its `**Remaining:**` line: build `make reset-db`/`make seed` so a clean reset lists the game. `TURNBASE_SDK_PAT` on the game repo is a human action (game CI red until then). No other item is `READY`. Ignore older notes below.
 
 **`IMP-M3-10` is `PARTIAL` — continue it first.** Build the Game Host heartbeat/`ReportContexts`/`Deregister` loop, then run `e2e-roundtrip.mjs` and the Tempo check; `TURNBASE_SDK_PAT` on the game repo is a human action. No other item is `READY`.
 
