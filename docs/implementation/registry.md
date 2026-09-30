@@ -78,7 +78,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05, M2-09 | DONE |
 | IMP-M3-09 | Game failure handling | platform, game-host | M3-07, M2-09 | DONE |
 | IMP-M3-10 | The first official game | sdk consumer | M3-03, M3-05 | READY |
-| IMP-M3-11 | GDK test harness | sdk | M3-01, M3-03, M3-13 | WIP (session 106) |
+| IMP-M3-11 | GDK test harness | sdk | M3-01, M3-03, M3-13 | DONE |
 | IMP-M3-12 | FE GDK client (`@turnbase/gdk`) | sdk | M0-02 | DONE |
 | IMP-M3-13 | Shared bundle validator module | sdk, platform | M4-03, M3-03 | DONE |
 | **M4 — Catalog and upload** ||||
@@ -3800,13 +3800,7 @@ offline of Docker/Redis/DB) → `HarnessLauncher` (pre-launch check → `GameLoa
 serves project files except `manifest.json`, `harness.json`, the backend JAR and anything outside the root.
 Clauses 1, 2, 3 (server side) and 8 hold, with tests (`LaunchTest`).
 
-**Remaining:** clause 4 (mock Orchestration on the real STOMP-over-WebSocket protocol — the JDK has no
-WebSocket server, so this needs a dependency or a hand-rolled RFC 6455 handler; plus the shell's
-STOMP↔`postMessage` relay, `GAME_SYNC`/`GAME_EVENT` envelopes with `sequence`/`index`, spectator-broadcast-
-only fan-out), clause 3's FE GDK injection (the shell is currently a bare iframe, no relay), clause 5's
-`harness.json` parameters/players reaching the shell UI, clause 6 (CLI flags and debug panel for
-`action`/`player_joined`/`player_left`/`resync`; `LocalGame` already has the four handlers), clause 7 (log
-Markdown rendering).
+**Built (session 106):** clauses 3–7 complete. `MockOrchestration` speaks the real STOMP-over-WebSocket game session protocol (`websocket.md`): sync flow with `asOfSequence`, `GAME_EVENT`/`GAME_LOG`/`GAME_OVER`/`GAME_PLAYER_JOINED|LEFT` with `sequence`/`index` (lifecycle at `index: -1`), effect-address validation, spectator = broadcast only, identity from the connection. Transport is a hand-rolled RFC 6455 endpoint (`WebSocketServer`, own loopback port, `Origin` must be the shell). The shell (`shell.js`) relays STOMP↔`postMessage` with both halves of the origin check, renders the log through a locked-down Markdown subset, and has the roster/parameters/debug panel; `DebugCommand` is one shape for panel POST, `harness.json` scenario and CLI flags (`--player --action|--join|--leave|--resync`, or `-Dturnbase.harness.*`). `@turnbase/gdk` is injected by import map from the built `dist/index.js` bundled into the harness jar (`publish.yml` now runs the npm build first). Verified in a real browser. **Not built, outside *Done when*:** log colour annotations (syntax is `game-contracts.md` OQ-001), the CSP would-have-blocked report and audit-hook warnings of `test-harness.md` §2–§3, `game-development-experience.md` FR-HARNESS-008.
 
 ---
 

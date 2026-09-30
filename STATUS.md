@@ -1,19 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 105) — **`IMP-M3-11` PARTIAL (still 58 of 63).**
+**Date:** 2026-09-30 (session 106) — **`IMP-M3-11` DONE (59 of 63).**
 
-- `turnbase-harness` is now `maven-plugin` packaging: `mvn io.turnbase:turnbase-harness:run` (verified from a
-  bare project directory) → `HarnessLauncher`: shared validator, load, `onInit`, serve. `HarnessMain` does
-  the same without Maven.
-- `HarnessServer`: one port, two origins by `Host` (`localhost` shell, `game.localhost` game); the game
-  origin serves the `game-asset-serving.md` §5 bootstrap with `window.__TURNBASE__` before the entry script
-  and withholds manifest, `harness.json` and the backend JAR. 5 new tests; sdk CI green, ref bumped.
-- Owed (the item's `**Remaining:**` line): clause 4 mock Orchestration on real STOMP (needs a WebSocket
-  server — the JDK has none) plus the shell relay, FE GDK injection, debug panel/CLI (clause 6), log Markdown.
+- Clause 4: `MockOrchestration` speaks the real STOMP-over-WebSocket game session protocol (sync/`asOfSequence`, `sequence`/`index`, effect-address validation, spectator broadcast-only) over a hand-rolled RFC 6455 endpoint; the shell relays STOMP↔`postMessage`.
+- Clauses 3, 5–7: FE GDK injected by import map (built `dist/index.js` bundled into the jar; `publish.yml` runs the npm build first), roster/parameters/debug panel, `DebugCommand` for panel/scenario/CLI, locked-down log Markdown. Checked in a real browser; sdk CI green, ref bumped.
+- Left out, not in *Done when*: log colour annotations (`game-contracts.md` OQ-001), CSP report / audit-hook warnings, FR-HARNESS-008.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M3-11` is `DONE` (session 106).** `IMP-M3-10`, `IMP-M6-06`, `IMP-M6-05` are `READY`.
 
 **`IMP-M3-11` is `PARTIAL` — continue it before anything else** (see its `**Remaining:**` line; start with the
 WebSocket/STOMP server choice for clause 4).

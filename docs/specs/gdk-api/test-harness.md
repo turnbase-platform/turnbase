@@ -124,6 +124,8 @@ only — because `websocket.md` OQ-002 records the exact failure this catches: a
 returns an empty spectator view leaves spectators looking at a blank screen until the next broadcast,
 and no player ever notices. The harness warns when a resync returns an empty view for any viewer.
 
+**As built** (`IMP-M3-11`, session 106): the WebSocket endpoint is its own loopback port, announced to the shell page, and accepts a handshake only from the shell's origin — the game origin cannot open a player's connection. A tab is `/?player=<name>` (the spectator is `spectator`). The debug panel and the CLI share one input shape: `{"player":…, "action":{…} | "join":true | "leave":"left|kicked|grace_expired" | "resync":true}` — POSTed to `/__harness/debug` (custom header required, shell origin only), listed under `harness.json`'s `scenario`, or given as `--player NAME --action JSON|--join|--leave [REASON]|--resync` (`-Dturnbase.harness.player|action|join|leave|resync` under Maven), applied once the server is up. A forced resync runs `onResync` (warning on an empty view) and reloads that viewer's iframe, which takes the ordinary sync path. Log colour annotations are not rendered: their syntax is open (`game-contracts.md` OQ-001).
+
 ---
 
 ## 5. Lifecycle coverage
