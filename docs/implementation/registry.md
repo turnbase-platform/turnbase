@@ -80,7 +80,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-10 | The first official game | sdk consumer | M3-03, M3-05 | READY |
 | IMP-M3-11 | GDK test harness | sdk | M3-01, M3-03, M3-13 | READY |
 | IMP-M3-12 | FE GDK client (`@turnbase/gdk`) | sdk | M0-02 | DONE |
-| IMP-M3-13 | Shared bundle validator module | sdk, platform | M4-03, M3-03 | READY |
+| IMP-M3-13 | Shared bundle validator module | sdk, platform | M4-03, M3-03 | WIP (session 103) |
 | **M4 — Catalog and upload** ||||
 | IMP-M4-01 | Catalog listing and game detail | platform | M1-01 | DONE (session 61) |
 | IMP-M4-02 | Manifest schema validation | platform | M0-06 | DONE |
