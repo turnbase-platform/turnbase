@@ -416,12 +416,14 @@ v1 on one classpath, because both consumers will run them side by side through a
 `manifest.schema.json` is authoritative in [`../specs/manifest/`](../specs/manifest/) —
 `manifest-schema.md` calls it "the contract consumed by both the platform upload validator and the
 local test harness ... so the two cannot drift," which is exactly the proto's problem restated for a
-JSON Schema file. `turnbase-platform` (and `turnbase-sdk`, whose `turnbase-bundle-validator` module — `IMP-M3-13`, IMP-GATE-91 — the harness reuses) each
-hold a **committed copy**, not a path read out of the superproject checkout, for the identical reason:
-each repository's CI checks out that repository alone.
+JSON Schema file. Since `IMP-M3-13` (IMP-GATE-91) the upload validator and the harness are one
+component, `turnbase-sdk`'s `io.turnbase:turnbase-bundle-validator`, so there is **one committed
+copy**, in that module — not a path read out of the superproject checkout, for the identical
+reason: each repository's CI checks out that repository alone. `turnbase-platform` consumes the
+module (pinned per this section) and holds no copy.
 
 ```
-turnbase-platform/src/main/resources/manifest/manifest.schema.json
+turnbase-sdk/bundle-validator/src/main/resources/manifest/manifest.schema.json
 ```
 
 ```bash
@@ -429,12 +431,8 @@ scripts/sync-manifest-schema.sh            # refresh the copy from the authorita
 scripts/sync-manifest-schema.sh --check    # fail if a copy that exists has drifted
 ```
 
-Same drift risk as the proto, same fix. The one difference from `sync-proto.sh`: the copy does not
-exist yet anywhere (no item has created it), so `--check` treats a **missing** copy as nothing to
-verify yet, not as drift — it is not wired into the parent's pre-push hook until the item that first
-creates a copy (`IMP-M4-02` for `turnbase-platform`) adds that wiring alongside it, the same way the
-proto's own pre-push entry was added together with its first committed copy rather than before it.
-Editing a copy directly, once one exists, is a defect exactly as it is for the proto.
+Same drift risk as the proto, same fix, and the same pre-push wiring (skipped when `turnbase-sdk`
+is not checked out). Editing the copy directly is a defect exactly as it is for the proto.
 
 ---
 

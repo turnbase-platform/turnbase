@@ -25,14 +25,13 @@ else
   echo "pre-push: proto copy — skipped, turnbase-common not checked out"
 fi
 
-# Same drift guard, same reason, for the manifest schema (IMP-M4-02, conventions.md §5).
-# sync-manifest-schema.sh --check treats a missing copy as nothing to verify yet, so this is
-# safe to run unconditionally once turnbase-platform is checked out at all.
-if [[ -e turnbase-platform/.git ]]; then
+# Same drift guard, same reason, for the manifest schema (conventions.md §5). The one copy
+# lives in turnbase-sdk's bundle-validator module (IMP-M3-13).
+if [[ -e turnbase-sdk/.git ]]; then
   echo "pre-push: manifest schema copy"
   scripts/sync-manifest-schema.sh --check || fail=1
 else
-  echo "pre-push: manifest schema copy — skipped, turnbase-platform not checked out"
+  echo "pre-push: manifest schema copy — skipped, turnbase-sdk not checked out"
 fi
 
 exit $fail

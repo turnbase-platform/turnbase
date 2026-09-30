@@ -80,7 +80,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-10 | The first official game | sdk consumer | M3-03, M3-05 | READY |
 | IMP-M3-11 | GDK test harness | sdk | M3-01, M3-03, M3-13 | READY |
 | IMP-M3-12 | FE GDK client (`@turnbase/gdk`) | sdk | M0-02 | DONE |
-| IMP-M3-13 | Shared bundle validator module | sdk, platform | M4-03, M3-03 | WIP (session 103) |
+| IMP-M3-13 | Shared bundle validator module | sdk, platform | M4-03, M3-03 | DONE |
 | **M4 — Catalog and upload** ||||
 | IMP-M4-01 | Catalog listing and game detail | platform | M1-01 | DONE (session 61) |
 | IMP-M4-02 | Manifest schema validation | platform | M0-06 | DONE |
@@ -3844,6 +3844,17 @@ extract it, or the harness reimplements it and drifts.
    the Spring wiring, persistence and async orchestration, and its existing upload unit and integration
    tests pass unchanged.
 4. The moved classes' tests move with them and the module meets the JaCoCo gate.
+
+**Built (session 103):** `io.turnbase:turnbase-bundle-validator` in `turnbase-sdk` (package
+`io.turnbase.bundle`), entry point `BundleValidator.validate(zip, Options)` → `Result` of
+`Finding(severity, code, message)` plus the `Bundle` Phase G needs. The platform's `upload` package
+keeps `BundleValidationService` (fetch, trust rule, persistence, Phase G) and maps `Finding` to its own
+`CheckError`. Decisions worth knowing: `VersionOrdering` moved with the module (the gdk range check
+uses it; the platform imports it); the platform's own copy of `manifest.schema.json` is gone and
+`sync-manifest-schema.sh` now targets the module's copy; the static analysis consults
+`BindingCapabilities` for JDK map keys and module-dependent types (additive — the hardcoded lists
+still apply); `TestBundles`/`TestJavaCompiler` are duplicated in the module's tests because the
+platform's ITs still use theirs.
 
 ---
 

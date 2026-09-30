@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 #
-# Refresh turnbase-platform's committed copy of manifest.schema.json from the
-# authoritative file in this repository's spec tree.
+# Refresh the committed copy of manifest.schema.json that lives in turnbase-sdk's
+# bundle-validator module (IMP-M3-13) from the authoritative file in this repository's
+# spec tree. turnbase-platform no longer holds a copy: its upload pipeline reads the
+# schema through that module.
 #
 # The copy is a tracked file rather than a build-time artifact for the same
-# reason as gamehost.proto's copy in turnbase-common: turnbase-platform must
+# reason as gamehost.proto's copy in turnbase-common: turnbase-sdk must
 # build from a standalone clone — its CI checks out the submodule alone, so
 # nothing in its Maven build may read a path outside the repository
 # (conventions.md §5, IMP-GATE-60).
 #
 # That buys independence at the cost of drift, and drift here is silent: the
-# platform upload validator and the (future) SDK test harness would validate
-# the same manifest.json differently while both still compile. Hence --check.
+# copy would validate manifest.json differently from the spec while still compiling. Hence --check.
 #
 # Unlike sync-proto.sh, --check does not yet run in the parent's pre-push
 # hook: no copy exists until IMP-M4-02 creates one, and a hard check against a
@@ -26,7 +27,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCE="$REPO_ROOT/docs/specs/manifest/manifest.schema.json"
-TARGET="$REPO_ROOT/turnbase-platform/src/main/resources/manifest/manifest.schema.json"
+TARGET="$REPO_ROOT/turnbase-sdk/bundle-validator/src/main/resources/manifest/manifest.schema.json"
 
 if [[ ! -f "$SOURCE" ]]; then
   echo "sync-manifest-schema: authoritative schema missing: $SOURCE" >&2
@@ -36,9 +37,9 @@ fi
 # A submodule that was never initialised is not a drift failure — there is
 # simply nothing to compare against yet, and saying so beats a diff against
 # /dev/null.
-if [[ ! -d "$REPO_ROOT/turnbase-platform/.git" && ! -f "$REPO_ROOT/turnbase-platform/.git" ]]; then
-  echo "sync-manifest-schema: turnbase-platform is not checked out; run:" >&2
-  echo "  git submodule update --init turnbase-platform" >&2
+if [[ ! -d "$REPO_ROOT/turnbase-sdk/.git" && ! -f "$REPO_ROOT/turnbase-sdk/.git" ]]; then
+  echo "sync-manifest-schema: turnbase-sdk is not checked out; run:" >&2
+  echo "  git submodule update --init turnbase-sdk" >&2
   exit 1
 fi
 
@@ -55,7 +56,7 @@ if [[ "${1:-}" == "--check" ]]; then
     echo >&2
     diff -u --strip-trailing-cr \
       --label "docs/specs/manifest/manifest.schema.json (authoritative)" \
-      --label "turnbase-platform/src/main/resources/manifest/manifest.schema.json (copy)" \
+      --label "turnbase-sdk/bundle-validator/src/main/resources/manifest/manifest.schema.json (copy)" \
       "$SOURCE" "$TARGET" >&2 || true
     echo >&2
     echo "sync-manifest-schema: if the spec changed, run scripts/sync-manifest-schema.sh and commit the copy." >&2
@@ -69,4 +70,4 @@ fi
 mkdir -p "$(dirname "$TARGET")"
 cp "$SOURCE" "$TARGET"
 echo "sync-manifest-schema: refreshed ${TARGET#"$REPO_ROOT/"}"
-echo "sync-manifest-schema: commit it in turnbase-platform, then bump the submodule ref here."
+echo "sync-manifest-schema: commit it in turnbase-sdk, then bump the submodule ref here."

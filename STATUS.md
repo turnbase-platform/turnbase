@@ -1,18 +1,22 @@
 ## Last Session Summary
 
-**Date:** 2026-09-30 (session 102) — **`IMP-GATE-91` opened and closed; no item completed (57 of 63).**
+**Date:** 2026-09-30 (session 103) — **`IMP-M3-13` DONE (58 of 63).**
 
-- Claimed `IMP-M3-11` (GDK test harness); its clause 2 needs a bundle validator "shared with the upload
-  pipeline", but the validator lives only inside `turnbase-platform` (Spring-coupled) and no item
-  extracts it. Its read-list also omitted `bundle-format.md` and `game-contracts.md`.
-- Fix in the spec: new item **`IMP-M3-13`** (extract `io.turnbase:turnbase-bundle-validator` into
-  `turnbase-sdk`, platform consumes it); `IMP-M3-11` now depends on it, read-list repaired, back to
-  `READY`. Live item count 62 → 63; `conventions.md` §manifest-schema paragraph updated.
-- No code written.
+- `turnbase-sdk` gained a third module, `io.turnbase:turnbase-bundle-validator` (reader, manifest
+  validation, backend JAR + state serializability analysis behind `BundleValidator.validate`,
+  framework-free `Finding`s). Own committed `manifest.schema.json`; `sync-manifest-schema.sh` and the
+  pre-push hook now target it. SDK CI green.
+- `turnbase-platform` consumes it (`<turnbase-sdk.version>` pin, CI bootstrap-installs the sdk with
+  `TURNBASE_SDK_PAT`, confirmed present); its `upload` package keeps wiring/persistence/orchestration.
+  Moved classes' tests moved too; 625 tests green locally, platform CI (build + e2e) green.
+- Details and decisions: the item's *Built* note in `registry.md`.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M3-13` is `DONE` (session 103).** Do **`IMP-M3-11`** (GDK test harness) next — its dependency is
+now met. `IMP-M3-10`, `IMP-M6-06`, `IMP-M6-05` are also `READY`.
 
 **`IMP-GATE-91` closed (session 102).** Do **`IMP-M3-13` before `IMP-M3-11`.** `IMP-M3-10`, `IMP-M6-06`,
 `IMP-M6-05` are also `READY`.
