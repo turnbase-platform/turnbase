@@ -1,25 +1,19 @@
 ## Last Session Summary
 
-**Date:** 2026-10-01 (session 119) — **`IMP-M7-03` DONE (66 of 76 done).** Part of MR-01; closes MR-09.
+**Date:** 2026-10-01 (session 120) — **`IMP-M7-04` DONE (67 of 76 done).** Part of MR-01.
 
-- `turnbase-frontend`: `RoomGame` mounts the existing `GameFrame` at the snapshot's `gameFrontendUrl` while the room is
-  `IN_PROGRESS` and keeps the same iframe through `GAME_ENDED` (results view) until **Return to lobby**; `ParticipantPanel`
-  carries the status list, Kick and Transfer Host (host only); Leave is always present.
-- **MR-09 resolved by observation, not a change:** the URL the platform hands out is `/play/{sessionId}`; it resolves and
-  the game renders. The review's 404 was for `/`, which the asset spec says must 404.
-- **Real defect found and fixed in the shell:** `roomSocket.setMembership` resubscribed chat/team topics on *every*
-  snapshot or event. That burned the server's `subscribe` bucket (20, 1/s) and the game's `/user/queue/game` subscription
-  or sync request was refused with `RATE_LIMIT_EXCEEDED` — about half of games never initialised. It now resubscribes only
-  when role or team changes. Test added.
-- Verified live (compose stack, Chrome, two contexts alice/bob): played Tic-Tac-Toe to a win through the UI, saw the
-  results view, Return to lobby; 3/3 consecutive runs after the fix. 285 tests, lint, typecheck, build, CI green.
-- Observed, **not** fixed (not this item): platform logs `Invalid game outcome, no history entries written … playerResults
-  names a non-participant` after a UI-played game — history is not recorded for it. Worth a work item / spec-defect check.
-  `/api/notifications/stream` and a 401/400 pair appear in the console on page load (`IMP-M7-11` territory).
+- `turnbase-frontend`: new `ChatPanel` in both `RoomLobby` and `RoomGame`. Players only (no panel for spectators; the
+  server refuses a spectator send with `SPECTATOR_CANNOT_CHAT` regardless). One log merged from both channels, sorted by
+  `serverTimestamp`, tagged `[Room]`/`[Team]`. Write-channel switcher shown only when the snapshot has teams and the player
+  holds one — the same condition the server uses for `TEAM_CHAT_NOT_AVAILABLE`. Chat stays client-held; the socket already
+  routed chat around version reconciliation (existing test). 290 tests, lint, typecheck, build, CI green.
+- Not verified in a live browser this session (unit/component tests only).
 
 ---
 
 ## Next Priorities
+
+**`IMP-M7-04` is `DONE` (session 120).** Next: `IMP-M7-07…12`, then `13` (acceptance suite) last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M7-03` is `DONE` (session 119).** Next: `IMP-M7-04` (chat), `07…12`, then `13` (acceptance suite) last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 

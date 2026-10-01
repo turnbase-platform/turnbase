@@ -104,7 +104,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M7-01 | Room list and join views | frontend | M6-04 | DONE (session 117) |
 | IMP-M7-02 | Room lobby view | frontend | M7-01 | DONE |
 | IMP-M7-03 | In-game and results views, game iframe mount | frontend | M7-02, M6-05 | DONE |
-| IMP-M7-04 | Room chat panel | frontend | M7-02 | WIP (session 120) |
+| IMP-M7-04 | Room chat panel | frontend | M7-02 | DONE |
 | IMP-M7-05 | Close rooms abandoned in the Lobby | platform | M2-08 | DONE |
 | IMP-M7-06 | Leaving mid-game reaches the engine | platform | M3-09 | DONE |
 | IMP-M7-07 | Populate `reservedSlot` on the rooms list | platform | M2-07 | READY |
