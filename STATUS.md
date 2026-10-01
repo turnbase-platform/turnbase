@@ -1,17 +1,19 @@
 ## Last Session Summary
 
-**Date:** 2026-10-01 (session 120) — **`IMP-M7-04` DONE (67 of 76 done).** Part of MR-01.
+**Date:** 2026-10-01 (session 121) — **`IMP-M7-07` DONE (68 of 76 done).** Closes the `IMP-M6-04` deferral.
 
-- `turnbase-frontend`: new `ChatPanel` in both `RoomLobby` and `RoomGame`. Players only (no panel for spectators; the
-  server refuses a spectator send with `SPECTATOR_CANNOT_CHAT` regardless). One log merged from both channels, sorted by
-  `serverTimestamp`, tagged `[Room]`/`[Team]`. Write-channel switcher shown only when the snapshot has teams and the player
-  holds one — the same condition the server uses for `TEAM_CHAT_NOT_AVAILABLE`. Chat stays client-held; the socket already
-  routed chat around version reconciliation (existing test). 290 tests, lint, typecheck, build, CI green.
-- Not verified in a live browser this session (unit/component tests only).
+- `turnbase-platform`: `GET /api/rooms` now returns a top-level `reservedSlot` (`roomId`, `gameName`,
+  `graceRemainingSeconds`) — new `RoomListResponse` envelope, `RoomRepository.findReservedSlot`. Live = `grace_expires_at > now()`,
+  caller not left, room `IN_PROGRESS`; seconds clamped to ≥ 1. Independent of filters/page; serialised as `null` when absent.
+  The invite-code resolution response is unchanged (no `reservedSlot`). IT covers holder with/without filters, non-holder, due grace.
+  Full `verify -Pintegration` and CI green.
+- The frontend pinned card (`IMP-M7-01` list) was not touched this session.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M7-07` is `DONE` (session 121).** Next: `IMP-M7-08…12`, then `13` (acceptance suite) last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M7-04` is `DONE` (session 120).** Next: `IMP-M7-07…12`, then `13` (acceptance suite) last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
