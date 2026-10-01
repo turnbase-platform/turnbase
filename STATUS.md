@@ -1,18 +1,19 @@
 ## Last Session Summary
 
-**Date:** 2026-10-01 (session 123) — **`IMP-M7-09` DONE (70 of 76 done).** Closes MR-05 (target not reached; recorded).
+**Date:** 2026-10-01 (session 124) — **`IMP-M7-10` DONE (71 of 76 done).** Closes MR-06.
 
-- `turnbase-game-host`: `WarmupLifecycle` (SmartLifecycle, phase before registration) runs a synthetic session of the
-  bundled `WarmupGame` through a throwaway Espresso context before `Register` and readiness; failure only WARNs.
-  Outside `GameContextManager`/Redis, so invisible to history, statistics and `active_sessions`. `verify -Pintegration` and CI green.
-- Measured on compose: cold `START_GAME → GAME_STARTED` 6 465 → **4 163 ms** (warm 39 ms). < 1 s not reachable: the
-  per-context Espresso boot dominates and a shared `Engine` did not help; needs a pre-booted context pool (post-MVP). Recorded in the item.
-- Gotchas: re-running `package` on a stale `target/` shades the repackaged jar and yields an empty guest-bridge jar — use `clean`. More
-  than ~2 extra Espresso contexts in the unit-test JVM trigger `Cannot load library: eden`.
+- `turnbase-platform`: `common.LifecycleLog` (INFO, fields as JSON keys, nulls omitted). `RoomEventExecutor.publish` logs every
+  committed room event with `roomId`/`userId`/`reason`/`sessionId`; room create, register/login/guest/OAuth, socket
+  connect/disconnect (WebSocket and room), game start and game end (outcome) have lines. No credential/token/chat text.
+- `turnbase-game-host`: context create / release (reason IDLE_TIMEOUT, MEMORY_PRESSURE, SHUTDOWN), session create/terminate, `Deregister`.
+- CI green on both; `observability.md` §3 gained a "Lifecycle lines" note. Loki reconstruction not exercised on the live stack.
+- Gotcha: full `verify -Pintegration` in the platform flaked twice on Testcontainers startup (different ITs each run, all pass alone).
 
 ---
 
 ## Next Priorities
+
+**`IMP-M7-10` is `DONE` (session 124).** Next: `IMP-M7-11`, `12`, then `13` (acceptance suite) last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M7-09` is `DONE` (session 123).** Next: `IMP-M7-10…12`, then `13` (acceptance suite) last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 

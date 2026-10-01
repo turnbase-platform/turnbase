@@ -183,6 +183,16 @@ The fourth is the one that gets missed. A `@Scheduled` method runs on a pool thr
 MDC, so every reconciliation WARN that FR-JOB-011 requires would arrive with no room identifier —
 which is precisely the field that makes it actionable.
 
+### Lifecycle lines (IMP-M7-10)
+
+Beyond the MDC, every lifecycle transition is one INFO line whose fields are also top-level JSON keys
+(`roomId`, `userId`, `sessionId`, `reason`). In the platform, `common.LifecycleLog` writes them and omits
+absent fields; every committed room event (join, leave, disconnect, reconnect, grace expiry as
+`PLAYER_LOST`, `ROOM_CLOSED` with its reason, `GAME_STARTED` carrying `sessionId`) is logged once in
+`RoomEventExecutor`, so none can be published unlogged. Registration, login, guest creation, socket connect /
+disconnect, game start and game end (outcome, winning teams) have their own lines; the Game Host logs context
+create / release (with reason) and `Deregister`. Never logged: credentials, session tokens, chat text, payloads.
+
 ### Runtime log level, and the endpoint that grants it
 
 FR-OBS-004 requires the level to be adjustable without a restart. `/actuator/loggers/{name}` does

@@ -110,7 +110,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M7-07 | Populate `reservedSlot` on the rooms list | platform | M2-07 | DONE |
 | IMP-M7-08 | Tic-Tac-Toe rejects a malformed action | game | M3-10 | DONE |
 | IMP-M7-09 | Game Host warm-up before readiness | game-host | M3-10 | DONE |
-| IMP-M7-10 | Lifecycle logging for rooms, auth and sessions | platform, game-host | M3-10 | WIP (session 124) |
+| IMP-M7-10 | Lifecycle logging for rooms, auth and sessions | platform, game-host | M3-10 | DONE |
 | IMP-M7-11 | Anonymous session probe, cookie flag, scheduler bean | platform, frontend | M6-02 | READY |
 | IMP-M7-12 | Local stack first-run path | platform | M0-05 | READY |
 | IMP-M7-13 | MVP browser acceptance suite | frontend | M7-03, M7-05, M7-06 | READY |
