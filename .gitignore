@@ -78,6 +78,7 @@ game-bundles/untrusted/
 
 # Claude Code
 .claude_history
+.playwright-mcp
 
 # SDKMan
 .sdkmanrc

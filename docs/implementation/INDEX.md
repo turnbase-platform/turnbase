@@ -31,6 +31,7 @@ that surfaces three milestones later. Record it against the item's *Gate* field.
 ## Related
 
 - [`../reviews/2026-08-16-implementation-readiness/INDEX.md`](../reviews/2026-08-16-implementation-readiness/INDEX.md) — the audit that qualified this corpus for implementation. All 23 of its blockers are closed; two findings raised *during* remediation (IR-24, IR-25) remain open and are documentation defects, not gates.
+- [`../reviews/2026-10-01-mvp-implementation-review/INDEX.md`](../reviews/2026-10-01-mvp-implementation-review/INDEX.md) — black-box run of the MVP stack: the API and Game Host work, but the frontend room views are placeholders (MR-01) and `IMP-M6-04`/`05` are `DONE` without satisfying their `VW-*` entries.
 - [`../specs/INDEX.md`](../specs/INDEX.md) — design specifications.
 - [`../specs/flows/INDEX.md`](../specs/flows/INDEX.md) — read the relevant flow before starting any item that spans components.
 
@@ -195,4 +196,5 @@ Ordering follows the dependency graph rather than document order, per `STATUS.md
 | **M4** | Catalog, upload, asset serving | Depends on M3 for a bundle worth validating. |
 | **M5** | History, statistics, notifications, social | The CRUD tail. Order within it is a convenience. |
 | **M6** | Platform frontend | Runs **in parallel** from M1 onward, not after M5 — each vertical slice needs a UI to be exercised by hand. Listed last only because its internal ordering follows the backend's. |
+| **M7** | MVP review remediation | Added after the 2026-10-01 black-box review: the room views `IMP-M6-04`/`05` left unbuilt, the backend and game defects the review found, and the acceptance suite that re-runs it. |
 
