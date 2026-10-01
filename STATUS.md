@@ -1,23 +1,21 @@
 ## Last Session Summary
 
-**Date:** 2026-10-01 (session 115) — **`IMP-M7-05` DONE (62 of 76 done).** Closes MR-02.
+**Date:** 2026-10-01 (session 116) — **`IMP-M7-06` DONE (63 of 76 done).** Closes MR-03.
 
-- `turnbase-platform` (`RoomService`, `RoomRepository`): one shared `settleDeparture`/`afterDeparture`
-  pair now handles every immediate host departure — explicit leave, Lobby socket loss
-  (`onDisconnect` → `LeftImmediately`) and implicit release by creating/joining another room. The
-  last human leaving closes the room at once (`NO_PLAYERS_REMAINING`, `ROOM_CLOSED`); a host leaving
-  with other humans present transfers the role (`HOST_LEFT`, FR-XFER-001) — explicit leave did not
-  do that before either. `createRoom` now returns the released room (it was discarded).
-- Implicit release settles inline only for `LEFT` on a room this instance can claim; `EARLY_RELEASE`
-  and rooms owned by a live peer still fall to the deferred-tail sweep.
-- Tests: two new cases in `RoomControllerIT` (three paths close and unlist; host transfer). Full
-  `-Pintegration` run green apart from Docker container-startup flakes, which passed on rerun; CI green.
-- Observation (not fixed, not this item): the sweep duties that should have collected these rooms
-  never did in the review — consistent with MR-08's scheduler-bean warning (`IMP-M7-11`).
+- `turnbase-platform` (`RoomRepository`): a confirmed leave of a PLAYER during `IN_PROGRESS` — explicit
+  `DELETE …/participants/me` and the implicit release by creating/joining another room — now inserts the
+  same `player_left` outbox row grace expiry does, reason `left` (FR-LIFE-004). Spectators queue nothing.
+  The engine's own forfeit (Tic-Tac-Toe `onPlayerLeft`) then yields `GAME_OVER`/`GAME_ENDED` through the
+  existing effect path. Closure of an emptied room still discards the row.
+- Test: `RoomControllerIT` asserts a player's mid-game leave queues one `left` row and a spectator's none.
+  `RoomControllerIT`/`GraceDeadlineSweepJobIT` green; CI green.
+- Not exercised end-to-end here: the live forfeit through a real Game Host (needs the stack; `IMP-M7-13`).
 
 ---
 
 ## Next Priorities
+
+**`IMP-M7-06` is `DONE` (session 116).** Next: `IMP-M7-01 → 02 → 03` (room views), then `IMP-M7-04`, `07…12`, `13` last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M7-05` is `DONE` (session 115).** Start with `IMP-M7-06` (backend defect the room views will surface), then
 `IMP-M7-01 → 02 → 03` (the room views — the MVP is not playable without them), then `IMP-M7-04`,

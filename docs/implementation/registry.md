@@ -106,7 +106,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M7-03 | In-game and results views, game iframe mount | frontend | M7-02, M6-05 | READY |
 | IMP-M7-04 | Room chat panel | frontend | M7-02 | READY |
 | IMP-M7-05 | Close rooms abandoned in the Lobby | platform | M2-08 | DONE |
-| IMP-M7-06 | Leaving mid-game reaches the engine | platform | M3-09 | WIP (session 116) |
+| IMP-M7-06 | Leaving mid-game reaches the engine | platform | M3-09 | DONE |
 | IMP-M7-07 | Populate `reservedSlot` on the rooms list | platform | M2-07 | READY |
 | IMP-M7-08 | Tic-Tac-Toe rejects a malformed action | game | M3-10 | READY |
 | IMP-M7-09 | Game Host warm-up before readiness | game-host | M3-10 | READY |
