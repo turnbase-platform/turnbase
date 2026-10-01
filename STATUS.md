@@ -1,19 +1,20 @@
 ## Last Session Summary
 
-**Date:** 2026-10-01 (session 116) — **`IMP-M7-06` DONE (63 of 76 done).** Closes MR-03.
+**Date:** 2026-10-01 (session 117) — **`IMP-M7-01` DONE (64 of 76 done).** Part of MR-01.
 
-- `turnbase-platform` (`RoomRepository`): a confirmed leave of a PLAYER during `IN_PROGRESS` — explicit
-  `DELETE …/participants/me` and the implicit release by creating/joining another room — now inserts the
-  same `player_left` outbox row grace expiry does, reason `left` (FR-LIFE-004). Spectators queue nothing.
-  The engine's own forfeit (Tic-Tac-Toe `onPlayerLeft`) then yields `GAME_OVER`/`GAME_ENDED` through the
-  existing effect path. Closure of an emptied room still discards the row.
-- Test: `RoomControllerIT` asserts a player's mid-game leave queues one `left` row and a spectator's none.
-  `RoomControllerIT`/`GraceDeadlineSweepJobIT` green; CI green.
-- Not exercised end-to-end here: the live forfeit through a real Game Host (needs the stack; `IMP-M7-13`).
+- `turnbase-frontend`: `RoomsPage` (`/rooms`) lists `GET /api/rooms` with search, status filter, sort,
+  paging and Refresh; Join/Spectate follow the server's `canJoin`/`canSpectate` flags and call `joinRoom`
+  (which retries `503`), then navigate to `/rooms/:id`. `JoinByCodePage` (`/rooms/join/:code`) resolves the
+  invite, shows the Player/Spectator prompt only when both are open, joins directly when one is, and shows
+  an error for an unknown code or no available role. Both replace their `later(...)` placeholders.
+- Tests: `RoomsPage.test.tsx` (7 cases). Lint, typecheck, build, 266 unit tests and CI green.
+- Not done: VW-ROOMS-005 pinned reconnection card (needs `IMP-M7-07`); `/rooms/:id` is still a placeholder (`IMP-M7-02`).
 
 ---
 
 ## Next Priorities
+
+**`IMP-M7-01` is `DONE` (session 117).** Next: `IMP-M7-02 → 03` (lobby, in-game views), then `IMP-M7-04`, `07…12`, `13` last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M7-06` is `DONE` (session 116).** Next: `IMP-M7-01 → 02 → 03` (room views), then `IMP-M7-04`, `07…12`, `13` last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
