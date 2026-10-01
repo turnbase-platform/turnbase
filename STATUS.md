@@ -1,18 +1,24 @@
 ## Last Session Summary
 
-**Date:** 2026-10-01 (session 117) — **`IMP-M7-01` DONE (64 of 76 done).** Part of MR-01.
+**Date:** 2026-10-01 (session 118) — **`IMP-M7-02` DONE (65 of 76 done).** Part of MR-01.
 
-- `turnbase-frontend`: `RoomsPage` (`/rooms`) lists `GET /api/rooms` with search, status filter, sort,
-  paging and Refresh; Join/Spectate follow the server's `canJoin`/`canSpectate` flags and call `joinRoom`
-  (which retries `503`), then navigate to `/rooms/:id`. `JoinByCodePage` (`/rooms/join/:code`) resolves the
-  invite, shows the Player/Spectator prompt only when both are open, joins directly when one is, and shows
-  an error for an unknown code or no available role. Both replace their `later(...)` placeholders.
-- Tests: `RoomsPage.test.tsx` (7 cases). Lint, typecheck, build, 266 unit tests and CI green.
-- Not done: VW-ROOMS-005 pinned reconnection card (needs `IMP-M7-07`); `/rooms/:id` is still a placeholder (`IMP-M7-02`).
+- `turnbase-frontend`: `/rooms/:id` now mounts `RoomPage` (replaces the placeholder, which is deleted). Entry calls
+  `getRoom` then the idempotent `joinRoom` (a refresh closes the socket and a Lobby disconnect is an immediate
+  leave), and opens `useRoomConnection` at the join's affinity hint. `RoomLobby` shows players with
+  readiness/host/disconnected badges, read-only parameters, Ready toggle (non-host), Start (host; the server's
+  `START_CONDITIONS_NOT_MET` is surfaced, not recomputed), Kick/Transfer host, invite-link copy, Switch role, Leave.
+  A dropped socket shows a reconnection banner and the hook resyncs from a fresh snapshot; `ROOM_CLOSED`/kick end
+  the view with a message. `/rooms` pins a Rejoin card from `reservedSlot`.
+- Tests: `RoomPage.test.tsx` (13), card test in `RoomsPage.test.tsx`. Lint, typecheck, build, 279 tests, CI green.
+- Not built (not in *Done when*): VW-RLOBBY-005 Invite Friends, -007 Add AI, -010 edit parameters; chat is `IMP-M7-04`.
+  The pinned card shows nothing until `IMP-M7-07` populates `reservedSlot`. A spectator who refreshes in the Lobby
+  re-enters as a player when a player slot is open.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M7-02` is `DONE` (session 118).** Next: `IMP-M7-03` (in-game/results views, iframe mount), then `IMP-M7-04`, `07…12`, `13` last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M7-01` is `DONE` (session 117).** Next: `IMP-M7-02 → 03` (lobby, in-game views), then `IMP-M7-04`, `07…12`, `13` last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
