@@ -109,7 +109,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M7-06 | Leaving mid-game reaches the engine | platform | M3-09 | DONE |
 | IMP-M7-07 | Populate `reservedSlot` on the rooms list | platform | M2-07 | DONE |
 | IMP-M7-08 | Tic-Tac-Toe rejects a malformed action | game | M3-10 | DONE |
-| IMP-M7-09 | Game Host warm-up before readiness | game-host | M3-10 | WIP (session 123) |
+| IMP-M7-09 | Game Host warm-up before readiness | game-host | M3-10 | DONE |
 | IMP-M7-10 | Lifecycle logging for rooms, auth and sessions | platform, game-host | M3-10 | READY |
 | IMP-M7-11 | Anonymous session probe, cookie flag, scheduler bean | platform, frontend | M6-02 | READY |
 | IMP-M7-12 | Local stack first-run path | platform | M0-05 | READY |
@@ -5015,6 +5015,13 @@ embedded trivial game so the first real `START_GAME` no longer pays the Truffle 
 cold `START_GAME → GAME_STARTED` on a freshly booted stack is recorded in the item's section and is
 within the same order as warm (target < 1 s; if not reachable, record the figure and the reason);
 the synthetic session never appears in history, statistics or the active-session gauge.
+
+**Measured (session 123, compose stack, GraalVM CE 21.0.2):** cold `START_GAME → GAME_STARTED` fell from
+6 465 ms (review, MR-05) to **4 163 ms**; warm is 39 ms. The < 1 s target is **not reached**: the remaining
+cost is the per-context Espresso boot (a guest JVM per context, ~13 s on the unit-test classpath), which a
+throwaway context cannot pre-pay and a shared `Engine` did not reduce. Closing it needs a pre-booted pool of
+game contexts, which is a post-MVP design (ADR-0005 defers the startup NFRs). The warm-up context is outside
+`GameContextManager`/Redis, so it is invisible to history, statistics and the `active_sessions` signal.
 
 ---
 

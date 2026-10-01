@@ -724,6 +724,15 @@ and `turnbase.orchestration.lease-ttl` (`../deployment/local-environment.md` §7
 exceed the interval by at least a factor of two so a single delayed heartbeat does not fail a healthy
 host, and stay under NFR-REL-002's 30 s detection bound.
 
+**Warm-up before readiness (IMP-M7-09).** Before `Register`, and so before Spring publishes readiness,
+the Game Host runs one synthetic session of an embedded trivial game (`io.turnbase.gamehost.bridge.WarmupGame`,
+shipped in the guest bridge jar) through a **throwaway** guest context: `createSession`, one action, `resync`,
+`disposeSession`, then the context is closed. It never touches `GameContextManager`, the Redis session record or
+`ReportContexts`, so it cannot appear in history, statistics, `contexts:{instanceId}` or the active-session load
+signal. A failure is logged at WARN and startup continues cold. What it removes is the one-time process-level
+cost (native library load, Truffle/Espresso first-use); the per-context Espresso boot remains, because contexts
+share no code (a shared `Engine` was measured and did not help).
+
 For the single-instance MVP these are implemented but trivially satisfied
 (host selection always resolves to the one instance); the machinery exists so
 scale-out is a config change, not a redesign (ADR-0001).

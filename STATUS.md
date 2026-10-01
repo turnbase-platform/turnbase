@@ -1,14 +1,20 @@
 ## Last Session Summary
 
-**Date:** 2026-10-01 (session 122) — **`IMP-M7-08` DONE (69 of 76 done).** Closes MR-04.
+**Date:** 2026-10-01 (session 123) — **`IMP-M7-09` DONE (70 of 76 done).** Closes MR-05 (target not reached; recorded).
 
-- `turnbase-game-tictactoe`: `Move.cell` is now `Integer`; `onAction` rejects (`That cell is not available.`, sender only,
-  state unchanged, no turn consumed) for `{}`, a `null` payload and an undecodable (`"x"`) cell via `ActionDecodeException`.
-  Unit test covers all three plus a valid move afterwards. `verify` and CI green.
+- `turnbase-game-host`: `WarmupLifecycle` (SmartLifecycle, phase before registration) runs a synthetic session of the
+  bundled `WarmupGame` through a throwaway Espresso context before `Register` and readiness; failure only WARNs.
+  Outside `GameContextManager`/Redis, so invisible to history, statistics and `active_sessions`. `verify -Pintegration` and CI green.
+- Measured on compose: cold `START_GAME → GAME_STARTED` 6 465 → **4 163 ms** (warm 39 ms). < 1 s not reachable: the
+  per-context Espresso boot dominates and a shared `Engine` did not help; needs a pre-booted context pool (post-MVP). Recorded in the item.
+- Gotchas: re-running `package` on a stale `target/` shades the repackaged jar and yields an empty guest-bridge jar — use `clean`. More
+  than ~2 extra Espresso contexts in the unit-test JVM trigger `Cannot load library: eden`.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M7-09` is `DONE` (session 123).** Next: `IMP-M7-10…12`, then `13` (acceptance suite) last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M7-08` is `DONE` (session 122).** Next: `IMP-M7-09…12`, then `13` (acceptance suite) last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
