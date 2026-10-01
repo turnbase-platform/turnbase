@@ -1,17 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-01 (session 121) — **`IMP-M7-07` DONE (68 of 76 done).** Closes the `IMP-M6-04` deferral.
+**Date:** 2026-10-01 (session 122) — **`IMP-M7-08` DONE (69 of 76 done).** Closes MR-04.
 
-- `turnbase-platform`: `GET /api/rooms` now returns a top-level `reservedSlot` (`roomId`, `gameName`,
-  `graceRemainingSeconds`) — new `RoomListResponse` envelope, `RoomRepository.findReservedSlot`. Live = `grace_expires_at > now()`,
-  caller not left, room `IN_PROGRESS`; seconds clamped to ≥ 1. Independent of filters/page; serialised as `null` when absent.
-  The invite-code resolution response is unchanged (no `reservedSlot`). IT covers holder with/without filters, non-holder, due grace.
-  Full `verify -Pintegration` and CI green.
-- The frontend pinned card (`IMP-M7-01` list) was not touched this session.
+- `turnbase-game-tictactoe`: `Move.cell` is now `Integer`; `onAction` rejects (`That cell is not available.`, sender only,
+  state unchanged, no turn consumed) for `{}`, a `null` payload and an undecodable (`"x"`) cell via `ActionDecodeException`.
+  Unit test covers all three plus a valid move afterwards. `verify` and CI green.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M7-08` is `DONE` (session 122).** Next: `IMP-M7-09…12`, then `13` (acceptance suite) last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M7-07` is `DONE` (session 121).** Next: `IMP-M7-08…12`, then `13` (acceptance suite) last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
