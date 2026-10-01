@@ -1,22 +1,25 @@
 ## Last Session Summary
 
-**Date:** 2026-10-01 (session 114) — **MVP implementation review; registry grows to 76 items (61 done).**
+**Date:** 2026-10-01 (session 115) — **`IMP-M7-05` DONE (62 of 76 done).** Closes MR-02.
 
-- Black-box review of the compose stack with Playwright (separate browser contexts per player):
-  `docs/reviews/2026-10-01-mvp-implementation-review/INDEX.md`. Backend, Game Host and the Tic-Tac-Toe
-  game work end to end (move latency 13–16 ms, observability up); **the frontend room views are
-  placeholders**, so nothing is playable in a browser (MR-01).
-- Findings MR-02…MR-11 (ghost Lobby rooms, mid-game leave never forfeits, malformed move accepted,
-  6.5 s cold start, sparse logging, console 401, cookie `Secure` flag, scheduler WARN, no `.env`
-  example) are filed as `IMP-M7-01…13` in `registry.md`, all `READY`. `CLAUDE.md` counts updated.
-- The stack was torn down with volumes; the git-ignored `deploy/compose/.env` was left in place.
-- No code changed in any submodule.
+- `turnbase-platform` (`RoomService`, `RoomRepository`): one shared `settleDeparture`/`afterDeparture`
+  pair now handles every immediate host departure — explicit leave, Lobby socket loss
+  (`onDisconnect` → `LeftImmediately`) and implicit release by creating/joining another room. The
+  last human leaving closes the room at once (`NO_PLAYERS_REMAINING`, `ROOM_CLOSED`); a host leaving
+  with other humans present transfers the role (`HOST_LEFT`, FR-XFER-001) — explicit leave did not
+  do that before either. `createRoom` now returns the released room (it was discarded).
+- Implicit release settles inline only for `LEFT` on a room this instance can claim; `EARLY_RELEASE`
+  and rooms owned by a live peer still fall to the deferred-tail sweep.
+- Tests: two new cases in `RoomControllerIT` (three paths close and unlist; host transfer). Full
+  `-Pintegration` run green apart from Docker container-startup flakes, which passed on rerun; CI green.
+- Observation (not fixed, not this item): the sweep duties that should have collected these rooms
+  never did in the review — consistent with MR-08's scheduler-bean warning (`IMP-M7-11`).
 
 ---
 
 ## Next Priorities
 
-**Start with `IMP-M7-05` and `IMP-M7-06`** (backend defects the room views will surface), then
+**`IMP-M7-05` is `DONE` (session 115).** Start with `IMP-M7-06` (backend defect the room views will surface), then
 `IMP-M7-01 → 02 → 03` (the room views — the MVP is not playable without them), then `IMP-M7-04`,
 `07…12`, and `IMP-M7-13` last as the acceptance suite. No item is `PARTIAL` or `BLOCKED`. Ignore
 older notes below.
