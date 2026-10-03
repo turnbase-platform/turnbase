@@ -1,15 +1,17 @@
 ## Last Session Summary
 
-**Date:** 2026-10-03 (session 126) — **`IMP-M7-12` DONE (73 of 76 done).** Closes MR-11.
+**Date:** 2026-10-03 (session 127) — **`IMP-M7-13` PARTIAL (73 of 76 done).**
 
-- Spec defect `IMP-GATE-94` opened and closed in-session: `secrets-and-configuration.md` §2 said `.env.example` carries no values; the item requires dummies. §2 now allows labelled local-only dummies.
-- `turnbase-platform`: `.env.example` lists every required variable with a dummy; `make env` (copy if absent, never overwrites), `make check-env` (names missing/empty vars), `make up`.
-- `local-environment.md` §5: cold-clone first-run steps and the `down -v` rule for a changed DB password.
-- Verified locally: `down -v` then `make up` from a generated `.env` → healthy, Tic-Tac-Toe listed. Bundle build and the two sibling images are documented steps, not make targets.
+- `turnbase-frontend`: Playwright suite in `e2e/` (`npm run e2e`, by hand against the compose stack; one browser context per player). Green: full Tic-Tac-Toe game with spectator, outsider silence, history and statistics; socket drop and resume; abandoned Lobby; foreign `Origin` on REST and the WS upgrade. CI green on `35ccbfe`.
+- Defect found and fixed: the rooms list sent `sort=createdAt,desc`, which the API rejects with 400, so the default list never loaded. `RoomsPage` now omits `sort` for the default.
+- Owed: the forfeit scenario is `test.fixme` — the game frame intermittently renders no board on a later game in a run (cause unknown). Also open: grace-period expiry, rate-limit flood, friends/notifications/profile pages, 400 px layout, concurrent games, and a create-room UI with visibility/spectating.
+- Run notes: `make reset-db` between runs (Tier 5 guest/registration limits); the Tic-Tac-Toe bundle must be built first (`local-environment.md` §5).
 
 ---
 
 ## Next Priorities
+
+**`IMP-M7-13` is `PARTIAL` (session 127).** It is the last item: pick it up first — its `**Remaining:**` line starts with the intermittent blank game frame. Ignore older notes below.
 
 **`IMP-M7-12` is `DONE` (session 126).** Next: `IMP-M7-13` (acceptance suite) — the last item. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
