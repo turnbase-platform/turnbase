@@ -55,9 +55,15 @@ by Spring's relaxed binding.
 | CI | GitHub Actions secrets injected as environment variables (FR-CICD-009) |
 | Production (post-MVP) | §7 |
 
-`.env.example` is committed and contains **no values** — only keys, with a comment giving the shape
-and how to obtain one. It is the checklist for a new machine, and its diff is how a new secret
-becomes known to everyone rather than to the person who added it.
+`.env.example` is committed and lists **every variable the compose files require**, each with a
+clearly fake, local-only dummy value (`local-only-change-me`) and a comment giving the shape and how
+to obtain a real one (`IMP-GATE-94`). It is the checklist for a new machine, and its diff is how a new
+secret becomes known to everyone rather than to the person who added it. Optional variables
+(`TURNBASE_OAUTH_GOOGLE_*`, `TURNBASE_ALERT_WEBHOOK_URL`) stay empty. `make env` in `turnbase-platform`
+copies it to `.env` when none exists and never overwrites one; `make check-env` fails naming every
+required variable that is missing or empty. The dummy values are acceptable because the compose stack
+publishes its datastore ports on `127.0.0.1` only; the rule below is about `application.yml`, which
+is what reaches production, and the production path (§7) never reads `.env.example`.
 
 **No secret has a default in `application.yml`.** A missing secret must fail startup with a message
 naming the key, not fall back to `changeme` and start successfully. A default that works is a

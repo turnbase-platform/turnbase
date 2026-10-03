@@ -1,14 +1,17 @@
 ## Last Session Summary
 
-**Date:** 2026-10-03 (session 125) — **`IMP-M7-11` DONE (72 of 76 done).** Closes MR-07, MR-08, MR-10.
+**Date:** 2026-10-03 (session 126) — **`IMP-M7-12` DONE (73 of 76 done).** Closes MR-11.
 
-- `turnbase-platform`: `GET /api/auth/session` answers `200 {"authenticated":false}` when no token was presented (a rejected token still gets the FR-SESS-004 `401`); `common.SessionCookies` sets `Secure` only for an `https://` `turnbase.platform.origin`; the heartbeat `TaskScheduler` is `autowireCandidate=false`, leaving Boot's as the only candidate (asserted in `AuthControllerIT`).
-- `turnbase-frontend`: `AuthProvider` reads the new probe body; `autocomplete` on login/register/settings password fields via `shared/autofill.ts` (Astryx `TextInput` forwards props but does not type `autoComplete`).
-- `rest-conventions.md` records both contracts. OAuth pending/link cookies keep `Secure` (unchanged). CI green on both; not exercised in a real browser.
+- Spec defect `IMP-GATE-94` opened and closed in-session: `secrets-and-configuration.md` §2 said `.env.example` carries no values; the item requires dummies. §2 now allows labelled local-only dummies.
+- `turnbase-platform`: `.env.example` lists every required variable with a dummy; `make env` (copy if absent, never overwrites), `make check-env` (names missing/empty vars), `make up`.
+- `local-environment.md` §5: cold-clone first-run steps and the `down -v` rule for a changed DB password.
+- Verified locally: `down -v` then `make up` from a generated `.env` → healthy, Tic-Tac-Toe listed. Bundle build and the two sibling images are documented steps, not make targets.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M7-12` is `DONE` (session 126).** Next: `IMP-M7-13` (acceptance suite) — the last item. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M7-11` is `DONE` (session 125).** Next: `IMP-M7-12`, then `13` (acceptance suite) last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 

@@ -308,6 +308,39 @@ considers perfectly healthy.
 
 ## 5. Running it
 
+### First run, from a cold clone (`IMP-M7-12`)
+
+Prerequisites: Docker with Compose v2, JDK 21, Node, `make`, `zip`. From the repository root:
+
+```bash
+git clone --recurse-submodules https://github.com/turnbase-platform/turnbase && cd turnbase
+
+# 1. The game bundle the seeder uploads (§6) — without it the catalog is empty
+(cd turnbase-game-tictactoe && ./mvnw package && npm ci && npm run build && ./scripts/package.sh)
+
+# 2. The two images compose does not build (ADR-0012: the platform repo never reads a sibling path)
+docker build -t turnbase/game-host:dev turnbase-game-host
+docker build -t turnbase/frontend:dev  turnbase-frontend
+
+# 3. Secrets, then the stack. `make env` copies deploy/compose/.env.example to .env if there is no
+#    .env (it never overwrites one); `make check-env` fails naming every required variable that
+#    is missing or empty; `make up` runs both and then `docker compose up -d --wait`.
+cd turnbase-platform && make up
+```
+
+Then `http://turnbase.localhost:8080`: the catalog lists Tic-Tac-Toe, and `alice` / `password` (§6)
+can sign in and start a game. `.env.example` carries dummy, local-only values for every required
+variable, so no editing is needed; see
+[`secrets-and-configuration.md`](secrets-and-configuration.md) §2 for why that is acceptable here.
+
+**A changed database password needs `docker compose down -v`.** The Postgres image reads
+`TURNBASE_DB_OWNER_PASSWORD` only when it first initialises the data volume, and `01-roles.sql`
+sets the `turnbase_app` password at the same moment. Editing either in `.env` afterwards leaves the
+volume on the old one and the monolith fails authentication. `down -v` discards the volume, so the
+database is re-created and re-seeded (`make reset-db` keeps the volume and does not apply a
+password change). Redis and MinIO take their passwords from the environment on every start and need
+only a restart.
+
 ```bash
 # quick start — core services only, no observability
 docker compose -f deploy/compose/docker-compose.yml up -d
