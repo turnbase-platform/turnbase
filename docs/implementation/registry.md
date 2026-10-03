@@ -122,7 +122,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M8-05 | Tic-Tac-Toe takes only an integer `cell` | game | M7-08 | DONE |
 | IMP-M8-06 | Shell, navigation, landing and redirects | frontend | M7-11 | DONE |
 | IMP-M8-07 | Login, registration and OAuth completion views | frontend | M8-06 | DONE |
-| IMP-M8-08 | Catalog, game detail and create-room options | frontend | M6-06 | WIP (session 137) |
+| IMP-M8-08 | Catalog, game detail and create-room options | frontend | M6-06 | DONE |
 | IMP-M8-09 | Rooms list and join views | frontend | M7-01, M7-07 | READY |
 | IMP-M8-10 | The game room: lobby, in-game and results | frontend | M7-03, M7-04, M8-04 | READY |
 | IMP-M8-11 | Profile view | frontend | M8-01, M8-03, M6-03 | READY |
@@ -5328,6 +5328,8 @@ visibility (Public, Friends Only, Invite Only) and — only when the game `suppo
 spectating is allowed, then posts exactly that to `POST /api/rooms`; Friends Only is not offered to a
 Guest (FR-LIST-006 / FR-GUEST-007); the e2e support no longer creates spectating rooms over REST and a
 spec makes one through the dialog and enters it as a spectator.
+
+**Closed:** session 137 — `CreateRoomButton` opens a dialog: visibility (Public default, Friends Only omitted for a Guest, Invite Only) and an *Allow spectators* switch shown only when `supportsSpectators`; `spectatingEnabled` is posted only then. The `/games` filter row now wraps, so 400 px no longer scrolls the page (RR-07). `e2e/catalog.spec.ts` covers Unauth, Guest and `alice`; `support.createRoom({spectating})` goes through the dialog, no REST.
 
 ---
 

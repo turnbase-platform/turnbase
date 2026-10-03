@@ -1,15 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-03 (session 136) — **`IMP-M8-07` DONE (81 of 92).**
+**Date:** 2026-10-03 (session 137) — **`IMP-M8-08` DONE (82 of 92).**
 
-- The auth views already met the *View standard* except RR-10: `ApiError` now carries `Retry-After`; login, register and Play as Guest say "try again in 14 minutes" (`formatWait`, `rateLimitMessage`). 295 unit tests pass; frontend CI green.
-- New `e2e/auth.spec.ts` (Unauth, Guest). A 400 `errors[]` entry lands on its field (stubbed); a taken username is a plain 409 shown as the server's sentence (`input-validation.md`), not a field error.
-- OAuth completion: the compose stack has no Google stub and `/api/auth/providers` returns `{google:false}`, so the button is absent (asserted) and the completion view is covered only by unit tests plus the no-pending → `/login` redirect.
-- Local-run traps: the compose DB seeded before `IMP-M8-01` still 500s on `/api/users/alice/friends` (reset the DB); `rate:*` keys in Redis (`docker exec compose-redis-1 …`) hold the login lockout and register/guest limits — clear them between e2e runs; `docker build -t turnbase/frontend:dev` is needed, `compose build` did not refresh it.
+- Create room is now a dialog: visibility (Friends Only hidden for Guests) and, only for games with `supportsSpectators`, an *Allow spectators* switch. 297 unit tests pass; frontend CI green.
+- `/games` filter row wraps (RR-07 at 400 px). New `e2e/catalog.spec.ts` (Unauth, Guest, `alice`); the e2e `createRoom({spectating})` no longer uses REST.
+- Local-run trap unchanged: `docker build -t turnbase/frontend:dev` then `docker compose up -d --no-deps --force-recreate frontend` in `turnbase-platform/deploy/compose`.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M8-08` is `DONE` (session 137).** Next: view items `09…14`. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M8-07` is `DONE` (session 136).** Next: view items `08…14`. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
