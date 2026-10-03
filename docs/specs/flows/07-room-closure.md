@@ -180,7 +180,7 @@ per-caller enumeration is the honest form.
 ```
 terminateAndCleanup(sessionId, reason):
   a. TerminateSession(sessionId, reason), deadline 2s
-  b. on OK:  delete session:/routing:/gamekey:/queue:/seq:/delivered:/failcount:{sessionId}
+  b. on OK:  delete session:/routing:/gamekey:/roster:/queue:/seq:/delivered:/failcount:{sessionId}
              DELETE FROM session_teardown WHERE session_id = :sessionId
   c. on any error: WARN; record attempts++/last_error/next_attempt_at; leave it for the sweep.
      Never throw to the caller.

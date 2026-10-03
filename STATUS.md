@@ -1,13 +1,15 @@
 ## Last Session Summary
 
-**Date:** 2026-10-03 (session 131) — **`IMP-M8-02` DONE (76 of 92).**
+**Date:** 2026-10-03 (session 132) — **`IMP-M8-03` DONE (77 of 92).**
 
-- `SocialRepository.listFriends` ordered by `lower(friend_username)`, an output alias inside an expression, which PostgreSQL rejects (RR-02). The select is now wrapped in a subquery and sorts by `lower(friend_username), friend_id`.
-- `SocialControllerIT`: friends list for none / one / two pages (owner on either side of the friendship) over real PostgreSQL; verified failing on the old query. All other hand-written `ORDER BY`/`GROUP BY` audited — no further instance. Platform CI green; ref bumped.
+- RR-03 cause: the outcome's roster was read from the room's *current* members, so a leaver (explicit leave or grace expiry) was a "non-participant". Session creation now writes `roster:{sessionId}` (players → teams, deleted with the key family); `GameInputService` records against it, falling back to the room only if the key is gone. FR-HIST-001 and a forfeit's `game_over` agree (the engine emits it), so no gate.
+- `GameInputServiceIT`: forfeit with the leaver absent from the room writes both entries and counts the session; `RoomCommandControllerIT` asserts the key. Spec key table and the two closure flows updated. Platform CI green; ref bumped.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M8-03` is `DONE` (session 132).** Next: `IMP-M8-04`, `05`; view items `06…14` in parallel. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M8-02` is `DONE` (session 131).** Next: `IMP-M8-03`, `04`, `05`; view items `06…14` in parallel. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
