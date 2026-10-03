@@ -1,14 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-03 (session 133) — **`IMP-M8-04` DONE (78 of 92).**
+**Date:** 2026-10-03 (session 134) — **`IMP-M8-05` DONE (79 of 92).**
 
-- RR-04: closure keyed on "the departing user was the host", so with serialised racing leaves (host first) the last player out left an empty listed room. `RoomService.settleDeparture` now closes when a departing player leaves no human behind. `detachSession` to `LOBBY` resolves outstanding reservations (`FR-EXPIRY-006`) and closes an emptied room (`ROOM_CLOSED`).
-- Grace 11 s vs 60 s not reproduced: each drop gets its own 60 s reservation (asserted); recorded in the item.
-- `RoomControllerIT`: concurrent leaves ×5, host-first, game end with all in grace. Two existing ITs given a participant. Flow 07 updated. Platform CI green; ref bumped.
+- RR-09: the fix is in the SDK's `GdkObjectMapper` (shared engine): `ALLOW_COERCION_OF_SCALARS` and `ACCEPT_FLOAT_AS_INT` disabled, so `{"cell":"4"}` and `1.5` no longer bind to an `Integer`. Mapper unit tests added; SDK CI green. No version bump: the SDK has no tagged release (`conventions.md` §5, `0.1.0-SNAPSHOT`).
+- Tic-Tac-Toe: parameterised test pushes ten malformed JSON shapes through the real mapper — all `rejected`, no turn consumed. Game CI green.
+- Note: `1.5` was truncating to cell 1 in the mapper; the review saw it rejected live, so something upstream may have caught it. `turnbase-game-host` was not re-run against the stricter mapper; its next CI picks it up.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M8-05` is `DONE` (session 134).** Next: view items `06…14` in parallel. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M8-04` is `DONE` (session 133).** Next: `IMP-M8-05`; view items `06…14` in parallel. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
