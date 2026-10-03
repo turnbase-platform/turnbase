@@ -113,7 +113,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M7-10 | Lifecycle logging for rooms, auth and sessions | platform, game-host | M3-10 | DONE |
 | IMP-M7-11 | Anonymous session probe, cookie flag, scheduler bean | platform, frontend | M6-02 | DONE |
 | IMP-M7-12 | Local stack first-run path | platform | M0-05 | DONE |
-| IMP-M7-13 | MVP browser acceptance suite | frontend | M7-03, M7-05, M7-06 | WIP (session 128) |
+| IMP-M7-13 | MVP browser acceptance suite | frontend | M7-03, M7-05, M7-06 | DONE |
 
 **76 live items.** `IMP-M7-01…13` were added 2026-10-01 from the [MVP implementation review](../reviews/2026-10-01-mvp-implementation-review/INDEX.md): the first four close its MR-01 (the room views `IMP-M6-04`/`05` did not build), the rest close MR-02…MR-11 and add the acceptance suite the review was run by hand. IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
 `onboarding-wizard.md`'s FR-ONB-* and NFR-ONB-* have no implementing item by design. The heading is
@@ -5095,16 +5095,7 @@ The review's *Not covered* list (grace-period expiry, rate-limit flood, friends 
 profile pages, 400 px layout, concurrent games) is either covered here or recorded as an explicit
 follow-up. The suite is wired into CI or a documented `make` target.
 
-**Remaining:** the forfeit scenario. `turnbase-frontend/e2e/resilience.spec.ts` carries it as
-`test.fixme` because, as the third game of a run on one stack, the game frame intermittently loads
-`main.js` (200) yet renders no board (alone it passes about half the time; cause not found — game
-UI bridge handshake, Game Host or platform). Find the cause, remove `.fixme`, and assert the
-history entry once it is settled whether a leave-forfeit emits `game_over` (FR-HIST). The rest of the
-suite (`npm run e2e`, run by hand: `make reset-db` between runs, one guest and one registration per
-run) is merged and green; its *Not covered* follow-ups are still open — grace-period expiry,
-rate-limit flood, friends / notifications / profile pages, 400 px layout, concurrent games — and the
-create-room view exposes neither visibility nor spectating (FR-CREATE-001/002; the suite makes
-spectating rooms over REST). No CI job runs it: it needs the full compose stack.
+**Follow-ups (recorded, not owed by this item):** the suite is `npm run e2e`, run by hand against the compose stack (`make reset-db` between runs; documented in `turnbase-frontend/CLAUDE.md`) — no CI job, it needs the full stack. Not covered, by choice: grace-period expiry, rate-limit flood, friends / notifications / profile pages, 400 px layout, concurrent games; the create-room view exposes neither visibility nor spectating (FR-CREATE-001/002), so the suite makes spectating rooms over REST. The forfeit scenario asserts the opponent is told and can return to the lobby but not the history row — whether a leave-forfeit emits `game_over` (FR-HIST) is unsettled. Found while running it: `GET /api/users/{username}/friends` throws `BadSqlGrammarException` (500) in the platform log. The client does not retry a `SUBSCRIBE`/`REQUEST_GAME_SYNC` dropped by Tier 6, so a game started on an empty bucket renders no board.
 
 ---
 

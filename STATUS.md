@@ -1,15 +1,18 @@
 ## Last Session Summary
 
-**Date:** 2026-10-03 (session 127) — **`IMP-M7-13` PARTIAL (73 of 76 done).**
+**Date:** 2026-10-03 (session 128) — **`IMP-M7-13` DONE (74 of 76 done).**
 
-- `turnbase-frontend`: Playwright suite in `e2e/` (`npm run e2e`, by hand against the compose stack; one browser context per player). Green: full Tic-Tac-Toe game with spectator, outsider silence, history and statistics; socket drop and resume; abandoned Lobby; foreign `Origin` on REST and the WS upgrade. CI green on `35ccbfe`.
-- Defect found and fixed: the rooms list sent `sort=createdAt,desc`, which the API rejects with 400, so the default list never loaded. `RoomsPage` now omits `sort` for the default.
-- Owed: the forfeit scenario is `test.fixme` — the game frame intermittently renders no board on a later game in a run (cause unknown). Also open: grace-period expiry, rate-limit flood, friends/notifications/profile pages, 400 px layout, concurrent games, and a create-room UI with visibility/spectating.
-- Run notes: `make reset-db` between runs (Tier 5 guest/registration limits); the Tic-Tac-Toe bundle must be built first (`local-environment.md` §5).
+- Cause of the blank game frame found: the per-user Tier 6 `subscribe`/`snapshot` buckets. A game attach costs ~9 `SUBSCRIBE` + 2 snapshot frames per player; a third game in ~30 s for the same seeded user had its `SUBSCRIBE`/`REQUEST_GAME_SYNC` dropped (`RATE_LIMIT_EXCEEDED` on `/user/queue/errors`) and the client does not retry.
+- `turnbase-platform`: `WebSocketRateLimiter` also charged `UNSUBSCRIBE` to `subscribe`; `rate-limiting.md` says "any `SUBSCRIBE` frame". Fixed, with a test. CI green on `c790d92`.
+- `turnbase-frontend`: forfeit scenario enabled; `resilience.spec.ts` waits 15 s per test for budgets to refill. Two full `npm run e2e` runs green (5 of 5). CI green on `49bfed3`.
+- Follow-ups recorded in the item section: uncovered areas, history row after a forfeit, **`GET /api/users/{username}/friends` returns 500 (`BadSqlGrammarException`)**, client does not retry a rate-limited `SUBSCRIBE`.
+- Remote branch `fix/e2e-forfeit-budget-pacing` in `turnbase-frontend` is merged but could not be deleted (permission denied) — delete it by hand.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M7-13` is `DONE` (session 128).** No item is `PARTIAL` or `BLOCKED`; see the item's follow-ups (friends endpoint 500 first). Ignore older notes below.
 
 **`IMP-M7-13` is `PARTIAL` (session 127).** It is the last item: pick it up first — its `**Remaining:**` line starts with the intermittent blank game frame. Ignore older notes below.
 
