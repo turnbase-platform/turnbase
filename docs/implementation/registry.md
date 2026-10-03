@@ -117,7 +117,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M8 — Regression review remediation and MVP view completeness** ||||
 | IMP-M8-01 | Seeded users get their privacy settings | platform | M1-07, M3-10 | DONE |
 | IMP-M8-02 | The friends list query runs on PostgreSQL | platform | M1-09 | DONE |
-| IMP-M8-03 | A forfeit and a timeout are recorded | platform | M5-01, M7-06 | READY |
+| IMP-M8-03 | A forfeit and a timeout are recorded | platform | M5-01, M7-06 | WIP (session 132) |
 | IMP-M8-04 | Rooms emptied around a game end are closed | platform | M7-05, M2-09 | READY |
 | IMP-M8-05 | Tic-Tac-Toe takes only an integer `cell` | game | M7-08 | READY |
 | IMP-M8-06 | Shell, navigation, landing and redirects | frontend | M7-11 | READY |
