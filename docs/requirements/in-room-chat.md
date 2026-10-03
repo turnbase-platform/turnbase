@@ -25,7 +25,7 @@
 | ID | Title | Description | Priority |
 |----|-------|-------------|----------|
 | FR-CHAN-001 | Room channel always present | A room-wide chat channel exists for the entire lifetime of the room, across all states (Lobby, In Progress, post-game). | Must |
-| FR-CHAN-002 | Team channel conditional | A team chat channel exists only when the game declares team support and the player has been assigned to a team. | Must |
+| FR-CHAN-002 | Team channel conditional | A team chat channel exists only when the game declares team support and the player has been assigned to a team. Every manifest declares at least one `teamTemplates` entry (FR-MANIFEST-002), so "declares team support" means a team can hold more than one player: the client offers the channel when some team's `configuredSize` is above 1 (`IMP-M8-10`). | Must |
 | FR-CHAN-003 | Client-side chat log | Chat messages are not persisted on the server. Messages are delivered as events over WebSocket; the platform client maintains a local message log for the duration of the player's session in the room. No history is available to players who join or reconnect mid-session (see FR-MSG-005, FR-MSG-006). | Must |
 | FR-CHAN-004 | Spectators excluded | Spectators have no access to any chat channel — they cannot read or write messages. | Must |
 

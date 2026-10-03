@@ -1,12 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-03 (session 140) — **`IMP-M8-17` DONE (84 of 93).**
+**Date:** 2026-10-03 (session 141) — **`IMP-M8-10` DONE (85 of 93).**
 
-- `GET /api/rooms/{id}` (and the invite-code and join/create room bodies) now carry `viewerRole` — `PLAYER` (open player row or grace reservation), `SPECTATOR`, or `null`; list rows do not. `RoomRepository.findViewerRole`; `RoomControllerIT` asserts all four values and that a `GET` leaves the version and participant rows unchanged. Platform and frontend CI green; frontend `Room` type and fixture name the field. The repo has no OpenAPI document, so none was changed.
+- `/rooms/:id` no longer enrols: a member re-enters (`viewerRole`), anyone else gets the Player / Spectator prompt. *Start game* is disabled with the reasons listed; Switch buttons need a free slot; the Team chat tab needs a team of more than one (FR-CHAN-002 clarified in `in-room-chat.md`); lobby/game/results wrap at 400 px. `e2e/room.spec.ts` drives host, player, spectator and outsider through lobby → game → results.
+- The session-138 mid-game refresh defect was a platform bug: `ROOM_STATE` sent `gameFrontendUrl: null`. Fixed and asserted in `RoomCommandControllerIT`. Platform and frontend CI green.
+- Note: the e2e suite's guest tests hit the guest-session rate limit (9 min) after repeated local runs — environmental.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M8-10` is `DONE` (session 141).** Next: views `11…14`, `15`, then `16` (suite). No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M8-17` is `DONE` (session 140).** Next: `IMP-M8-10` (game room, now unblocked); views `11…15` are independent. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 

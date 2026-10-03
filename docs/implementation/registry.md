@@ -124,7 +124,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M8-07 | Login, registration and OAuth completion views | frontend | M8-06 | DONE |
 | IMP-M8-08 | Catalog, game detail and create-room options | frontend | M6-06 | DONE |
 | IMP-M8-09 | Rooms list and join views | frontend | M7-01, M7-07 | DONE |
-| IMP-M8-10 | The game room: lobby, in-game and results | frontend | M7-03, M7-04, M8-04, M8-17 | WIP (session 141) |
+| IMP-M8-10 | The game room: lobby, in-game and results | frontend | M7-03, M7-04, M8-04, M8-17 | DONE |
 | IMP-M8-11 | Profile view | frontend | M8-01, M8-03, M6-03 | READY |
 | IMP-M8-12 | Friends view | frontend | M8-02, M8-14 | READY |
 | IMP-M8-13 | Account settings view | frontend | M8-01, M6-03 | READY |
@@ -5388,6 +5388,8 @@ Tic-Tac-Toe room); the results view keeps the board and offers *Return to lobby*
 the in-game view and the results view at 400 px keep the board inside the viewport and the controls
 reachable; a refresh in each state rejoins from a snapshot. Specs: four contexts (host, player,
 spectator, outsider) through lobby → game → results, plus a drop-and-resume and a forfeit.
+
+**Built (session 141):** entry prompt for non-members (`viewerRole`), Start disabled with reasons, Switch gated on a free slot, team chat only when a team holds more than one player (`in-room-chat.md` FR-CHAN-002 now says so), 400 px wrapping, `e2e/room.spec.ts`. The mid-game refresh defect was the platform: `ROOM_STATE` always sent `gameFrontendUrl: null` — fixed in `turnbase-platform`. A refresh by a spectator, or in the Lobby, is a disconnect-leave (FR-DC-002/003) and returns through the prompt by design.
 
 **Closed:** IMP-GATE-95 (opened and closed 2026-10-03, session 139) — the *First step* above. Only `/rooms/join/:code` enrols on arrival; `/rooms/:id` re-enters a member and otherwise shows the Player / Spectator prompt, enrolling on a button press (`platform-views.md` *Room — Lobby*, Entry; `shell-architecture.md` §8). The client cannot tell a member from a visitor today, so the room resource gains `viewerRole` (`room-rest-api.md` §4) — built by `IMP-M8-17`, which this item now depends on. What remains for this item is the rest of its *Done when*, starting at *Start game* disabled with a reason.
 
