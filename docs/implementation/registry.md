@@ -118,7 +118,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M8-01 | Seeded users get their privacy settings | platform | M1-07, M3-10 | DONE |
 | IMP-M8-02 | The friends list query runs on PostgreSQL | platform | M1-09 | DONE |
 | IMP-M8-03 | A forfeit and a timeout are recorded | platform | M5-01, M7-06 | DONE |
-| IMP-M8-04 | Rooms emptied around a game end are closed | platform | M7-05, M2-09 | WIP (session 133) |
+| IMP-M8-04 | Rooms emptied around a game end are closed | platform | M7-05, M2-09 | DONE |
 | IMP-M8-05 | Tic-Tac-Toe takes only an integer `cell` | game | M7-08 | READY |
 | IMP-M8-06 | Shell, navigation, landing and redirects | frontend | M7-11 | READY |
 | IMP-M8-07 | Login, registration and OAuth completion views | frontend | M8-06 | READY |
@@ -5247,6 +5247,8 @@ players is the configured 60 s — the review measured 11 s against 61 s for one
 requirements define a shorter rule for that case and the item records it, or it is fixed; (d) an
 integration test reproduces `09203c03` and `fe4d83bc` and asserts no listed room has `playerCount` 0
 afterwards. The 30-minute idle sweep stays as the backstop and is **not** what closes these.
+
+**Outcome (session 133):** (a) closure now keys on "the departing player left no human behind", not "the departing user was the host" — with serialised leaves the host goes first and the last one out is an ordinary player; (b) `detachSession` to `LOBBY` resolves outstanding reservations (`FR-EXPIRY-006`) and closes the room if no human remains, `ROOM_CLOSED` instead of `GAME_ENDED`; (c) **not reproduced** — each disconnect opens its own full 60 s reservation (asserted for two simultaneous drops); the review's 11 s is consistent with the second player dropping ~49 s after the first (`HOST_TRANSFERRED` shows the second was still connected at the first drop). Known simplification: if the host was among the resolved reservations and humans remain, `host_user_id` is left on the departed host as the existing "no host" state.
 
 ---
 

@@ -1,13 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-03 (session 132) — **`IMP-M8-03` DONE (77 of 92).**
+**Date:** 2026-10-03 (session 133) — **`IMP-M8-04` DONE (78 of 92).**
 
-- RR-03 cause: the outcome's roster was read from the room's *current* members, so a leaver (explicit leave or grace expiry) was a "non-participant". Session creation now writes `roster:{sessionId}` (players → teams, deleted with the key family); `GameInputService` records against it, falling back to the room only if the key is gone. FR-HIST-001 and a forfeit's `game_over` agree (the engine emits it), so no gate.
-- `GameInputServiceIT`: forfeit with the leaver absent from the room writes both entries and counts the session; `RoomCommandControllerIT` asserts the key. Spec key table and the two closure flows updated. Platform CI green; ref bumped.
+- RR-04: closure keyed on "the departing user was the host", so with serialised racing leaves (host first) the last player out left an empty listed room. `RoomService.settleDeparture` now closes when a departing player leaves no human behind. `detachSession` to `LOBBY` resolves outstanding reservations (`FR-EXPIRY-006`) and closes an emptied room (`ROOM_CLOSED`).
+- Grace 11 s vs 60 s not reproduced: each drop gets its own 60 s reservation (asserted); recorded in the item.
+- `RoomControllerIT`: concurrent leaves ×5, host-first, game end with all in grace. Two existing ITs given a participant. Flow 07 updated. Platform CI green; ref bumped.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M8-04` is `DONE` (session 133).** Next: `IMP-M8-05`; view items `06…14` in parallel. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M8-03` is `DONE` (session 132).** Next: `IMP-M8-04`, `05`; view items `06…14` in parallel. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 

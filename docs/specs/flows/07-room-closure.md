@@ -105,6 +105,17 @@ re-delete the rooms `FR-DC-007` exists to save.
 The only caller with `nextState = 'LOBBY'`, the most frequent by far, and the one that had **no crash
 safety at all** before ADR-0010 keyed the teardown by session. [Flow 06](06-game-end-and-rematch.md).
 
+**Step 3 for this caller resolves outstanding reservations** (`FR-EXPIRY-006`): a participant still in
+grace is marked departed (`GRACE_EXPIRED`, already announced, no engine notification). **If that leaves
+no human player, the room closes in the same transaction** (`NO_PLAYERS_REMAINING`, `ROOM_CLOSED`
+instead of `GAME_ENDED`) — otherwise a game that ends while everyone is away returns an empty room to
+the listing (`IMP-M8-04`, RR-04). The same check applies to caller 4 and the reconciliation's fail-back.
+
+**Caller 1's test is "no human player remains", not "the departing user was the host".** Leaves are
+serialised per room, so when three members leave together the host's departure (players behind it) is
+committed first and the *last* one out is an ordinary player; keying closure on the host left such a
+room open and empty.
+
 ---
 
 ## Caller 4 — retry-limit failure
