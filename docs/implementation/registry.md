@@ -115,7 +115,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M7-12 | Local stack first-run path | platform | M0-05 | DONE |
 | IMP-M7-13 | MVP browser acceptance suite | frontend | M7-03, M7-05, M7-06 | DONE |
 | **M8 — Regression review remediation and MVP view completeness** ||||
-| IMP-M8-01 | Seeded users get their privacy settings | platform | M1-07, M3-10 | READY |
+| IMP-M8-01 | Seeded users get their privacy settings | platform | M1-07, M3-10 | WIP (session 130) |
 | IMP-M8-02 | The friends list query runs on PostgreSQL | platform | M1-09 | READY |
 | IMP-M8-03 | A forfeit and a timeout are recorded | platform | M5-01, M7-06 | READY |
 | IMP-M8-04 | Rooms emptied around a game end are closed | platform | M7-05, M2-09 | READY |
