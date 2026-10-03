@@ -123,7 +123,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M8-06 | Shell, navigation, landing and redirects | frontend | M7-11 | DONE |
 | IMP-M8-07 | Login, registration and OAuth completion views | frontend | M8-06 | DONE |
 | IMP-M8-08 | Catalog, game detail and create-room options | frontend | M6-06 | DONE |
-| IMP-M8-09 | Rooms list and join views | frontend | M7-01, M7-07 | WIP (session 138) |
+| IMP-M8-09 | Rooms list and join views | frontend | M7-01, M7-07 | DONE |
 | IMP-M8-10 | The game room: lobby, in-game and results | frontend | M7-03, M7-04, M8-04 | READY |
 | IMP-M8-11 | Profile view | frontend | M8-01, M8-03, M6-03 | READY |
 | IMP-M8-12 | Friends view | frontend | M8-02, M8-14 | READY |
@@ -5349,8 +5349,11 @@ spec makes one through the dialog and enters it as a spectator.
 becomes a stacked list or scrolls inside its own container (the page scrolled 154 px sideways in the
 review); the pinned reconnection card appears for a caller holding a grace-period slot and goes away when
 it is released, shown by a spec that drops a player mid-game; Friends Only rooms are absent for a Guest;
-Join and Spectate are each present only when that role is open; an invalid, expired and full-room code
-each show their own reason (VW-JOIN-003).
+Join and Spectate are each present only when that role is open; a full-room code and a code that
+resolves to nothing each show their own reason (VW-JOIN-003). *Corrected session 138:* the clause
+said invalid, expired and full each differ, but `room-rest-api.md` §3.1 returns one empty list for a
+wrong, expired and closed code on purpose (no oracle, NFR-SEC-002), so the client can name only
+"not valid, expired or closed" as one reason.
 
 ---
 
@@ -5368,7 +5371,9 @@ each show their own reason (VW-JOIN-003).
 **Satisfies:** `platform-views.md` VW-RLOBBY-001…017, VW-RGAME-001…008, VW-RRESULT-001…005
 
 **Done when:** the *View standard* holds for `/rooms/:id` in each of its states — **lobby, in-game and
-results** — and for each role: host, non-host player, spectator, and a non-member. **First step:** the
+results** — and for each role: host, non-host player, spectator, and a non-member. **Known (session 138):** a full page reload
+of `/rooms/:id` mid-game showed the Lobby view for the reconnecting player and left their grace-period
+slot held — cover it in the *refresh rejoins from a snapshot* spec. **First step:** the
 review found that opening `/rooms/:id` as a non-member enrols the visitor (as a player in a public room,
 as a spectator when a room has no seat) with no prompt, while VW-JOIN-002 asks for a Player / Spectator
 choice before joining; `platform-views.md` writes that for the join-by-code route only. Decide in the

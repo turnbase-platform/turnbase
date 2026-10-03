@@ -1,14 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-03 (session 137) — **`IMP-M8-08` DONE (82 of 92).**
+**Date:** 2026-10-03 (session 138) — **`IMP-M8-09` DONE (83 of 92).**
 
-- Create room is now a dialog: visibility (Friends Only hidden for Guests) and, only for games with `supportsSpectators`, an *Allow spectators* switch. 297 unit tests pass; frontend CI green.
-- `/games` filter row wraps (RR-07 at 400 px). New `e2e/catalog.spec.ts` (Unauth, Guest, `alice`); the e2e `createRoom({spectating})` no longer uses REST.
-- Local-run trap unchanged: `docker build -t turnbase/frontend:dev` then `docker compose up -d --no-deps --force-recreate frontend` in `turnbase-platform/deploy/compose`.
+- `/rooms`: table scrolls inside its own box at 400 px, filter row wraps, error state has *Try again*, and the pinned reconnection card triggers one refresh just after its grace period so it disappears. Join-by-code now names "not valid, has expired, or closed" as one reason (§3.1 gives no way to tell them apart); `IMP-M8-09`'s *Done when* was corrected to match. 298 unit tests pass; frontend CI green.
+- New `e2e/rooms.spec.ts` (Unauth, Guest at 400 px, join link, dropped-player card). Spent one Guest only — `POST /api/auth/guest` is 5 per IP per hour; clear with `redis-cli -a local-only-change-me --scan --pattern 'rate:mint:guest:*'`.
+- Found: a full reload of `/rooms/:id` mid-game shows the Lobby view and does not release the grace slot (noted in `IMP-M8-10`). Local trap: the game host stalled after hours up (`createSession` deadline) — `docker compose restart gamehost`.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M8-09` is `DONE` (session 138).** Next: view items `10…14`. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M8-08` is `DONE` (session 137).** Next: view items `09…14`. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
