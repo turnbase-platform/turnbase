@@ -1,13 +1,15 @@
 ## Last Session Summary
 
-**Date:** 2026-10-03 (session 130) — **`IMP-M8-01` DONE (75 of 92).**
+**Date:** 2026-10-03 (session 131) — **`IMP-M8-02` DONE (76 of 92).**
 
-- `SeedRepository.insertUser` now writes the `user_privacy_settings` row (`on conflict do nothing`), so seeded users no longer 500 on `GET /api/users/me|{name}` (RR-01). Spec needed no change: §4 "always exists" and the seeder design agree; registration already wrote the row.
-- `SeedDataIT`: one privacy row per seeded user; `/me` and `/users/{name}` return 200 for alice/bob/carol/dave and an API-registered user, as each other. Platform CI green; ref bumped.
+- `SocialRepository.listFriends` ordered by `lower(friend_username)`, an output alias inside an expression, which PostgreSQL rejects (RR-02). The select is now wrapped in a subquery and sorts by `lower(friend_username), friend_id`.
+- `SocialControllerIT`: friends list for none / one / two pages (owner on either side of the friendship) over real PostgreSQL; verified failing on the old query. All other hand-written `ORDER BY`/`GROUP BY` audited — no further instance. Platform CI green; ref bumped.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M8-02` is `DONE` (session 131).** Next: `IMP-M8-03`, `04`, `05`; view items `06…14` in parallel. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M8-01` is `DONE` (session 130).** Next: `IMP-M8-02` (friends 500), `03`, `04`, `05`; view items `06…14` in parallel. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 

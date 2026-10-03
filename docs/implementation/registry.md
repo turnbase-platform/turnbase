@@ -116,7 +116,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M7-13 | MVP browser acceptance suite | frontend | M7-03, M7-05, M7-06 | DONE |
 | **M8 — Regression review remediation and MVP view completeness** ||||
 | IMP-M8-01 | Seeded users get their privacy settings | platform | M1-07, M3-10 | DONE |
-| IMP-M8-02 | The friends list query runs on PostgreSQL | platform | M1-09 | WIP (session 131) |
+| IMP-M8-02 | The friends list query runs on PostgreSQL | platform | M1-09 | DONE |
 | IMP-M8-03 | A forfeit and a timeout are recorded | platform | M5-01, M7-06 | READY |
 | IMP-M8-04 | Rooms emptied around a game end are closed | platform | M7-05, M2-09 | READY |
 | IMP-M8-05 | Tic-Tac-Toe takes only an integer `cell` | game | M7-08 | READY |
@@ -5194,6 +5194,8 @@ output alias inside an expression (`BadSqlGrammarException`, PostgreSQL error `c
 does not exist`); the integration test runs against real PostgreSQL, not a mock, and fails on the
 current query. Every other hand-written `ORDER BY`/`GROUP BY` in `JdbcClient` repositories is checked
 for the same pattern and the result is recorded in the item's *Closed* line.
+
+**Closed:** session 131 — `SocialRepository.listFriends` now sorts an outer select by `lower(friend_username), friend_id`; `SocialControllerIT` covers none/one/two-page lists on real PostgreSQL and failed on the old query with `column "friend_username" does not exist`. Every other hand-written `ORDER BY`/`GROUP BY` in `JdbcClient` repositories (admin, history, catalog, account, notification, room) was checked: they sort by table-qualified columns or bare aliases, never an alias inside an expression — no further defect.
 
 ---
 
