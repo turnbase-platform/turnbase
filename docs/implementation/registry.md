@@ -120,7 +120,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M8-03 | A forfeit and a timeout are recorded | platform | M5-01, M7-06 | DONE |
 | IMP-M8-04 | Rooms emptied around a game end are closed | platform | M7-05, M2-09 | DONE |
 | IMP-M8-05 | Tic-Tac-Toe takes only an integer `cell` | game | M7-08 | DONE |
-| IMP-M8-06 | Shell, navigation, landing and redirects | frontend | M7-11 | READY |
+| IMP-M8-06 | Shell, navigation, landing and redirects | frontend | M7-11 | WIP (session 135) |
 | IMP-M8-07 | Login, registration and OAuth completion views | frontend | M8-06 | READY |
 | IMP-M8-08 | Catalog, game detail and create-room options | frontend | M6-06 | READY |
 | IMP-M8-09 | Rooms list and join views | frontend | M7-01, M7-07 | READY |
