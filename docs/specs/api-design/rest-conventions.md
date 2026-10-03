@@ -59,7 +59,7 @@ Error responses follow RFC 9457 Problem Details — see [error-handling.md](erro
 
 ## Authentication
 
-All endpoints except those listed as public in `user-accounts.md NFR-SEC-006` require a valid session token delivered as an `httpOnly`, `Secure`, `SameSite=Strict` cookie (`user-accounts.md CON-004`), named **`turnbase_session`**, `Path=/`. The name is a fixed protocol constant, not a `local-environment.md` §7 tunable — every server-side path that reads the cookie back (the STOMP handshake, the SSE endpoint, any authenticated-route filter) must agree on the same literal string, which an operator-configurable name would put at risk for no benefit. Unauthenticated requests to protected endpoints receive a 401 response.
+All endpoints except those listed as public in `user-accounts.md NFR-SEC-006` require a valid session token delivered as an `httpOnly`, `Secure`, `SameSite=Strict` cookie (`user-accounts.md CON-004`), named **`turnbase_session`**, `Path=/`. `Secure` is set when `turnbase.platform.origin` is `https://` and omitted for the plain-HTTP local stack, because Safari and older Firefox drop a `Secure` cookie received over HTTP (`IMP-M7-11`); the OAuth pending and link cookies are unchanged. The name is a fixed protocol constant, not a `local-environment.md` §7 tunable — every server-side path that reads the cookie back (the STOMP handshake, the SSE endpoint, any authenticated-route filter) must agree on the same literal string, which an operator-configurable name would put at risk for no benefit. Unauthenticated requests to protected endpoints receive a 401 response.
 
 The session lifecycle is four endpoints:
 
@@ -68,7 +68,7 @@ The session lifecycle is four endpoints:
 | `POST /api/auth/login` | Revokes any existing session for the account, issues a new one (`FR-SESS-002/003`) |
 | `POST /api/auth/guest` | Mints a guest account and a session (`FR-GUEST-001/003`) |
 | `POST /api/auth/logout` | Revokes the current session, clears the cookie, returns `204` (`FR-SESS-011`) |
-| `GET /api/auth/session` | Returns the current principal, or `401`. The frontend's tier check on load |
+| `GET /api/auth/session` | Returns the current principal; for a visitor who presented **no** session token, `200 {"authenticated":false}` (public, NFR-SEC-006) — a `401` here would log a console error on every anonymous page load (`IMP-M7-11`). A token that was presented and rejected (displaced, expired, invalid) still gets the `401` naming why (`FR-SESS-004`). The frontend's tier check on load |
 
 **Request bodies (`IMP-GATE-75`).** `login` takes `{ "usernameOrEmail", "password" }` (VW-LOGIN-001); `register` takes
 `{ "username", "email", "password", "confirmPassword" }` (VW-REG-001); `guest` and `logout` take none. These are the field

@@ -1,17 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-01 (session 124) — **`IMP-M7-10` DONE (71 of 76 done).** Closes MR-06.
+**Date:** 2026-10-03 (session 125) — **`IMP-M7-11` DONE (72 of 76 done).** Closes MR-07, MR-08, MR-10.
 
-- `turnbase-platform`: `common.LifecycleLog` (INFO, fields as JSON keys, nulls omitted). `RoomEventExecutor.publish` logs every
-  committed room event with `roomId`/`userId`/`reason`/`sessionId`; room create, register/login/guest/OAuth, socket
-  connect/disconnect (WebSocket and room), game start and game end (outcome) have lines. No credential/token/chat text.
-- `turnbase-game-host`: context create / release (reason IDLE_TIMEOUT, MEMORY_PRESSURE, SHUTDOWN), session create/terminate, `Deregister`.
-- CI green on both; `observability.md` §3 gained a "Lifecycle lines" note. Loki reconstruction not exercised on the live stack.
-- Gotcha: full `verify -Pintegration` in the platform flaked twice on Testcontainers startup (different ITs each run, all pass alone).
+- `turnbase-platform`: `GET /api/auth/session` answers `200 {"authenticated":false}` when no token was presented (a rejected token still gets the FR-SESS-004 `401`); `common.SessionCookies` sets `Secure` only for an `https://` `turnbase.platform.origin`; the heartbeat `TaskScheduler` is `autowireCandidate=false`, leaving Boot's as the only candidate (asserted in `AuthControllerIT`).
+- `turnbase-frontend`: `AuthProvider` reads the new probe body; `autocomplete` on login/register/settings password fields via `shared/autofill.ts` (Astryx `TextInput` forwards props but does not type `autoComplete`).
+- `rest-conventions.md` records both contracts. OAuth pending/link cookies keep `Secure` (unchanged). CI green on both; not exercised in a real browser.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M7-11` is `DONE` (session 125).** Next: `IMP-M7-12`, then `13` (acceptance suite) last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M7-10` is `DONE` (session 124).** Next: `IMP-M7-11`, `12`, then `13` (acceptance suite) last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
