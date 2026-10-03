@@ -124,15 +124,16 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M8-07 | Login, registration and OAuth completion views | frontend | M8-06 | DONE |
 | IMP-M8-08 | Catalog, game detail and create-room options | frontend | M6-06 | DONE |
 | IMP-M8-09 | Rooms list and join views | frontend | M7-01, M7-07 | DONE |
-| IMP-M8-10 | The game room: lobby, in-game and results | frontend | M7-03, M7-04, M8-04 | READY |
+| IMP-M8-10 | The game room: lobby, in-game and results | frontend | M7-03, M7-04, M8-04, M8-17 | READY |
 | IMP-M8-11 | Profile view | frontend | M8-01, M8-03, M6-03 | READY |
 | IMP-M8-12 | Friends view | frontend | M8-02, M8-14 | READY |
 | IMP-M8-13 | Account settings view | frontend | M8-01, M6-03 | READY |
 | IMP-M8-14 | Notifications bell and panel | frontend | M6-06, M5-03 | READY |
 | IMP-M8-15 | The client retries a rate-limited subscribe | frontend | M6-04 | READY |
-| IMP-M8-16 | The acceptance suite covers every view and the review's gaps | frontend | M8-01…15 | READY |
+| IMP-M8-16 | The acceptance suite covers every view and the review's gaps | frontend | M8-01…15, M8-17 | READY |
+| IMP-M8-17 | The room resource names the viewer's membership | platform | M2-09 | READY |
 
-**92 live items.** `IMP-M8-01…16` were added 2026-10-03 from the [MVP regression review](../reviews/2026-10-03-mvp-regression-review/INDEX.md): five close its backend and game findings, nine give every MVP view a minimal working UI (the game room is `IMP-M8-10`), and the last two close the client follow-up and re-run the review as a suite. `IMP-M7-01…13` were added 2026-10-01 from the [MVP implementation review](../reviews/2026-10-01-mvp-implementation-review/INDEX.md): the first four close its MR-01 (the room views `IMP-M6-04`/`05` did not build), the rest close MR-02…MR-11 and add the acceptance suite the review was run by hand. IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
+**93 live items.** `IMP-M8-01…16` were added 2026-10-03 from the [MVP regression review](../reviews/2026-10-03-mvp-regression-review/INDEX.md): five close its backend and game findings, nine give every MVP view a minimal working UI (the game room is `IMP-M8-10`), and the last two close the client follow-up and re-run the review as a suite. `IMP-M7-01…13` were added 2026-10-01 from the [MVP implementation review](../reviews/2026-10-01-mvp-implementation-review/INDEX.md): the first four close its MR-01 (the room views `IMP-M6-04`/`05` did not build), the rest close MR-02…MR-11 and add the acceptance suite the review was run by hand. IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
 `onboarding-wizard.md`'s FR-ONB-* and NFR-ONB-* have no implementing item by design. The heading is
 kept below so the number is never reused. `IMP-M3-12` was added 2026-08-22, closing IMP-GATE-05 — see
 its section under M3. `IMP-M3-13` was added 2026-09-30, closing IMP-GATE-91 — see its section under M3. `IMP-M1-10` was added 2026-09-06, closing IMP-GATE-26, and `IMP-M1-11` on
@@ -5359,7 +5360,7 @@ wrong, expired and closed code on purpose (no oracle, NFR-SEC-002), so the clien
 
 ### IMP-M8-10 — The game room: lobby, in-game and results
 
-**Repo:** `turnbase-frontend` · **Depends on:** IMP-M7-03, IMP-M7-04, IMP-M8-04 · **Closes:** RR-05, RR-08, RR-07 (room at 400 px)
+**Repo:** `turnbase-frontend` · **Depends on:** IMP-M7-03, IMP-M7-04, IMP-M8-04, IMP-M8-17 · **Closes:** RR-05, RR-08, RR-07 (room at 400 px)
 
 **Read first:**
 - `docs/requirements/platform-views.md` — *Room Lobby* (VW-RLOBBY-001…017), *Room In-Game* (VW-RGAME-001…008), *Room Results* (VW-RRESULT-001…005), *Join* (VW-JOIN-001…003)
@@ -5367,6 +5368,7 @@ wrong, expired and closed code on purpose (no oracle, NFR-SEC-002), so the clien
 - `docs/specs/api-design/room-websocket.md`, `docs/specs/api-design/room-chat-websocket.md`
 - `docs/requirements/game-rooms.md` FR-XFER-*, FR-JOIN-*, `docs/requirements/reconnection-flow.md` FR-REJOIN-*
 - `docs/reviews/2026-10-03-mvp-regression-review/INDEX.md` RR-05, RR-08
+- `docs/specs/api-design/room-rest-api.md` §4 (`viewerRole`)
 
 **Satisfies:** `platform-views.md` VW-RLOBBY-001…017, VW-RGAME-001…008, VW-RRESULT-001…005
 
@@ -5386,6 +5388,8 @@ Tic-Tac-Toe room); the results view keeps the board and offers *Return to lobby*
 the in-game view and the results view at 400 px keep the board inside the viewport and the controls
 reachable; a refresh in each state rejoins from a snapshot. Specs: four contexts (host, player,
 spectator, outsider) through lobby → game → results, plus a drop-and-resume and a forfeit.
+
+**Closed:** IMP-GATE-95 (opened and closed 2026-10-03, session 139) — the *First step* above. Only `/rooms/join/:code` enrols on arrival; `/rooms/:id` re-enters a member and otherwise shows the Player / Spectator prompt, enrolling on a button press (`platform-views.md` *Room — Lobby*, Entry; `shell-architecture.md` §8). The client cannot tell a member from a visitor today, so the room resource gains `viewerRole` (`room-rest-api.md` §4) — built by `IMP-M8-17`, which this item now depends on. What remains for this item is the rest of its *Done when*, starting at *Start game* disabled with a reason.
 
 ---
 
@@ -5463,6 +5467,25 @@ working *Join* action and a friend request with *Accept*/*Decline*; a notificati
 page is open (SSE) updates the badge without a reload and survives a reconnect of the stream; *Mark
 read*, *Mark all read* and *Dismiss* persist across a reload; an unknown type renders a generic line
 rather than nothing.
+
+---
+
+### IMP-M8-17 — The room resource names the viewer's membership
+
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M2-09 · **Closes:** RR-05 (backend half; `IMP-GATE-95`)
+
+**Read first:**
+- `docs/specs/api-design/room-rest-api.md` §4 (`viewerRole`), §5 step 2
+- `docs/requirements/platform-views.md` *Room — Lobby*, Entry
+- `docs/requirements/reconnection-flow.md` FR-REJOIN-003, FR-EXPIRY-001
+
+**Satisfies:** `platform-views.md` VW-JOIN-002 (on `/rooms/:id`)
+
+**Done when:** `GET /api/rooms/{roomId}` carries `viewerRole`: `PLAYER` for a caller with an open player
+row or a grace-period reservation, `SPECTATOR` for an open spectator row, `null` otherwise — including
+a visitor to a public room and a caller who has left; the field is absent from list rows; the
+OpenAPI document and the frontend's generated contract fixtures name it; an integration test asserts all
+four values and that a `GET` never changes membership or bumps the room's version.
 
 ---
 

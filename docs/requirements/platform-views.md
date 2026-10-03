@@ -199,6 +199,15 @@ Note: The content and structure of per-game statistics is specified in per-game-
 
 Room lifecycle, readiness rules, and host management behavior are specified in game-rooms.md. This section defines which UI elements are visible and enabled per role and auth tier.
 
+**Entry — which route may enrol (`IMP-GATE-95`).** Opening `/rooms/:id` never takes a seat. A caller who
+already holds one (`viewerRole` in `room-rest-api.md` §4) re-enters it: the idempotent join, which is
+also how a refresh or a stored link resumes (FR-REJOIN-003, 004). A caller who holds none sees the
+VW-JOIN-002 prompt — *Join as player* and/or *Join as spectator*, each only when the room's `canJoin` /
+`canSpectate` allow it — and is enrolled only by pressing one; with neither available, the VW-JOIN-003
+error. This holds whether the visitor arrived by the Rooms list, a pasted URL, a notification or a link
+preview. `/rooms/join/:code` keeps its own rule below: a valid code is itself the deliberate act, and it
+prompts only when both roles are available.
+
 | ID | Element / Action | Role condition | Guest | Registered |
 |----|-----------------|----------------|-------|------------|
 | VW-RLOBBY-001 | Player list with readiness indicators | All participants | Visible | Visible |
@@ -280,7 +289,7 @@ Note: Chat behavior, channel rules, and message format are fully specified in `i
 | ID | Element / Action | Guest | Registered |
 |----|-----------------|-------|------------|
 | VW-JOIN-001 | Automatic redirect to room (`/rooms/:id`) | On valid code with an available role; all joining rules from `game-rooms.md` FR-JOIN-003–FR-JOIN-006 apply | Enabled | Enabled |
-| VW-JOIN-002 | Player / Spectator choice prompt | Shown before joining when both roles are simultaneously available | Enabled | Enabled |
+| VW-JOIN-002 | Player / Spectator choice prompt | Shown before joining when both roles are simultaneously available; on `/rooms/:id` a non-member is also prompted when only one role is available (see *Room — Lobby*, Entry) | Enabled | Enabled |
 | VW-JOIN-003 | Error message | Shown when the code is invalid, the room no longer exists, or no role is available; includes the specific reason | Visible | Visible |
 
 ---

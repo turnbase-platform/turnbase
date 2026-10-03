@@ -317,6 +317,11 @@ the player is reading.
 So: one route, one mounted iframe, and an overlay. `GAME_ENDED` sets an overlay flag; **Return to
 Lobby** clears it and unmounts.
 
+**Entry enrols only members.** The room view's first call is `GET /api/rooms/{id}`. If `viewerRole` is
+set it re-enters through the idempotent join; if it is `null` the view renders the join prompt and
+`POST …/participants` is sent only from a button (`platform-views.md` *Room — Lobby*, Entry; a link
+preview or prefetch must not take a seat).
+
 **The reconnection card is global, not room-scoped.** `VW-ROOMS-005` and `FR-REJOIN-002` pin a card
 to `/rooms` for as long as the player holds a reserved slot — which they see *while not in the room*.
 It is driven by a field on the rooms list response, not by a WebSocket subscription to a room the

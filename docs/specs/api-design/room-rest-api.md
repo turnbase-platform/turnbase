@@ -344,6 +344,7 @@ The full room resource. Superset of a list row.
   "inviteCode": "k7Qm2xR9",
   "canJoin": true,
   "canSpectate": true,
+  "viewerRole": null,
   "version": 42,
   "createdAt": "2026-08-16T10:04:11Z"
 }
@@ -354,6 +355,14 @@ share; nobody else needs to re-derive it). `version` is the room's current event
 that opens its socket immediately after this call knows whether the first delta it receives is
 contiguous. `spectatorCapacity` is the resolved value of `turnbase.room.spectator-capacity` (§3), sent
 so a client can render "3 / 8 watching" without knowing the platform's configuration.
+
+`viewerRole` is `PLAYER`, `SPECTATOR` or `null`: the caller's own current membership (a participant row
+with `left_at IS NULL`; a grace-period reservation counts as `PLAYER`). It exists because opening
+`/rooms/{id}` must not enrol anyone (`platform-views.md` *Room — Lobby*, `IMP-GATE-95`): the client
+needs to tell a member re-entering, which is the idempotent join of §5 step 2, from a visitor who must
+first choose Player or Spectator. `canJoin`/`canSpectate` cannot answer that — they are computed for
+the viewer as a stranger and stay `true` for a member of a room with a free seat. Present on the full
+resource only, never on a list row.
 
 **No participant list, no team list.** Both are in `ROOM_STATE` on the socket
 (`room-websocket.md`), which is delivered under the room lock with a version stamp. Returning them

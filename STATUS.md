@@ -1,14 +1,15 @@
 ## Last Session Summary
 
-**Date:** 2026-10-03 (session 138) — **`IMP-M8-09` DONE (83 of 92).**
+**Date:** 2026-10-03 (session 139) — **`spec-defect` `IMP-GATE-95` opened and closed; no item completed (83 of 93).**
 
-- `/rooms`: table scrolls inside its own box at 400 px, filter row wraps, error state has *Try again*, and the pinned reconnection card triggers one refresh just after its grace period so it disappears. Join-by-code now names "not valid, has expired, or closed" as one reason (§3.1 gives no way to tell them apart); `IMP-M8-09`'s *Done when* was corrected to match. 298 unit tests pass; frontend CI green.
-- New `e2e/rooms.spec.ts` (Unauth, Guest at 400 px, join link, dropped-player card). Spent one Guest only — `POST /api/auth/guest` is 5 per IP per hour; clear with `redis-cli -a local-only-change-me --scan --pattern 'rate:mint:guest:*'`.
-- Found: a full reload of `/rooms/:id` mid-game shows the Lobby view and does not release the grace slot (noted in `IMP-M8-10`). Local trap: the game host stalled after hours up (`createSession` deadline) — `docker compose restart gamehost`.
+- `IMP-M8-10`'s first step: which route may enrol. Decided: only `/rooms/join/:code`; opening `/rooms/:id` re-enters a member and otherwise shows the Player / Spectator prompt (`platform-views.md` *Room — Lobby*, Entry; `shell-architecture.md` §8).
+- The client cannot tell a member from a visitor, so `GET /api/rooms/{id}` gains `viewerRole` (`room-rest-api.md` §4). New item **`IMP-M8-17`** (platform) builds it; `IMP-M8-10` and `IMP-M8-16` now depend on it. Item count 92 → 93. Corpus check clean.
 
 ---
 
 ## Next Priorities
+
+**`IMP-GATE-95` is closed (session 139).** Next: `IMP-M8-17` (backend `viewerRole`), then `IMP-M8-10` (game room). Views `11…14` are independent. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M8-09` is `DONE` (session 138).** Next: view items `10…14`. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
