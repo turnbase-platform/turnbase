@@ -1,13 +1,14 @@
 ## Last Session Summary
 
-**Date:** 2026-10-03 (session 139) — **`spec-defect` `IMP-GATE-95` opened and closed; no item completed (83 of 93).**
+**Date:** 2026-10-03 (session 140) — **`IMP-M8-17` DONE (84 of 93).**
 
-- `IMP-M8-10`'s first step: which route may enrol. Decided: only `/rooms/join/:code`; opening `/rooms/:id` re-enters a member and otherwise shows the Player / Spectator prompt (`platform-views.md` *Room — Lobby*, Entry; `shell-architecture.md` §8).
-- The client cannot tell a member from a visitor, so `GET /api/rooms/{id}` gains `viewerRole` (`room-rest-api.md` §4). New item **`IMP-M8-17`** (platform) builds it; `IMP-M8-10` and `IMP-M8-16` now depend on it. Item count 92 → 93. Corpus check clean.
+- `GET /api/rooms/{id}` (and the invite-code and join/create room bodies) now carry `viewerRole` — `PLAYER` (open player row or grace reservation), `SPECTATOR`, or `null`; list rows do not. `RoomRepository.findViewerRole`; `RoomControllerIT` asserts all four values and that a `GET` leaves the version and participant rows unchanged. Platform and frontend CI green; frontend `Room` type and fixture name the field. The repo has no OpenAPI document, so none was changed.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M8-17` is `DONE` (session 140).** Next: `IMP-M8-10` (game room, now unblocked); views `11…15` are independent. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-GATE-95` is closed (session 139).** Next: `IMP-M8-17` (backend `viewerRole`), then `IMP-M8-10` (game room). Views `11…14` are independent. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
