@@ -113,7 +113,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M7-10 | Lifecycle logging for rooms, auth and sessions | platform, game-host | M3-10 | DONE |
 | IMP-M7-11 | Anonymous session probe, cookie flag, scheduler bean | platform, frontend | M6-02 | DONE |
 | IMP-M7-12 | Local stack first-run path | platform | M0-05 | DONE |
-| IMP-M7-13 | MVP browser acceptance suite | frontend | M7-03, M7-05, M7-06 | READY |
+| IMP-M7-13 | MVP browser acceptance suite | frontend | M7-03, M7-05, M7-06 | WIP (session 127) |
 
 **76 live items.** `IMP-M7-01…13` were added 2026-10-01 from the [MVP implementation review](../reviews/2026-10-01-mvp-implementation-review/INDEX.md): the first four close its MR-01 (the room views `IMP-M6-04`/`05` did not build), the rest close MR-02…MR-11 and add the acceptance suite the review was run by hand. IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
 `onboarding-wizard.md`'s FR-ONB-* and NFR-ONB-* have no implementing item by design. The heading is
