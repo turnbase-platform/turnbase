@@ -1,14 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-03 (session 134) — **`IMP-M8-05` DONE (79 of 92).**
+**Date:** 2026-10-03 (session 135) — **`IMP-M8-06` DONE (80 of 92).**
 
-- RR-09: the fix is in the SDK's `GdkObjectMapper` (shared engine): `ALLOW_COERCION_OF_SCALARS` and `ACCEPT_FLOAT_AS_INT` disabled, so `{"cell":"4"}` and `1.5` no longer bind to an `Integer`. Mapper unit tests added; SDK CI green. No version bump: the SDK has no tagged release (`conventions.md` §5, `0.1.0-SNAPSHOT`).
-- Tic-Tac-Toe: parameterised test pushes ten malformed JSON shapes through the real mapper — all `rejected`, no turn consumed. Game CI green.
-- Note: `1.5` was truncating to cell 1 in the mapper; the review saw it rejected live, so something upstream may have caught it. `turnbase-game-host` was not re-run against the stricter mapper; its next CI picks it up.
+- RR-07 header: `NavBar` moves links (and signed-out CTAs) to a wrapping second row at ≤ 640 px; no overlap at 400 px. Unit test added (292 pass); frontend CI green.
+- The VW-NAV/LAND/REDIR walk found no other failing rows. New `e2e/shell.spec.ts` (Unauth, Guest, `alice`) passes against the rebuilt compose frontend.
+- Page-level horizontal scroll of `/rooms` and `/games` stays with `IMP-M8-09` / `IMP-M8-08`. Guest creation is 5/h per IP: repeated e2e runs hit it (cleared locally via `rate:mint:*` in Redis).
 
 ---
 
 ## Next Priorities
+
+**`IMP-M8-06` is `DONE` (session 135).** Next: `IMP-M8-07` (login/register), then view items `08…14`. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M8-05` is `DONE` (session 134).** Next: view items `06…14` in parallel. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
