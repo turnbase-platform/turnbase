@@ -1,14 +1,17 @@
 ## Last Session Summary
 
-**Date:** 2026-10-03 (session 135) — **`IMP-M8-06` DONE (80 of 92).**
+**Date:** 2026-10-03 (session 136) — **`IMP-M8-07` DONE (81 of 92).**
 
-- RR-07 header: `NavBar` moves links (and signed-out CTAs) to a wrapping second row at ≤ 640 px; no overlap at 400 px. Unit test added (292 pass); frontend CI green.
-- The VW-NAV/LAND/REDIR walk found no other failing rows. New `e2e/shell.spec.ts` (Unauth, Guest, `alice`) passes against the rebuilt compose frontend.
-- Page-level horizontal scroll of `/rooms` and `/games` stays with `IMP-M8-09` / `IMP-M8-08`. Guest creation is 5/h per IP: repeated e2e runs hit it (cleared locally via `rate:mint:*` in Redis).
+- The auth views already met the *View standard* except RR-10: `ApiError` now carries `Retry-After`; login, register and Play as Guest say "try again in 14 minutes" (`formatWait`, `rateLimitMessage`). 295 unit tests pass; frontend CI green.
+- New `e2e/auth.spec.ts` (Unauth, Guest). A 400 `errors[]` entry lands on its field (stubbed); a taken username is a plain 409 shown as the server's sentence (`input-validation.md`), not a field error.
+- OAuth completion: the compose stack has no Google stub and `/api/auth/providers` returns `{google:false}`, so the button is absent (asserted) and the completion view is covered only by unit tests plus the no-pending → `/login` redirect.
+- Local-run traps: the compose DB seeded before `IMP-M8-01` still 500s on `/api/users/alice/friends` (reset the DB); `rate:*` keys in Redis (`docker exec compose-redis-1 …`) hold the login lockout and register/guest limits — clear them between e2e runs; `docker build -t turnbase/frontend:dev` is needed, `compose build` did not refresh it.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M8-07` is `DONE` (session 136).** Next: view items `08…14`. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M8-06` is `DONE` (session 135).** Next: `IMP-M8-07` (login/register), then view items `08…14`. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
