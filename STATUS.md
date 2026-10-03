@@ -1,16 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-03 (session 128) — **`IMP-M7-13` DONE (74 of 76 done).**
+**Date:** 2026-10-03 (session 129) — **second regression review run; milestone M8 opened (74 of 92 done).**
 
-- Cause of the blank game frame found: the per-user Tier 6 `subscribe`/`snapshot` buckets. A game attach costs ~9 `SUBSCRIBE` + 2 snapshot frames per player; a third game in ~30 s for the same seeded user had its `SUBSCRIBE`/`REQUEST_GAME_SYNC` dropped (`RATE_LIMIT_EXCEEDED` on `/user/queue/errors`) and the client does not retry.
-- `turnbase-platform`: `WebSocketRateLimiter` also charged `UNSUBSCRIBE` to `subscribe`; `rate-limiting.md` says "any `SUBSCRIBE` frame". Fixed, with a test. CI green on `c790d92`.
-- `turnbase-frontend`: forfeit scenario enabled; `resilience.spec.ts` waits 15 s per test for budgets to refill. Two full `npm run e2e` runs green (5 of 5). CI green on `49bfed3`.
-- Follow-ups recorded in the item section: uncovered areas, history row after a forfeit, **`GET /api/users/{username}/friends` returns 500 (`BadSqlGrammarException`)**, client does not retry a rate-limited `SUBSCRIBE`.
-- Remote branch `fix/e2e-forfeit-budget-pacing` in `turnbase-frontend` is merged but could not be deleted (permission denied) — delete it by hand.
+- Ran the post-M7 black-box review: [`docs/reviews/2026-10-03-mvp-regression-review/INDEX.md`](docs/reviews/2026-10-03-mvp-regression-review/INDEX.md). The play loop works; 10 of 11 first-review findings are closed. New findings RR-01…RR-10: Profile/Settings 500 for seeded users, friends list 500, forfeit writes no history, rooms emptied around a game end stay listed, non-member visit silently enrols, 400 px overflow, `{cell:"4"}` accepted.
+- Registry: added **`IMP-M8-01…16`** — `01…05` close the backend/game findings, `06…14` give every MVP view a minimal working UI (the game room is `IMP-M8-10`), `15` client retry of a rate-limited subscribe, `16` the acceptance suite. Follow-up notes added to `IMP-M7-05`, `M7-06`, `M7-13` (all stay `DONE`).
+- Nothing implemented; nothing committed. Remote branch `fix/e2e-forfeit-budget-pacing` in `turnbase-frontend` is merged but undeleted (permission denied) — delete by hand.
 
 ---
 
 ## Next Priorities
+
+**Milestone M8 is open (session 129), all 16 items `READY`.** Start with `IMP-M8-01` and `IMP-M8-02` (the 500s), then `03`, `04`; the view items `06…14` can run in parallel with them. `IMP-M8-10` opens with a `spec-defect` on which route may enrol a visitor. Ignore older notes below.
 
 **`IMP-M7-13` is `DONE` (session 128).** No item is `PARTIAL` or `BLOCKED`; see the item's follow-ups (friends endpoint 500 first). Ignore older notes below.
 
