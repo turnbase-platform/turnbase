@@ -121,7 +121,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M8-04 | Rooms emptied around a game end are closed | platform | M7-05, M2-09 | DONE |
 | IMP-M8-05 | Tic-Tac-Toe takes only an integer `cell` | game | M7-08 | DONE |
 | IMP-M8-06 | Shell, navigation, landing and redirects | frontend | M7-11 | DONE |
-| IMP-M8-07 | Login, registration and OAuth completion views | frontend | M8-06 | READY |
+| IMP-M8-07 | Login, registration and OAuth completion views | frontend | M8-06 | WIP (session 136) |
 | IMP-M8-08 | Catalog, game detail and create-room options | frontend | M6-06 | READY |
 | IMP-M8-09 | Rooms list and join views | frontend | M7-01, M7-07 | READY |
 | IMP-M8-10 | The game room: lobby, in-game and results | frontend | M7-03, M7-04, M8-04 | READY |
