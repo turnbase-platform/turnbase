@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 155) — **`IMP-M9-02` `DONE` (97 of 104).** `GET /api/games?owner={username}` now filters on `app_user.username` (platform `CatalogListFilter`/`CatalogRepository`/`CatalogController`), composing with §2's visibility; unknown name → `200` empty, null-owner games match nobody. `CatalogControllerIT` covers owner, non-owner, anonymous and unknown name over real PostgreSQL. The frontend profile e2e now asserts *No uploaded games yet* by content. `make e2e`: 47 passed; both CIs green. Note: repeated failed logins from one address escalate the lockout for minutes — don't probe `/api/auth/login` with curl between e2e runs; to clear it, recreate the `redis` container and its volume.
+**Date:** 2026-10-04 (session 156) — **`IMP-M9-03` `DONE` (98 of 104).** Tic-Tac-Toe's game FE now reads the `game_over` results payload: new `applyResult` reducer and `GameResult` type in `model.ts`; `statusLine` says "You won." / "You lost." / "Draw." to players, "X won." / "O won." (plus "their opponent left" on a forfeit) to spectators, and "Your opponent left — you win." to the forfeit winner. A payload that is not a `result` only ends the game. The game has no timeout reason, so none is rendered. Vitest covers every reducer case; the bundle was re-packaged, the DB reset (`make reset-db` — seeding skips existing games) and `make e2e`: 47 passed, with `game.spec.ts` asserting winner, loser and spectator text. Both CIs green.
 
 ---
 
 ## Next Priorities
+
+**Session 157:** `IMP-M9-04`–`06`, `08`, `07` (independent); `09` last. 98 of 104 done. No item is `PARTIAL` or `BLOCKED`.
 
 **Session 156:** `IMP-M9-03`–`06`, `08`, `07` (independent); `09` last. 97 of 104 done. No item is `PARTIAL` or `BLOCKED`.
 
