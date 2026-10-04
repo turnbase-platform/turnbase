@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 160) — **`IMP-M9-07` `DONE` (102 of 105).** Decision recorded as `reconnection-flow.md` FR-DC-008: an individual Lobby/results socket loss stays an immediate leave (no grace), with rationale; the mitigation is a `beforeunload` warning, opened as new item `IMP-M9-11` (frontend, `READY`). Registry now has 105 items; `CLAUDE.md` counts updated. Corpus check clean. Docs only — no submodule changes.
+**Date:** 2026-10-04 (session 161) — **`IMP-M9-11` `DONE` (103 of 105).** `turnbase-frontend` `f4e1d9d`: `useLeaveWarning` registers a `beforeunload` handler in `RoomView` while the viewer is a player of a LOBBY-state room (Lobby or results overlay), removed on Leave room, for spectators and In Progress. Five unit tests; one e2e (run live against the rebuilt compose stack, passing). CI green, ref bumped.
 
 ---
 
 ## Next Priorities
+
+**Session 162:** `IMP-M9-08`; `09` last. 103 of 105 done. No item is `PARTIAL` or `BLOCKED`.
 
 **Session 161:** `IMP-M9-08`, `IMP-M9-11` (independent); `09` last. 102 of 105 done. No item is `PARTIAL` or `BLOCKED`.
 
