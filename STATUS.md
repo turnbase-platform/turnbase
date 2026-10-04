@@ -1,15 +1,24 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 148) — **`IMP-M8-16` DONE (94 of 94); M8 and the register complete.**
+**Date:** 2026-10-04 (session 149) — **MVP completeness audit; M9 opened (`IMP-M9-01…09`, 94 of 103 done).**
 
-- Frontend: `e2e/acceptance.spec.ts` (forfeit → history and statistics, 60 s grace expiry, Tier 6 flood and recovery, two simultaneous Lobby departures), `e2e/layout.spec.ts` (400 px, no horizontal scroll, every route), `e2e/fixtures.ts` tripwire (console error, page error, `5xx` fail the spec unless `tripwire.allow`), cached guest cookie so a run mints no guest, `make e2e`. CI green.
-- Verified on a clean `make up`: two consecutive full runs green (45/45; second run's only failure was stompjs "WebSocket is already in CLOSING" teardown noise, now allowed). A third run inside 24 h fails on login: Tier 1 counts 2 failures per run, lockout on the 5th — documented; flush Redis for more.
-- CI cannot run the suite (needs the full compose stack); noted in the registry row.
-- **Finding:** the game host once went `unhealthy` after a game start while other work loaded the CPU, and after `make reset-db`; `down -v` + `make up` cleared it. Cause not determined.
+- Ran a full end-to-end audit of the stack after M8, using Playwright with four actors at 1280, 1920 and 400 px, axe-core, the REST API, logs and observability. Report: [`docs/reviews/2026-10-04-mvp-completeness-audit/INDEX.md`](docs/reviews/2026-10-04-mvp-completeness-audit/INDEX.md).
+- **What works.** All ten 2026-10-03 findings (RR-01…10) are closed. Every route renders, and the play loop, spectating, chat, transfer, kick, results and history all work. The platform and the game host logged no ERROR lines. Observability is healthy.
+- **Findings CA-01…CA-11:**
+  - **CA-01 (High).** Lobby *Invite friends* (VW-RLOBBY-005) is not built.
+  - **CA-02.** The catalog listing ignores `owner`, so every profile lists the whole catalog.
+  - **CA-03.** Tic-Tac-Toe never shows the outcome.
+  - **CA-04.** The catalog's *Create room* is clipped at 1280 and at 1920 px.
+  - **CA-05.** A leave reaches the engine only on the 5 s sweep.
+  - **CA-06…10.** Settings gaps, a spec question on a Lobby reload, polish, and a postMessage console warning.
+  - **CA-11.** Stale DONE session markers, fixed in the same commit.
+- Opened M9 in the registry: nine items, all `READY`.
 
 ---
 
 ## Next Priorities
+
+**M9 opened (session 149) from the completeness audit; 94 of 103 done.** Next: `IMP-M9-01` (lobby friend invitations, CA-01 High), then `02`, `03`, `04`, `05` (each independent), `06`, `08`, and `07` (a docs decision); `09` (the suite) last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M8-16` is `DONE` (session 148).** All 94 items are `DONE`; Phase 1 build plan is complete. Ignore older notes below.
 

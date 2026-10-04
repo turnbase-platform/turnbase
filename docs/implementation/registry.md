@@ -71,8 +71,8 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-01 | GDK backend API surface | sdk | M0-02 | DONE |
 | IMP-M3-02 | Espresso context lifecycle | game-host | M0-04 | DONE |
 | IMP-M3-03 | GDK host bridge and serialization boundary | sdk, game-host | M3-01, M3-02 | DONE |
-| IMP-M3-04 | gRPC service implementation | game-host | M3-03 | DONE (session 89) |
-| IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | DONE (session 93) |
+| IMP-M3-04 | gRPC service implementation | game-host | M3-03 | DONE |
+| IMP-M3-05 | Orchestration client and session registry | platform | M3-04, M2-04, M2-06 | DONE |
 | IMP-M3-06 | Game input outbox and delivery | platform | M3-05 | DONE |
 | IMP-M3-07 | Effect fan-out and spectator filtering | platform | M3-06 | DONE |
 | IMP-M3-08 | Session teardown as a durable to-do | platform | M3-05, M2-09 | DONE |
@@ -82,11 +82,11 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M3-12 | FE GDK client (`@turnbase/gdk`) | sdk | M0-02 | DONE |
 | IMP-M3-13 | Shared bundle validator module | sdk, platform | M4-03, M3-03 | DONE |
 | **M4 — Catalog and upload** ||||
-| IMP-M4-01 | Catalog listing and game detail | platform | M1-01 | DONE (session 61) |
+| IMP-M4-01 | Catalog listing and game detail | platform | M1-01 | DONE |
 | IMP-M4-02 | Manifest schema validation | platform | M0-06 | DONE |
 | IMP-M4-03 | Upload pipeline and version state machine | platform | M4-02 | DONE |
 | IMP-M4-04 | Bundle publication and asset serving | platform | M4-03 | DONE |
-| IMP-M4-05 | Admin API — review queue and badges | platform | M4-03 | DONE (session 60) |
+| IMP-M4-05 | Admin API — review queue and badges | platform | M4-03 | DONE |
 | **M5 — History, statistics, notifications** ||||
 | IMP-M5-01 | Game history recording and query API | platform | M3-09 | DONE |
 | IMP-M5-02 | Per-game statistics | platform | M5-01 | DONE |
@@ -94,14 +94,14 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M5-04 | Retention purge jobs | platform | M5-01, M5-03 | DONE |
 | **M6 — Platform frontend** ||||
 | IMP-M6-01 | Astryx integration and the `ui/` boundary | frontend | M0-05 | DONE |
-| IMP-M6-02 | Shell, routing and auth tiers | frontend, platform | M6-01 | DONE (session 75) |
+| IMP-M6-02 | Shell, routing and auth tiers | frontend, platform | M6-01 | DONE |
 | IMP-M6-03 | Account and profile views | frontend | M6-02, M1-07, M1-11 | DONE |
 | IMP-M6-04 | Room views and the STOMP client | frontend | M6-02, M2-08 | DONE |
 | IMP-M6-05 | Game iframe host and postMessage relay | frontend | M6-04, M3-07 | DONE |
-| IMP-M6-06 | Catalog and history views | frontend | M6-02, M4-01, M5-01 | DONE (session 108) |
+| IMP-M6-06 | Catalog and history views | frontend | M6-02, M4-01, M5-01 | DONE |
 | ~~IMP-M6-07~~ | ~~Onboarding wizard~~ | frontend | — | CANCELLED |
 | **M7 — MVP review remediation** ||||
-| IMP-M7-01 | Room list and join views | frontend | M6-04 | DONE (session 117) |
+| IMP-M7-01 | Room list and join views | frontend | M6-04 | DONE |
 | IMP-M7-02 | Room lobby view | frontend | M7-01 | DONE |
 | IMP-M7-03 | In-game and results views, game iframe mount | frontend | M7-02, M6-05 | DONE |
 | IMP-M7-04 | Room chat panel | frontend | M7-02 | DONE |
@@ -128,13 +128,23 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M8-11 | Profile view | frontend | M8-01, M8-03, M6-03 | DONE |
 | IMP-M8-12 | Friends view | frontend | M8-02, M8-14 | DONE |
 | IMP-M8-13 | Account settings view | frontend | M8-01, M6-03 | DONE |
-| IMP-M8-14 | Notifications bell and panel | frontend | M6-06, M5-03 | DONE (session 143) |
+| IMP-M8-14 | Notifications bell and panel | frontend | M6-06, M5-03 | DONE |
 | IMP-M8-15 | The client retries a rate-limited subscribe | frontend | M6-04 | DONE |
 | IMP-M8-16 | The acceptance suite covers every view and the review's gaps | frontend | M8-01…15, M8-17, M8-18 | DONE |
 | IMP-M8-17 | The room resource names the viewer's membership | platform | M2-09 | DONE |
-| IMP-M8-18 | The platform pushes a persisted notification to an open stream | platform | M5-03, M8-14 | DONE (session 147) |
+| IMP-M8-18 | The platform pushes a persisted notification to an open stream | platform | M5-03, M8-14 | DONE |
+| **M9 — MVP completeness audit remediation** ||||
+| IMP-M9-01 | Invite friends from the room lobby | frontend | M8-10, M8-12 | READY |
+| IMP-M9-02 | The catalog listing honours `owner` | platform | M4-01 | READY |
+| IMP-M9-03 | Tic-Tac-Toe shows the outcome | game | M8-05 | READY |
+| IMP-M9-04 | Catalog rows keep their actions at desktop widths | frontend | M8-08 | READY |
+| IMP-M9-05 | A voluntary leave reaches the engine at once | platform | M7-06, M8-03 | READY |
+| IMP-M9-06 | Settings: Google linking and privacy labels | frontend, platform | M8-13 | READY |
+| IMP-M9-07 | Decide what a Lobby reload means | docs | — | READY |
+| IMP-M9-08 | View polish and the game-frame console warning | frontend, sdk | M8-16 | READY |
+| IMP-M9-09 | The acceptance suite covers the audit's gaps | frontend | M9-01…06, M9-08 | READY |
 
-**94 live items.** `IMP-M8-01…16` were added 2026-10-03 from the [MVP regression review](../reviews/2026-10-03-mvp-regression-review/INDEX.md): five close its backend and game findings, nine give every MVP view a minimal working UI (the game room is `IMP-M8-10`), and the last two close the client follow-up and re-run the review as a suite. `IMP-M7-01…13` were added 2026-10-01 from the [MVP implementation review](../reviews/2026-10-01-mvp-implementation-review/INDEX.md): the first four close its MR-01 (the room views `IMP-M6-04`/`05` did not build), the rest close MR-02…MR-11 and add the acceptance suite the review was run by hand. IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
+**103 live items.** `IMP-M9-01…09` were added 2026-10-04 from the [MVP completeness audit](../reviews/2026-10-04-mvp-completeness-audit/INDEX.md) (`CA-01…CA-10`): the invite-friends control and the `owner` filter the MVP still lacks, the reference game's missing outcome, the clipped catalog action, the late forfeit dispatch, the settings gaps, one spec decision, polish, and the suite that pins them. `IMP-M8-01…16` were added 2026-10-03 from the [MVP regression review](../reviews/2026-10-03-mvp-regression-review/INDEX.md): five close its backend and game findings, nine give every MVP view a minimal working UI (the game room is `IMP-M8-10`), and the last two close the client follow-up and re-run the review as a suite. `IMP-M7-01…13` were added 2026-10-01 from the [MVP implementation review](../reviews/2026-10-01-mvp-implementation-review/INDEX.md): the first four close its MR-01 (the room views `IMP-M6-04`/`05` did not build), the rest close MR-02…MR-11 and add the acceptance suite the review was run by hand. IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
 `onboarding-wizard.md`'s FR-ONB-* and NFR-ONB-* have no implementing item by design. The heading is
 kept below so the number is never reused. `IMP-M3-12` was added 2026-08-22, closing IMP-GATE-05 — see
 its section under M3. `IMP-M3-13` was added 2026-09-30, closing IMP-GATE-91 — see its section under M3. `IMP-M1-10` was added 2026-09-06, closing IMP-GATE-26, and `IMP-M1-11` on
@@ -5556,6 +5566,259 @@ job or an explicit note of why it cannot run there; a clean `make up` followed b
 **twice in a row** (the run must not exhaust the registration or guest allowance).
 
 **Delivered (session 148):** `make e2e` in `turnbase-frontend` (checks the stack is up, then runs the suite). CI cannot run it: it needs the full compose stack (platform, game host with Espresso, Postgres, Redis, MinIO) and a ~8 min run bounded by the Tier 1/5/6 rate-limit budgets, so it is run by hand — `turnbase-frontend/CLAUDE.md` documents the allowance. Two runs fit per 24 h; a third needs a Redis flush. Verified green twice in a row on a clean `make up`.
+
+---
+
+## M9 — MVP completeness audit remediation
+
+Opened 2026-10-04 from the [MVP completeness audit](../reviews/2026-10-04-mvp-completeness-audit/INDEX.md)
+(`CA-01…CA-11`; CA-11 was fixed in the audit's own commit). M8 gave every view a minimal working UI and
+the audit found the views sound, so this milestone is short:
+
+- **Two planned functions a player still cannot reach.** Inviting friends (`IMP-M9-01`) and a
+  profile's uploaded games (`IMP-M9-02`).
+- **One visibly wrong result.** The reference game never names the winner (`IMP-M9-03`).
+- **One action invisible at every desktop width** (`IMP-M9-04`).
+- **One late dispatch** (`IMP-M9-05`).
+- **The settings gaps** (`IMP-M9-06`).
+- **One spec decision** (`IMP-M9-07`).
+- **Polish** (`IMP-M9-08`).
+- **The suite that pins all of it** (`IMP-M9-09`).
+
+**What the audit taught about Done-when clauses.** Three of the findings were already covered by an
+M8 item's *Satisfies* list, yet that item reached `DONE` with the gap still open:
+
+- CA-01 — VW-RLOBBY-005, under `IMP-M8-10`.
+- CA-02 — VW-PROF-002c, under `IMP-M8-11`.
+- CA-04 — VW-CAT-003, under `IMP-M8-08`.
+
+Each slipped because the spec asserted a *heading* or a *role* rather than the *row*, or checked one
+width only. The *View standard* still applies to every frontend item below. Each of them must also
+assert the specific row it closes **by its visible text and its effect**, not by the presence of a
+container.
+
+---
+
+### IMP-M9-01 — Invite friends from the room lobby
+
+**Repo:** `turnbase-frontend` · **Depends on:** IMP-M8-10, IMP-M8-12 · **Closes:** CA-01
+
+**Read first:**
+- `docs/reviews/2026-10-04-mvp-completeness-audit/INDEX.md` CA-01
+- `docs/requirements/platform-views.md` *Room — Lobby* (VW-RLOBBY-005 and the note under the table)
+- `docs/specs/api-design/room-invitation-rest-api.md`
+- `docs/specs/api-design/social-rest-api.md` — `GET /api/users/{username}/friends`
+- `docs/requirements/notifications-invitations.md` (room invitation requirements)
+
+**Satisfies:** `platform-views.md` VW-RLOBBY-005
+
+**Done when:**
+- **Who sees it.** A registered host's lobby shows *Invite friends*. A Guest host, a non-host player and
+  a spectator do not see it (hidden, not disabled).
+- **The picker.** It opens over the host's friends and sends the invitation for each one selected, with
+  the API's documented `4xx`s rendered as messages.
+- **No friends.** A host with no friends gets an empty state that says so.
+- **End to end.** The invitee's open page shows the notification, and *Join* enters the room.
+- **The rooms that need it.** It works for a `FRIENDS_ONLY` and an `INVITE_ONLY` room.
+- **Tests.** A Playwright spec drives all of the above from the UI, and `notifications.spec.ts` no longer
+  sends the invitation over REST.
+
+---
+
+### IMP-M9-02 — The catalog listing honours `owner`
+
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M4-01 · **Closes:** CA-02
+
+**Read first:**
+- `docs/reviews/2026-10-04-mvp-completeness-audit/INDEX.md` CA-02
+- `docs/specs/api-design/catalog-rest-api.md` §2, §3 (`owner`), §6
+- `docs/specs/platform/data-model-catalog.md` §1
+- `docs/requirements/game-catalog.md` FR-UPROF-001…004
+
+**Satisfies:** `game-catalog.md` FR-UPROF-001, FR-UPROF-003; `platform-views.md` VW-PROF-002c
+
+**Done when:** `GET /api/games?owner={username}` restricts to that user's games:
+
+- **Visibility.** The filter composes with §2's visibility predicate. The owner sees their own unlisted
+  and Unverified games; another caller, anonymous included, sees only listed, non-Unverified ones.
+- **Unknown user.** An unknown username yields `200` with an empty `content`, not `404`.
+- **Platform-authored games.** A game with a null owner matches no username.
+- **Integration test over real PostgreSQL.** It covers the owner, a non-owner, an anonymous caller and an
+  unknown name.
+- **The profile.** A seeded user's profile shows an empty *Uploaded games* section, and the frontend's
+  profile spec asserts it by content, not by heading.
+
+---
+
+### IMP-M9-03 — Tic-Tac-Toe shows the outcome
+
+**Repo:** `turnbase-game-tictactoe` · **Depends on:** IMP-M8-05 · **Closes:** CA-03
+
+**Read first:**
+- `docs/reviews/2026-10-04-mvp-completeness-audit/INDEX.md` CA-03
+- `docs/requirements/game-contracts.md` FR-EFF-005, FR-OUTCOME-*
+- `docs/specs/gdk-api/INDEX.md` → the TypeScript client (`onGameOver`)
+- `turnbase-game-tictactoe/src/main/java/io/turnbase/games/tictactoe/GameMessage.java` (`Result`)
+
+**Satisfies:** `game-contracts.md` FR-EFF-005 (the game FE displays results)
+
+**Done when:**
+- **The handler.** `onGameOver` reads the results payload instead of discarding it.
+- **What a player sees.** "You won." / "You lost." / "Draw.".
+- **What a spectator sees.** "X won." / "O won." / "Draw.".
+- **Forfeit and timeout.** The winner also sees the reason, e.g. "Your opponent left — you win.".
+- **Tests.** Unit tests cover every case of the results reducer. The bundle is re-seeded, and the
+  frontend's game spec asserts the winner's and the loser's text.
+
+---
+
+### IMP-M9-04 — Catalog rows keep their actions at desktop widths
+
+**Repo:** `turnbase-frontend` · **Depends on:** IMP-M8-08 · **Closes:** CA-04
+
+**Read first:**
+- `docs/reviews/2026-10-04-mvp-completeness-audit/INDEX.md` CA-04
+- `docs/requirements/platform-views.md` *Game Catalog* (VW-CAT-001…003)
+- `docs/specs/platform-frontend/design-system.md`
+
+**Satisfies:** `platform-views.md` VW-CAT-002, VW-CAT-003
+
+**Done when:**
+- **The button fits.** At 1280, 1440 and 1920 px each row's *Create room* lies wholly inside its table
+  cell and the viewport, and is clickable without scrolling.
+- **Nothing is cut.** The badge shows its full label.
+- **The title reads as a link.** It is styled as one.
+- **Game detail.** The page's *Create room* is not stretched to the content width.
+- **400 px.** The layout stays as it is today.
+- **Tests.** The layout spec asserts the first three at all three widths, by bounding box rather than by
+  `toBeVisible`.
+
+---
+
+### IMP-M9-05 — A voluntary leave reaches the engine at once
+
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M7-06, IMP-M8-03 · **Closes:** CA-05
+
+**Read first:**
+- `docs/reviews/2026-10-04-mvp-completeness-audit/INDEX.md` CA-05
+- `docs/specs/platform/data-model.md` §4.2 (`game_input_outbox`, the inline attempt, stamp-on-ACK, the teardown rule)
+- `docs/requirements/game-rooms.md` FR-LIFE-004
+- `docs/requirements/reconnection-flow.md` FR-DC-005, FR-KICK-*
+- `docs/implementation/registry.md` IMP-M3-09 *Built* (the drain)
+
+**Satisfies:** `game-rooms.md` FR-LIFE-004; `reconnection-flow.md` FR-DC-005
+
+**Done when:**
+- **Inline dispatch.** After the transaction that writes a `player_left` row commits — an explicit leave,
+  an abandonment confirmation, a kick, or an account deletion — the platform attempts the dispatch once,
+  inline.
+- **The sweep stays.** The deadline sweep remains the retry path.
+- **Same rules as before.**
+  - `dispatched_at` is stamped on ACK only.
+  - The teardown discard still wins.
+  - A failed inline attempt records `attempts`/`last_error` exactly as the sweep does.
+- **Integration test.** It shows the engine receives the input without waiting for a sweep tick.
+- **Latency.** The forfeit scenario asserts leave → `GAME_OVER` at the opponent in under 1 s.
+
+---
+
+### IMP-M9-06 — Settings: Google linking and privacy labels
+
+**Repo:** `turnbase-frontend` (spec edit in this repository) · **Depends on:** IMP-M8-13 · **Closes:** CA-06, CA-07
+
+**Read first:**
+- `docs/reviews/2026-10-04-mvp-completeness-audit/INDEX.md` CA-06, CA-07
+- `docs/specs/api-design/oauth-rest-api.md` *Hidden when the client secret is absent*, `GET /api/auth/providers`, §7a
+- `docs/requirements/platform-views.md` *Account Settings* (VW-SET-004, VW-SET-006, VW-SET-006a)
+
+**Satisfies:** `platform-views.md` VW-SET-004, VW-SET-006a
+
+**Done when:**
+- **Spec first.** `oauth-rest-api.md`'s *Hidden when* paragraph names VW-SET-004 alongside VW-LOGIN-002
+  and VW-REG-002 (a `spec-defect` edit, first).
+- **Hidden when unconfigured.** Settings asks `GET /api/auth/providers` and does not render *Link Google
+  account* when `google` is `false`.
+- **Each control is named on screen.** The four per-section visibility controls each carry a visible
+  label naming the section, and keep their accessible names.
+- **Tests.**
+  - The settings spec asserts the link is absent on the unconfigured compose stack.
+  - The same spec asserts the four labels by visible text.
+
+---
+
+### IMP-M9-07 — Decide what a Lobby reload means
+
+**Repo:** `turnbase` (documentation only) · **Depends on:** — · **Closes:** CA-08
+
+**Read first:**
+- `docs/reviews/2026-10-04-mvp-completeness-audit/INDEX.md` CA-08
+- `docs/requirements/reconnection-flow.md` FR-DC-001…007
+- `docs/requirements/game-rooms.md` FR-XFER-001, FR-XFER-002, FR-LIFE-004
+- `docs/decisions/0008-room-ownership-lifecycle.md`
+
+**Done when:** `reconnection-flow.md` records a decision, with its rationale, on what an individual
+player's socket loss in Lobby (and in the results overlay, FR-DC-004) means. Either outcome closes the
+item:
+
+- **A short Lobby grace.** Specify its length and what happens to the host role and to readiness during
+  it, and open the platform and frontend work item it implies, in the register.
+- **Immediate leave stays.** Write that down together with the user-facing mitigation — for example a
+  `beforeunload` warning in the lobby — and open its frontend item.
+
+`check-corpus.py` is clean.
+
+---
+
+### IMP-M9-08 — View polish and the game-frame console warning
+
+**Repo:** `turnbase-frontend`, `turnbase-sdk` (if the warning is the SDK's) · **Depends on:** IMP-M8-16 · **Closes:** CA-09, CA-10
+
+**Read first:**
+- `docs/reviews/2026-10-04-mvp-completeness-audit/INDEX.md` CA-09, CA-10
+- `docs/specs/platform-frontend/design-system.md`
+- `docs/specs/api-design/websocket.md` § *Platform-shell* relay (the exact-origin rule)
+- `turnbase-sdk/src/main/ts/client.ts` (`window.parent.postMessage`)
+
+**Satisfies:** `platform-views.md` VW-NAV-*, VW-ROOMS-001, VW-GDET-002 (presentation only)
+
+**Done when:**
+- **Accessibility.** axe-core reports no violation on any route for any tier — `/rooms`' `heading-order`
+  included.
+- **The bell.** It shows its count once; the accessible name stays, but is not printed as visible text.
+- **Headings.** No section repeats its heading as a visible list caption (friends, uploaded games,
+  sign-in methods).
+- **The toast.** A copied invite link announces once.
+- **VW-GDET-002.** It is either built as a tab, or the row is amended to say *section* (`spec-defect`).
+- **The console warning.** The `postMessage` origin warning is gone: its posting site is found, and the
+  sender does not post when it has no parent.
+- **The tripwire.** `e2e/fixtures.ts` counts console warnings as well as errors, with the existing
+  allow-list mechanism.
+
+---
+
+### IMP-M9-09 — The acceptance suite covers the audit's gaps
+
+**Repo:** `turnbase-frontend` · **Depends on:** IMP-M9-01…06, IMP-M9-08
+
+**Read first:**
+- `docs/reviews/2026-10-04-mvp-completeness-audit/INDEX.md` — *What was verified working* and *Not covered*
+- `docs/implementation/registry.md` IMP-M8-16 and the M9 preamble
+
+**Done when:** `make e2e` additionally asserts:
+
+- **Room invitations from the UI.**
+  - Invite friends → notification → *Join* (IMP-M9-01).
+  - The same for a `FRIENDS_ONLY` room.
+- **Uploaded games.** Empty for a seeded user (IMP-M9-02).
+- **The outcome.** The winner's and the loser's results text (IMP-M9-03).
+- **Desktop layout.** A layout pass at 1280 and 1920 px asserting every interactive element of every
+  route lies inside the viewport (IMP-M9-04).
+- **Forfeit latency.** Leave → game over in under 1 s (IMP-M9-05).
+- **Settings.** The two assertions of IMP-M9-06.
+- **axe-core.** A pass with zero violations over every route, tier and room state, the room states
+  included.
+
+A clean `make up` followed by the suite is green twice in a row within the documented allowance.
 
 ---
 
