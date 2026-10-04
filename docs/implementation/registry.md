@@ -141,7 +141,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M9-05 | A voluntary leave reaches the engine at once | platform | M7-06, M8-03 | DONE |
 | IMP-M9-06 | Settings: Google linking and privacy labels | frontend, platform | M8-13 | DONE |
 | IMP-M9-07 | Decide what a Lobby reload means | docs | — | DONE |
-| IMP-M9-08 | View polish and the game-frame console warning | frontend, sdk | M8-16 | READY |
+| IMP-M9-08 | View polish and the game-frame console warning | frontend, sdk | M8-16 | WIP (session 162) |
 | IMP-M9-09 | The acceptance suite covers the audit's gaps | frontend | M9-01…06, M9-08, M9-10 | READY |
 | IMP-M9-10 | A member and an invitee can open an `INVITE_ONLY` room | platform | M2-09 | DONE |
 | IMP-M9-11 | Warn before a reload leaves the Lobby | frontend | M8-10, M9-07 | DONE |
