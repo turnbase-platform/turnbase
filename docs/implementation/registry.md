@@ -132,7 +132,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M8-15 | The client retries a rate-limited subscribe | frontend | M6-04 | DONE |
 | IMP-M8-16 | The acceptance suite covers every view and the review's gaps | frontend | M8-01…15, M8-17, M8-18 | READY |
 | IMP-M8-17 | The room resource names the viewer's membership | platform | M2-09 | DONE |
-| IMP-M8-18 | The platform pushes a persisted notification to an open stream | platform | M5-03, M8-14 | READY |
+| IMP-M8-18 | The platform pushes a persisted notification to an open stream | platform | M5-03, M8-14 | WIP (session 147) |
 
 **94 live items.** `IMP-M8-01…16` were added 2026-10-03 from the [MVP regression review](../reviews/2026-10-03-mvp-regression-review/INDEX.md): five close its backend and game findings, nine give every MVP view a minimal working UI (the game room is `IMP-M8-10`), and the last two close the client follow-up and re-run the review as a suite. `IMP-M7-01…13` were added 2026-10-01 from the [MVP implementation review](../reviews/2026-10-01-mvp-implementation-review/INDEX.md): the first four close its MR-01 (the room views `IMP-M6-04`/`05` did not build), the rest close MR-02…MR-11 and add the acceptance suite the review was run by hand. IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
 `onboarding-wizard.md`'s FR-ONB-* and NFR-ONB-* have no implementing item by design. The heading is
