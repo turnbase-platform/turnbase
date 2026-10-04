@@ -128,12 +128,13 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M8-11 | Profile view | frontend | M8-01, M8-03, M6-03 | DONE |
 | IMP-M8-12 | Friends view | frontend | M8-02, M8-14 | READY |
 | IMP-M8-13 | Account settings view | frontend | M8-01, M6-03 | READY |
-| IMP-M8-14 | Notifications bell and panel | frontend | M6-06, M5-03 | READY |
+| IMP-M8-14 | Notifications bell and panel | frontend | M6-06, M5-03 | DONE (session 143) |
 | IMP-M8-15 | The client retries a rate-limited subscribe | frontend | M6-04 | READY |
-| IMP-M8-16 | The acceptance suite covers every view and the review's gaps | frontend | M8-01…15, M8-17 | READY |
+| IMP-M8-16 | The acceptance suite covers every view and the review's gaps | frontend | M8-01…15, M8-17, M8-18 | READY |
 | IMP-M8-17 | The room resource names the viewer's membership | platform | M2-09 | DONE |
+| IMP-M8-18 | The platform pushes a persisted notification to an open stream | platform | M5-03, M8-14 | READY |
 
-**93 live items.** `IMP-M8-01…16` were added 2026-10-03 from the [MVP regression review](../reviews/2026-10-03-mvp-regression-review/INDEX.md): five close its backend and game findings, nine give every MVP view a minimal working UI (the game room is `IMP-M8-10`), and the last two close the client follow-up and re-run the review as a suite. `IMP-M7-01…13` were added 2026-10-01 from the [MVP implementation review](../reviews/2026-10-01-mvp-implementation-review/INDEX.md): the first four close its MR-01 (the room views `IMP-M6-04`/`05` did not build), the rest close MR-02…MR-11 and add the acceptance suite the review was run by hand. IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
+**94 live items.** `IMP-M8-01…16` were added 2026-10-03 from the [MVP regression review](../reviews/2026-10-03-mvp-regression-review/INDEX.md): five close its backend and game findings, nine give every MVP view a minimal working UI (the game room is `IMP-M8-10`), and the last two close the client follow-up and re-run the review as a suite. `IMP-M7-01…13` were added 2026-10-01 from the [MVP implementation review](../reviews/2026-10-01-mvp-implementation-review/INDEX.md): the first four close its MR-01 (the room views `IMP-M6-04`/`05` did not build), the rest close MR-02…MR-11 and add the acceptance suite the review was run by hand. IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
 `onboarding-wizard.md`'s FR-ONB-* and NFR-ONB-* have no implementing item by design. The heading is
 kept below so the number is never reused. `IMP-M3-12` was added 2026-08-22, closing IMP-GATE-05 — see
 its section under M3. `IMP-M3-13` was added 2026-09-30, closing IMP-GATE-91 — see its section under M3. `IMP-M1-10` was added 2026-09-06, closing IMP-GATE-26, and `IMP-M1-11` on
@@ -5465,10 +5466,15 @@ server's field errors, saves, and shows a confirmation; a Guest sees the registe
 
 **Done when:** the *View standard* holds for the bell and its panel as Guest and Registered; every
 notification type the platform emits has a rendered text, including **room invitations** with a
-working *Join* action and a friend request with *Accept*/*Decline*; a notification created while the
-page is open (SSE) updates the badge without a reload and survives a reconnect of the stream; *Mark
-read*, *Mark all read* and *Dismiss* persist across a reload; an unknown type renders a generic line
-rather than nothing.
+working *Join* action and a friend request with *Accept*/*Decline*; the badge and the open panel
+re-read on every (re)open of the stream; *Mark read*, *Mark all read* and *Dismiss* persist across a
+reload; an unknown type renders a generic line rather than nothing.
+
+**Moved:** the clause "a notification created while the page is open (SSE) updates the badge without
+a reload" moved to `IMP-M8-18` (session 143). The platform writes every persisted notification by
+SQL and delivers it only as the catch-up on stream open (`NotificationEmitterRegistry` has
+`publishAlert` and `sendCatchUpNotification`, nothing that pushes a new row), so no client can satisfy
+it. The client half is built: the bell refetches on every stream event and every reopen.
 
 ---
 
@@ -5488,6 +5494,29 @@ row or a grace-period reservation, `SPECTATOR` for an open spectator row, `null`
 a visitor to a public room and a caller who has left; the field is absent from list rows; the
 OpenAPI document and the frontend's generated contract fixtures name it; an integration test asserts all
 four values and that a `GET` never changes membership or bumps the room's version.
+
+---
+
+### IMP-M8-18 — The platform pushes a persisted notification to an open stream
+
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M5-03, IMP-M8-14 · **Closes:** the review's *Not covered* (live friend-request notification); the live clause of `IMP-M8-14`
+
+**Read first:**
+- `docs/specs/api-design/sse-notifications.md` (*Two event classes*, *Offline delivery*, *Implementation*)
+- `docs/specs/platform/data-model-notifications.md` §1 (`delivered_at`, `event_seq`)
+- `docs/requirements/notifications-invitations.md` FR-NOTIF-007, FR-NOTIF-008, NFR-PERF-001
+- `turnbase-frontend/e2e/notifications.spec.ts` (the `reload()` calls to remove)
+
+**Satisfies:** `notifications-invitations.md` FR-NOTIF-007, FR-NOTIF-008
+
+**Done when:** every writer of a `notification` row (`SocialRepository`'s four friend types, the room
+invitation send, the review and bundle-validation producers) causes, **after commit**, an
+`event: notification` frame with `id:` = `event_seq` to every open stream of the recipient and stamps
+`delivered_at`, so the catch-up on the next open does not repeat it; a recipient with no open stream is
+untouched (FR-NOTIF-008); the producers do not reach into `notification`'s internals (Spring Modulith
+passes); an integration test over real PostgreSQL asserts push-after-commit, no push on rollback, and
+no repeat on reconnect; the `reload()` calls in the frontend's `e2e/notifications.spec.ts` are removed
+and it asserts the badge for a request sent while the recipient's page stays open.
 
 ---
 
@@ -5511,7 +5540,7 @@ game attaches in under 30 s for one user) end with a rendered board.
 
 ### IMP-M8-16 — The acceptance suite covers every view and the review's gaps
 
-**Repo:** `turnbase-frontend` · **Depends on:** IMP-M8-01…15
+**Repo:** `turnbase-frontend` · **Depends on:** IMP-M8-01…15, IMP-M8-17, IMP-M8-18
 
 **Read first:**
 - `docs/reviews/2026-10-03-mvp-regression-review/INDEX.md` — *What was verified working* and *Not covered*

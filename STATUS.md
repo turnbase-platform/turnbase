@@ -1,14 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 142) — **`IMP-M8-11` DONE (86 of 93).**
+**Date:** 2026-10-04 (session 143) — **`IMP-M8-14` DONE (87 of 94); `IMP-M8-18` opened.**
 
-- `/users/:username`: the Statistics section is live (`GET …/statistics`: total, most-played link, `0`/`—` zero state) where it was a "Coming soon." stub. Profile, statistics, history, friends and uploaded-games each render a message with **Retry** on failure (friends/uploaded games previously swallowed errors into an empty list). Friend-action failures name the action.
-- Defect found by the e2e: the platform sends a **Guest** viewer a `relationshipState`, so Guests saw Add/Remove friend (VW-PROF-006/007 say Hidden). Gated in the frontend on `principal.kind === "REGISTERED"`; the platform still emits the field for guests — optional follow-up to omit it server-side (`profile-rest-api.md` §2.4 says registered viewers only).
-- `e2e/profile.spec.ts` (Unauth, Guest, alice/carol/dave, private profile, error+retry) passes against the compose stack. Frontend CI green on re-run: `RoomPage.test.tsx` "keeps the same iframe through GAME_ENDED" failed once on CI (`attachGame` called 0 times, ~58 s) and passed locally and on re-run — a flaky pre-existing test, not from this item.
+- The bell and panel already existed (M6-06). Added: Guest sees the list with no Join/Accept/Decline (VW-NOTIF-002/003), "Join" on a room invitation, a load error with **Retry**, badge and panel re-read on every stream (re)open, the unread count in the bell's accessible name. `e2e/notifications.spec.ts` (Unauth, Guest at 400 px, carol→dave friend request declined/read/dismissed, alice→bob invitation joined) passes twice in a row; frontend CI green.
+- **Finding:** the platform never pushes a persisted notification live — `SocialRepository` and the invitation writer `INSERT` rows, and `NotificationEmitterRegistry` only sends alerts and the catch-up on stream open. The "no reload" clause of M8-14 was unsatisfiable by a client; moved to new **`IMP-M8-18`** (platform; `M8-16` now depends on it). The e2e uses `reload()` until then.
+- Note: the compose frontend is a prebuilt image — `docker build -t turnbase/frontend:dev turnbase-frontend` and `up -d --no-deps frontend` before running e2e on changed code. The guest allowance (5/h) needed a `make reset-db`.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M8-14` is `DONE` (session 143).** Next: `IMP-M8-12` (friends view, now unblocked), `13`, `15`, `IMP-M8-18` (platform live push), then `16` (suite). No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M8-11` is `DONE` (session 142).** Next: views `12…14`, `15`, then `16` (suite). No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
