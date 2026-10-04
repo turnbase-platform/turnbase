@@ -139,7 +139,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M9-03 | Tic-Tac-Toe shows the outcome | game | M8-05 | DONE |
 | IMP-M9-04 | Catalog rows keep their actions at desktop widths | frontend | M8-08 | DONE |
 | IMP-M9-05 | A voluntary leave reaches the engine at once | platform | M7-06, M8-03 | DONE |
-| IMP-M9-06 | Settings: Google linking and privacy labels | frontend, platform | M8-13 | READY |
+| IMP-M9-06 | Settings: Google linking and privacy labels | frontend, platform | M8-13 | WIP (session 159) |
 | IMP-M9-07 | Decide what a Lobby reload means | docs | — | READY |
 | IMP-M9-08 | View polish and the game-frame console warning | frontend, sdk | M8-16 | READY |
 | IMP-M9-09 | The acceptance suite covers the audit's gaps | frontend | M9-01…06, M9-08, M9-10 | READY |
