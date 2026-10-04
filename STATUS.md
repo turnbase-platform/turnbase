@@ -1,14 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-03 (session 141) — **`IMP-M8-10` DONE (85 of 93).**
+**Date:** 2026-10-04 (session 142) — **`IMP-M8-11` DONE (86 of 93).**
 
-- `/rooms/:id` no longer enrols: a member re-enters (`viewerRole`), anyone else gets the Player / Spectator prompt. *Start game* is disabled with the reasons listed; Switch buttons need a free slot; the Team chat tab needs a team of more than one (FR-CHAN-002 clarified in `in-room-chat.md`); lobby/game/results wrap at 400 px. `e2e/room.spec.ts` drives host, player, spectator and outsider through lobby → game → results.
-- The session-138 mid-game refresh defect was a platform bug: `ROOM_STATE` sent `gameFrontendUrl: null`. Fixed and asserted in `RoomCommandControllerIT`. Platform and frontend CI green.
-- Note: the e2e suite's guest tests hit the guest-session rate limit (9 min) after repeated local runs — environmental.
+- `/users/:username`: the Statistics section is live (`GET …/statistics`: total, most-played link, `0`/`—` zero state) where it was a "Coming soon." stub. Profile, statistics, history, friends and uploaded-games each render a message with **Retry** on failure (friends/uploaded games previously swallowed errors into an empty list). Friend-action failures name the action.
+- Defect found by the e2e: the platform sends a **Guest** viewer a `relationshipState`, so Guests saw Add/Remove friend (VW-PROF-006/007 say Hidden). Gated in the frontend on `principal.kind === "REGISTERED"`; the platform still emits the field for guests — optional follow-up to omit it server-side (`profile-rest-api.md` §2.4 says registered viewers only).
+- `e2e/profile.spec.ts` (Unauth, Guest, alice/carol/dave, private profile, error+retry) passes against the compose stack. Frontend CI green on re-run: `RoomPage.test.tsx` "keeps the same iframe through GAME_ENDED" failed once on CI (`attachGame` called 0 times, ~58 s) and passed locally and on re-run — a flaky pre-existing test, not from this item.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M8-11` is `DONE` (session 142).** Next: views `12…14`, `15`, then `16` (suite). No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M8-10` is `DONE` (session 141).** Next: views `11…14`, `15`, then `16` (suite). No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
