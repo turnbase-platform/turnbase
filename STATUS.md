@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 162) — **`IMP-M9-08` `DONE` (104 of 105).** `turnbase-sdk` `6b26cf6`: the client does not post when `window.parent === window` (the CA-10 warning; test added). `turnbase-game-tictactoe` `c5a0d08` re-vendors the GDK. `turnbase-frontend` `9fda5c2`: axe clean on all seven routes (`/rooms` empty state is an `h2`), bell prints its count once (name kept as `aria-label`), list captions visually hidden, e2e tripwire counts warnings. Toast: Astryx already announces once via one hidden live region — pinned by a unit test. VW-GDET-002 and FR-COMP-011 amended to *section*. Full e2e 49/49 on a warm stack; a cold game host wedges on its first Espresso context after idle — restart `gamehost` and warm with `game.spec.ts` before a run.
+**Date:** 2026-10-04 (session 163) — **`IMP-M9-09` `DONE` (105 of 105).** `turnbase-frontend` `b90a5d4`: `e2e/sweep.spec.ts` runs a desktop layout pass (every interactive element inside the viewport and its clipping ancestors, 1280 and 1920 px) and an axe-core 4.10.3 pass (zero violations) over every route for the anonymous, guest and registered tiers and over the Lobby, in-game and results states. It found *Show description* clipped 9 px at 1280 px; fixed with column min-widths. The audit's other bullets were already pinned by their own items' specs. Suite 52/52 twice in a row on a clean `make up`. Gotchas: a cold game host wedged on its first Espresso context (restart `gamehost`, wait for the first game); three runs inside 24 h need the Redis flush — `redis-cli -a "$TURNBASE_REDIS_PASSWORD" flushall` inside the container (without the password it answers NOAUTH and flushes nothing).
 
 ---
 
 ## Next Priorities
+
+**Session 164:** none — all 105 items are `DONE`; Phase 1 build plan complete. No item is `PARTIAL` or `BLOCKED`.
 
 **Session 163:** `IMP-M9-09` (the suite, last). 104 of 105 done. No item is `PARTIAL` or `BLOCKED`.
 

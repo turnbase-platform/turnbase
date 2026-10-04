@@ -142,7 +142,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M9-06 | Settings: Google linking and privacy labels | frontend, platform | M8-13 | DONE |
 | IMP-M9-07 | Decide what a Lobby reload means | docs | — | DONE |
 | IMP-M9-08 | View polish and the game-frame console warning | frontend, sdk | M8-16 | DONE |
-| IMP-M9-09 | The acceptance suite covers the audit's gaps | frontend | M9-01…06, M9-08, M9-10 | WIP (session 163) |
+| IMP-M9-09 | The acceptance suite covers the audit's gaps | frontend | M9-01…06, M9-08, M9-10 | DONE |
 | IMP-M9-10 | A member and an invitee can open an `INVITE_ONLY` room | platform | M2-09 | DONE |
 | IMP-M9-11 | Warn before a reload leaves the Lobby | frontend | M8-10, M9-07 | DONE |
 
@@ -5826,6 +5826,8 @@ item:
   included.
 
 A clean `make up` followed by the suite is green twice in a row within the documented allowance.
+
+**Delivered (session 163):** `e2e/sweep.spec.ts` — every route of `routes.tsx` for the anonymous, guest and registered tiers, plus the Lobby (host alone, host, player, spectator), in-game and results states, each asserting every interactive element inside the viewport and its clipping ancestors at 1280 and 1920 px, and zero axe-core 4.10.3 violations (the sandboxed game frame is left out of axe). It found one more clipped control — *Show description*, 9 px past its cell at 1280 px — fixed with a min-width on the catalog's title and Actions columns. The other bullets were already pinned by `IMP-M9-01…06`'s own specs. 52 of 52, twice in a row on a clean `make up` (a cold game host wedged on its first Espresso context; restart it and wait for the first game before the run).
 
 ---
 
