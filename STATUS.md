@@ -1,6 +1,6 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 151) — **registry cycle fixed; `IMP-M9-01` stays `PARTIAL`.** `IMP-M9-01`'s remainder (the `INVITE_ONLY` e2e) needs `IMP-M9-10`, which was listed as depending on `IMP-M9-01` being `DONE` — an unsatisfiable cycle. `IMP-M9-10` now depends on `IMP-M2-09` only and is `READY`. No code changed.
+**Date:** 2026-10-04 (session 152) — **`IMP-M9-10` is now the next item.** Session 152 found `IMP-M9-01` (`PARTIAL`) would be picked ahead of any `READY` item yet cannot finish until `IMP-M9-10` is built. `IMP-M9-10` is now in `IMP-M9-01`'s *Depends on*, so the next session picks `IMP-M9-10` (platform, `READY`); then `IMP-M9-01` resumes from its `**Remaining:**` line. No code changed. 94 of 104 done.
 
 ---
 
