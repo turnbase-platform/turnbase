@@ -1,13 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 144) — **`IMP-M8-12` DONE (88 of 94).**
+**Date:** 2026-10-04 (session 145) — **`IMP-M8-13` DONE (89 of 94).**
 
-- `/friends` already listed friends and requests (M6). Added: a per-list load error with **Retry** (replaces the two generic toasts on load), failures that name the action and person ("Could not remove bob from your friends."), row-specific accessible names (`Accept carol`, `Remove bob`), lists re-read after every action. `e2e/friends.spec.ts` (Unauth redirect, Guest message, alice's list at 400 px, carol→dave decline, accept then remove) passes twice; frontend CI green.
-- The "receiver's bell shows the request live" clause waits on **`IMP-M8-18`** (no live push of persisted notifications); the bell is covered by `notifications.spec.ts` with `reload()` until then. Send-request lives on the profile (M8-11); VW-FREN has no block row.
+- `/settings` already had every VW-SET form (M6). Fixed: a failed load shows an error with **Retry** instead of "Loading…" forever; username and email are separate forms (each saves, fails and confirms on its own); the email form is **absent** for an OAuth-bound address (VW-SET-002, hidden not disabled); a locked field drops its Save button; every save/removal/add confirms with a toast; adding a password re-reads the account; Remove buttons are named (`Remove Google`); a username change updates the nav bar.
+- **Finding:** `PATCH /api/users/me` answers with the identity only, not the account representation `rest-conventions.md` describes ("the updated resource" is ambiguous), so the client read `authMethods` of `undefined` and the page went blank. The client now re-reads `GET /api/users/me` after a PATCH; the spec wording is unchanged.
+- `e2e/settings.spec.ts` (Unauth redirect, Guest message, a registered user through username/email/password/privacy/delete at 400 px) passes; frontend CI green. It spends one registration; `make reset-db` before repeating.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M8-13` is `DONE` (session 145).** Next: `IMP-M8-15`, `IMP-M8-18` (platform live push), then `16` (suite). No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M8-12` is `DONE` (session 144).** Next: `IMP-M8-13`, `15`, `IMP-M8-18` (platform live push), then `16` (suite). No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
