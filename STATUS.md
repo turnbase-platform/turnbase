@@ -1,14 +1,15 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 143) — **`IMP-M8-14` DONE (87 of 94); `IMP-M8-18` opened.**
+**Date:** 2026-10-04 (session 144) — **`IMP-M8-12` DONE (88 of 94).**
 
-- The bell and panel already existed (M6-06). Added: Guest sees the list with no Join/Accept/Decline (VW-NOTIF-002/003), "Join" on a room invitation, a load error with **Retry**, badge and panel re-read on every stream (re)open, the unread count in the bell's accessible name. `e2e/notifications.spec.ts` (Unauth, Guest at 400 px, carol→dave friend request declined/read/dismissed, alice→bob invitation joined) passes twice in a row; frontend CI green.
-- **Finding:** the platform never pushes a persisted notification live — `SocialRepository` and the invitation writer `INSERT` rows, and `NotificationEmitterRegistry` only sends alerts and the catch-up on stream open. The "no reload" clause of M8-14 was unsatisfiable by a client; moved to new **`IMP-M8-18`** (platform; `M8-16` now depends on it). The e2e uses `reload()` until then.
-- Note: the compose frontend is a prebuilt image — `docker build -t turnbase/frontend:dev turnbase-frontend` and `up -d --no-deps frontend` before running e2e on changed code. The guest allowance (5/h) needed a `make reset-db`.
+- `/friends` already listed friends and requests (M6). Added: a per-list load error with **Retry** (replaces the two generic toasts on load), failures that name the action and person ("Could not remove bob from your friends."), row-specific accessible names (`Accept carol`, `Remove bob`), lists re-read after every action. `e2e/friends.spec.ts` (Unauth redirect, Guest message, alice's list at 400 px, carol→dave decline, accept then remove) passes twice; frontend CI green.
+- The "receiver's bell shows the request live" clause waits on **`IMP-M8-18`** (no live push of persisted notifications); the bell is covered by `notifications.spec.ts` with `reload()` until then. Send-request lives on the profile (M8-11); VW-FREN has no block row.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M8-12` is `DONE` (session 144).** Next: `IMP-M8-13`, `15`, `IMP-M8-18` (platform live push), then `16` (suite). No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M8-14` is `DONE` (session 143).** Next: `IMP-M8-12` (friends view, now unblocked), `13`, `15`, `IMP-M8-18` (platform live push), then `16` (suite). No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
