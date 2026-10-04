@@ -15,7 +15,7 @@ TurnBase is a platform for hosting and playing multiplayer games online. It prov
 
 ## Current Phase
 
-**Phase 1 — Implementation** (under way, **99 of 104 work items done**; M9 opened from the 2026-10-04 completeness audit). Phase 0 is complete and has
+**Phase 1 — Implementation** (under way, **102 of 105 work items done**; M9 opened from the 2026-10-04 completeness audit). Phase 0 is complete and has
 been audited for implementation-readiness — but the first item to actually compile against the corpus
 found three contradictions in its own read-list, so treat "audited" as meaning *no known* defects
 rather than *no* defects.
@@ -75,7 +75,7 @@ turnbase/                    # This repo (landing + docs)
 │   │                        #   deployment, internal-grpc, game-host, gdk-api, manifest,
 │   │                        #   platform-frontend, game-frontend)
 │   ├── decisions/           # ADRs — one numbered file per architectural decision
-│   ├── implementation/      # The build plan — INDEX.md (conventions) + registry.md (104 work items)
+│   ├── implementation/      # The build plan — INDEX.md (conventions) + registry.md (105 work items)
 │   └── reviews/             # Closed review rounds, reduced to their INDEX plus anything still cited
 ├── turnbase-common/         # git submodule
 ├── turnbase-sdk/            # git submodule

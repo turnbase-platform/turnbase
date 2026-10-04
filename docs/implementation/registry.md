@@ -140,12 +140,13 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M9-04 | Catalog rows keep their actions at desktop widths | frontend | M8-08 | DONE |
 | IMP-M9-05 | A voluntary leave reaches the engine at once | platform | M7-06, M8-03 | DONE |
 | IMP-M9-06 | Settings: Google linking and privacy labels | frontend, platform | M8-13 | DONE |
-| IMP-M9-07 | Decide what a Lobby reload means | docs | — | WIP (session 160) |
+| IMP-M9-07 | Decide what a Lobby reload means | docs | — | DONE |
 | IMP-M9-08 | View polish and the game-frame console warning | frontend, sdk | M8-16 | READY |
 | IMP-M9-09 | The acceptance suite covers the audit's gaps | frontend | M9-01…06, M9-08, M9-10 | READY |
 | IMP-M9-10 | A member and an invitee can open an `INVITE_ONLY` room | platform | M2-09 | DONE |
+| IMP-M9-11 | Warn before a reload leaves the Lobby | frontend | M8-10, M9-07 | READY |
 
-**104 live items.** `IMP-M9-01…10` were added 2026-10-04 from the [MVP completeness audit](../reviews/2026-10-04-mvp-completeness-audit/INDEX.md) (`CA-01…CA-10`): the invite-friends control and the `owner` filter the MVP still lacks, the reference game's missing outcome, the clipped catalog action, the late forfeit dispatch, the settings gaps, one spec decision, polish, and the suite that pins them. `IMP-M8-01…16` were added 2026-10-03 from the [MVP regression review](../reviews/2026-10-03-mvp-regression-review/INDEX.md): five close its backend and game findings, nine give every MVP view a minimal working UI (the game room is `IMP-M8-10`), and the last two close the client follow-up and re-run the review as a suite. `IMP-M7-01…13` were added 2026-10-01 from the [MVP implementation review](../reviews/2026-10-01-mvp-implementation-review/INDEX.md): the first four close its MR-01 (the room views `IMP-M6-04`/`05` did not build), the rest close MR-02…MR-11 and add the acceptance suite the review was run by hand. IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
+**105 live items.** `IMP-M9-01…11` were added 2026-10-04 from the [MVP completeness audit](../reviews/2026-10-04-mvp-completeness-audit/INDEX.md) (`CA-01…CA-10`): the invite-friends control and the `owner` filter the MVP still lacks, the reference game's missing outcome, the clipped catalog action, the late forfeit dispatch, the settings gaps, one spec decision, polish, and the suite that pins them. `IMP-M8-01…16` were added 2026-10-03 from the [MVP regression review](../reviews/2026-10-03-mvp-regression-review/INDEX.md): five close its backend and game findings, nine give every MVP view a minimal working UI (the game room is `IMP-M8-10`), and the last two close the client follow-up and re-run the review as a suite. `IMP-M7-01…13` were added 2026-10-01 from the [MVP implementation review](../reviews/2026-10-01-mvp-implementation-review/INDEX.md): the first four close its MR-01 (the room views `IMP-M6-04`/`05` did not build), the rest close MR-02…MR-11 and add the acceptance suite the review was run by hand. IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
 `onboarding-wizard.md`'s FR-ONB-* and NFR-ONB-* have no implementing item by design. The heading is
 kept below so the number is never reused. `IMP-M3-12` was added 2026-08-22, closing IMP-GATE-05 — see
 its section under M3. `IMP-M3-13` was added 2026-09-30, closing IMP-GATE-91 — see its section under M3. `IMP-M1-10` was added 2026-09-06, closing IMP-GATE-26, and `IMP-M1-11` on
@@ -5582,7 +5583,7 @@ the audit found the views sound, so this milestone is short:
 - **One action invisible at every desktop width** (`IMP-M9-04`).
 - **One late dispatch** (`IMP-M9-05`).
 - **The settings gaps** (`IMP-M9-06`).
-- **One spec decision** (`IMP-M9-07`).
+- **One spec decision** (`IMP-M9-07`), and the warning it implies (`IMP-M9-11`).
 - **Polish** (`IMP-M9-08`).
 - **The suite that pins all of it** (`IMP-M9-09`).
 
@@ -5847,6 +5848,25 @@ No dependency on `IMP-M9-01`: that item found the defect and is itself `PARTIAL`
 - **Nothing else opens.** Another caller without an `inviteCode` still gets `404` on both routes, and the
   listing (FR-LIST-007) is unchanged.
 - **Tests.** An integration test per bullet above.
+
+---
+
+### IMP-M9-11 — Warn before a reload leaves the Lobby
+
+**Repo:** `turnbase-frontend` · **Depends on:** IMP-M8-10, IMP-M9-07 · **Closes:** CA-08
+
+**Read first:**
+- `docs/requirements/reconnection-flow.md` FR-DC-008
+- `docs/requirements/game-rooms.md` FR-JOIN-008–010
+
+**Done when:**
+- **The warning.** While the viewer is a participant (not a spectator) of a room in Lobby, or sees the
+  results overlay, a `beforeunload` handler is registered: a reload or tab close prompts the browser's
+  confirmation.
+- **Removed on leave.** After an explicit *Leave Room*, or once the viewer is not a participant, or in
+  an In Progress room, no handler is registered.
+- **Tests.** A unit test per bullet; an e2e asserting the `beforeunload` dialog appears on reload in
+  Lobby and not after *Leave Room*.
 
 ---
 

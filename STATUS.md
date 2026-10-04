@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 159) — **`IMP-M9-06` `DONE` (101 of 104).** `oauth-rest-api.md`'s *Hidden when* paragraph now names VW-SET-004; Settings asks `GET /api/auth/providers` (`useGoogleAvailable`) and renders *Link Google account* only when `google` is true; the four privacy controls each carry a visible section label and keep their accessible names. Unit tests (3 new) and `e2e/settings.spec.ts` (link absent on the compose stack, four labels by text) pass; frontend CI green. Caveats: the e2e runs against the prebuilt `turnbase/frontend:dev` image — rebuild it and `up -d --force-recreate frontend` first; repeated registrations hit the Tier 5 limit, `FLUSHALL` redis to reset.
+**Date:** 2026-10-04 (session 160) — **`IMP-M9-07` `DONE` (102 of 105).** Decision recorded as `reconnection-flow.md` FR-DC-008: an individual Lobby/results socket loss stays an immediate leave (no grace), with rationale; the mitigation is a `beforeunload` warning, opened as new item `IMP-M9-11` (frontend, `READY`). Registry now has 105 items; `CLAUDE.md` counts updated. Corpus check clean. Docs only — no submodule changes.
 
 ---
 
 ## Next Priorities
+
+**Session 161:** `IMP-M9-08`, `IMP-M9-11` (independent); `09` last. 102 of 105 done. No item is `PARTIAL` or `BLOCKED`.
 
 **Session 160:** `IMP-M9-08`, `07` (independent); `09` last. 101 of 104 done. No item is `PARTIAL` or `BLOCKED`.
 
