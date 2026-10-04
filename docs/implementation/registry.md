@@ -138,7 +138,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M9-02 | The catalog listing honours `owner` | platform | M4-01 | DONE |
 | IMP-M9-03 | Tic-Tac-Toe shows the outcome | game | M8-05 | DONE |
 | IMP-M9-04 | Catalog rows keep their actions at desktop widths | frontend | M8-08 | DONE |
-| IMP-M9-05 | A voluntary leave reaches the engine at once | platform | M7-06, M8-03 | WIP (session 158) |
+| IMP-M9-05 | A voluntary leave reaches the engine at once | platform | M7-06, M8-03 | DONE |
 | IMP-M9-06 | Settings: Google linking and privacy labels | frontend, platform | M8-13 | READY |
 | IMP-M9-07 | Decide what a Lobby reload means | docs | — | READY |
 | IMP-M9-08 | View polish and the game-frame console warning | frontend, sdk | M8-16 | READY |
@@ -5723,6 +5723,8 @@ container.
   - A failed inline attempt records `attempts`/`last_error` exactly as the sweep does.
 - **Integration test.** It shows the engine receives the input without waiting for a sweep tick.
 - **Latency.** The forfeit scenario asserts leave → `GAME_OVER` at the opponent in under 1 s.
+
+**Built (session 158):** `GameInputOutbox` owns one row's attempt (allocate-once sequence, stamp on ACK, `attempts`/`last_error` on failure); the sweep's duty 4 and a `@TransactionalEventListener(AFTER_COMMIT)` both call it. `RoomRepository.insertPlayerLeftOutbox` publishes `PlayerLeftQueued` for leave, abandonment (incl. early release), kick and account deletion. The grace-expiry insert does **not**: duty 2 may close the room in the same tick and discard the row, so it stays on the sweep (§5.1 ordering). `InlineLeaveDispatchIT` covers delivery with no sweep and failure-then-sweep-retry on the same sequence. The 1 s bound is `resilience.spec.ts`'s forfeit test (frontend). Operational note: after `down -v`, the first Game Host session needs a ~30 s wait or `CreateSession` exceeds its 35 s deadline; platform ITs that bind :8080 fail while the compose stack is up.
 
 ---
 

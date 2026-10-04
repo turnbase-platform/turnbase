@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 157) — **`IMP-M9-04` `DONE` (99 of 104).** Catalog rows keep their actions at desktop widths: the row's action stack and title/badge stack now wrap instead of overflowing the clipped cell, the title link is underlined, and the detail page's *Create room* sits in a horizontal stack so it keeps its natural width. `layout.spec.ts` asserts, by bounding box at 1280/1440/1920 px, that the button lies inside its cell and the viewport, the badge is not cut and the title is underlined, plus the detail button's width. `make e2e`: 48 passed. The Game Host had been left in the documented post-`reset-db` state (`DEADLINE_EXCEEDED` on every start), so session 157 used `down -v` then `make up`. Frontend CI green.
+**Date:** 2026-10-04 (session 158) — **`IMP-M9-05` `DONE` (100 of 104).** A `player_left` row (explicit leave, abandonment, kick, account deletion) is now dispatched once, inline, right after its transaction commits (`GameInputOutbox`, after-commit listener); the sweep stays the retry path, stamp-on-ACK and the teardown discard are unchanged. Grace expiry deliberately stays on the sweep (duty 2 may close the room first). `InlineLeaveDispatchIT` (2 tests) passes; the e2e forfeit test now bounds leave → *game over* at 1 s; `make e2e`: 48 passed. Platform and frontend CI green. Caveat: after `down -v` the first Game Host session is slow (>35 s `DEADLINE_EXCEEDED`) — wait ~30 s after `make up`; platform ITs fail on :8080 while the stack is up.
 
 ---
 
 ## Next Priorities
+
+**Session 159:** `IMP-M9-06`, `08`, `07` (independent); `09` last. 100 of 104 done. No item is `PARTIAL` or `BLOCKED`.
 
 **Session 158:** `IMP-M9-05`, `06`, `08`, `07` (independent); `09` last. 99 of 104 done. No item is `PARTIAL` or `BLOCKED`.
 
