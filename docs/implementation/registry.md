@@ -129,7 +129,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M8-12 | Friends view | frontend | M8-02, M8-14 | DONE |
 | IMP-M8-13 | Account settings view | frontend | M8-01, M6-03 | DONE |
 | IMP-M8-14 | Notifications bell and panel | frontend | M6-06, M5-03 | DONE (session 143) |
-| IMP-M8-15 | The client retries a rate-limited subscribe | frontend | M6-04 | WIP (session 146) |
+| IMP-M8-15 | The client retries a rate-limited subscribe | frontend | M6-04 | DONE |
 | IMP-M8-16 | The acceptance suite covers every view and the review's gaps | frontend | M8-01…15, M8-17, M8-18 | READY |
 | IMP-M8-17 | The room resource names the viewer's membership | platform | M2-09 | DONE |
 | IMP-M8-18 | The platform pushes a persisted notification to an open stream | platform | M5-03, M8-14 | READY |
@@ -5118,7 +5118,7 @@ The review's *Not covered* list (grace-period expiry, rate-limit flood, friends 
 profile pages, 400 px layout, concurrent games) is either covered here or recorded as an explicit
 follow-up. The suite is wired into CI or a documented `make` target.
 
-**Follow-ups (recorded, not owed by this item):** the suite is `npm run e2e`, run by hand against the compose stack (`make reset-db` between runs; documented in `turnbase-frontend/CLAUDE.md`) — no CI job, it needs the full stack. Not covered, by choice: grace-period expiry, rate-limit flood, friends / notifications / profile pages, 400 px layout, concurrent games; the create-room view exposes neither visibility nor spectating (FR-CREATE-001/002), so the suite makes spectating rooms over REST. The forfeit scenario asserts the opponent is told and can return to the lobby but not the history row — whether a leave-forfeit emits `game_over` (FR-HIST) is unsettled. Found while running it: `GET /api/users/{username}/friends` throws `BadSqlGrammarException` (500) in the platform log. The client does not retry a `SUBSCRIBE`/`REQUEST_GAME_SYNC` dropped by Tier 6, so a game started on an empty bucket renders no board.
+**Follow-ups (recorded, not owed by this item):** the suite is `npm run e2e`, run by hand against the compose stack (`make reset-db` between runs; documented in `turnbase-frontend/CLAUDE.md`) — no CI job, it needs the full stack. Not covered, by choice: grace-period expiry, rate-limit flood, friends / notifications / profile pages, 400 px layout, concurrent games; the create-room view exposes neither visibility nor spectating (FR-CREATE-001/002), so the suite makes spectating rooms over REST. The forfeit scenario asserts the opponent is told and can return to the lobby but not the history row — whether a leave-forfeit emits `game_over` (FR-HIST) is unsettled. Found while running it: `GET /api/users/{username}/friends` throws `BadSqlGrammarException` (500) in the platform log. The client did not retry a `SUBSCRIBE`/`REQUEST_GAME_SYNC` dropped by Tier 6, so a game started on an empty bucket rendered no board (closed by `IMP-M8-15`).
 
 
 **Follow-up (2026-10-03):** the uncovered areas and the known defects above are owned by `IMP-M8-01…16`; the suite is extended by `IMP-M8-16`.

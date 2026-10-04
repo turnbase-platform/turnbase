@@ -1,14 +1,17 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 145) — **`IMP-M8-13` DONE (89 of 94).**
+**Date:** 2026-10-04 (session 146) — **`IMP-M8-15` DONE (90 of 94).**
 
-- `/settings` already had every VW-SET form (M6). Fixed: a failed load shows an error with **Retry** instead of "Loading…" forever; username and email are separate forms (each saves, fails and confirms on its own); the email form is **absent** for an OAuth-bound address (VW-SET-002, hidden not disabled); a locked field drops its Save button; every save/removal/add confirms with a toast; adding a password re-reads the account; Remove buttons are named (`Remove Google`); a username change updates the nav bar.
-- **Finding:** `PATCH /api/users/me` answers with the identity only, not the account representation `rest-conventions.md` describes ("the updated resource" is ambiguous), so the client read `authMethods` of `undefined` and the page went blank. The client now re-reads `GET /api/users/me` after a PATCH; the spec wording is unchanged.
-- `e2e/settings.spec.ts` (Unauth redirect, Guest message, a registered user through username/email/password/privacy/delete at 400 px) passes; frontend CI green. It spends one registration; `make reset-db` before repeating.
+- `roomSocket.ts`: an attach the Tier 6 limiter dropped is re-run — only the missing parts (room subscribe + state, game subscribe + sync) — after `max(retryAfterMs, 3 s, jittered back-off)`, up to 4 times; then `onGameStalled(true)` and `RoomGame` shows "The game could not be loaded — too many requests." with a **Retry** (`retryAttach`).
+- **Finding:** the error frame is not enough to detect a drop. The limiter notifies at most once a second per bucket, and a dropped `SUBSCRIBE` of `/user/queue/errors` means no notice at all. A 4 s attach **watchdog** treats an attach with no snapshot / no game message as dropped. A retry sooner than one `snapshot` token (3 s) is dropped again, hence the 3 s floor. Spec unchanged.
+- Unit tests (socket + RoomGame) and `e2e/resilience.spec.ts` ("a game attach dropped by the rate limiter recovers on its own": start + two reloads, board rendered); frontend CI green.
+- **For `IMP-M8-16`:** the full `npm run e2e` after `make reset-db` failed six Guest specs (guest mint is 5/IP/hour and the suite spends more); each passes alone after a reset. That is the "does not exhaust the allowance" clause.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M8-15` is `DONE` (session 146).** Next: `IMP-M8-18` (platform live push), then `16` (suite; mind the guest allowance). No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M8-13` is `DONE` (session 145).** Next: `IMP-M8-15`, `IMP-M8-18` (platform live push), then `16` (suite). No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
