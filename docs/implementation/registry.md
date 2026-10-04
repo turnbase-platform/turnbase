@@ -135,7 +135,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M8-18 | The platform pushes a persisted notification to an open stream | platform | M5-03, M8-14 | DONE |
 | **M9 — MVP completeness audit remediation** ||||
 | IMP-M9-01 | Invite friends from the room lobby | frontend | M8-10, M8-12, M9-10 | DONE |
-| IMP-M9-02 | The catalog listing honours `owner` | platform | M4-01 | READY |
+| IMP-M9-02 | The catalog listing honours `owner` | platform | M4-01 | DONE |
 | IMP-M9-03 | Tic-Tac-Toe shows the outcome | game | M8-05 | READY |
 | IMP-M9-04 | Catalog rows keep their actions at desktop widths | frontend | M8-08 | READY |
 | IMP-M9-05 | A voluntary leave reaches the engine at once | platform | M7-06, M8-03 | READY |
