@@ -185,6 +185,20 @@ canSpectate(room, viewer) :=
   AND spectatorCount < spectatorCapacity                                            -- NFR-SPEC-001
 ```
 
+**`visible()` is the *listing* predicate, not the access predicate.** A listing hides `INVITE_ONLY`
+rooms from everyone (FR-LIST-007), so reading the same predicate as "may this caller open the room"
+would lock out the host of their own `INVITE_ONLY` room and every invitee to one — the only ways into
+it besides a copied link. Direct access (§4 `GET`, §5 step 1) uses:
+
+```
+reachable(room, caller) :=
+      visible(room, caller)
+   OR caller is a current participant of room        -- room_participant.left_at IS NULL
+   OR caller holds a pending room_invitation to room -- room-invitation-rest-api.md §2
+```
+
+and, on the join only, a valid `inviteCode` still relaxes it as before.
+
 `gameVersion` is the `game_version` row named by `room.game_id`/`room.game_version`
 (`data-model-catalog.md` §2 — not the *active* version, since a room pins the version it was created
 against). `supports_mid_game_join` and `supports_spectators` are that document's projections of the
@@ -374,7 +388,7 @@ be showing a roster it can never reconcile against the deltas that follow.
 slot, where the caller created the resource and is owed the distinction. Here the caller may be
 anybody holding a stale link.
 
-A room the caller cannot see under the `visible()` predicate of §3 is likewise `404` — with the
+A room the caller cannot reach under the `reachable()` predicate of §3 is likewise `404` — with the
 single exception that possession of the room id is *not* possession of the invite code, so this is
 not a way in. `403` would confirm the room exists to someone who was not told it does.
 
@@ -420,7 +434,7 @@ this instance's existing tenure.
 
 0. **Claim** the room (`room-lifecycle.md` §1.2) and acquire its `ReentrantLock`. A claim that fails
    after retry is `503` with `Retry-After` and the affinity header is not set — nothing below runs.
-1. **Visibility** — `visible(room, caller)` from §3, or a valid `inviteCode`. Failure: `404`.
+1. **Visibility** — `reachable(room, caller)` from §3, or a valid `inviteCode`. Failure: `404`.
 2. **Not already a participant** — an existing row with `left_at IS NULL` is a no-op success, not an
    error (`201` with the current resource). A double-submitted join is a client retrying, not a
    conflict. Nothing below runs: no version bump, no broadcast, because nothing changed.

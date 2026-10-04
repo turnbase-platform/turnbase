@@ -1,22 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 149) — **MVP completeness audit; M9 opened (`IMP-M9-01…09`, 94 of 103 done).**
+**Date:** 2026-10-04 (session 150) — **`IMP-M9-01` `PARTIAL`; spec defect `IMP-GATE-96` found, fixed and closed; `IMP-M9-10` added (94 of 104 done).**
 
-- Ran a full end-to-end audit of the stack after M8, using Playwright with four actors at 1280, 1920 and 400 px, axe-core, the REST API, logs and observability. Report: [`docs/reviews/2026-10-04-mvp-completeness-audit/INDEX.md`](docs/reviews/2026-10-04-mvp-completeness-audit/INDEX.md).
-- **What works.** All ten 2026-10-03 findings (RR-01…10) are closed. Every route renders, and the play loop, spectating, chat, transfer, kick, results and history all work. The platform and the game host logged no ERROR lines. Observability is healthy.
-- **Findings CA-01…CA-11:**
-  - **CA-01 (High).** Lobby *Invite friends* (VW-RLOBBY-005) is not built.
-  - **CA-02.** The catalog listing ignores `owner`, so every profile lists the whole catalog.
-  - **CA-03.** Tic-Tac-Toe never shows the outcome.
-  - **CA-04.** The catalog's *Create room* is clipped at 1280 and at 1920 px.
-  - **CA-05.** A leave reaches the engine only on the 5 s sweep.
-  - **CA-06…10.** Settings gaps, a spec question on a Lobby reload, polish, and a postMessage console warning.
-  - **CA-11.** Stale DONE session markers, fixed in the same commit.
-- Opened M9 in the registry: nine items, all `READY`.
+- Built the lobby's *Invite friends* (`InviteFriendsButton`): registered host only (hidden for Guest, non-host, spectator), friend picker, one `POST …/invitations` per selection with the documented `4xx`s as messages, empty state. Unit tests added; `turnbase-frontend` CI green on `master`.
+- The Playwright run found a spec defect: `room-rest-api.md` §3 used the listing predicate `visible()` for direct access too, so an `INVITE_ONLY` room's host re-entering it and an invitee pressing *Join* both got `404`. §3 now defines `reachable()` (visible, current participant, or pending invitation) for §4 and §5 step 1. `FRIENDS_ONLY` end-to-end passed.
+- New `IMP-M9-10` (platform) builds it; `IMP-M9-09` now depends on it. `IMP-M9-01` stays `PARTIAL`: the `INVITE_ONLY` e2e (`notifications.spec.ts`, already switched to the UI) needs a green `make e2e` after `IMP-M9-10`.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M9-01` is `PARTIAL` (session 150); 94 of 104 done.** Next: `IMP-M9-10` (platform: `reachable()` for `INVITE_ONLY`), then re-run `make e2e` to finish `IMP-M9-01` (its `**Remaining:**` line); `02`–`05`, `06`, `08`, `07` are independent; `09` last. Ignore older notes below.
 
 **M9 opened (session 149) from the completeness audit; 94 of 103 done.** Next: `IMP-M9-01` (lobby friend invitations, CA-01 High), then `02`, `03`, `04`, `05` (each independent), `06`, `08`, and `07` (a docs decision); `09` (the suite) last. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
