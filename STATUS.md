@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 158) — **`IMP-M9-05` `DONE` (100 of 104).** A `player_left` row (explicit leave, abandonment, kick, account deletion) is now dispatched once, inline, right after its transaction commits (`GameInputOutbox`, after-commit listener); the sweep stays the retry path, stamp-on-ACK and the teardown discard are unchanged. Grace expiry deliberately stays on the sweep (duty 2 may close the room first). `InlineLeaveDispatchIT` (2 tests) passes; the e2e forfeit test now bounds leave → *game over* at 1 s; `make e2e`: 48 passed. Platform and frontend CI green. Caveat: after `down -v` the first Game Host session is slow (>35 s `DEADLINE_EXCEEDED`) — wait ~30 s after `make up`; platform ITs fail on :8080 while the stack is up.
+**Date:** 2026-10-04 (session 159) — **`IMP-M9-06` `DONE` (101 of 104).** `oauth-rest-api.md`'s *Hidden when* paragraph now names VW-SET-004; Settings asks `GET /api/auth/providers` (`useGoogleAvailable`) and renders *Link Google account* only when `google` is true; the four privacy controls each carry a visible section label and keep their accessible names. Unit tests (3 new) and `e2e/settings.spec.ts` (link absent on the compose stack, four labels by text) pass; frontend CI green. Caveats: the e2e runs against the prebuilt `turnbase/frontend:dev` image — rebuild it and `up -d --force-recreate frontend` first; repeated registrations hit the Tier 5 limit, `FLUSHALL` redis to reset.
 
 ---
 
 ## Next Priorities
+
+**Session 160:** `IMP-M9-08`, `07` (independent); `09` last. 101 of 104 done. No item is `PARTIAL` or `BLOCKED`.
 
 **Session 159:** `IMP-M9-06`, `08`, `07` (independent); `09` last. 100 of 104 done. No item is `PARTIAL` or `BLOCKED`.
 

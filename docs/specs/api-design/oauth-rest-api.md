@@ -107,7 +107,8 @@ account-creation cost is Tier 5, applied where the account is actually created (
 
 **Hidden when the client secret is absent.** Per `secrets-and-configuration.md` §1, a login/register
 page with no `TURNBASE_OAUTH_GOOGLE_CLIENT_SECRET` configured never renders the "Continue with
-Google" button (`VW-LOGIN-002`, `VW-REG-002`); this endpoint still exists and still 404s cleanly if
+Google" button (`VW-LOGIN-002`, `VW-REG-002`), and Settings never renders *Link Google account*
+(`VW-SET-004`); this endpoint still exists and still 404s cleanly if
 hit directly, rather than 500ing on a missing config value.
 
 **How the page knows (`IMP-GATE-76`).** `GET /api/auth/providers` — unauthenticated, Tier 4, no
