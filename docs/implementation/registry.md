@@ -127,7 +127,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M8-10 | The game room: lobby, in-game and results | frontend | M7-03, M7-04, M8-04, M8-17 | DONE |
 | IMP-M8-11 | Profile view | frontend | M8-01, M8-03, M6-03 | DONE |
 | IMP-M8-12 | Friends view | frontend | M8-02, M8-14 | DONE |
-| IMP-M8-13 | Account settings view | frontend | M8-01, M6-03 | READY |
+| IMP-M8-13 | Account settings view | frontend | M8-01, M6-03 | WIP (session 145) |
 | IMP-M8-14 | Notifications bell and panel | frontend | M6-06, M5-03 | DONE (session 143) |
 | IMP-M8-15 | The client retries a rate-limited subscribe | frontend | M6-04 | READY |
 | IMP-M8-16 | The acceptance suite covers every view and the review's gaps | frontend | M8-01…15, M8-17, M8-18 | READY |
