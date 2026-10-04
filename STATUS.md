@@ -1,5 +1,11 @@
 ## Last Session Summary
 
+**Date:** 2026-10-04 (session 151) — **registry cycle fixed; `IMP-M9-01` stays `PARTIAL`.** `IMP-M9-01`'s remainder (the `INVITE_ONLY` e2e) needs `IMP-M9-10`, which was listed as depending on `IMP-M9-01` being `DONE` — an unsatisfiable cycle. `IMP-M9-10` now depends on `IMP-M2-09` only and is `READY`. No code changed.
+
+---
+
+(Previous session, kept for context:)
+
 **Date:** 2026-10-04 (session 150) — **`IMP-M9-01` `PARTIAL`; spec defect `IMP-GATE-96` found, fixed and closed; `IMP-M9-10` added (94 of 104 done).**
 
 - Built the lobby's *Invite friends* (`InviteFriendsButton`): registered host only (hidden for Guest, non-host, spectator), friend picker, one `POST …/invitations` per selection with the documented `4xx`s as messages, empty state. Unit tests added; `turnbase-frontend` CI green on `master`.
@@ -9,6 +15,8 @@
 ---
 
 ## Next Priorities
+
+**Session 151:** do `IMP-M9-10` (platform) next — it is `READY` — then finish `IMP-M9-01` (`make e2e`). 94 of 104 done.
 
 **`IMP-M9-01` is `PARTIAL` (session 150); 94 of 104 done.** Next: `IMP-M9-10` (platform: `reachable()` for `INVITE_ONLY`), then re-run `make e2e` to finish `IMP-M9-01` (its `**Remaining:**` line); `02`–`05`, `06`, `08`, `07` are independent; `09` last. Ignore older notes below.
 

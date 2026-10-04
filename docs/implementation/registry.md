@@ -143,7 +143,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M9-07 | Decide what a Lobby reload means | docs | — | READY |
 | IMP-M9-08 | View polish and the game-frame console warning | frontend, sdk | M8-16 | READY |
 | IMP-M9-09 | The acceptance suite covers the audit's gaps | frontend | M9-01…06, M9-08, M9-10 | READY |
-| IMP-M9-10 | A member and an invitee can open an `INVITE_ONLY` room | platform | M2-09, M9-01 | READY |
+| IMP-M9-10 | A member and an invitee can open an `INVITE_ONLY` room | platform | M2-09 | READY |
 
 **104 live items.** `IMP-M9-01…10` were added 2026-10-04 from the [MVP completeness audit](../reviews/2026-10-04-mvp-completeness-audit/INDEX.md) (`CA-01…CA-10`): the invite-friends control and the `owner` filter the MVP still lacks, the reference game's missing outcome, the clipped catalog action, the late forfeit dispatch, the settings gaps, one spec decision, polish, and the suite that pins them. `IMP-M8-01…16` were added 2026-10-03 from the [MVP regression review](../reviews/2026-10-03-mvp-regression-review/INDEX.md): five close its backend and game findings, nine give every MVP view a minimal working UI (the game room is `IMP-M8-10`), and the last two close the client follow-up and re-run the review as a suite. `IMP-M7-01…13` were added 2026-10-01 from the [MVP implementation review](../reviews/2026-10-01-mvp-implementation-review/INDEX.md): the first four close its MR-01 (the room views `IMP-M6-04`/`05` did not build), the rest close MR-02…MR-11 and add the acceptance suite the review was run by hand. IMP-M6-07 is cancelled: IR-23 cut the onboarding wizard from v1, so
 `onboarding-wizard.md`'s FR-ONB-* and NFR-ONB-* have no implementing item by design. The heading is
@@ -5626,7 +5626,7 @@ container.
 
 **Closed:** IMP-GATE-96 (opened and closed 2026-10-04, session 150) — `room-rest-api.md` §3 gave one `visible()` predicate to both the listing and direct access, and it hides every `INVITE_ONLY` room, so its host re-entering it and an invitee pressing *Join* both got `404`. §3 now defines `reachable()` (visible, or a current participant, or holding a pending invitation) for §4 and §5 step 1. The platform follows in `IMP-M9-10`.
 
-**Remaining:** the `INVITE_ONLY` Playwright case. The control, picker, empty state, Guest/non-host hiding, the unit tests (`RoomPage.test.tsx`) and the `FRIENDS_ONLY` end-to-end spec are built; `notifications.spec.ts` (now creating an `INVITE_ONLY` room and inviting from the UI) and `rooms.spec.ts` need a green `make e2e` run once `IMP-M9-10` lands.
+**Remaining:** the `INVITE_ONLY` Playwright case. The control, picker, empty state, Guest/non-host hiding, the unit tests (`RoomPage.test.tsx`) and the `FRIENDS_ONLY` end-to-end spec are built; `notifications.spec.ts` (now creating an `INVITE_ONLY` room and inviting from the UI) and `rooms.spec.ts` need a green `make e2e` run once `IMP-M9-10` is `DONE` — **start `IMP-M9-10` first**; it does not wait on this item.
 
 ---
 
@@ -5829,7 +5829,9 @@ A clean `make up` followed by the suite is green twice in a row within the docum
 
 ### IMP-M9-10 — A member and an invitee can open an `INVITE_ONLY` room
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M2-09, IMP-M9-01 · **Closes:** IMP-GATE-96
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M2-09 · **Closes:** IMP-GATE-96
+
+No dependency on `IMP-M9-01`: that item found the defect and is itself `PARTIAL` until this one lands (a dependency the other way would be a cycle — corrected session 151).
 
 **Read first:**
 - `docs/specs/api-design/room-rest-api.md` §3 (`reachable()`), §4, §5 step 1
