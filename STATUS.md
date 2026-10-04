@@ -1,15 +1,17 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 147) — **`IMP-M8-18` DONE (91 of 94).**
+**Date:** 2026-10-04 (session 148) — **`IMP-M8-16` DONE (94 of 94); M8 and the register complete.**
 
-- Platform: every `notification` writer (`SocialRepository` ×4 types, `RoomInvitationRepository`, `AdminGameRepository`) publishes a public `NotificationPersistedEvent`; `NotificationPushListener` (`AFTER_COMMIT`, `fallbackExecution`) claims the row with a guarded `UPDATE … delivered_at` and pushes `event: notification` (`id:` = `event_seq`) to the recipient's open streams. No open stream → row untouched; the stream-open catch-up uses the same guarded stamp, so a row is sent exactly once. Modulith passes.
-- `NotificationControllerIT`: push to an open stream, no repeat on reconnect, undelivered with no stream, no push on rollback. Frontend `e2e/notifications.spec.ts` lost its `reload()`s for the live clauses; passes against a rebuilt stack. Both CIs green.
-- **Finding:** `SseEmitter` commits response headers only on the first event, so a test cannot wait for "connected" client-side — it polls the registry instead. No `BUNDLE_VALIDATION_COMPLETE` writer exists yet, so none was hooked.
-- Two unrelated ITs (`AccountDeletionControllerIT`, `ArtifactBucketReadinessCheckIT`) failed once in the full run on container startup and passed alone.
+- Frontend: `e2e/acceptance.spec.ts` (forfeit → history and statistics, 60 s grace expiry, Tier 6 flood and recovery, two simultaneous Lobby departures), `e2e/layout.spec.ts` (400 px, no horizontal scroll, every route), `e2e/fixtures.ts` tripwire (console error, page error, `5xx` fail the spec unless `tripwire.allow`), cached guest cookie so a run mints no guest, `make e2e`. CI green.
+- Verified on a clean `make up`: two consecutive full runs green (45/45; second run's only failure was stompjs "WebSocket is already in CLOSING" teardown noise, now allowed). A third run inside 24 h fails on login: Tier 1 counts 2 failures per run, lockout on the 5th — documented; flush Redis for more.
+- CI cannot run the suite (needs the full compose stack); noted in the registry row.
+- **Finding:** the game host once went `unhealthy` after a game start while other work loaded the CPU, and after `make reset-db`; `down -v` + `make up` cleared it. Cause not determined.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M8-16` is `DONE` (session 148).** All 94 items are `DONE`; Phase 1 build plan is complete. Ignore older notes below.
 
 **`IMP-M8-18` is `DONE` (session 147).** Next: `IMP-M8-16` (acceptance suite; mind the guest allowance) — the last M8 item. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 

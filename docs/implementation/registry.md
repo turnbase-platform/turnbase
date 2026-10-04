@@ -130,7 +130,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M8-13 | Account settings view | frontend | M8-01, M6-03 | DONE |
 | IMP-M8-14 | Notifications bell and panel | frontend | M6-06, M5-03 | DONE (session 143) |
 | IMP-M8-15 | The client retries a rate-limited subscribe | frontend | M6-04 | DONE |
-| IMP-M8-16 | The acceptance suite covers every view and the review's gaps | frontend | M8-01…15, M8-17, M8-18 | WIP (session 148) |
+| IMP-M8-16 | The acceptance suite covers every view and the review's gaps | frontend | M8-01…15, M8-17, M8-18 | DONE |
 | IMP-M8-17 | The room resource names the viewer's membership | platform | M2-09 | DONE |
 | IMP-M8-18 | The platform pushes a persisted notification to an open stream | platform | M5-03, M8-14 | DONE (session 147) |
 
@@ -5554,6 +5554,8 @@ asserts the history row and the statistics, grace-period expiry with the 60 s fi
 that fails any spec which saw one; the suite is wired into a documented `make` target and either a CI
 job or an explicit note of why it cannot run there; a clean `make up` followed by the suite is green
 **twice in a row** (the run must not exhaust the registration or guest allowance).
+
+**Delivered (session 148):** `make e2e` in `turnbase-frontend` (checks the stack is up, then runs the suite). CI cannot run it: it needs the full compose stack (platform, game host with Espresso, Postgres, Redis, MinIO) and a ~8 min run bounded by the Tier 1/5/6 rate-limit budgets, so it is run by hand — `turnbase-frontend/CLAUDE.md` documents the allowance. Two runs fit per 24 h; a third needs a Redis flush. Verified green twice in a row on a clean `make up`.
 
 ---
 
