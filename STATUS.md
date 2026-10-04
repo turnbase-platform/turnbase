@@ -1,20 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 152) — **`IMP-M9-10` is now the next item.** Session 152 found `IMP-M9-01` (`PARTIAL`) would be picked ahead of any `READY` item yet cannot finish until `IMP-M9-10` is built. `IMP-M9-10` is now in `IMP-M9-01`'s *Depends on*, so the next session picks `IMP-M9-10` (platform, `READY`); then `IMP-M9-01` resumes from its `**Remaining:**` line. No code changed. 94 of 104 done.
-
----
-
-(Previous session, kept for context:)
-
-**Date:** 2026-10-04 (session 150) — **`IMP-M9-01` `PARTIAL`; spec defect `IMP-GATE-96` found, fixed and closed; `IMP-M9-10` added (94 of 104 done).**
-
-- Built the lobby's *Invite friends* (`InviteFriendsButton`): registered host only (hidden for Guest, non-host, spectator), friend picker, one `POST …/invitations` per selection with the documented `4xx`s as messages, empty state. Unit tests added; `turnbase-frontend` CI green on `master`.
-- The Playwright run found a spec defect: `room-rest-api.md` §3 used the listing predicate `visible()` for direct access too, so an `INVITE_ONLY` room's host re-entering it and an invitee pressing *Join* both got `404`. §3 now defines `reachable()` (visible, current participant, or pending invitation) for §4 and §5 step 1. `FRIENDS_ONLY` end-to-end passed.
-- New `IMP-M9-10` (platform) builds it; `IMP-M9-09` now depends on it. `IMP-M9-01` stays `PARTIAL`: the `INVITE_ONLY` e2e (`notifications.spec.ts`, already switched to the UI) needs a green `make e2e` after `IMP-M9-10`.
+**Date:** 2026-10-04 (session 153) — **`IMP-M9-10` `DONE` (95 of 104).** `turnbase-platform` join (`RoomRepository.joinRoom`) and the direct `GET` now use `reachable()` (visible, current participant, or pending invitation, plus `inviteCode` on join), so an `INVITE_ONLY` room's host re-enters it and an invitee reads and joins it with no code; a stranger still gets `404` and the listing is unchanged. Three integration tests in `RoomControllerIT`; platform CI green on `master`, ref bumped. `IMP-GATE-96` is fully closed.
 
 ---
 
 ## Next Priorities
+
+**Session 154:** `IMP-M9-01` is `PARTIAL` and now unblocked — run `make e2e` for the `INVITE_ONLY` case (`notifications.spec.ts`, `rooms.spec.ts`) to finish it. Then `02`–`06`, `08`, `07`; `09` last. 95 of 104 done.
 
 **Session 151:** do `IMP-M9-10` (platform) next — it is `READY` — then finish `IMP-M9-01` (`make e2e`). 94 of 104 done.
 
