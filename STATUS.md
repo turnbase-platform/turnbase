@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 153) — **`IMP-M9-10` `DONE` (95 of 104).** `turnbase-platform` join (`RoomRepository.joinRoom`) and the direct `GET` now use `reachable()` (visible, current participant, or pending invitation, plus `inviteCode` on join), so an `INVITE_ONLY` room's host re-enters it and an invitee reads and joins it with no code; a stranger still gets `404` and the listing is unchanged. Three integration tests in `RoomControllerIT`; platform CI green on `master`, ref bumped. `IMP-GATE-96` is fully closed.
+**Date:** 2026-10-04 (session 154) — **`IMP-M9-01` `DONE` (96 of 104).** Rebuilt the stale platform image (it predated `IMP-M9-10`) and ran `make e2e`: 47 passed, including the `INVITE_ONLY` invite-from-the-lobby case in `notifications.spec.ts` and the `FRIENDS_ONLY`/no-friends/Guest cases in `rooms.spec.ts`. No code change; frontend CI already green on `d6280e7`.
 
 ---
 
 ## Next Priorities
+
+**Session 155:** `IMP-M9-02`–`06`, `08`, `07` (independent); `09` last. 96 of 104 done. No item is `PARTIAL` or `BLOCKED`.
 
 **Session 154:** `IMP-M9-01` is `PARTIAL` and now unblocked — run `make e2e` for the `INVITE_ONLY` case (`notifications.spec.ts`, `rooms.spec.ts`) to finish it. Then `02`–`06`, `08`, `07`; `09` last. 95 of 104 done.
 

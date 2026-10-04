@@ -134,7 +134,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M8-17 | The room resource names the viewer's membership | platform | M2-09 | DONE |
 | IMP-M8-18 | The platform pushes a persisted notification to an open stream | platform | M5-03, M8-14 | DONE |
 | **M9 — MVP completeness audit remediation** ||||
-| IMP-M9-01 | Invite friends from the room lobby | frontend | M8-10, M8-12, M9-10 | PARTIAL |
+| IMP-M9-01 | Invite friends from the room lobby | frontend | M8-10, M8-12, M9-10 | DONE |
 | IMP-M9-02 | The catalog listing honours `owner` | platform | M4-01 | READY |
 | IMP-M9-03 | Tic-Tac-Toe shows the outcome | game | M8-05 | READY |
 | IMP-M9-04 | Catalog rows keep their actions at desktop widths | frontend | M8-08 | READY |
@@ -5626,7 +5626,6 @@ container.
 
 **Closed:** IMP-GATE-96 (opened and closed 2026-10-04, session 150) — `room-rest-api.md` §3 gave one `visible()` predicate to both the listing and direct access, and it hides every `INVITE_ONLY` room, so its host re-entering it and an invitee pressing *Join* both got `404`. §3 now defines `reachable()` (visible, or a current participant, or holding a pending invitation) for §4 and §5 step 1. The platform follows in `IMP-M9-10`.
 
-**Remaining:** the `INVITE_ONLY` Playwright case. The control, picker, empty state, Guest/non-host hiding, the unit tests (`RoomPage.test.tsx`) and the `FRIENDS_ONLY` end-to-end spec are built; `notifications.spec.ts` (now creating an `INVITE_ONLY` room and inviting from the UI) and `rooms.spec.ts` need a green `make e2e` run once `IMP-M9-10` is `DONE`. `IMP-M9-10` is listed under *Depends on* so that it is picked first, ahead of this `PARTIAL` item; it does not wait on this one.
 
 ---
 
