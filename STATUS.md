@@ -1,6 +1,6 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 156) — **`IMP-M9-03` `DONE` (98 of 104).** Tic-Tac-Toe's game FE now reads the `game_over` results payload: new `applyResult` reducer and `GameResult` type in `model.ts`; `statusLine` says "You won." / "You lost." / "Draw." to players, "X won." / "O won." (plus "their opponent left" on a forfeit) to spectators, and "Your opponent left — you win." to the forfeit winner. A payload that is not a `result` only ends the game. The game has no timeout reason, so none is rendered. Vitest covers every reducer case; the bundle was re-packaged, the DB reset (`make reset-db` — seeding skips existing games) and `make e2e`: 47 passed, with `game.spec.ts` asserting winner, loser and spectator text. Both CIs green.
+**Date:** 2026-10-04 (session 157) — **`IMP-M9-04` `DONE` (99 of 104).** Catalog rows keep their actions at desktop widths: the row's action stack and title/badge stack now wrap instead of overflowing the clipped cell, the title link is underlined, and the detail page's *Create room* sits in a horizontal stack so it keeps its natural width. `layout.spec.ts` asserts, by bounding box at 1280/1440/1920 px, that the button lies inside its cell and the viewport, the badge is not cut and the title is underlined, plus the detail button's width. `make e2e`: 48 passed. The Game Host had been left in the documented post-`reset-db` state (`DEADLINE_EXCEEDED` on every start), so session 157 used `down -v` then `make up`. Frontend CI green.
 
 ---
 
