@@ -6,6 +6,8 @@
 
 ## Next Priorities
 
+**Session 158:** `IMP-M9-05`, `06`, `08`, `07` (independent); `09` last. 99 of 104 done. No item is `PARTIAL` or `BLOCKED`.
+
 **Session 157:** `IMP-M9-04`–`06`, `08`, `07` (independent); `09` last. 98 of 104 done. No item is `PARTIAL` or `BLOCKED`.
 
 **Session 156:** `IMP-M9-03`–`06`, `08`, `07` (independent); `09` last. 97 of 104 done. No item is `PARTIAL` or `BLOCKED`.
