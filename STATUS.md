@@ -1,15 +1,17 @@
 ## Last Session Summary
 
-**Date:** 2026-10-04 (session 146) — **`IMP-M8-15` DONE (90 of 94).**
+**Date:** 2026-10-04 (session 147) — **`IMP-M8-18` DONE (91 of 94).**
 
-- `roomSocket.ts`: an attach the Tier 6 limiter dropped is re-run — only the missing parts (room subscribe + state, game subscribe + sync) — after `max(retryAfterMs, 3 s, jittered back-off)`, up to 4 times; then `onGameStalled(true)` and `RoomGame` shows "The game could not be loaded — too many requests." with a **Retry** (`retryAttach`).
-- **Finding:** the error frame is not enough to detect a drop. The limiter notifies at most once a second per bucket, and a dropped `SUBSCRIBE` of `/user/queue/errors` means no notice at all. A 4 s attach **watchdog** treats an attach with no snapshot / no game message as dropped. A retry sooner than one `snapshot` token (3 s) is dropped again, hence the 3 s floor. Spec unchanged.
-- Unit tests (socket + RoomGame) and `e2e/resilience.spec.ts` ("a game attach dropped by the rate limiter recovers on its own": start + two reloads, board rendered); frontend CI green.
-- **For `IMP-M8-16`:** the full `npm run e2e` after `make reset-db` failed six Guest specs (guest mint is 5/IP/hour and the suite spends more); each passes alone after a reset. That is the "does not exhaust the allowance" clause.
+- Platform: every `notification` writer (`SocialRepository` ×4 types, `RoomInvitationRepository`, `AdminGameRepository`) publishes a public `NotificationPersistedEvent`; `NotificationPushListener` (`AFTER_COMMIT`, `fallbackExecution`) claims the row with a guarded `UPDATE … delivered_at` and pushes `event: notification` (`id:` = `event_seq`) to the recipient's open streams. No open stream → row untouched; the stream-open catch-up uses the same guarded stamp, so a row is sent exactly once. Modulith passes.
+- `NotificationControllerIT`: push to an open stream, no repeat on reconnect, undelivered with no stream, no push on rollback. Frontend `e2e/notifications.spec.ts` lost its `reload()`s for the live clauses; passes against a rebuilt stack. Both CIs green.
+- **Finding:** `SseEmitter` commits response headers only on the first event, so a test cannot wait for "connected" client-side — it polls the registry instead. No `BUNDLE_VALIDATION_COMPLETE` writer exists yet, so none was hooked.
+- Two unrelated ITs (`AccountDeletionControllerIT`, `ArtifactBucketReadinessCheckIT`) failed once in the full run on container startup and passed alone.
 
 ---
 
 ## Next Priorities
+
+**`IMP-M8-18` is `DONE` (session 147).** Next: `IMP-M8-16` (acceptance suite; mind the guest allowance) — the last M8 item. No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
 **`IMP-M8-15` is `DONE` (session 146).** Next: `IMP-M8-18` (platform live push), then `16` (suite; mind the guest allowance). No item is `PARTIAL` or `BLOCKED`. Ignore older notes below.
 
