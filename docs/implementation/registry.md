@@ -173,7 +173,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M11 — Spring Boot 4 migration** ||||
 | IMP-M11-01 | The corpus describes the Spring Boot 4.1 stack | docs | — | DONE |
 | IMP-M11-02 | `turnbase-platform` compiles on Spring Boot 4.1.1 | platform | M11-01 | DONE |
-| IMP-M11-03 | Platform host-side JSON is Jackson 3 | platform | M11-02 | READY |
+| IMP-M11-03 | Platform host-side JSON is Jackson 3 | platform | M11-02 | WIP (session 168) |
 | IMP-M11-04 | Platform unit and integration tests are green on Boot 4 | platform | M11-03 | READY |
 | IMP-M11-05 | `turnbase-game-host` compiles on Spring Boot 4.1.1 with Jackson 3 host-side | game-host | M11-01 | READY |
 | IMP-M11-06 | Game Host unit and integration tests are green on Boot 4 | game-host | M11-05 | READY |
