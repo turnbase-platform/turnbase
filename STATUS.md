@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 165) — **`IMP-M10-01` is `PARTIAL`** (105 of 129 done). The version-upload routes (`POST …/versions`, `…/confirm`, `GET …/{uploadId}`) now enforce `game.owner_user_id = principal` through new `*AsOwner` service entry points (`404` when unlisted, else `403`; Official games refuse every public caller); the admin mirror still calls the unchecked methods. `GameRow` gained `listed`. `VersionUploadControllerIT` gained owner / non-owner-listed / non-owner-unlisted / Official-repro tests (14 pass); existing tests now seed owned games. Merged to `turnbase-platform` `master` (`963d44d`), **but its pipeline is red on the Trivy dependency gate alone** (new CRITICAL CVE-2026-47884/47890 in `spring-webmvc` 6.2.19, fix listed only in 7.0.9; Boot 3.5.16 is latest) — so the submodule ref is **not** bumped. `SeedDataIT`'s `*.games.localhost` DNS failure is local-only and reproduces on unmodified `master`.
+**Date:** 2026-10-10 (session 166) — **`IMP-M10-01` is now `BLOCKED` (`IMP-GATE-97`)** (105 of 129 done). Re-checked live: no Boot 3.5.17 / Spring 6.2.20 exists, so the Trivy CRITICAL gate on `turnbase-platform` `master` stays red and the ref is not bumped. Opened the gate (registry `Gate:` line, row `BLOCKED`); the fix needs an owner decision (see Next Priorities). No code changed.
 
 ---
 
 ## Next Priorities
+
+**Session 166 outcome — `IMP-M10-01` is `BLOCKED` on `IMP-GATE-97`:** Trivy CRITICAL CVE-2026-47884/47890 (spring-webmvc 6.2.19) has no fix on Spring 6.2.x / Boot 3.5.x (re-checked 2026-10-10: 3.5.16 and 6.2.19 are still latest). Owner decision needed: (a) a dated waiver rule for unfixable CRITICALs in FR-CICD-010, or (b) an ADR to move the platform to Boot 4 / Spring 7. Then re-run the `turnbase-platform` pipeline, bump the ref, mark `DONE`. Re-check for a new 3.5.x first. Code is merged; do not re-edit it.
 
 **Session 166:** `IMP-M10-01` is `PARTIAL` — re-check CI/Trivy on `turnbase-platform` `master` (new Boot/Spring 6.2.x patch?); if green, bump the ref and mark `DONE`. Otherwise decide the gate (`spec-defect`). Meanwhile `IMP-M10-02…24` are independent and `READY`, but they will inherit the red gate in the same repo.
 

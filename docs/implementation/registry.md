@@ -146,7 +146,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M9-10 | A member and an invitee can open an `INVITE_ONLY` room | platform | M2-09 | DONE |
 | IMP-M9-11 | Warn before a reload leaves the Lobby | frontend | M8-10, M9-07 | DONE |
 | **M10 — E2E & security audit remediation** ||||
-| IMP-M10-01 | The version-upload route enforces game ownership | platform | M4-03 | PARTIAL |
+| IMP-M10-01 | The version-upload route enforces game ownership | platform | M4-03 | BLOCKED |
 | IMP-M10-02 | Per-user queues reject a cross-user subscription | platform | M3-07 | READY |
 | IMP-M10-03 | An unauthorized room join is denied before it writes Redis | platform | M2-03 | READY |
 | IMP-M10-04 | The login-lockout counter is atomic | platform | M1-02, M1-04 | READY |
@@ -5939,6 +5939,13 @@ the three version routes and the ownerless-Official consequence. Build from the 
 - **Tests.** Integration tests over real PostgreSQL: owner (allowed), non-owner of a listed game
   (`403`), non-owner of an unlisted game (`404`), and any caller against the Official seed game
   (refused). A regression test asserts the AUD-01 repro now fails closed.
+
+**Gate:** IMP-GATE-97 — `platform-operations.md` FR-CICD-010 fails the build on any CRITICAL finding, but
+CVE-2026-47884/47890 (spring-webmvc 6.2.19, RCE) list a fix only in Spring 7.0.9 and Spring Boot 3.5.16
+is the last 3.5.x, so the pipeline cannot go green under the stack ADR (Boot 3.5+) without a decision.
+Opened 2026-10-10. Fix belongs in `platform-operations.md` FR-CICD-010 (a dated, expiring waiver rule for
+a CRITICAL with no fix on the pinned line) and/or a new ADR (move the platform to Boot 4 / Spring 7).
+Re-check first: a Boot 3.5.17 / Spring 6.2.20 release makes the gate moot.
 
 **Remaining:** code is merged to `turnbase-platform` `master` (commit `963d44d`; all three *Done when*
 clauses pass locally in `VersionUploadControllerIT`), but the pipeline is **red on the Trivy dependency
