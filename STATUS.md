@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 170) — **`IMP-M11-05` DONE** (110 of 137). `turnbase-game-host` `master` (`d19e739`): Boot 4.1.1, `starter-webmvc`, Testcontainers 2 names, Tomcat override removed; host JSON in `dispatch/` on Jackson 3 with `HostJacksonImportsTest` as the guard. The `bridge` package stays Jackson 2 (shaded into the guest). `jackson-2-bom.version` pinned to 2.21.4 so the guest-bridge jar is identical to the 3.5.16 build (layout and Jackson coordinates compared). **Build red on exit (permitted):** 5 of 57 unit tests error with protobuf gencode `NoClassDefFound` (`io.turnbase.grpc.gamehost.v1.*`) — `IMP-M11-06` pins `protobuf-java` as the platform did. Bumped: parent ref.
+**Date:** 2026-10-10 (session 171) — **`IMP-M11-06` DONE** (111 of 137). `turnbase-game-host` `master` (`03f4c39`): pinned `protobuf-java` 4.36.0 and Netty 4.2.17.Final (Lettuce 7). `./mvnw verify -Pintegration` green: unit 57, IT 17 (74 = all `@Test`s, no drop); Espresso guest round-trip passes. Build no longer red. Bumped: parent ref.
 
 ---
 
 ## Next Priorities
+
+**Session 172:** `IMP-M11-07` (local stack and acceptance suite on both Boot 4 branches); `08` last (waits for pipelines). M10 stays paused.
 
 **Session 171:** `IMP-M11-06` (game-host tests green: protobuf pin, then ITs and the Espresso round-trip); `07` follows. M10 stays paused.
 

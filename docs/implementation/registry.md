@@ -176,7 +176,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M11-03 | Platform host-side JSON is Jackson 3 | platform | M11-02 | DONE |
 | IMP-M11-04 | Platform unit and integration tests are green on Boot 4 | platform | M11-03 | DONE |
 | IMP-M11-05 | `turnbase-game-host` compiles on Spring Boot 4.1.1 with Jackson 3 host-side | game-host | M11-01 | DONE |
-| IMP-M11-06 | Game Host unit and integration tests are green on Boot 4 | game-host | M11-05 | WIP (session 171) |
+| IMP-M11-06 | Game Host unit and integration tests are green on Boot 4 | game-host | M11-05 | DONE |
 | IMP-M11-07 | The local stack and the acceptance suite run on both Boot 4 branches | platform, game-host, frontend | M11-04, M11-06 | READY |
 | IMP-M11-08 | Both migration branches merge and the pipelines are green | platform, game-host | M11-07 | READY |
 
@@ -6548,6 +6548,7 @@ guest-bridge comparison must hold.
 - **Guest round-trip.** The Espresso tests that load a real game JAR, run a move and round-trip its
   state through the guest-side serializer pass unchanged.
 - **Landed.** As `IMP-M11-02`.
+- **Result (session 171):** `turnbase-game-host` `master` (`03f4c39`): pinned `protobuf-java` 4.36.0 (turnbase-grpc gencode) and `netty.version` 4.2.17.Final (Lettuce 7 needs `MultiThreadIoEventLoopGroup`; the 4.1.137 CVE pin broke every Redis IT). `./mvnw verify -Pintegration` green: unit 57 + IT 17 = 74 run, equal to the 74 `@Test` methods now (pre-migration `master`: 73, +1 `HostJacksonImportsTest`) — no drop. Guest round-trip: `GameBridgeClientEspressoTest`, `EspressoIsolationTest`, `SessionDispatcherIT` pass unchanged; JaCoCo merged check met.
 
 ### IMP-M11-07 — The local stack and the acceptance suite run on both Boot 4 branches
 
