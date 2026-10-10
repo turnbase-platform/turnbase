@@ -146,7 +146,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M9-10 | A member and an invitee can open an `INVITE_ONLY` room | platform | M2-09 | DONE |
 | IMP-M9-11 | Warn before a reload leaves the Lobby | frontend | M8-10, M9-07 | DONE |
 | **M10 — E2E & security audit remediation** ||||
-| IMP-M10-01 | The version-upload route enforces game ownership | platform | M4-03 | READY |
+| IMP-M10-01 | The version-upload route enforces game ownership | platform | M4-03 | WIP (session 165) |
 | IMP-M10-02 | Per-user queues reject a cross-user subscription | platform | M3-07 | READY |
 | IMP-M10-03 | An unauthorized room join is denied before it writes Redis | platform | M2-03 | READY |
 | IMP-M10-04 | The login-lockout counter is atomic | platform | M1-02, M1-04 | READY |
