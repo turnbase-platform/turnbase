@@ -1,9 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 182) — **`IMP-M10-10` DONE** (123 of 137). `LoginService` now verifies a dummy Argon2 hash (encoded once at construction with the live encoder) when no account matches, so unknown and known identifiers cost the same work; message already generic. New `LoginServiceTimingTest` (median-latency ratio within 0.5–2.0, identical message). Registry read-list fixed (`account-security.md` never existed → `input-validation.md`). Unit `verify` green; ITs: Auth/Profile/Catalog/OAuth green, `SeedDataIT` fails on `*.games.localhost` ConnectException (environmental, unrelated), CI not awaited (`--skip-ci-wait`).
+**Date:** 2026-10-10 (session 183) — **spec-defect fix only; no item completed** (123 of 137). `IMP-M10-11`'s clause required the Rooms list to refresh live, contradicting `game-rooms.md` FR-LIST-005 (explicit refresh, no polling) and `room-rest-api.md` §3, with no channel to carry it. Opened and closed `IMP-GATE-98`: Rooms dropped from the clause (and from AUD-11's note); Friends view + notification panel remain. Item is `READY`. Corpus check run.
 ---
 
 ## Next Priorities
+
+**Session 184:** `IMP-M10-11` (Friends view live via SSE `FRIEND_*` notifications; Rooms out of scope per `IMP-GATE-98`), then `12`, `13`.
 
 **Session 183:** `IMP-M10-11` (live refresh), then `12`, `13`.
 

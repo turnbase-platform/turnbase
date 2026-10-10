@@ -156,7 +156,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M10-08 | The Game Host survives its first cold Espresso context | game-host | M3-02, M11-08 | DONE |
 | IMP-M10-09 | Catalog search tolerates NUL and control bytes | platform | M4-01, M11-08 | DONE |
 | IMP-M10-10 | Login timing does not reveal account existence | platform | M1-04, M11-08 | DONE |
-| IMP-M10-11 | Friends, rooms and notifications refresh live | frontend | M8-12, M8-14, M11-08 | WIP (session 183) |
+| IMP-M10-11 | Friends, rooms and notifications refresh live | frontend | M8-12, M8-14, M11-08 | READY |
 | IMP-M10-12 | Email change and account deletion re-authenticate | platform, frontend | M1-08, M11-08 | READY |
 | IMP-M10-13 | A send blocked by a privacy setting fails visibly | platform, frontend | M1-09, M11-08 | READY |
 | IMP-M10-14 | The in-memory lock and limiter maps are bounded | platform | M2-03, M1-02, M11-08 | READY |
@@ -6136,14 +6136,25 @@ waive. The upgrade is milestone M11; this item now depends on `IMP-M11-08`.
 **Read first:**
 - `docs/specs/platform-frontend/shell-architecture.md` (the live-update channels: STOMP, SSE)
 - `docs/requirements/platform-views.md` (the Friends, Rooms and notification views)
+- `docs/specs/api-design/room-rest-api.md` §3 (why the Rooms list is not a live surface)
 
-**Satisfies:** `social-friends.md` FR-SOC-006; `game-rooms.md` FR-LIST-001
+**Satisfies:** `social-friends.md` FR-SOC-006
 
 **Done when:**
-- **No manual reload.** A friendship/request change, a room appearing or changing state, and a new
-  notification are reflected in the open Friends view, Rooms list and notification panel without a
-  manual reload, over the existing SSE/STOMP channels (no polling).
-- **Tests.** Two-context e2e: actor A's change appears in actor B's open view within the push latency.
+- **No manual reload.** A friendship/request change and a new notification are reflected in the open
+  Friends view and notification panel without a manual reload, over the existing SSE channel (no
+  polling). The Friends view re-reads its lists on each pushed `FRIEND_*` notification and on each
+  stream (re)connect; the notification panel already does so and keeps doing so.
+- **The Rooms list is out of scope, by requirement.** `game-rooms.md` FR-LIST-005 refreshes it only
+  on the explicit control and `room-rest-api.md` §3 says it is not a real-time surface; no channel
+  carries other users' room changes. AUD-11's room-state staleness is the *room view*, already live
+  over `/topic/room.{roomId}`. Do not add a rooms push or timer here.
+- **Tests.** Two-context e2e: actor A's friend-request change appears in actor B's open Friends view
+  within the push latency.
+
+**Closed:** IMP-GATE-98 (opened and closed 2026-10-10, session 183) — the original clause required the
+Rooms list to refresh live, contradicting FR-LIST-005 and `room-rest-api.md` §3 and naming no channel
+that could carry it. Rooms dropped from the clause; the audit register's AUD-11 note says so.
 
 ### IMP-M10-12 — Email change and account deletion re-authenticate
 
