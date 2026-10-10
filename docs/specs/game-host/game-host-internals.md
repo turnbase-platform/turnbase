@@ -733,6 +733,8 @@ signal. A failure is logged at WARN and startup continues cold. What it removes 
 cost (native library load, Truffle/Espresso first-use); the per-context Espresso boot remains, because contexts
 share no code (a shared `Engine` was measured and did not help).
 
+**Healthy only once registered (IMP-M10-08).** Registration runs on a background thread so a monolith that is not up never blocks process start, which left a window where the host was ready but unknown to the registry and a first `START_GAME` found `NO_HOST_AVAILABLE`. A `registration` health contributor is `DOWN` until the first `Register` is acknowledged, then `UP` for good (a later re-register is not an outage), so `/actuator/health` — the Compose healthcheck — stays unhealthy until the orchestrator can route here.
+
 For the single-instance MVP these are implemented but trivially satisfied
 (host selection always resolves to the one instance); the machinery exists so
 scale-out is a config change, not a redesign (ADR-0001).

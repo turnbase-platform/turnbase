@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 179) — **`IMP-M10-07` DONE** (120 of 137). New `BodySizeLimitFilter` wraps the input stream of a request with no `Content-Length` (chunked) and throws `PayloadTooLargeException` past `turnbase.http.max-body-size`; `GlobalExceptionHandler` maps it to the `413` problem document even when wrapped in `HttpMessageNotReadableException`. `GlobalExceptionHandlerIT` gains chunked over-limit (text and JSON) and under-limit cases. `verify -Pintegration`: 305 run, 8 errors, none in this change — `GameAssetControllerIT`/`SeedDataIT` fail with `UnresolvedAddressException` on `<uuid>.games.localhost` in this WSL environment, and `AuthControllerIT` hit a Redis-container startup timeout (passes alone). CI not awaited (`--skip-ci-wait`).
+**Date:** 2026-10-10 (session 180) — **`IMP-M10-08` DONE** (121 of 137). A fresh `compose up` + `driver.mjs game` did *not* reproduce the cold-boot failure (first game 3.4 s: the `IMP-M7-09` warm-up already covers the Espresso cost), but registration still ran after readiness, so a host could look healthy while unknown to the registry. New `registration` health contributor is `DOWN` until the first `Register` is acknowledged (sticky), so `/actuator/health` — the Compose healthcheck — waits for it; spec note in `game-host-internals.md` §11. `verify` and `verify -Pintegration` green (one stale-`target` `GuestBridgeJarIT` flake on a repeated build, green on rerun); cold-stack first game re-verified on a rebuilt image. CI not awaited (`--skip-ci-wait`).
 
 ---
 
 ## Next Priorities
+
+**Session 181:** `IMP-M10-09` (catalog search NUL/control bytes), then `10`, `11`.
 
 **Session 180:** `IMP-M10-08` (Game Host first cold Espresso context), then `09`, `10`.
 
