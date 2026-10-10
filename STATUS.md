@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 178) — **`IMP-M10-06` DONE** (119 of 137). The public nginx now answers `404` for `/turnbase.gamehost.v1.*` on both servers (platform host and the games-origin fall-through, which previously proxied it to the registry). vitest asserts both blocks and that nothing is `grpc_pass`ed; also verified against a real `nginx:alpine` container (404 on both Hosts). `orchestration-gamehost-protocol.md` *Security* now states that unreachability is the registry's access control. The internal path is unchanged (`GameHostRegistryServerIT`). CI not awaited (`--skip-ci-wait`).
+**Date:** 2026-10-10 (session 179) — **`IMP-M10-07` DONE** (120 of 137). New `BodySizeLimitFilter` wraps the input stream of a request with no `Content-Length` (chunked) and throws `PayloadTooLargeException` past `turnbase.http.max-body-size`; `GlobalExceptionHandler` maps it to the `413` problem document even when wrapped in `HttpMessageNotReadableException`. `GlobalExceptionHandlerIT` gains chunked over-limit (text and JSON) and under-limit cases. `verify -Pintegration`: 305 run, 8 errors, none in this change — `GameAssetControllerIT`/`SeedDataIT` fail with `UnresolvedAddressException` on `<uuid>.games.localhost` in this WSL environment, and `AuthControllerIT` hit a Redis-container startup timeout (passes alone). CI not awaited (`--skip-ci-wait`).
 
 ---
 
 ## Next Priorities
+
+**Session 180:** `IMP-M10-08` (Game Host first cold Espresso context), then `09`, `10`.
 
 **Session 179:** `IMP-M10-07` (chunked body-size limit), then `08`, `09`.
 

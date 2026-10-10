@@ -141,7 +141,7 @@ authenticating at the old cost forever, with nothing to indicate it.
 
 | Surface | Limit | On breach |
 |---|---|---|
-| HTTP JSON request body | **64 KB** | `413 Payload Too Large` |
+| HTTP JSON request body | **64 KB**, by `Content-Length` or — for a `Transfer-Encoding: chunked` body — counted as bytes are read | `413 Payload Too Large` |
 | JSON parse depth / string / number | `StreamReadConstraints`: max nesting **100**, max string length **256 KB**, max number length **1 000** | `400 validation-failed` |
 | STOMP frame — `/app/game.*.action` | 256 KB (`setMessageSizeLimit`) | `ERROR` `ACTION_TOO_LARGE` |
 | STOMP frame — `/app/room.*.member`, `/app/room.*.host` | 8 KB | `ERROR` `MESSAGE_TOO_LARGE` |

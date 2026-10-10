@@ -152,7 +152,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M10-04 | The login-lockout counter is atomic | platform | M1-02, M1-04, M11-08 | DONE |
 | IMP-M10-05 | Rate limiting derives the client IP from the trusted hop | platform, frontend | M1-02, M11-08 | DONE |
 | IMP-M10-06 | The gRPC registry is unreachable from the public edge | frontend, platform | M3-05, M11-08 | DONE |
-| IMP-M10-07 | The body-size limit applies to a chunked request | platform | M1-01, M11-08 | WIP (session 179) |
+| IMP-M10-07 | The body-size limit applies to a chunked request | platform | M1-01, M11-08 | DONE |
 | IMP-M10-08 | The Game Host survives its first cold Espresso context | game-host | M3-02, M11-08 | READY |
 | IMP-M10-09 | Catalog search tolerates NUL and control bytes | platform | M4-01, M11-08 | READY |
 | IMP-M10-10 | Login timing does not reveal account existence | platform | M1-04, M11-08 | READY |
