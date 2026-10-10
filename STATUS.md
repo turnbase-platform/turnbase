@@ -1,9 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 186) — `IMP-M10-13` **DONE** (126 of 137). The platform already rejected a send to a blocking recipient with `422` (`SocialControllerIT` asserts it, no disclosure of the block); the gap was the frontend, whose profile "Add friend" showed the generic "Could not send… try again" toast. It now shows the server's generic refusal detail and keeps the button. Vitest (345), lint, tsc, prettier green; `profile.spec.ts` 6/6 against the rebuilt stack (carol → blocking dave); CI green; ref bumped. No platform change. Search results have no send action in the UI (only the profile does), so there was no second surface.
+**Date:** 2026-10-11 (session 187) — `IMP-M10-14` **DONE** (127 of 137). Room-lock (`RoomEventExecutor`) and submit-lock (`GameInputService`) maps now use a new ref-counted `common.KeyedLocks` (entry removed when the last user releases — idle-time eviction would be unsafe for a held lock). Tier 6 limiter maps (`buckets`, `violations`, `lastNotifiedAt`) are Caffeine caches with idle/write expiry (new direct dep `caffeine`, Boot-managed). Tests: `KeyedLocksTest`, and a fake-ticker churn test in `WebSocketRateLimiterTest`. Unit green; platform CI green. Locally `GameAssetControllerIT`/`SeedDataIT` fail on `*.games.localhost` resolution — identical on pristine `master` (WSL environment, not this change); two Testcontainers startup errors passed on rerun.
 ---
 
 ## Next Priorities
+
+**Session 188:** `IMP-M10-15` (escape `LIKE` wildcards in search), then `16`, `17`.
 
 **Session 187:** `IMP-M10-14` (bound the lock and limiter maps), then `15`, `16`.
 
