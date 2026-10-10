@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 180) — **`IMP-M10-08` DONE** (121 of 137). A fresh `compose up` + `driver.mjs game` did *not* reproduce the cold-boot failure (first game 3.4 s: the `IMP-M7-09` warm-up already covers the Espresso cost), but registration still ran after readiness, so a host could look healthy while unknown to the registry. New `registration` health contributor is `DOWN` until the first `Register` is acknowledged (sticky), so `/actuator/health` — the Compose healthcheck — waits for it; spec note in `game-host-internals.md` §11. `verify` and `verify -Pintegration` green (one stale-`target` `GuestBridgeJarIT` flake on a repeated build, green on rerun); cold-stack first game re-verified on a rebuilt image. CI not awaited (`--skip-ci-wait`).
+**Date:** 2026-10-10 (session 181) — **`IMP-M10-09` DONE** (122 of 137). A NUL (or any control byte) in `search` reached Postgres as a driver error → 500. New `Canonicalizer.searchTerm` checks the *raw* value (`strip()` would swallow U+001C–U+001F at the edges) and throws `validation-failed` (400, field `search`, value not echoed); applied to all four `search` filters (`/api/games`, `/api/rooms`, `/api/users`, `/api/users/{u}/history`), one IT each. Catalog/History/Social/Room ITs and unit `verify` green; CI not awaited (`--skip-ci-wait`).
 
 ---
 
 ## Next Priorities
+
+**Session 182:** `IMP-M10-10` (login timing), then `11`, `12`.
 
 **Session 181:** `IMP-M10-09` (catalog search NUL/control bytes), then `10`, `11`.
 
