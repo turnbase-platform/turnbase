@@ -177,7 +177,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M11-04 | Platform unit and integration tests are green on Boot 4 | platform | M11-03 | DONE |
 | IMP-M11-05 | `turnbase-game-host` compiles on Spring Boot 4.1.1 with Jackson 3 host-side | game-host | M11-01 | DONE |
 | IMP-M11-06 | Game Host unit and integration tests are green on Boot 4 | game-host | M11-05 | DONE |
-| IMP-M11-07 | The local stack and the acceptance suite run on both Boot 4 branches | platform, game-host, frontend | M11-04, M11-06 | WIP (session 172) |
+| IMP-M11-07 | The local stack and the acceptance suite run on both Boot 4 branches | platform, game-host, frontend | M11-04, M11-06 | DONE |
 | IMP-M11-08 | Both migration branches merge and the pipelines are green | platform, game-host | M11-07 | READY |
 
 **137 live items.** `IMP-M11-01…08` were added 2026-10-10 by [ADR-0016](../decisions/0016-spring-boot-4-migration.md), closing `IMP-GATE-97`: both Spring Boot services move to Boot 4.1.1 because two CRITICAL `spring-webmvc` CVEs have no fix on the 3.5 line. **M11 runs before M10** — every `IMP-M10-*` item depends on `IMP-M11-08` — and its items are judged locally with CI not awaited (see the M11 section). `IMP-M10-01…24` were added 2026-10-10 from the
@@ -6571,6 +6571,7 @@ guest-bridge comparison must hold.
   Game Host's `/actuator/prometheus`; a trace for one REST request reaches Tempo.
 - **Scan.** A local `trivy fs` and `trivy image` at severity `CRITICAL` report zero findings for both
   repositories. A finding with no fix opens a gate under FR-CICD-010 instead.
+- **Result (session 172):** images built from `master` of both repos. Stack up on a fresh DB (Flyway applied both migrations) and on a DB first migrated by the pre-migration images (`ff4ee3b^`, `21a5544`; Flyway 12 validated, "up to date"). `make e2e`: 52 passed pre-migration, 52 passed on Boot 4; `driver.mjs game` and `drop` play Tic-Tac-Toe to an outcome. Observability: every `observability.md` metric name is present on `/actuator/prometheus` of platform and Game Host **except** `http_server_requests_seconds_bucket` and `spring_data_repository_invocations_seconds`, which the pre-migration build does not emit either (no histogram config; no repository metrics) — pre-existing drift, not a migration regression (`HighLatencyP95` has no data). Lettuce metrics were renamed (`lettuce_command_*` → `lettuce_seconds`, `lettuce_active_seconds`); no spec names them. A REST trace (`GET /api/games`, fixed `traceparent`) is retrievable from Tempo. **Trivy:** the image scan found Tomcat 11.0.24 CRITICAL (CVE-2026-65182, -65905, -68525; fixed in 11.0.25) in both images; fixed by pinning `tomcat.version` 11.0.25 (platform `9a71a57`, game-host `990e8b7`); unit tests green (216 / 57); `trivy image` and `trivy fs` (with `~/.m2` mounted — Maven Central rate-limited the scanner) report 0 CRITICAL for both.
 
 ### IMP-M11-08 — Both pipelines are green on Spring Boot 4
 

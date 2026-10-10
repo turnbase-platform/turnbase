@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 171) — **`IMP-M11-06` DONE** (111 of 137). `turnbase-game-host` `master` (`03f4c39`): pinned `protobuf-java` 4.36.0 and Netty 4.2.17.Final (Lettuce 7). `./mvnw verify -Pintegration` green: unit 57, IT 17 (74 = all `@Test`s, no drop); Espresso guest round-trip passes. Build no longer red. Bumped: parent ref.
+**Date:** 2026-10-10 (session 172) — **`IMP-M11-07` DONE** (112 of 137). Stack ran on a fresh DB and on one migrated by the pre-migration images (Flyway 12 continues it); `make e2e` 52 passed before and after; Tic-Tac-Toe plays to an outcome; a REST trace reaches Tempo. Trivy image scan found Tomcat 11.0.24 CRITICALs (CVE-2026-65182/65905/68525) — fixed by pinning `tomcat.version` 11.0.25 in both repos (platform `9a71a57`, game-host `990e8b7`; unit tests green, `-Pintegration` not re-run after this patch bump); `trivy image` + `fs` now 0 CRITICAL. Pre-existing drift found, not a regression: `http_server_requests_seconds_bucket` and `spring_data_repository_invocations_seconds` (named in `observability.md`) are emitted by neither build. Bumped: platform and game-host refs.
 
 ---
 
 ## Next Priorities
+
+**Session 173:** `IMP-M11-08` (both pipelines green on Boot 4 — `CI wait: required`; then unpause M10: `IMP-M10-01` to `DONE`). Consider a follow-up for the two absent metrics (histogram config for `HighLatencyP95`, repository metrics).
 
 **Session 172:** `IMP-M11-07` (local stack and acceptance suite on both Boot 4 branches); `08` last (waits for pipelines). M10 stays paused.
 
