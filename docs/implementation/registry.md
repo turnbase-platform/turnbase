@@ -146,7 +146,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M9-10 | A member and an invitee can open an `INVITE_ONLY` room | platform | M2-09 | DONE |
 | IMP-M9-11 | Warn before a reload leaves the Lobby | frontend | M8-10, M9-07 | DONE |
 | **M10 — E2E & security audit remediation** ||||
-| IMP-M10-01 | The version-upload route enforces game ownership | platform | M4-03, M11-08 | PARTIAL |
+| IMP-M10-01 | The version-upload route enforces game ownership | platform | M4-03, M11-08 | DONE |
 | IMP-M10-02 | Per-user queues reject a cross-user subscription | platform | M3-07, M11-08 | READY |
 | IMP-M10-03 | An unauthorized room join is denied before it writes Redis | platform | M2-03, M11-08 | READY |
 | IMP-M10-04 | The login-lockout counter is atomic | platform | M1-02, M1-04, M11-08 | READY |
@@ -178,7 +178,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M11-05 | `turnbase-game-host` compiles on Spring Boot 4.1.1 with Jackson 3 host-side | game-host | M11-01 | DONE |
 | IMP-M11-06 | Game Host unit and integration tests are green on Boot 4 | game-host | M11-05 | DONE |
 | IMP-M11-07 | The local stack and the acceptance suite run on both Boot 4 branches | platform, game-host, frontend | M11-04, M11-06 | DONE |
-| IMP-M11-08 | Both migration branches merge and the pipelines are green | platform, game-host | M11-07 | WIP (session 173) |
+| IMP-M11-08 | Both migration branches merge and the pipelines are green | platform, game-host | M11-07 | DONE |
 
 **137 live items.** `IMP-M11-01…08` were added 2026-10-10 by [ADR-0016](../decisions/0016-spring-boot-4-migration.md), closing `IMP-GATE-97`: both Spring Boot services move to Boot 4.1.1 because two CRITICAL `spring-webmvc` CVEs have no fix on the 3.5 line. **M11 runs before M10** — every `IMP-M10-*` item depends on `IMP-M11-08` — and its items are judged locally with CI not awaited (see the M11 section). `IMP-M10-01…24` were added 2026-10-10 from the
 [E2E & security audit](../reviews/2026-10-10-e2e-security-audit/INDEX.md) (`AUD-01…24`), the first
@@ -5958,10 +5958,7 @@ CVE-2026-47884/47890 (CRITICAL, `spring-webmvc` 6.2.19), which have no fix on th
 Resolved by [ADR-0016](../decisions/0016-spring-boot-4-migration.md): upgrade to Spring Boot 4.1, not
 waive. The upgrade is milestone M11; this item now depends on `IMP-M11-08`.
 
-**Remaining:** code is merged to `turnbase-platform` `master` (commit `963d44d`; all three *Done when*
-clauses pass locally in `VersionUploadControllerIT`). Owed: a green pipeline and the `turnbase-platform`
-ref bump — both delivered by `IMP-M11-08` (Boot 4 migration), which marks this item `DONE`. Do not
-pick this item up before `IMP-M11-08` is `DONE`, and do not hand-edit the code again.
+**Landed (session 173):** `IMP-M11-08` — `turnbase-platform` `master` (`9a71a57`) pipeline green incl. Trivy gates; ref bumped.
 
 ### IMP-M10-02 — Per-user queues reject a cross-user subscription
 
@@ -6591,6 +6588,7 @@ guest-bridge comparison must hold.
 - **Bumped.** Both submodule refs in this repository point at the green commits.
 - **Unpaused.** `IMP-M10-01`'s `**Remaining:**` (green pipeline, ref bump) is satisfied and it is marked
   `DONE`; STATUS names M10 as the open milestone again.
+- **Result (session 173):** `build` green on `master` — platform `9a71a57` (build + e2e jobs), game-host `990e8b7`; all four Trivy steps (dependency and image, report and gate) succeeded in both. Refs already pointed at those commits. `IMP-M10-01` is `DONE`; M10 is unpaused.
 
 ---
 

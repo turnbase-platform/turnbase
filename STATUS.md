@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 172) — **`IMP-M11-07` DONE** (112 of 137). Stack ran on a fresh DB and on one migrated by the pre-migration images (Flyway 12 continues it); `make e2e` 52 passed before and after; Tic-Tac-Toe plays to an outcome; a REST trace reaches Tempo. Trivy image scan found Tomcat 11.0.24 CRITICALs (CVE-2026-65182/65905/68525) — fixed by pinning `tomcat.version` 11.0.25 in both repos (platform `9a71a57`, game-host `990e8b7`; unit tests green, `-Pintegration` not re-run after this patch bump); `trivy image` + `fs` now 0 CRITICAL. Pre-existing drift found, not a regression: `http_server_requests_seconds_bucket` and `spring_data_repository_invocations_seconds` (named in `observability.md`) are emitted by neither build. Bumped: platform and game-host refs.
+**Date:** 2026-10-10 (session 173) — **`IMP-M11-08` DONE; M11 closed; `IMP-M10-01` DONE** (114 of 137). `build` is green on `master` of both repos — platform `9a71a57` (build + e2e jobs), game-host `990e8b7` — including all four Trivy steps (dependency and image, report and gate). Refs already pointed at those commits. M10 is unpaused (`IMP-M10-02…24` `READY`).
 
 ---
 
 ## Next Priorities
+
+**Session 174:** M10 is the open milestone — 114 of 137 done, `IMP-M10-02…24` `READY`. Start with `IMP-M10-02` (wildcard-subscribe queue leak, Critical), then the High tier `03…08`. Consider a follow-up for the two absent metrics (histogram config for `HighLatencyP95`, repository metrics).
 
 **Session 173:** `IMP-M11-08` (both pipelines green on Boot 4 — `CI wait: required`; then unpause M10: `IMP-M10-01` to `DONE`). Consider a follow-up for the two absent metrics (histogram config for `HighLatencyP95`, repository metrics).
 
