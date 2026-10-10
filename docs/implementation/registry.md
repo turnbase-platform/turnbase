@@ -174,7 +174,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M11-01 | The corpus describes the Spring Boot 4.1 stack | docs | — | DONE |
 | IMP-M11-02 | `turnbase-platform` compiles on Spring Boot 4.1.1 | platform | M11-01 | DONE |
 | IMP-M11-03 | Platform host-side JSON is Jackson 3 | platform | M11-02 | DONE |
-| IMP-M11-04 | Platform unit and integration tests are green on Boot 4 | platform | M11-03 | WIP (session 169) |
+| IMP-M11-04 | Platform unit and integration tests are green on Boot 4 | platform | M11-03 | DONE |
 | IMP-M11-05 | `turnbase-game-host` compiles on Spring Boot 4.1.1 with Jackson 3 host-side | game-host | M11-01 | READY |
 | IMP-M11-06 | Game Host unit and integration tests are green on Boot 4 | game-host | M11-05 | READY |
 | IMP-M11-07 | The local stack and the acceptance suite run on both Boot 4 branches | platform, game-host, frontend | M11-04, M11-06 | READY |
@@ -6503,6 +6503,7 @@ Tomcat 11, Testcontainers); unit tests and `main` compilation must pass.
   removed by `spring-boot-properties-migrator`, which is then removed from the pom.
 - **Landed.** As `IMP-M11-02`.
 - **Carried in from `IMP-M11-03` (session 168):** the ITs do not start. (1) Flyway does not run — Boot 4 split it into `spring-boot-starter-flyway` (`relation "app_user" does not exist`). (2) `netty.version` was moved to 4.2.17.Final (Lettuce 7 needs 4.2); confirm the AWS SDK `netty-nio-client` and the Trivy gate against it. (3) The JaCoCo merged check fails only because the ITs cannot boot. Unit tests: 216 run, 0 failed. Pre-migration IT baseline numbers: take them from `master` before `IMP-M11-02` (`ff4ee3b^`).
+- **Result (session 169):** unit 216 run / 0 failed (master: 204 `@Test` methods); integration 314 run (317 annotated, same as master). Added `spring-boot-starter-flyway`; test and `ProblemType` `HttpStatus` constants renamed (`UNPROCESSABLE_CONTENT`, `CONTENT_TOO_LARGE`). `ModularityTest` fails on a deliberate `room`↔`chat` cycle and passes without it; no `properties-migrator` in the pom. **Environment caveat:** the 7 ITs that call `*.localhost` over real HTTP (`GameAssetControllerIT` ×6, `SeedDataIT` ×1) fail on this WSL host because the JDK cannot resolve `.localhost` names; they fail identically on pre-migration `master` (`ff4ee3b^`), so they are not a migration regression — `IMP-M11-08`'s pipelines are where they run for real. Two Testcontainers start-up timeouts seen in the full run passed on rerun.
 
 ### IMP-M11-05 — `turnbase-game-host` compiles on Spring Boot 4.1.1 with Jackson 3 host-side
 

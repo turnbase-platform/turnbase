@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 168) — **`IMP-M11-03` DONE** (108 of 137). `turnbase-platform` `master` (`b7f3b5a`): golden wire-format tests (profile, catalog page, `ProblemDetail`, STOMP room event, `GameLogStore` Redis value, `jsonb` checks) were written and passed on Jackson 2 first (`c2869d4`), then every main/test source moved to Jackson 3 (`JsonMapper`, `JacksonException`, `tools.jackson.*`). One customizer, `common/JacksonConfig`, pins the Jackson 2 behaviour (declaration-order members, unsorted map keys, ISO dates, lenient unknown properties) and `StreamReadConstraints` (nesting 100, string 256 KB, number 1000; a 101-deep body is `400 validation-failed`). STOMP now writes through the platform mapper (`WebSocketConfig.configureMessageConverters`). `PublicationService` parses the manifest text itself instead of taking the SDK validator's Jackson 2 `JsonNode`. `JacksonImportRuleTest` enforces the import rule. Also fixed: `protobuf-java` pinned to 4.36.0 (Boot's 4.35.1 broke `turnbase-grpc` gencode — this was the session-167 `NoClassDefFound` cause) and `netty.version` 4.1.137 → 4.2.17 (Lettuce 7). **Unit: 216 run, 0 failed.** **Build on exit is RED (permitted):** `verify -Pintegration` 299 run, 278 error — Flyway does not run on Boot 4 (needs `spring-boot-starter-flyway`), so the schema is absent; the JaCoCo merged gate fails for that reason only. Carried into `IMP-M11-04`'s section. Bumped: parent ref only.
+**Date:** 2026-10-10 (session 169) — **`IMP-M11-04` DONE** (109 of 137). `turnbase-platform` `master` (`ad3be3f`): added `spring-boot-starter-flyway` (Boot 4 split it out — this alone took the ITs from 278 errors to bootable), and moved `HttpStatus` constants to Spring 7's `UNPROCESSABLE_CONTENT`/`CONTENT_TOO_LARGE` in `ProblemType` and the ITs. **Unit: 216 run, 0 failed. Integration: 314 run; all pass except 7 that need `*.localhost` DNS (`GameAssetControllerIT`, `SeedDataIT`) — this WSL host cannot resolve it, and they fail identically on pre-migration `master`.** Two Testcontainers start-up timeouts in the full run passed on rerun. JaCoCo merged gate met. `ModularityTest` verified to fail on a deliberate cycle. Bumped: parent ref.
 
 ---
 
 ## Next Priorities
+
+**Session 170:** `IMP-M11-05` (game-host compile on Boot 4); `06` follows. M10 stays paused.
 
 **Session 169:** `IMP-M11-04` (platform tests green on Boot 4: start with `spring-boot-starter-flyway`, then the carried-in note in its section); `IMP-M11-05` (game-host) is independent. M10 stays paused.
 
