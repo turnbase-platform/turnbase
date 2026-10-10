@@ -155,7 +155,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M10-07 | The body-size limit applies to a chunked request | platform | M1-01, M11-08 | DONE |
 | IMP-M10-08 | The Game Host survives its first cold Espresso context | game-host | M3-02, M11-08 | DONE |
 | IMP-M10-09 | Catalog search tolerates NUL and control bytes | platform | M4-01, M11-08 | DONE |
-| IMP-M10-10 | Login timing does not reveal account existence | platform | M1-04, M11-08 | WIP (session 182) |
+| IMP-M10-10 | Login timing does not reveal account existence | platform | M1-04, M11-08 | DONE |
 | IMP-M10-11 | Friends, rooms and notifications refresh live | frontend | M8-12, M8-14, M11-08 | READY |
 | IMP-M10-12 | Email change and account deletion re-authenticate | platform, frontend | M1-08, M11-08 | READY |
 | IMP-M10-13 | A send blocked by a privacy setting fails visibly | platform, frontend | M1-09, M11-08 | READY |
@@ -6117,7 +6117,7 @@ waive. The upgrade is milestone M11; this item now depends on `IMP-M11-08`.
 **Repo:** `turnbase-platform` · **Depends on:** IMP-M1-04, IMP-M11-08 · **Closes:** AUD-10
 
 **Read first:**
-- `docs/specs/platform/account-security.md` (credential verification; Argon2)
+- `docs/specs/api-design/input-validation.md` (§ Argon2id cost parameters; credential verification)
 - `docs/specs/api-design/error-handling.md` (the generic auth-failure response)
 
 **Satisfies:** `user-accounts.md` FR-AUTH-006; `user-accounts.md` NFR-SEC-001

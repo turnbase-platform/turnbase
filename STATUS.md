@@ -1,12 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 181) — **`IMP-M10-09` DONE** (122 of 137). A NUL (or any control byte) in `search` reached Postgres as a driver error → 500. New `Canonicalizer.searchTerm` checks the *raw* value (`strip()` would swallow U+001C–U+001F at the edges) and throws `validation-failed` (400, field `search`, value not echoed); applied to all four `search` filters (`/api/games`, `/api/rooms`, `/api/users`, `/api/users/{u}/history`), one IT each. Catalog/History/Social/Room ITs and unit `verify` green; CI not awaited (`--skip-ci-wait`).
-
+**Date:** 2026-10-10 (session 182) — **`IMP-M10-10` DONE** (123 of 137). `LoginService` now verifies a dummy Argon2 hash (encoded once at construction with the live encoder) when no account matches, so unknown and known identifiers cost the same work; message already generic. New `LoginServiceTimingTest` (median-latency ratio within 0.5–2.0, identical message). Registry read-list fixed (`account-security.md` never existed → `input-validation.md`). Unit `verify` green; ITs: Auth/Profile/Catalog/OAuth green, `SeedDataIT` fails on `*.games.localhost` ConnectException (environmental, unrelated), CI not awaited (`--skip-ci-wait`).
 ---
 
 ## Next Priorities
 
-**Session 182:** `IMP-M10-10` (login timing), then `11`, `12`.
+**Session 183:** `IMP-M10-11` (live refresh), then `12`, `13`.
 
 **Session 181:** `IMP-M10-09` (catalog search NUL/control bytes), then `10`, `11`.
 
