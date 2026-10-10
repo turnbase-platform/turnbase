@@ -44,10 +44,16 @@ The policy is therefore two-sided, and both sides are required:
    never appends to a client-supplied value (ingress-nginx: `use-forwarded-headers: "false"`, which is
    the default — it must not be turned on). The header that reaches the application therefore contains
    exactly one entry: the true client.
+   The Frontend container's nginx (`local-environment.md` §7) does the same with
+   `proxy_set_header X-Forwarded-For $remote_addr` — never `$proxy_add_x_forwarded_for`, which appends
+   to what the client sent (`IMP-M10-05`).
 2. **In the application.** `X-Forwarded-For` is honoured **only** when the socket peer is inside
    `turnbase.security.trusted-proxies` (the ingress CIDR set). Otherwise the socket address is used.
    Direct connections — local `docker compose`, tests — have no proxy and fall back to the socket
-   address with no configuration. Spring's `ForwardedHeaderFilter`
+   address with no configuration. If the header holds several entries the **rightmost** — the one the
+   trusted hop wrote — is used, never the leftmost, which a client can forge. The trusted set is
+   explicit: `turnbase.security.trusted-proxies` (default the RFC 1918 ranges `10.0.0.0/8`,
+   `172.16.0.0/12`). Spring's `ForwardedHeaderFilter`
    (`server.forward-headers-strategy=FRAMEWORK`) applies the header to `getRemoteAddr()`; the
    trusted-proxy check is what makes trusting it safe.
 

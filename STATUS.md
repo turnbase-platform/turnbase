@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 176) — **`IMP-M10-04` DONE** (117 of 137). Tier 1 lockout is now one Redis Lua script in `RateLimitInterceptor.preHandle`: attempts are counted at admission, the attempt reaching the threshold sets the lockout in the same script, and a success (or a refusal by a later tier) refunds the reservation. Decay now matches NFR-SEC-003 (1 h idle TTL, was 24 h; 15 min cap, was none). `RateLimitInterceptorIT` gains a 40-parallel-bad-login test (exactly 5 × 401, 35 × 429) and a success-does-not-count test; 9/9 green. Full `verify -Pintegration` green except `GameAssetControllerIT`/`SeedDataIT` (`*.games.localhost` in WSL, as baseline); `ChatControllerIT`/`RoomPurgeJobIT` hit container-pull timeouts once and passed on rerun. `rate-limiting.md` Tier 1 amended. CI not awaited (`--skip-ci-wait`).
+**Date:** 2026-10-10 (session 177) — **`IMP-M10-05` DONE** (118 of 137). The defect was in the edge: nginx used `$proxy_add_x_forwarded_for` (appends), so a forged header reached the platform as a multi-entry value. All three `proxy_set_header` lines in `turnbase-frontend` now use `$remote_addr` (vitest asserts it). `ClientIpResolver` now takes the rightmost entry; a new `RateLimitInterceptorIT` case shows forged `X-Forwarded-For` neither evades the caller's lockout nor creates a victim's bucket. `rate-limiting.md` §Client identity amended. Platform `verify -Pintegration`: `GameAssetControllerIT`/`SeedDataIT` fail as baseline (`*.games.localhost` in WSL); `TurnBaseApplicationIT` hit a MinIO container-start failure once and passed on rerun. CI not awaited (`--skip-ci-wait`).
 
 ---
 
 ## Next Priorities
+
+**Session 178:** `IMP-M10-06` (gRPC registry unreachable from the public edge), then `07`, `08`.
 
 **Session 177:** `IMP-M10-05` (rate-limit client IP from the trusted hop), then `06…08`.
 
