@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 175) — **`IMP-M10-03` DONE** (116 of 137). `RoomService.join` now runs a read-only pre-check (`RoomRepository.precheckJoin`, shared `planJoin` with the locked path) before the ownership claim, so refused joins (404 visibility, 422 capacity/state) write no `room:*` key; the locked re-check stays authoritative. `RoomControllerIT` asserts zero keys after 10 refused joins (fails on baseline) and that a legitimate join still claims. `room-rest-api.md` §5 amended. Local `verify` green; room/WebSocket ITs green; `GameAssetControllerIT` and `SeedDataIT` fail as on baseline (`*.games.localhost` unresolvable in WSL). CI not awaited (`--skip-ci-wait`).
+**Date:** 2026-10-10 (session 176) — **`IMP-M10-04` DONE** (117 of 137). Tier 1 lockout is now one Redis Lua script in `RateLimitInterceptor.preHandle`: attempts are counted at admission, the attempt reaching the threshold sets the lockout in the same script, and a success (or a refusal by a later tier) refunds the reservation. Decay now matches NFR-SEC-003 (1 h idle TTL, was 24 h; 15 min cap, was none). `RateLimitInterceptorIT` gains a 40-parallel-bad-login test (exactly 5 × 401, 35 × 429) and a success-does-not-count test; 9/9 green. Full `verify -Pintegration` green except `GameAssetControllerIT`/`SeedDataIT` (`*.games.localhost` in WSL, as baseline); `ChatControllerIT`/`RoomPurgeJobIT` hit container-pull timeouts once and passed on rerun. `rate-limiting.md` Tier 1 amended. CI not awaited (`--skip-ci-wait`).
 
 ---
 
 ## Next Priorities
+
+**Session 177:** `IMP-M10-05` (rate-limit client IP from the trusted hop), then `06…08`.
 
 **Session 176:** `IMP-M10-04` (atomic login-lockout counter), then High tier `05…08`.
 

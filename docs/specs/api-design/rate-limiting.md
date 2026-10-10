@@ -71,6 +71,13 @@ Implements `user-accounts.md` NFR-SEC-003 exactly:
 
 Redis key: `rate:auth:{ip}`
 
+**Atomic admission (IMP-M10-04).** The check and the count are one Redis script run in `preHandle`:
+an attempt is counted *at admission*, and the attempt that brings the count to the threshold sets
+the lockout in the same script, so N concurrent bad logins admit exactly 5. A request that ends
+`< 400`, or is refused by another tier after admission, is refunded (count decremented, and the
+lockout it set removed). Keys are `rate:auth:count:{ip}` (1 h idle TTL) and `rate:auth:lockout:{ip}`;
+the doubling is capped at 15 minutes.
+
 On lockout: 429 with `Retry-After: 30`.
 
 > Tier 1's failure-only counting is exactly why Tier 5 exists. Registration and guest creation
