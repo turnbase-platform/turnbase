@@ -100,7 +100,7 @@ marker.
 
 If the item changed anything under `docs/`, `python3 scripts/check-corpus.py` before committing.
 
-**Under the loop's `--skip-ci-wait` mode** (the session prompt says so) do not `gh run watch`: `DONE`
+**Only if your session prompt contains a `CI policy for this run` paragraph** (the loop's `--skip-ci-wait`; no such paragraph means the flag is off, whatever STATUS.md or the registry say about earlier sessions) do not `gh run watch`: `DONE`
 means the *Done when* clause holds from local `spotless:apply`, `verify` and `verify -Pintegration`,
 `master` is pushed and the ref bumped. Two item-level lines override that, and the item's section is
 authoritative: `**CI wait:** required` means wait for the pipeline anyway, and `**Build on exit:** may

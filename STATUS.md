@@ -43,7 +43,7 @@
 
 **Session 168:** `IMP-M11-03` (platform host-side JSON → Jackson 3); `IMP-M11-05` (game-host) is independent. Also chase the `io.turnbase.grpc.gamehost.v1.*` `NoClassDefFound` unit errors noted above. M10 stays paused.
 
-**Session 167:** **M11 first — M10 is paused.** Start `IMP-M11-02` (platform compiles on Boot 4.1.1); `IMP-M11-05` (game-host) is independent. M11 uses the ordinary workflow (short-lived branch, merge, bump) with **CI not awaited** (`--skip-ci-wait`): `DONE` for `02…07` means green locally; `02`, `03`, `05` may leave a named part of the build red (record it here); only `08` waits for the pipelines. `IMP-M10-01` is `PARTIAL` but waits on `IMP-M11-08` — do not pick it up.
+**Session 167:** **M11 first — M10 is paused.** Start `IMP-M11-02` (platform compiles on Boot 4.1.1); `IMP-M11-05` (game-host) is independent. M11 uses the ordinary workflow (short-lived branch, merge, bump) (CI not awaited only if the prompt carries a `CI policy for this run` paragraph, i.e. `--skip-ci-wait`): `DONE` for `02…07` means green locally; `02`, `03`, `05` may leave a named part of the build red (record it here); only `08` waits for the pipelines. `IMP-M10-01` is `PARTIAL` but waits on `IMP-M11-08` — do not pick it up.
 
 **Session 166:** `IMP-M10-01` is `PARTIAL` — re-check CI/Trivy on `turnbase-platform` `master` (new Boot/Spring 6.2.x patch?); if green, bump the ref and mark `DONE`. Otherwise decide the gate (`spec-defect`). Meanwhile `IMP-M10-02…24` are independent and `READY`, but they will inherit the red gate in the same repo.
 

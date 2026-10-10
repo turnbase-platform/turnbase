@@ -6398,10 +6398,11 @@ register; each item below retires the risks it names.
 
 - **Ordinary workflow.** Short-lived branch per item, merged `--ff-only` into `master` and deleted in
   the same session, ref bumped. There is no long-lived migration branch (ADR-0016 §4).
-- **CI is not awaited** (`--skip-ci-wait`). `DONE` for `IMP-M11-02…07` means the *Done when* clause
+- **CI is awaited unless the session prompt carries a `CI policy for this run` paragraph** (the loop's
+  `--skip-ci-wait`); with no such paragraph, `gh run watch --exit-status` as for any item. Under it, `DONE` for `IMP-M11-02…07` means the *Done when* clause
   holds from a clean local checkout — `./mvnw spotless:apply` leaves no diff, and `verify` /
   `verify -Pintegration` pass as far as the clause demands — with `master` pushed and the ref bumped.
-  Do not `gh run watch`. Only `IMP-M11-08` carries `**CI wait:** required`.
+  Only `IMP-M11-08` carries `**CI wait:** required`.
 - **A red build on exit is allowed only where an item says so** with a `**Build on exit:** may be red`
   line naming what may fail (`02`, `03`, `05`). Still merge, push and bump the ref, and record in
   STATUS.md exactly what is red. Any other item leaves `master` green.
