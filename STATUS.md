@@ -1,9 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 185) — `IMP-M10-12` **DONE** (125 of 137). Opened and closed `IMP-GATE-99` first: `rest-conventions.md` said `DELETE /api/users/me` takes no body and no proof, and neither route stated the proof's wire shape. Now `PATCH /api/users/me` (when `email` is present) and `DELETE /api/users/me` take `currentPassword` for an account with a `PASSWORD` method; missing or wrong is `422`, nothing changes; OAuth-only accounts are exempt (no password to verify). Platform: `ReauthVerifier`; ITs for both routes; `verify` + integration green, CI green. Frontend: confirm-password field on the email form and the delete section; 344 vitest, lint, tsc green; `settings.spec.ts` 3/3 against the rebuilt stack; CI green; refs bumped. Not done: failed re-auth attempts do not count toward the login lockout (FR-ACCT-010 says they should for the password change; that route does not do it either).
+**Date:** 2026-10-10 (session 186) — `IMP-M10-13` **DONE** (126 of 137). The platform already rejected a send to a blocking recipient with `422` (`SocialControllerIT` asserts it, no disclosure of the block); the gap was the frontend, whose profile "Add friend" showed the generic "Could not send… try again" toast. It now shows the server's generic refusal detail and keeps the button. Vitest (345), lint, tsc, prettier green; `profile.spec.ts` 6/6 against the rebuilt stack (carol → blocking dave); CI green; ref bumped. No platform change. Search results have no send action in the UI (only the profile does), so there was no second surface.
 ---
 
 ## Next Priorities
+
+**Session 187:** `IMP-M10-14` (bound the lock and limiter maps), then `15`, `16`.
 
 **Session 186:** `IMP-M10-13` (blocked-send fails visibly), then `14`, `15`.
 
