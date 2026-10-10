@@ -1,9 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-10-11 (session 187) — `IMP-M10-14` **DONE** (127 of 137). Room-lock (`RoomEventExecutor`) and submit-lock (`GameInputService`) maps now use a new ref-counted `common.KeyedLocks` (entry removed when the last user releases — idle-time eviction would be unsafe for a held lock). Tier 6 limiter maps (`buckets`, `violations`, `lastNotifiedAt`) are Caffeine caches with idle/write expiry (new direct dep `caffeine`, Boot-managed). Tests: `KeyedLocksTest`, and a fake-ticker churn test in `WebSocketRateLimiterTest`. Unit green; platform CI green. Locally `GameAssetControllerIT`/`SeedDataIT` fail on `*.games.localhost` resolution — identical on pristine `master` (WSL environment, not this change); two Testcontainers startup errors passed on rerun.
+**Date:** 2026-10-11 (session 188) — `IMP-M10-15` **DONE** (128 of 137). New `common.LikePattern.containsLowerCase` escapes `\`, `%`, `_`; catalog (title, author, tags) and room (title, host) search use it with `ESCAPE '\'`. Tests: `CatalogRepositoryIT.searchTreatsPercentAndUnderscoreAsLiterals`, new `RoomRepositorySearchIT`. Platform CI green. Not covered: the Friends username-prefix search (`SocialRepository`) still concatenates unescaped — outside this item's scope. Locally `GameAssetControllerIT`/`SeedDataIT` still fail on `*.games.localhost` (same on pristine `master`); other transient Testcontainers errors passed on rerun.
 ---
 
 ## Next Priorities
+
+**Session 189:** `IMP-M10-16` (denial copy states the real reason), then `17`, `18`.
 
 **Session 188:** `IMP-M10-15` (escape `LIKE` wildcards in search), then `16`, `17`.
 
