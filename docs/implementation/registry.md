@@ -180,7 +180,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M11-07 | The local stack and the acceptance suite run on both Boot 4 branches | platform, game-host, frontend | M11-04, M11-06 | READY |
 | IMP-M11-08 | Both migration branches merge and the pipelines are green | platform, game-host | M11-07 | READY |
 
-**137 live items.** `IMP-M11-01…08` were added 2026-10-10 by [ADR-0016](../decisions/0016-spring-boot-4-migration.md), closing `IMP-GATE-97`: both Spring Boot services move to Boot 4.1.1 because two CRITICAL `spring-webmvc` CVEs have no fix on the 3.5 line. **M11 runs before M10** — every `IMP-M10-*` item depends on `IMP-M11-08` — and its items are judged on a long-lived `chore/boot4` branch with CI paused (see the M11 section). `IMP-M10-01…24` were added 2026-10-10 from the
+**137 live items.** `IMP-M11-01…08` were added 2026-10-10 by [ADR-0016](../decisions/0016-spring-boot-4-migration.md), closing `IMP-GATE-97`: both Spring Boot services move to Boot 4.1.1 because two CRITICAL `spring-webmvc` CVEs have no fix on the 3.5 line. **M11 runs before M10** — every `IMP-M10-*` item depends on `IMP-M11-08` — and its items are judged locally with CI not awaited (see the M11 section). `IMP-M10-01…24` were added 2026-10-10 from the
 [E2E & security audit](../reviews/2026-10-10-e2e-security-audit/INDEX.md) (`AUD-01…24`), the first
 black-box run of the full stack after the build plan reached 105: two Critical cross-user breaches
 (`IMP-M10-01` the ownerless-upload hole closed by `IMP-GATE-96`, `IMP-M10-02` the wildcard-subscribe
@@ -6386,18 +6386,15 @@ register; each item below retires the risks it names.
 
 **How M11 differs from every other milestone — read before claiming any item:**
 
-- **One branch per repository, `chore/boot4`, lives across sessions** (ADR-0012 as amended, ADR-0016
-  §4). Create it from `master` on first use, push it to the remote, and keep working on it; do not
-  merge it before `IMP-M11-08`. `master` of `turnbase-platform` and `turnbase-game-host` is frozen
-  until then.
-- **CI is paused.** The `build` workflow runs only on `master`, so pushing `chore/boot4` runs nothing.
-  For `IMP-M11-02…07`, **`DONE` means the *Done when* clause holds on `chore/boot4` from a clean
-  local checkout, with the branch pushed** — not a green pipeline and not a ref bump. Each such item
-  records the branch commit it was verified at. The pipeline and both submodule ref bumps belong to
-  `IMP-M11-08` alone.
-- **"Green locally"** means, from a clean checkout of the branch: `./mvnw spotless:apply` leaves no
-  diff, `./mvnw verify` passes, and `./mvnw verify -Pintegration` passes — with the test counts
-  reported and compared against `master`'s.
+- **Ordinary workflow.** Short-lived branch per item, merged `--ff-only` into `master` and deleted in
+  the same session, ref bumped. There is no long-lived migration branch (ADR-0016 §4).
+- **CI is not awaited** (`--skip-ci-wait`). `DONE` for `IMP-M11-02…07` means the *Done when* clause
+  holds from a clean local checkout — `./mvnw spotless:apply` leaves no diff, and `verify` /
+  `verify -Pintegration` pass as far as the clause demands — with `master` pushed and the ref bumped.
+  Do not `gh run watch`. Only `IMP-M11-08` carries `**CI wait:** required`.
+- **A red build on exit is allowed only where an item says so** with a `**Build on exit:** may be red`
+  line naming what may fail (`02`, `03`, `05`). Still merge, push and bump the ref, and record in
+  STATUS.md exactly what is red. Any other item leaves `master` green.
 - **Hold the wire format.** No item may change a REST body, STOMP frame, Redis value or `jsonb`
   column as a side effect of the upgrade (ADR-0016 §2). A difference is a `spec-defect`, not a fix.
 - **Guest-side Jackson 2 is not in scope.** Anything that would change the Jackson inside the Espresso
@@ -6420,13 +6417,15 @@ register; each item below retires the risks it names.
 - **Specs.** Any spec that names a Boot-3- or Jackson-2-specific API for host code is restated for
   the Boot 4 / Jackson 3 stack (`input-validation.md`'s `StreamReadConstraints`, `error-handling.md`'s
   `ProblemDetail`).
-- **Process.** ADR-0016 is registered in `docs/decisions/INDEX.md`; ADR-0012 records the `chore/boot4`
-  exception; M11 is in the register and in `INDEX.md`'s milestone map; `IMP-GATE-97` is closed;
+- **Process.** ADR-0016 is registered in `docs/decisions/INDEX.md`; M11 is in the register and in `INDEX.md`'s milestone map; `IMP-GATE-97` is closed;
   `check-corpus.py` is clean.
 
 ### IMP-M11-02 — `turnbase-platform` compiles on Spring Boot 4.1.1
 
-**Repo:** `turnbase-platform` (branch `chore/boot4`) · **Depends on:** IMP-M11-01
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M11-01
+
+**Build on exit:** may be red — tests may fail to compile or fail at run time (Jackson 2 beans, moved
+test APIs); `main` sources and `spotless:check` must pass.
 
 **Read first:**
 - `docs/decisions/0016-spring-boot-4-migration.md` (§1, §4, §5 R5–R8, R10)
@@ -6450,11 +6449,14 @@ register; each item below retires the risks it names.
 - **Housekeeping.** `.github/dependabot.yml`'s `spring-boot-starter-parent` ignore entry now reads
   `>= 5.0.0` with its comment rewritten to cite ADR-0016; `README.md` and the repo's `CLAUDE.md` name
   Boot 4.1.
-- **Pushed.** `chore/boot4` is pushed; the item section records the verified commit.
+- **Landed.** Merged to `master`, pushed, ref bumped; STATUS.md says the build is red and why.
 
 ### IMP-M11-03 — Platform host-side JSON is Jackson 3
 
-**Repo:** `turnbase-platform` (branch `chore/boot4`) · **Depends on:** IMP-M11-02
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M11-02
+
+**Build on exit:** may be red — integration tests may still fail for causes `IMP-M11-04` owns (Modulith,
+Tomcat 11, Testcontainers); unit tests and `main` compilation must pass.
 
 **Read first:**
 - `docs/decisions/0016-spring-boot-4-migration.md` (§2, §5 R1–R3)
@@ -6476,11 +6478,11 @@ register; each item below retires the risks it names.
 - **Unchanged wire.** The golden-payload tests pass unmodified.
 - **Nesting limit.** A request body nested deeper than the configured limit is rejected with the
   status `input-validation.md` specifies.
-- **Pushed.** As `IMP-M11-02`.
+- **Landed.** As `IMP-M11-02`.
 
 ### IMP-M11-04 — Platform unit and integration tests are green on Boot 4
 
-**Repo:** `turnbase-platform` (branch `chore/boot4`) · **Depends on:** IMP-M11-03
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M11-03
 
 **Read first:**
 - `docs/decisions/0016-spring-boot-4-migration.md` (§4, §5 R5, R6, R8, R9)
@@ -6489,7 +6491,7 @@ register; each item below retires the risks it names.
 **Satisfies:** `platform-operations.md` FR-CICD-003
 
 **Done when:**
-- **Green locally** (M11 sense) — `./mvnw verify` and `./mvnw verify -Pintegration` pass; the unit
+- **Green locally** — `./mvnw verify` and `./mvnw verify -Pintegration` pass; the unit
   and integration test counts are at least `master`'s, and the item records both pairs of numbers.
 - **Modulith still bites.** `ModularityTest` runs under Modulith 2.1.x, and a deliberately introduced
   cross-feature reference makes it fail (then is removed).
@@ -6499,11 +6501,14 @@ register; each item below retires the risks it names.
   weakened.
 - **Clean properties.** No configuration property in `src/main/resources` is reported as renamed or
   removed by `spring-boot-properties-migrator`, which is then removed from the pom.
-- **Pushed.** As `IMP-M11-02`.
+- **Landed.** As `IMP-M11-02`.
 
 ### IMP-M11-05 — `turnbase-game-host` compiles on Spring Boot 4.1.1 with Jackson 3 host-side
 
-**Repo:** `turnbase-game-host` (branch `chore/boot4`) · **Depends on:** IMP-M11-01
+**Repo:** `turnbase-game-host` · **Depends on:** IMP-M11-01
+
+**Build on exit:** may be red — tests may fail until `IMP-M11-06`; `main` sources must compile and the
+guest-bridge comparison must hold.
 
 **Read first:**
 - `docs/decisions/0016-spring-boot-4-migration.md` (§1, §2, §5 R1, R4, R7, R10)
@@ -6523,11 +6528,11 @@ register; each item below retires the risks it names.
   recorded `dependency:tree` or jar listing from `master` and from the branch. The shade/repackage
   configuration that keeps it out of `BOOT-INF/lib` (`pom.xml`) still produces the same layout.
 - **Compiles.** `./mvnw -DskipTests verify` passes with Error Prone/NullAway at full severity.
-- **Pushed.** As `IMP-M11-02`.
+- **Landed.** As `IMP-M11-02`.
 
 ### IMP-M11-06 — Game Host unit and integration tests are green on Boot 4
 
-**Repo:** `turnbase-game-host` (branch `chore/boot4`) · **Depends on:** IMP-M11-05
+**Repo:** `turnbase-game-host` · **Depends on:** IMP-M11-05
 
 **Read first:**
 - `docs/decisions/0016-spring-boot-4-migration.md` (§4, §5 R4, R9)
@@ -6536,10 +6541,10 @@ register; each item below retires the risks it names.
 **Satisfies:** `platform-operations.md` FR-CICD-003
 
 **Done when:**
-- **Green locally** (M11 sense), with unit and integration counts recorded and at least `master`'s.
+- **Green locally**, with unit and integration counts recorded and at least `master`'s.
 - **Guest round-trip.** The Espresso tests that load a real game JAR, run a move and round-trip its
   state through the guest-side serializer pass unchanged.
-- **Pushed.** As `IMP-M11-02`.
+- **Landed.** As `IMP-M11-02`.
 
 ### IMP-M11-07 — The local stack and the acceptance suite run on both Boot 4 branches
 
@@ -6554,35 +6559,33 @@ register; each item below retires the risks it names.
 **Satisfies:** `platform-operations.md` FR-CICD-010; `platform-operations.md` CON-001
 
 **Done when:**
-- **Stack.** The compose stack starts with images built from both `chore/boot4` branches, twice: on a
+- **Stack.** The compose stack starts with images built from `master` of both repositories, twice: on a
   fresh database, and on a database migrated by the current `master` images (Flyway 12 continues it).
 - **Suite.** The frontend acceptance suite (`make e2e`) passes against that stack with no new
-  failures relative to a `master` run, and a full Tic-Tac-Toe game plays to an outcome.
+  failures relative to a pre-migration run, and a full Tic-Tac-Toe game plays to an outcome.
 - **Observability.** Every metric name `observability.md` names is present in the platform's and the
   Game Host's `/actuator/prometheus`; a trace for one REST request reaches Tempo.
 - **Scan.** A local `trivy fs` and `trivy image` at severity `CRITICAL` report zero findings for both
-  branches. A finding with no fix opens a gate under FR-CICD-010 instead.
+  repositories. A finding with no fix opens a gate under FR-CICD-010 instead.
 
-### IMP-M11-08 — Both migration branches merge and the pipelines are green
+### IMP-M11-08 — Both pipelines are green on Spring Boot 4
 
 **Repo:** `turnbase-platform`, `turnbase-game-host`, `turnbase` · **Depends on:** IMP-M11-07
 
+**CI wait:** required — the only M11 item that waits for the pipeline.
+
 **Read first:**
 - `docs/decisions/0016-spring-boot-4-migration.md` (§4, §6)
-- `docs/decisions/0012-repo-strategy-polyrepo-submodules.md` (*Pull requests are suspended*, and its
-  2026-10-10 exception)
 
 **Satisfies:** `platform-operations.md` FR-CICD-010
 
 **Done when:**
-- **Merged.** In each repository `chore/boot4` is merged into `master` with `--ff-only` and deleted
-  locally and on the remote; no PR was opened.
-- **Green.** Each repository's `build` workflow on the merged `master` is green, including both Trivy
-  gates (dependency and image).
-- **Bumped.** Both submodule refs are updated in this repository.
-- **Unfrozen.** `IMP-M10-01`'s `**Remaining:**` (green pipeline, ref bump) is satisfied by the above,
-  and it is marked `DONE`; the M10 dependency on this item is satisfied; STATUS names M10 as the open
-  milestone again.
+- **Green.** The `build` workflow on `master` of `turnbase-platform` and of `turnbase-game-host` is
+  green, including both Trivy gates (dependency and image). A failure is fixed on a short-lived branch
+  and re-run; a finding with no fix opens a gate under FR-CICD-010 instead.
+- **Bumped.** Both submodule refs in this repository point at the green commits.
+- **Unpaused.** `IMP-M10-01`'s `**Remaining:**` (green pipeline, ref bump) is satisfied and it is marked
+  `DONE`; STATUS names M10 as the open milestone again.
 
 ---
 

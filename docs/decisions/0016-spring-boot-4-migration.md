@@ -6,8 +6,8 @@
 - **Supersedes:** the "Spring Boot 3.5+" version line in `CLAUDE.md`, [ADR-0012](0012-repo-strategy-polyrepo-submodules.md)'s
   repository table, and each requirements document's backend constraint (`platform-operations.md`
   CON-001 and its copies)
-- **Amends:** [ADR-0012](0012-repo-strategy-polyrepo-submodules.md) *Pull requests are suspended* — one
-  named migration branch per repository may outlive a session (§4 below)
+- **Amends:** [ADR-0012](0012-repo-strategy-polyrepo-submodules.md) is **not** amended — an earlier
+  draft of §4 proposed a long-lived `chore/boot4` branch and was withdrawn the same day (see §4)
 - **Relates to:** [ADR-0014](0014-modular-monolith-spring-modulith.md) (Spring Modulith moves 1.4 → 2.x),
   [ADR-0015](0015-static-analysis-error-prone-nullaway.md) (NullAway meets Spring 7's JSpecify annotations)
 - **Executed by:** milestone **M11** in [`registry.md`](../implementation/registry.md) (`IMP-M11-01…08`)
@@ -91,32 +91,34 @@ behaviour explicitly rather than letting a default leak onto the wire.
 | `turnbase-sdk` | no | no Spring; the guest-side Jackson 2 pin lives here and is held still |
 | `turnbase-frontend`, `turnbase-game-tictactoe` | no | no Maven dependency on Boot |
 
-### 4. Procedure: one migration branch per repository, CI paused until local green
+### 4. Procedure: the ordinary workflow, local verification, a red build allowed mid-migration
 
-**The branch.** Each in-scope repository carries one branch, **`chore/boot4`**, cut from `master`.
-It is the single exception to ADR-0012's *"merged and deleted within the session that created it"*:
-it may live across sessions for the duration of M11, and it **is pushed to the remote** so that no
-session's work exists only on one machine. Every other ADR-0012 rule still holds — no pull request is
-opened, `master` stays linear, and the branch is merged `--ff-only` and deleted locally and on the
-remote by `IMP-M11-08`. Nothing else may be named `chore/boot4`, and no other branch may outlive a
-session on the strength of this exception.
+**No migration branch.** An earlier draft of this section proposed one long-lived `chore/boot4` branch
+per repository with `master` frozen. It was withdrawn: it needed an exception to ADR-0012's same-session
+branch rule, and the autonomous loop's post-session checks (no surviving branch, submodule refs
+recorded) would have fought it. Each M11 item is worked exactly like any other: a short-lived branch,
+merged `--ff-only` into `master` and deleted in the same session, submodule ref bumped, STATUS updated.
+ADR-0012 is unchanged.
 
-**`master` is frozen for these two repositories while M11 is open.** M10 is paused (§6), so no other
-work lands on either `master`; a freeze is what makes the final fast-forward possible without a
-rebase of a migration-sized diff.
+**CI is not awaited by M11 items `02…07`.** Their *Done when* clauses are judged on **local** evidence:
+`./mvnw spotless:apply` leaves no diff, and `./mvnw verify` and `./mvnw verify -Pintegration` pass as
+far as the item's own clause demands, from a clean checkout. The agent pushes `master`, bumps the ref
+and moves on without `gh run watch`. This is the `--skip-ci-wait` mode of the autonomous loop
+(`scripts/autonomous_loop/`), and it is only sound because `turnbase-platform` `master` is already red
+on the Trivy gate (`IMP-GATE-97`) and a pipeline result would carry no information until the stack
+has moved. The one item that *must* wait is `IMP-M11-08`, which carries a `**CI wait:** required` line.
 
-**CI is paused, not skipped.** The `build` workflow runs only on pushes to `master` (and on pull
-requests, which are suspended), so pushing `chore/boot4` runs nothing — this is the intended state.
-`IMP-M11-02…07` are judged on **local** evidence: `./mvnw spotless:apply`, `./mvnw verify` and
-`./mvnw verify -Pintegration` green on the branch, run from a clean checkout. The pipeline — including
-both Trivy gates — is first exercised by `IMP-M11-08`, which merges the branch and must see it green.
-Until then, `turnbase-platform` `master` stays red on the gate and neither submodule ref moves in this
-repository.
+**A red build on exit is allowed — when the item says so.** A migration that spans several items cannot
+keep every intermediate commit green: after the starter swap the code does not compile, after the
+compile fix the Jackson-bound tests fail. An item whose *Done when* permits that carries a
+`**Build on exit:** may be red` line naming exactly what may be red; every other item keeps the rule that
+`master` is left green. A red `master` is *recorded*, not hidden: the permitted-red items are `02` and
+`03` (platform) and `05` (Game Host), and the first green point is `04`/`06`.
 
 **Order.** The corpus is updated first (`IMP-M11-01`), so every later item builds against documents
 that already say Boot 4. Then each repository in three steps — *compiles*, *host JSON migrated*,
-*tests green locally* (platform `02`–`04`, Game Host `05`–`06`) — then the running stack end to end
-(`07`), then the merge and the pipeline (`08`).
+*tests green* (platform `02`–`04`, Game Host `05`–`06`) — then the running stack end to end (`07`), then
+the pipelines (`08`).
 
 ### 5. Known risks
 
@@ -137,7 +139,7 @@ documents do not make is a `spec-defect`, not a judgement call on the branch.
 | R10 | **NullAway against Spring 7** | Spring 7 annotates its API with JSpecify; overriding or calling it surfaces new NullAway errors (ADR-0015 keeps them as errors) | Fixed in code, never by downgrading the check or widening `ExcludedFieldAnnotations` | `02`, `05` |
 | R11 | **Observability drift** | Micrometer 1.17 / OTel 1.62 / Boot 4's OpenTelemetry auto-configuration change property names or metric/tag names; Grafana dashboards and alert rules in `observability.md` go blank | Actuator `prometheus` output compared before/after for the metric names `observability.md` names; traces reach Tempo in the local stack | `07` |
 | R12 | **Flyway 11 → 12** | Startup migration on an existing database (ADR-0011's forward-only, backward-compatible rule) | The local stack starts on a database migrated by the 3.5 build, and on an empty one | `07` |
-| R13 | **Branch drift and a long-lived diff** | `chore/boot4` diverges from `master` and the final merge is not a fast-forward | `master` frozen for both repos while M11 is open (§4); `08` merges `--ff-only` | `08` |
+| R13 | **A red `master` hides a regression** | Intermediate items are allowed a red build (§4) and no CI result is awaited, so a failure unrelated to the migration can land unseen | Each permitted-red item names exactly what may be red; `04`, `06` and `07` restore green with test counts compared against the pre-migration numbers; `08` waits for both pipelines | `04`, `06`, `08` |
 | R14 | **Trivy finds a new CRITICAL in the Boot 4 tree** | The point of the migration is a green gate; Tomcat 11.0.24, Netty 4.2.17 and the rest are new to the scan | A local `trivy fs` run on each branch before `08`; a finding with no fix is a new gate under FR-CICD-010 | `07`, `08` |
 
 ### 6. M10 is paused until M11 is done
@@ -145,14 +147,15 @@ documents do not make is a `spec-defect`, not a judgement call on the branch.
 Every `IMP-M10-*` item gains `IMP-M11-08` as a dependency. The fixes M10 carries are worth less than
 a pipeline that can certify them, and building them on Boot 3.5 code that M11 is rewriting would
 force each to be ported twice. `IMP-M10-01`, already merged on `master`, finishes with `IMP-M11-08`:
-its `**Remaining:**` line (a green pipeline and the ref bump) is exactly what `08` delivers.
+its `**Remaining:**` line (a green pipeline and the ref bump) is exactly what `08` delivers. A
+`PARTIAL` item does not jump the queue past its own *Depends on*: it waits like any other.
 
 ## Consequences
 
 - The stack line in `CLAUDE.md`, ADR-0012 and the requirements' backend constraints reads
   **Spring Boot 4.1+** from `IMP-M11-01` onward — ahead of the code, as for any other specification.
   For the duration of M11 the documents describe the target and `master` of the two repositories
-  describes 3.5.16; the M11 section of the registry is where that gap is visible.
+  describes progressively more of Boot 4; the M11 section of the registry is where that gap is visible.
 - `IMP-GATE-97` is closed by this ADR. FR-CICD-010 is unchanged: the gate is satisfied by upgrading,
   not waived.
 - Each repository's `dependabot.yml` `ignore` entry for `spring-boot-starter-parent >= 4.0.0` is

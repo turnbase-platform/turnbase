@@ -200,7 +200,7 @@ ecosystem carries `open-pull-requests-limit: 0`. Bump a dependency the ordinary 
 1. Update STATUS.md — **replace** the "Last Session Summary" section (never append), update phase progress and next priorities
 2. `python3 scripts/check-corpus.py` is clean
 3. Verify all changes are committed, every branch created this session is merged and deleted, and no PR was opened
-4. Update submodule refs in this repo only after the submodule's build and tests pass
+4. Update submodule refs in this repo only after the submodule's build and tests pass (an M11 item whose section says `**Build on exit:** may be red` is the one exception — ADR-0016 §4)
 
 ## End of Session Checklist
 

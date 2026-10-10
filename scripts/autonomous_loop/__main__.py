@@ -15,7 +15,7 @@ Usage:
                                    [--repo DIR] [--stop-file PATH]
                                    [--no-resume] [--state-file PATH]
                                    [--stall-minutes N] [--no-notify]
-                                   [--no-verify]
+                                   [--no-verify] [--skip-ci-wait]
 
 Stop it gracefully mid-run by creating the stop file (default:
 .autonomous-loop.stop in the repo root) — it's checked between iterations,
@@ -134,6 +134,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--stall-minutes", type=float, default=15,
                    help="warn after this many minutes without activity (default 15)")
     p.add_argument("--no-notify", action="store_true", help="no bell and no desktop toasts")
+    p.add_argument("--skip-ci-wait", action="store_true",
+                   help="do not block on CI; verify locally (items may override, see registry)")
     p.add_argument("--no-verify", action="store_true", help="skip the post-session checks")
     return p.parse_args(argv)
 
@@ -145,7 +147,7 @@ def main(argv: list[str] | None = None) -> int:
     cfg = Config(repo_dir=repo, log_dir=log_dir, max_iterations=args.max, model=args.model,
                  sleep_seconds=args.sleep, stop_file=args.stop_file, state_file=args.state_file,
                  resume=not args.no_resume, once=args.once, stall_minutes=args.stall_minutes,
-                 verify=not args.no_verify)
+                 verify=not args.no_verify, skip_ci_wait=args.skip_ci_wait)
 
     if shutil.which(cfg.claude_bin) is None:
         print("claude CLI not found on PATH", file=sys.stderr)

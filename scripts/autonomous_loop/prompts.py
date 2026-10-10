@@ -25,7 +25,9 @@ LOOP_STATUS: FINISHED <all items complete>"""
 PROMPT = f"""Pick up the next TurnBase Phase 1 work item and implement it, following the
 `work-item` skill exactly (claim it, read exactly its read-list, build to the
 "Done when" clause). A PARTIAL item in the register comes before any READY
-one: continue it from its `**Remaining:**` line. If a specification defect
+one: continue it from its `**Remaining:**` line — but only once every ID in its
+`Depends on` is DONE; a PARTIAL item still waiting on a dependency is skipped
+in favour of the next READY item. If a specification defect
 blocks you, use the `spec-defect` skill instead of guessing — filing/fixing the defect is a valid
 unit of work for this session.
 
@@ -49,6 +51,24 @@ anything else, "once it completes".
 {_PHASES}
 
 {_STATUS}"""
+
+CI_ADDENDUM = """
+
+CI policy for this run (the operator started the loop with --skip-ci-wait):
+do NOT wait for CI. Push as usual, but do not run `gh run watch` or poll runs;
+verify locally instead (build, unit and integration tests, spotless, the
+corpus check) and treat green local results as the gate for merging and for
+bumping submodule refs. Skip the `ci-wait` phase. Two exceptions: an item
+whose section says `**CI wait:** required` still blocks on CI, and an item
+whose section says `**Build on exit:** may be red` may be finished with a
+non-compiling or failing build — record that state in STATUS.md and the
+item's Remaining/Done notes rather than fixing it out of scope."""
+
+
+def with_ci_policy(prompt: str, skip_ci_wait: bool) -> str:
+    """Appends the --skip-ci-wait policy to a session prompt."""
+    return prompt + CI_ADDENDUM if skip_ci_wait else prompt
+
 
 def continue_prompt(item: str) -> str:
     """A fresh session after one that reported PARTIAL: the same item comes next."""

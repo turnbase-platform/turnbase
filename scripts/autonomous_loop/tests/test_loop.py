@@ -44,6 +44,20 @@ class LoopTest(unittest.TestCase):
         self.assertEqual(self.fx.state()["status"], "finished")
         self.assertIn("LOOP_STATUS: DONE IMP-A-01", self.out.getvalue())
 
+    def test_skip_ci_wait_flag_adds_the_policy_to_the_prompt(self):
+        self.fx.scenarios({"status": "FINISHED all"})
+        self.run_loop(max_iterations=1, skip_ci_wait=True)
+        prompt = self.fx.calls()[0][self.fx.calls()[0].index("-p") + 1]
+        self.assertIn("do NOT wait for CI", prompt)
+        self.assertIn("**CI wait:** required", prompt)
+
+    def test_prompt_has_no_ci_policy_by_default_and_partial_respects_depends_on(self):
+        self.fx.scenarios({"status": "FINISHED all"})
+        self.run_loop(max_iterations=1)
+        prompt = self.fx.calls()[0][self.fx.calls()[0].index("-p") + 1]
+        self.assertNotIn("do NOT wait for CI", prompt)
+        self.assertIn("every ID in its\n`Depends on` is DONE", prompt)
+
     def test_countdown_between_sessions_but_not_before_first(self):
         self.fx.scenarios({"status": "DONE a"}, {"status": "DONE b"})
         self.assertEqual(self.run_loop(max_iterations=2, sleep_seconds=10), 0)

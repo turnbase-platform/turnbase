@@ -100,10 +100,12 @@ marker.
 
 If the item changed anything under `docs/`, `python3 scripts/check-corpus.py` before committing.
 
-**M11 is the one exception** (ADR-0016 §4). Its items `IMP-M11-02…07` live on a long-lived
-`chore/boot4` branch with CI paused; `DONE` there means the *Done when* clause holds from a clean local
-checkout of the pushed branch. Do not merge that branch or bump its ref before `IMP-M11-08`. The M11
-section of `registry.md` states the rules in full — read it before claiming any M11 item.
+**Under the loop's `--skip-ci-wait` mode** (the session prompt says so) do not `gh run watch`: `DONE`
+means the *Done when* clause holds from local `spotless:apply`, `verify` and `verify -Pintegration`,
+`master` is pushed and the ref bumped. Two item-level lines override that, and the item's section is
+authoritative: `**CI wait:** required` means wait for the pipeline anyway, and `**Build on exit:** may
+be red` (M11 only, ADR-0016 §4) means the item may leave the named part of the build failing — still
+merge, push and bump, and say in STATUS.md what is red.
 
 ### 9. Or `PARTIAL`: when the session ends before the item does
 

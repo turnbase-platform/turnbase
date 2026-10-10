@@ -20,7 +20,7 @@ from typing import Callable
 from . import checks
 from .display import BOLD, DIM, GREEN, RED, YELLOW, Segment, Terminal, fmt_duration
 from .progress import Progress, phase_totals
-from .prompts import PROMPT, RESUME_PROMPT, continue_prompt, verify_prompt
+from .prompts import PROMPT, RESUME_PROMPT, continue_prompt, verify_prompt, with_ci_policy
 from .session import Outcome, SessionResult, WaitResult, run_session
 from .state import StateFile
 from .view import SessionDisplay
@@ -52,6 +52,7 @@ class Config:
     claude_projects_dir: Path = field(default_factory=lambda: Path.home() / ".claude" / "projects")
     quota_grace_seconds: float = 30
     quota_fallback_seconds: float = 900
+    skip_ci_wait: bool = False  # --skip-ci-wait: local verification instead of blocking on CI
     verify: bool = True  # post-session checks after DONE (see checks.py)
 
     def __post_init__(self) -> None:
@@ -67,7 +68,8 @@ class Config:
 
 
 def command(cfg: Config, sid: str, resumed: bool, prompt: str | None = None) -> list[str]:
-    return [cfg.claude_bin, "-p", prompt or (RESUME_PROMPT if resumed else PROMPT),
+    return [cfg.claude_bin, "-p",
+            with_ci_policy(prompt or (RESUME_PROMPT if resumed else PROMPT), cfg.skip_ci_wait),
             "--resume" if resumed else "--session-id", sid,
             "--model", cfg.model, "--output-format", "stream-json", "--verbose",
             "--dangerously-skip-permissions", "--settings", str(cfg.settings_file)]
