@@ -73,7 +73,7 @@ The lobby event type catalogue, command catalogue, and room affinity routing mod
 
 ## Authorization
 
-Subscriptions to `/topic/room.{roomId}` and `/topic/game.{sessionId}` are validated server-side by a `SubscriptionInterceptor`. The interceptor checks that the subscribing user is a member or spectator of the referenced room or session. Unauthorized subscriptions are silently dropped — no data is sent and no error is returned to the client. The full per-destination matrix for game destinations is in [Authorization model](#authorization-model-game) below.
+Subscriptions to `/topic/room.{roomId}` and `/topic/game.{sessionId}` are validated server-side by a `SubscriptionInterceptor`. The interceptor checks that the subscribing user is a member or spectator of the referenced room or session. Unauthorized subscriptions are silently dropped — no data is sent and no error is returned to the client. Subscriptions are allow-listed: a destination containing a wildcard (`*`, `?`, `{`), a raw broker queue (`/queue/…`, e.g. another user's `…-user{sessionId}` address), or any destination no authorizer governs — other than `/user/queue/{name}`, which Spring binds to the subscribing session — is refused with a `DESTINATION_NOT_ALLOWED` error on `/user/queue/errors` (IMP-M10-02, AUD-02). A `SEND` to any destination outside `/app/*` is refused the same way. The full per-destination matrix for game destinations is in [Authorization model](#authorization-model-game) below.
 
 ## Relationship to Notifications
 

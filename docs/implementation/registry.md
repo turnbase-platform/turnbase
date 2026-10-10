@@ -147,7 +147,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M9-11 | Warn before a reload leaves the Lobby | frontend | M8-10, M9-07 | DONE |
 | **M10 — E2E & security audit remediation** ||||
 | IMP-M10-01 | The version-upload route enforces game ownership | platform | M4-03, M11-08 | DONE |
-| IMP-M10-02 | Per-user queues reject a cross-user subscription | platform | M3-07, M11-08 | WIP (session 174) |
+| IMP-M10-02 | Per-user queues reject a cross-user subscription | platform | M3-07, M11-08 | DONE |
 | IMP-M10-03 | An unauthorized room join is denied before it writes Redis | platform | M2-03, M11-08 | READY |
 | IMP-M10-04 | The login-lockout counter is atomic | platform | M1-02, M1-04, M11-08 | READY |
 | IMP-M10-05 | Rate limiting derives the client IP from the trusted hop | platform, frontend | M1-02, M11-08 | READY |

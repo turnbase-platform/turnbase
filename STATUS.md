@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 173) — **`IMP-M11-08` DONE; M11 closed; `IMP-M10-01` DONE** (114 of 137). `build` is green on `master` of both repos — platform `9a71a57` (build + e2e jobs), game-host `990e8b7` — including all four Trivy steps (dependency and image, report and gate). Refs already pointed at those commits. M10 is unpaused (`IMP-M10-02…24` `READY`).
+**Date:** 2026-10-10 (session 174) — **`IMP-M10-02` DONE** (115 of 137). `WebSocketChannelInterceptor` now allow-lists `SUBSCRIBE` (wildcards, raw `/queue/…` and ungoverned destinations get `DESTINATION_NOT_ALLOWED`; `/user/queue/{name}` is allowed) and refuses `SEND` outside `/app/*`; `WebSocketIT` reproduces AUD-02 (7 crafted subscriptions, victim's unicast not leaked) and the SEC-S-03 send. Local `verify` green; `-Pintegration` green except `GameAssetControllerIT` and `SeedDataIT`, which fail identically on baseline (`*.games.localhost` not resolvable in this WSL host); `ReconciliationJobIT` flaked once and passed on rerun. CI not awaited (`--skip-ci-wait`). `websocket.md` § Authorization updated.
 
 ---
 
 ## Next Priorities
+
+**Session 175:** `IMP-M10-03` (deny a room join before it writes Redis), then High tier `04…08`. `IMP-M10-02` CI result not checked — glance at `turnbase-platform` `master` if convenient.
 
 **Session 174:** M10 is the open milestone — 114 of 137 done, `IMP-M10-02…24` `READY`. Start with `IMP-M10-02` (wildcard-subscribe queue leak, Critical), then the High tier `03…08`. Consider a follow-up for the two absent metrics (histogram config for `HighLatencyP95`, repository metrics).
 
