@@ -1,9 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 184) — `IMP-M10-11` **DONE** (124 of 137). `FriendsPage` now re-reads both lists on each pushed `FRIEND_*` notification and on each stream (re)connect, via a small subscribe hook (`notifications/liveSignal.ts`) fed by `NotificationBell`'s single EventSource — no second stream, no polling; Rooms untouched per `IMP-GATE-98`. Unit test + two-context e2e (carol's request appears in dave's open Friends view); 343 vitest, lint, tsc green; `friends.spec.ts` 6/6 against the rebuilt compose stack; frontend CI green; ref bumped.
+**Date:** 2026-10-10 (session 185) — `IMP-M10-12` **DONE** (125 of 137). Opened and closed `IMP-GATE-99` first: `rest-conventions.md` said `DELETE /api/users/me` takes no body and no proof, and neither route stated the proof's wire shape. Now `PATCH /api/users/me` (when `email` is present) and `DELETE /api/users/me` take `currentPassword` for an account with a `PASSWORD` method; missing or wrong is `422`, nothing changes; OAuth-only accounts are exempt (no password to verify). Platform: `ReauthVerifier`; ITs for both routes; `verify` + integration green, CI green. Frontend: confirm-password field on the email form and the delete section; 344 vitest, lint, tsc green; `settings.spec.ts` 3/3 against the rebuilt stack; CI green; refs bumped. Not done: failed re-auth attempts do not count toward the login lockout (FR-ACCT-010 says they should for the password change; that route does not do it either).
 ---
 
 ## Next Priorities
+
+**Session 186:** `IMP-M10-13` (blocked-send fails visibly), then `14`, `15`.
 
 **Session 185:** `IMP-M10-12` (email change / account deletion re-auth), then `13`, `14`.
 
