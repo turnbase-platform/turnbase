@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 174) — **`IMP-M10-02` DONE** (115 of 137). `WebSocketChannelInterceptor` now allow-lists `SUBSCRIBE` (wildcards, raw `/queue/…` and ungoverned destinations get `DESTINATION_NOT_ALLOWED`; `/user/queue/{name}` is allowed) and refuses `SEND` outside `/app/*`; `WebSocketIT` reproduces AUD-02 (7 crafted subscriptions, victim's unicast not leaked) and the SEC-S-03 send. Local `verify` green; `-Pintegration` green except `GameAssetControllerIT` and `SeedDataIT`, which fail identically on baseline (`*.games.localhost` not resolvable in this WSL host); `ReconciliationJobIT` flaked once and passed on rerun. CI not awaited (`--skip-ci-wait`). `websocket.md` § Authorization updated.
+**Date:** 2026-10-10 (session 175) — **`IMP-M10-03` DONE** (116 of 137). `RoomService.join` now runs a read-only pre-check (`RoomRepository.precheckJoin`, shared `planJoin` with the locked path) before the ownership claim, so refused joins (404 visibility, 422 capacity/state) write no `room:*` key; the locked re-check stays authoritative. `RoomControllerIT` asserts zero keys after 10 refused joins (fails on baseline) and that a legitimate join still claims. `room-rest-api.md` §5 amended. Local `verify` green; room/WebSocket ITs green; `GameAssetControllerIT` and `SeedDataIT` fail as on baseline (`*.games.localhost` unresolvable in WSL). CI not awaited (`--skip-ci-wait`).
 
 ---
 
 ## Next Priorities
+
+**Session 176:** `IMP-M10-04` (atomic login-lockout counter), then High tier `05…08`.
 
 **Session 175:** `IMP-M10-03` (deny a room join before it writes Redis), then High tier `04…08`. `IMP-M10-02` CI result not checked — glance at `turnbase-platform` `master` if convenient.
 

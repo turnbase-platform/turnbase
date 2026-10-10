@@ -432,6 +432,12 @@ validation *after* a successful claim leaves this instance owning a room it adde
 which is harmless — some other human is already a member, or the claim was a no-op re-confirmation of
 this instance's existing tenure.
 
+**Deny before claiming** (`IMP-M10-03`, AUD-03). Steps 1–4 are first run once as a read-only
+pre-check — no row lock, no write — and a join that fails it is refused before step 0, so a caller who
+is going to be refused leaves no Redis key (ownership claim, epoch) behind. The pre-check is advisory:
+steps 1–4 run again under the lock and stay authoritative, so a race between the two can only turn an
+admitted join into a refusal, never admit one.
+
 0. **Claim** the room (`room-lifecycle.md` §1.2) and acquire its `ReentrantLock`. A claim that fails
    after retry is `503` with `Retry-After` and the affinity header is not set — nothing below runs.
 1. **Visibility** — `reachable(room, caller)` from §3, or a valid `inviteCode`. Failure: `404`.
