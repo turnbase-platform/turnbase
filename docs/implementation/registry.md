@@ -161,7 +161,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M10-13 | A send blocked by a privacy setting fails visibly | platform, frontend | M1-09, M11-08 | DONE |
 | IMP-M10-14 | The in-memory lock and limiter maps are bounded | platform | M2-03, M1-02, M11-08 | DONE |
 | IMP-M10-15 | Search escapes `LIKE` wildcards | platform | M4-01, M11-08 | DONE |
-| IMP-M10-16 | Denial copy states the real reason | frontend, platform | M8-06, M11-08 | READY |
+| IMP-M10-16 | Denial copy states the real reason | frontend, platform | M8-06, M11-08 | WIP (session 189) |
 | IMP-M10-17 | An unknown route returns 404, not a soft 200 | frontend | M8-06, M11-08 | READY |
 | IMP-M10-18 | Security headers and strict `Host` matching at the edge | frontend | M8-06, M11-08 | READY |
 | IMP-M10-19 | The session cookie is `Secure` and `__Host-`-prefixed under TLS | platform | M1-06, M11-08 | READY |
