@@ -175,7 +175,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M11-02 | `turnbase-platform` compiles on Spring Boot 4.1.1 | platform | M11-01 | DONE |
 | IMP-M11-03 | Platform host-side JSON is Jackson 3 | platform | M11-02 | DONE |
 | IMP-M11-04 | Platform unit and integration tests are green on Boot 4 | platform | M11-03 | DONE |
-| IMP-M11-05 | `turnbase-game-host` compiles on Spring Boot 4.1.1 with Jackson 3 host-side | game-host | M11-01 | READY |
+| IMP-M11-05 | `turnbase-game-host` compiles on Spring Boot 4.1.1 with Jackson 3 host-side | game-host | M11-01 | WIP (session 170) |
 | IMP-M11-06 | Game Host unit and integration tests are green on Boot 4 | game-host | M11-05 | READY |
 | IMP-M11-07 | The local stack and the acceptance suite run on both Boot 4 branches | platform, game-host, frontend | M11-04, M11-06 | READY |
 | IMP-M11-08 | Both migration branches merge and the pipelines are green | platform, game-host | M11-07 | READY |
