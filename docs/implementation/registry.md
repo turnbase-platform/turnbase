@@ -156,7 +156,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M10-08 | The Game Host survives its first cold Espresso context | game-host | M3-02, M11-08 | DONE |
 | IMP-M10-09 | Catalog search tolerates NUL and control bytes | platform | M4-01, M11-08 | DONE |
 | IMP-M10-10 | Login timing does not reveal account existence | platform | M1-04, M11-08 | DONE |
-| IMP-M10-11 | Friends, rooms and notifications refresh live | frontend | M8-12, M8-14, M11-08 | READY |
+| IMP-M10-11 | Friends, rooms and notifications refresh live | frontend | M8-12, M8-14, M11-08 | WIP (session 184) |
 | IMP-M10-12 | Email change and account deletion re-authenticate | platform, frontend | M1-08, M11-08 | READY |
 | IMP-M10-13 | A send blocked by a privacy setting fails visibly | platform, frontend | M1-09, M11-08 | READY |
 | IMP-M10-14 | The in-memory lock and limiter maps are bounded | platform | M2-03, M1-02, M11-08 | READY |
