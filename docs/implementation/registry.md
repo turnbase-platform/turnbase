@@ -146,7 +146,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M9-10 | A member and an invitee can open an `INVITE_ONLY` room | platform | M2-09 | DONE |
 | IMP-M9-11 | Warn before a reload leaves the Lobby | frontend | M8-10, M9-07 | DONE |
 | **M10 — E2E & security audit remediation** ||||
-| IMP-M10-01 | The version-upload route enforces game ownership | platform | M4-03 | WIP (session 165) |
+| IMP-M10-01 | The version-upload route enforces game ownership | platform | M4-03 | PARTIAL |
 | IMP-M10-02 | Per-user queues reject a cross-user subscription | platform | M3-07 | READY |
 | IMP-M10-03 | An unauthorized room join is denied before it writes Redis | platform | M2-03 | READY |
 | IMP-M10-04 | The login-lockout counter is atomic | platform | M1-02, M1-04 | READY |
@@ -5939,6 +5939,13 @@ the three version routes and the ownerless-Official consequence. Build from the 
 - **Tests.** Integration tests over real PostgreSQL: owner (allowed), non-owner of a listed game
   (`403`), non-owner of an unlisted game (`404`), and any caller against the Official seed game
   (refused). A regression test asserts the AUD-01 repro now fails closed.
+
+**Remaining:** code is merged to `turnbase-platform` `master` (commit `963d44d`; all three *Done when*
+clauses pass locally in `VersionUploadControllerIT`), but the pipeline is **red on the Trivy dependency
+gate only** — CVE-2026-47884 and CVE-2026-47890 (CRITICAL) in `spring-webmvc` 6.2.19, published after
+M9's last green run and listing a fix only in Spring 7.0.9; Boot 3.5.16 is the latest 3.5.x. Tests and
+build steps passed. Owed: a green pipeline (a Boot/Spring 6.2.x patch release, or a recorded decision
+on the gate) and then the `turnbase-platform` ref bump here. Do not hand-edit the code again.
 
 ### IMP-M10-02 — Per-user queues reject a cross-user subscription
 
