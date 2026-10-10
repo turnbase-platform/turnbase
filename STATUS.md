@@ -1,9 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-10-11 (session 188) — `IMP-M10-15` **DONE** (128 of 137). New `common.LikePattern.containsLowerCase` escapes `\`, `%`, `_`; catalog (title, author, tags) and room (title, host) search use it with `ESCAPE '\'`. Tests: `CatalogRepositoryIT.searchTreatsPercentAndUnderscoreAsLiterals`, new `RoomRepositorySearchIT`. Platform CI green. Not covered: the Friends username-prefix search (`SocialRepository`) still concatenates unescaped — outside this item's scope. Locally `GameAssetControllerIT`/`SeedDataIT` still fail on `*.games.localhost` (same on pristine `master`); other transient Testcontainers errors passed on rerun.
+**Date:** 2026-10-11 (session 189) — `IMP-M10-16` **DONE** (129 of 137). New `denialMessage(error, fallback)` in `shared/api.ts` maps a refused action by class: `422`/`409` keep the server's own `detail`, `403` → permission copy, `404` → "does not exist or closed", `429` → wait from `Retry-After`, `503`/`5xx` → server-side copy, non-API failure → connectivity copy. Used by the three join paths (`RoomsPage`, `JoinByCodePage`, `RoomPage`). Platform: full-room `422` detail now "This room is full." (`RoomControllerIT` asserts it). Tests: `api.test.ts`, e2e `rooms.spec.ts` "a refused join names the real reason" (4 classes via mocked responses; a mocked 500 trips the fixture tripwire, so `5xx` is unit-only). Both CI runs green. Not covered: `InviteFriendsButton` and other non-join refusals keep their own copy.
 ---
 
 ## Next Priorities
+
+**Session 190:** `IMP-M10-17` (unknown route returns 404), then `18`, `19`.
 
 **Session 189:** `IMP-M10-16` (denial copy states the real reason), then `17`, `18`.
 
