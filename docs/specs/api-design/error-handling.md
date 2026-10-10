@@ -2,7 +2,7 @@
 
 ## Standard: RFC 9457 Problem Details
 
-All error responses follow [RFC 9457 (Problem Details for HTTP APIs)](https://www.rfc-editor.org/rfc/rfc9457). Spring Boot 3.x includes native `ProblemDetail` support.
+All error responses follow [RFC 9457 (Problem Details for HTTP APIs)](https://www.rfc-editor.org/rfc/rfc9457). Spring Framework (6.0+, and so Spring Boot 4.1) includes native `ProblemDetail` support.
 
 Enable the baseline with:
 

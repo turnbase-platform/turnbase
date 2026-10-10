@@ -146,32 +146,41 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M9-10 | A member and an invitee can open an `INVITE_ONLY` room | platform | M2-09 | DONE |
 | IMP-M9-11 | Warn before a reload leaves the Lobby | frontend | M8-10, M9-07 | DONE |
 | **M10 — E2E & security audit remediation** ||||
-| IMP-M10-01 | The version-upload route enforces game ownership | platform | M4-03 | BLOCKED |
-| IMP-M10-02 | Per-user queues reject a cross-user subscription | platform | M3-07 | READY |
-| IMP-M10-03 | An unauthorized room join is denied before it writes Redis | platform | M2-03 | READY |
-| IMP-M10-04 | The login-lockout counter is atomic | platform | M1-02, M1-04 | READY |
-| IMP-M10-05 | Rate limiting derives the client IP from the trusted hop | platform, frontend | M1-02 | READY |
-| IMP-M10-06 | The gRPC registry is unreachable from the public edge | frontend, platform | M3-05 | READY |
-| IMP-M10-07 | The body-size limit applies to a chunked request | platform | M1-01 | READY |
-| IMP-M10-08 | The Game Host survives its first cold Espresso context | game-host | M3-02 | READY |
-| IMP-M10-09 | Catalog search tolerates NUL and control bytes | platform | M4-01 | READY |
-| IMP-M10-10 | Login timing does not reveal account existence | platform | M1-04 | READY |
-| IMP-M10-11 | Friends, rooms and notifications refresh live | frontend | M8-12, M8-14 | READY |
-| IMP-M10-12 | Email change and account deletion re-authenticate | platform, frontend | M1-08 | READY |
-| IMP-M10-13 | A send blocked by a privacy setting fails visibly | platform, frontend | M1-09 | READY |
-| IMP-M10-14 | The in-memory lock and limiter maps are bounded | platform | M2-03, M1-02 | READY |
-| IMP-M10-15 | Search escapes `LIKE` wildcards | platform | M4-01 | READY |
-| IMP-M10-16 | Denial copy states the real reason | frontend, platform | M8-06 | READY |
-| IMP-M10-17 | An unknown route returns 404, not a soft 200 | frontend | M8-06 | READY |
-| IMP-M10-18 | Security headers and strict `Host` matching at the edge | frontend | M8-06 | READY |
-| IMP-M10-19 | The session cookie is `Secure` and `__Host-`-prefixed under TLS | platform | M1-06 | READY |
-| IMP-M10-20 | The actuator `loggers` endpoint is read-only | platform | M0-10 | READY |
-| IMP-M10-21 | The object store uses a scoped service credential | platform | M0-09 | READY |
-| IMP-M10-22 | The Espresso sandbox's container dependency is documented | game-host | M3-02 | READY |
-| IMP-M10-23 | The SDK game frame does not post to a detached parent | sdk | M3-12 | READY |
-| IMP-M10-24 | The anonymous session probe does not log a 401 error | frontend | M7-11 | READY |
+| IMP-M10-01 | The version-upload route enforces game ownership | platform | M4-03, M11-08 | PARTIAL |
+| IMP-M10-02 | Per-user queues reject a cross-user subscription | platform | M3-07, M11-08 | READY |
+| IMP-M10-03 | An unauthorized room join is denied before it writes Redis | platform | M2-03, M11-08 | READY |
+| IMP-M10-04 | The login-lockout counter is atomic | platform | M1-02, M1-04, M11-08 | READY |
+| IMP-M10-05 | Rate limiting derives the client IP from the trusted hop | platform, frontend | M1-02, M11-08 | READY |
+| IMP-M10-06 | The gRPC registry is unreachable from the public edge | frontend, platform | M3-05, M11-08 | READY |
+| IMP-M10-07 | The body-size limit applies to a chunked request | platform | M1-01, M11-08 | READY |
+| IMP-M10-08 | The Game Host survives its first cold Espresso context | game-host | M3-02, M11-08 | READY |
+| IMP-M10-09 | Catalog search tolerates NUL and control bytes | platform | M4-01, M11-08 | READY |
+| IMP-M10-10 | Login timing does not reveal account existence | platform | M1-04, M11-08 | READY |
+| IMP-M10-11 | Friends, rooms and notifications refresh live | frontend | M8-12, M8-14, M11-08 | READY |
+| IMP-M10-12 | Email change and account deletion re-authenticate | platform, frontend | M1-08, M11-08 | READY |
+| IMP-M10-13 | A send blocked by a privacy setting fails visibly | platform, frontend | M1-09, M11-08 | READY |
+| IMP-M10-14 | The in-memory lock and limiter maps are bounded | platform | M2-03, M1-02, M11-08 | READY |
+| IMP-M10-15 | Search escapes `LIKE` wildcards | platform | M4-01, M11-08 | READY |
+| IMP-M10-16 | Denial copy states the real reason | frontend, platform | M8-06, M11-08 | READY |
+| IMP-M10-17 | An unknown route returns 404, not a soft 200 | frontend | M8-06, M11-08 | READY |
+| IMP-M10-18 | Security headers and strict `Host` matching at the edge | frontend | M8-06, M11-08 | READY |
+| IMP-M10-19 | The session cookie is `Secure` and `__Host-`-prefixed under TLS | platform | M1-06, M11-08 | READY |
+| IMP-M10-20 | The actuator `loggers` endpoint is read-only | platform | M0-10, M11-08 | READY |
+| IMP-M10-21 | The object store uses a scoped service credential | platform | M0-09, M11-08 | READY |
+| IMP-M10-22 | The Espresso sandbox's container dependency is documented | game-host | M3-02, M11-08 | READY |
+| IMP-M10-23 | The SDK game frame does not post to a detached parent | sdk | M3-12, M11-08 | READY |
+| IMP-M10-24 | The anonymous session probe does not log a 401 error | frontend | M7-11, M11-08 | READY |
+| **M11 — Spring Boot 4 migration** ||||
+| IMP-M11-01 | The corpus describes the Spring Boot 4.1 stack | docs | — | DONE |
+| IMP-M11-02 | `turnbase-platform` compiles on Spring Boot 4.1.1 | platform | M11-01 | READY |
+| IMP-M11-03 | Platform host-side JSON is Jackson 3 | platform | M11-02 | READY |
+| IMP-M11-04 | Platform unit and integration tests are green on Boot 4 | platform | M11-03 | READY |
+| IMP-M11-05 | `turnbase-game-host` compiles on Spring Boot 4.1.1 with Jackson 3 host-side | game-host | M11-01 | READY |
+| IMP-M11-06 | Game Host unit and integration tests are green on Boot 4 | game-host | M11-05 | READY |
+| IMP-M11-07 | The local stack and the acceptance suite run on both Boot 4 branches | platform, game-host, frontend | M11-04, M11-06 | READY |
+| IMP-M11-08 | Both migration branches merge and the pipelines are green | platform, game-host | M11-07 | READY |
 
-**129 live items.** `IMP-M10-01…24` were added 2026-10-10 from the
+**137 live items.** `IMP-M11-01…08` were added 2026-10-10 by [ADR-0016](../decisions/0016-spring-boot-4-migration.md), closing `IMP-GATE-97`: both Spring Boot services move to Boot 4.1.1 because two CRITICAL `spring-webmvc` CVEs have no fix on the 3.5 line. **M11 runs before M10** — every `IMP-M10-*` item depends on `IMP-M11-08` — and its items are judged on a long-lived `chore/boot4` branch with CI paused (see the M11 section). `IMP-M10-01…24` were added 2026-10-10 from the
 [E2E & security audit](../reviews/2026-10-10-e2e-security-audit/INDEX.md) (`AUD-01…24`), the first
 black-box run of the full stack after the build plan reached 105: two Critical cross-user breaches
 (`IMP-M10-01` the ownerless-upload hole closed by `IMP-GATE-96`, `IMP-M10-02` the wildcard-subscribe
@@ -5910,9 +5919,13 @@ Each item **Closes** an `AUD-*` finding whose evidence and repro live in that ro
 finding is the *why*, the clauses below are the *done*. Every finding marked *live* there was
 reproduced against the running stack.
 
+**Paused for M11 (2026-10-10).** Every item here depends on `IMP-M11-08`, the Spring Boot 4 migration
+([ADR-0016](../decisions/0016-spring-boot-4-migration.md) §6): building these fixes on Boot 3.5 code
+that M11 rewrites would port each of them twice, and nothing can reach a green pipeline until it lands.
+
 ### IMP-M10-01 — The version-upload route enforces game ownership
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M4-03 · **Closes:** AUD-01
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M4-03, IMP-M11-08 · **Closes:** AUD-01
 
 **Spec fix (IMP-GATE-96, opened and closed 2026-10-10).** AUD-01 was a specification defect: the
 `rest-conventions.md` ownership predicate covered `/api/games/{id}` but not its version sub-resources,
@@ -5940,23 +5953,19 @@ the three version routes and the ownerless-Official consequence. Build from the 
   (`403`), non-owner of an unlisted game (`404`), and any caller against the Official seed game
   (refused). A regression test asserts the AUD-01 repro now fails closed.
 
-**Gate:** IMP-GATE-97 — `platform-operations.md` FR-CICD-010 fails the build on any CRITICAL finding, but
-CVE-2026-47884/47890 (spring-webmvc 6.2.19, RCE) list a fix only in Spring 7.0.9 and Spring Boot 3.5.16
-is the last 3.5.x, so the pipeline cannot go green under the stack ADR (Boot 3.5+) without a decision.
-Opened 2026-10-10. Fix belongs in `platform-operations.md` FR-CICD-010 (a dated, expiring waiver rule for
-a CRITICAL with no fix on the pinned line) and/or a new ADR (move the platform to Boot 4 / Spring 7).
-Re-check first: a Boot 3.5.17 / Spring 6.2.20 release makes the gate moot.
+**Closed:** IMP-GATE-97 (opened and closed 2026-10-10, session 166) — FR-CICD-010 fails the build on
+CVE-2026-47884/47890 (CRITICAL, `spring-webmvc` 6.2.19), which have no fix on the Boot 3.5 line.
+Resolved by [ADR-0016](../decisions/0016-spring-boot-4-migration.md): upgrade to Spring Boot 4.1, not
+waive. The upgrade is milestone M11; this item now depends on `IMP-M11-08`.
 
 **Remaining:** code is merged to `turnbase-platform` `master` (commit `963d44d`; all three *Done when*
-clauses pass locally in `VersionUploadControllerIT`), but the pipeline is **red on the Trivy dependency
-gate only** — CVE-2026-47884 and CVE-2026-47890 (CRITICAL) in `spring-webmvc` 6.2.19, published after
-M9's last green run and listing a fix only in Spring 7.0.9; Boot 3.5.16 is the latest 3.5.x. Tests and
-build steps passed. Owed: a green pipeline (a Boot/Spring 6.2.x patch release, or a recorded decision
-on the gate) and then the `turnbase-platform` ref bump here. Do not hand-edit the code again.
+clauses pass locally in `VersionUploadControllerIT`). Owed: a green pipeline and the `turnbase-platform`
+ref bump — both delivered by `IMP-M11-08` (Boot 4 migration), which marks this item `DONE`. Do not
+pick this item up before `IMP-M11-08` is `DONE`, and do not hand-edit the code again.
 
 ### IMP-M10-02 — Per-user queues reject a cross-user subscription
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M3-07 · **Closes:** AUD-02
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M3-07, IMP-M11-08 · **Closes:** AUD-02
 
 **Read first:**
 - `docs/specs/api-design/websocket.md` (subscription authorization; the `GAME_EVENT` destination model)
@@ -5984,7 +5993,7 @@ on the gate) and then the `turnbase-platform` ref bump here. Do not hand-edit th
 
 ### IMP-M10-03 — An unauthorized room join is denied before it writes Redis
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M2-03 · **Closes:** AUD-03
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M2-03, IMP-M11-08 · **Closes:** AUD-03
 
 **Read first:**
 - `docs/specs/api-design/room-rest-api.md` §5 (join; the `reachable()` predicate and the claim order)
@@ -6001,7 +6010,7 @@ on the gate) and then the `turnbase-platform` ref bump here. Do not hand-edit th
 
 ### IMP-M10-04 — The login-lockout counter is atomic
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M1-02, IMP-M1-04 · **Closes:** AUD-04
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M1-02, IMP-M1-04, IMP-M11-08 · **Closes:** AUD-04
 
 **Read first:**
 - `docs/specs/api-design/rate-limiting.md` (Tier 1 auth lockout)
@@ -6019,7 +6028,7 @@ on the gate) and then the `turnbase-platform` ref bump here. Do not hand-edit th
 
 ### IMP-M10-05 — Rate limiting derives the client IP from the trusted hop
 
-**Repo:** `turnbase-platform`, `turnbase-frontend` · **Depends on:** IMP-M1-02 · **Closes:** AUD-05
+**Repo:** `turnbase-platform`, `turnbase-frontend` · **Depends on:** IMP-M1-02, IMP-M11-08 · **Closes:** AUD-05
 
 **Read first:**
 - `docs/specs/api-design/rate-limiting.md` (client-IP derivation)
@@ -6038,7 +6047,7 @@ on the gate) and then the `turnbase-platform` ref bump here. Do not hand-edit th
 
 ### IMP-M10-06 — The gRPC registry is unreachable from the public edge
 
-**Repo:** `turnbase-frontend`, `turnbase-platform` · **Depends on:** IMP-M3-05 · **Closes:** AUD-06
+**Repo:** `turnbase-frontend`, `turnbase-platform` · **Depends on:** IMP-M3-05, IMP-M11-08 · **Closes:** AUD-06
 
 **Read first:**
 - `docs/specs/deployment/local-environment.md` §7.8 (the registry servlet shares the HTTP listener)
@@ -6058,7 +6067,7 @@ on the gate) and then the `turnbase-platform` ref bump here. Do not hand-edit th
 
 ### IMP-M10-07 — The body-size limit applies to a chunked request
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M1-01 · **Closes:** AUD-07
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M1-01, IMP-M11-08 · **Closes:** AUD-07
 
 **Read first:**
 - `docs/specs/api-design/input-validation.md` (size limits)
@@ -6074,7 +6083,7 @@ on the gate) and then the `turnbase-platform` ref bump here. Do not hand-edit th
 
 ### IMP-M10-08 — The Game Host survives its first cold Espresso context
 
-**Repo:** `turnbase-game-host` · **Depends on:** IMP-M3-02 · **Closes:** AUD-08
+**Repo:** `turnbase-game-host` · **Depends on:** IMP-M3-02, IMP-M11-08 · **Closes:** AUD-08
 
 **Read first:**
 - `docs/specs/game-host/game-host-internals.md` (context lifecycle, warm-up)
@@ -6092,7 +6101,7 @@ on the gate) and then the `turnbase-platform` ref bump here. Do not hand-edit th
 
 ### IMP-M10-09 — Catalog search tolerates NUL and control bytes
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M4-01 · **Closes:** AUD-09
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M4-01, IMP-M11-08 · **Closes:** AUD-09
 
 **Read first:**
 - `docs/specs/api-design/catalog-rest-api.md` §3 (the listing filters)
@@ -6108,7 +6117,7 @@ on the gate) and then the `turnbase-platform` ref bump here. Do not hand-edit th
 
 ### IMP-M10-10 — Login timing does not reveal account existence
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M1-04 · **Closes:** AUD-10
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M1-04, IMP-M11-08 · **Closes:** AUD-10
 
 **Read first:**
 - `docs/specs/platform/account-security.md` (credential verification; Argon2)
@@ -6125,7 +6134,7 @@ on the gate) and then the `turnbase-platform` ref bump here. Do not hand-edit th
 
 ### IMP-M10-11 — Friends, rooms and notifications refresh live
 
-**Repo:** `turnbase-frontend` · **Depends on:** IMP-M8-12, IMP-M8-14 · **Closes:** AUD-11
+**Repo:** `turnbase-frontend` · **Depends on:** IMP-M8-12, IMP-M8-14, IMP-M11-08 · **Closes:** AUD-11
 
 **Read first:**
 - `docs/specs/platform-frontend/shell-architecture.md` (the live-update channels: STOMP, SSE)
@@ -6141,7 +6150,7 @@ on the gate) and then the `turnbase-platform` ref bump here. Do not hand-edit th
 
 ### IMP-M10-12 — Email change and account deletion re-authenticate
 
-**Repo:** `turnbase-platform`, `turnbase-frontend` · **Depends on:** IMP-M1-08 · **Closes:** AUD-12
+**Repo:** `turnbase-platform`, `turnbase-frontend` · **Depends on:** IMP-M1-08, IMP-M11-08 · **Closes:** AUD-12
 
 **Read first:**
 - `docs/requirements/user-accounts.md` (FR-ACCT-004 deletion, FR-ACCT-010's re-auth precedent and its rationale)
@@ -6160,7 +6169,7 @@ on the gate) and then the `turnbase-platform` ref bump here. Do not hand-edit th
 
 ### IMP-M10-13 — A send blocked by a privacy setting fails visibly
 
-**Repo:** `turnbase-platform`, `turnbase-frontend` · **Depends on:** IMP-M1-09 · **Closes:** AUD-13
+**Repo:** `turnbase-platform`, `turnbase-frontend` · **Depends on:** IMP-M1-09, IMP-M11-08 · **Closes:** AUD-13
 
 **Read first:**
 - `docs/requirements/social-friends.md` FR-SOC-021 (block-incoming-requests; API must reject)
@@ -6177,7 +6186,7 @@ on the gate) and then the `turnbase-platform` ref bump here. Do not hand-edit th
 
 ### IMP-M10-14 — The in-memory lock and limiter maps are bounded
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M2-03, IMP-M1-02 · **Closes:** AUD-14
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M2-03, IMP-M1-02, IMP-M11-08 · **Closes:** AUD-14
 
 **Read first:**
 - `docs/specs/api-design/rate-limiting.md` (the pod-local WebSocket limiter buckets)
@@ -6194,7 +6203,7 @@ on the gate) and then the `turnbase-platform` ref bump here. Do not hand-edit th
 
 ### IMP-M10-15 — Search escapes `LIKE` wildcards
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M4-01 · **Closes:** AUD-15
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M4-01, IMP-M11-08 · **Closes:** AUD-15
 
 **Read first:**
 - `docs/specs/api-design/catalog-rest-api.md` §3 and `docs/specs/api-design/room-rest-api.md` (the `search` filters)
@@ -6211,7 +6220,7 @@ on the gate) and then the `turnbase-platform` ref bump here. Do not hand-edit th
 
 ### IMP-M10-16 — Denial copy states the real reason
 
-**Repo:** `turnbase-frontend`, `turnbase-platform` · **Depends on:** IMP-M8-06 · **Closes:** AUD-16
+**Repo:** `turnbase-frontend`, `turnbase-platform` · **Depends on:** IMP-M8-06, IMP-M11-08 · **Closes:** AUD-16
 
 **Not a spec defect.** `error-handling.md` leaves Problem Detail `detail` free-form by design; this is
 a copy fix, not a corpus contradiction.
@@ -6231,7 +6240,7 @@ a copy fix, not a corpus contradiction.
 
 ### IMP-M10-17 — An unknown route returns 404, not a soft 200
 
-**Repo:** `turnbase-frontend` · **Depends on:** IMP-M8-06 · **Closes:** AUD-17
+**Repo:** `turnbase-frontend` · **Depends on:** IMP-M8-06, IMP-M11-08 · **Closes:** AUD-17
 
 **Read first:**
 - `docs/specs/platform-frontend/shell-architecture.md` (SPA fallback and the 404 view)
@@ -6246,7 +6255,7 @@ a copy fix, not a corpus contradiction.
 
 ### IMP-M10-18 — Security headers and strict `Host` matching at the edge
 
-**Repo:** `turnbase-frontend` · **Depends on:** IMP-M8-06 · **Closes:** AUD-18
+**Repo:** `turnbase-frontend` · **Depends on:** IMP-M8-06, IMP-M11-08 · **Closes:** AUD-18
 
 **Read first:**
 - `turnbase-frontend/nginx/default.conf.template` (the `default_server` and header blocks)
@@ -6264,7 +6273,7 @@ a copy fix, not a corpus contradiction.
 
 ### IMP-M10-19 — The session cookie is `Secure` and `__Host-`-prefixed under TLS
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M1-06 · **Closes:** AUD-19
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M1-06, IMP-M11-08 · **Closes:** AUD-19
 
 **Read first:**
 - `docs/requirements/user-accounts.md` CON-004 (httpOnly, Secure, SameSite=Strict cookie)
@@ -6281,7 +6290,7 @@ a copy fix, not a corpus contradiction.
 
 ### IMP-M10-20 — The actuator `loggers` endpoint is read-only
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M0-10 · **Closes:** AUD-20
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M0-10, IMP-M11-08 · **Closes:** AUD-20
 
 **Read first:**
 - `docs/specs/deployment/local-environment.md` §7 (the management port and exposed actuator endpoints)
@@ -6297,7 +6306,7 @@ a copy fix, not a corpus contradiction.
 
 ### IMP-M10-21 — The object store uses a scoped service credential
 
-**Repo:** `turnbase-platform` · **Depends on:** IMP-M0-09 · **Closes:** AUD-21
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M0-09, IMP-M11-08 · **Closes:** AUD-21
 
 **Read first:**
 - `docs/specs/deployment/local-environment.md` §1 (MinIO and its credentials)
@@ -6314,7 +6323,7 @@ a copy fix, not a corpus contradiction.
 
 ### IMP-M10-22 — The Espresso sandbox's container dependency is documented
 
-**Repo:** `turnbase-game-host` · **Depends on:** IMP-M3-02 · **Closes:** AUD-22
+**Repo:** `turnbase-game-host` · **Depends on:** IMP-M3-02, IMP-M11-08 · **Closes:** AUD-22
 
 **Read first:**
 - `docs/requirements/platform-architecture.md` FR-SEC-005, NFR-SEC-001…003 (two-layer isolation)
@@ -6331,7 +6340,7 @@ a copy fix, not a corpus contradiction.
 
 ### IMP-M10-23 — The SDK game frame does not post to a detached parent
 
-**Repo:** `turnbase-sdk` · **Depends on:** IMP-M3-12 · **Closes:** AUD-23 *(same site as CA-10)*
+**Repo:** `turnbase-sdk` · **Depends on:** IMP-M3-12, IMP-M11-08 · **Closes:** AUD-23 *(same site as CA-10)*
 
 **Read first:**
 - `docs/requirements/game-contracts.md` FR-FE-001…006, NFR-SEC-004 (the postMessage surface, origin validation)
@@ -6348,7 +6357,7 @@ a copy fix, not a corpus contradiction.
 
 ### IMP-M10-24 — The anonymous session probe does not log a 401 error
 
-**Repo:** `turnbase-frontend` · **Depends on:** IMP-M7-11 · **Closes:** AUD-24
+**Repo:** `turnbase-frontend` · **Depends on:** IMP-M7-11, IMP-M11-08 · **Closes:** AUD-24
 
 **Read first:**
 - `docs/specs/platform-frontend/shell-architecture.md` (the anonymous session probe)
@@ -6362,6 +6371,218 @@ a copy fix, not a corpus contradiction.
   anonymous first load.
 - **Tests.** An e2e asserting no console error on an anonymous landing, keeping the suite tripwire
   meaningful.
+
+---
+
+## M11 — Spring Boot 4 migration
+
+Opened 2026-10-10 by [ADR-0016](../decisions/0016-spring-boot-4-migration.md), which closed
+`IMP-GATE-97`: CVE-2026-47884/47890 (CRITICAL, `spring-webmvc` 6.2.19) have no fix on the Boot 3.5
+line, so `turnbase-platform` and `turnbase-game-host` move to **Spring Boot 4.1.1** (Spring Framework
+7.0.9, Jackson 3 host-side, Modulith 2.1.x, JUnit 6, Testcontainers 2). ADR-0016 §5 is the risk
+register; each item below retires the risks it names.
+
+**M11 runs before M10.** Every `IMP-M10-*` item depends on `IMP-M11-08` (ADR-0016 §6).
+
+**How M11 differs from every other milestone — read before claiming any item:**
+
+- **One branch per repository, `chore/boot4`, lives across sessions** (ADR-0012 as amended, ADR-0016
+  §4). Create it from `master` on first use, push it to the remote, and keep working on it; do not
+  merge it before `IMP-M11-08`. `master` of `turnbase-platform` and `turnbase-game-host` is frozen
+  until then.
+- **CI is paused.** The `build` workflow runs only on `master`, so pushing `chore/boot4` runs nothing.
+  For `IMP-M11-02…07`, **`DONE` means the *Done when* clause holds on `chore/boot4` from a clean
+  local checkout, with the branch pushed** — not a green pipeline and not a ref bump. Each such item
+  records the branch commit it was verified at. The pipeline and both submodule ref bumps belong to
+  `IMP-M11-08` alone.
+- **"Green locally"** means, from a clean checkout of the branch: `./mvnw spotless:apply` leaves no
+  diff, `./mvnw verify` passes, and `./mvnw verify -Pintegration` passes — with the test counts
+  reported and compared against `master`'s.
+- **Hold the wire format.** No item may change a REST body, STOMP frame, Redis value or `jsonb`
+  column as a side effect of the upgrade (ADR-0016 §2). A difference is a `spec-defect`, not a fix.
+- **Guest-side Jackson 2 is not in scope.** Anything that would change the Jackson inside the Espresso
+  guest stops the item (ADR-0016 §2, R4).
+
+### IMP-M11-01 — The corpus describes the Spring Boot 4.1 stack
+
+**Repo:** `turnbase` (docs) · **Depends on:** —
+
+**Read first:**
+- `docs/decisions/0016-spring-boot-4-migration.md`
+- `docs/decisions/0012-repo-strategy-polyrepo-submodules.md` (*Pull requests are suspended*)
+
+**Satisfies:** `platform-operations.md` CON-001; `platform-architecture.md` CON-010
+
+**Done when:**
+- **Stack lines.** `CLAUDE.md`'s tech-stack and repository tables, ADR-0012's repository table and
+  every requirements document's backend constraint name Spring Boot 4.1+; no `docs/` file outside
+  `docs/reviews/` and the historical record in this registry names Boot 3.5 as the current stack.
+- **Specs.** Any spec that names a Boot-3- or Jackson-2-specific API for host code is restated for
+  the Boot 4 / Jackson 3 stack (`input-validation.md`'s `StreamReadConstraints`, `error-handling.md`'s
+  `ProblemDetail`).
+- **Process.** ADR-0016 is registered in `docs/decisions/INDEX.md`; ADR-0012 records the `chore/boot4`
+  exception; M11 is in the register and in `INDEX.md`'s milestone map; `IMP-GATE-97` is closed;
+  `check-corpus.py` is clean.
+
+### IMP-M11-02 — `turnbase-platform` compiles on Spring Boot 4.1.1
+
+**Repo:** `turnbase-platform` (branch `chore/boot4`) · **Depends on:** IMP-M11-01
+
+**Read first:**
+- `docs/decisions/0016-spring-boot-4-migration.md` (§1, §4, §5 R5–R8, R10)
+- `docs/decisions/0014-modular-monolith-spring-modulith.md`
+- `docs/decisions/0015-static-analysis-error-prone-nullaway.md`
+
+**Satisfies:** `platform-operations.md` CON-001; `platform-operations.md` FR-CICD-010
+
+**Done when:**
+- **Versions.** `spring-boot-starter-parent` is `4.1.1`; `spring-modulith.version` is the latest
+  2.1.x; the `tomcat.version` override and its CVE comment are removed (Boot's Tomcat 11 is used);
+  starters use their Boot 4 names (`spring-boot-starter-webmvc`); Testcontainers dependencies use
+  their 2.x artifact names. Every remaining explicit version outside the Boot BOM (ShedLock, Bucket4j,
+  jjwt, AWS SDK, logstash encoder, gRPC, icu4j, Bouncy Castle) is checked against Spring 7 / Lettuce 7
+  and either kept with a one-line pom comment saying so or bumped.
+- **Compiles.** `./mvnw -DskipTests verify` passes on the branch: Spotless clean, Error Prone and
+  NullAway at their ADR-0015 severity (no check downgraded, no new exclusion), main and test sources
+  compiled. Jackson 2 may still be referenced in code at this point (`IMP-M11-03` removes it); if a
+  temporary explicit `jackson-databind` 2.x dependency is needed to compile, it carries a
+  `TODO(IMP-M11-03)` comment.
+- **Housekeeping.** `.github/dependabot.yml`'s `spring-boot-starter-parent` ignore entry now reads
+  `>= 5.0.0` with its comment rewritten to cite ADR-0016; `README.md` and the repo's `CLAUDE.md` name
+  Boot 4.1.
+- **Pushed.** `chore/boot4` is pushed; the item section records the verified commit.
+
+### IMP-M11-03 — Platform host-side JSON is Jackson 3
+
+**Repo:** `turnbase-platform` (branch `chore/boot4`) · **Depends on:** IMP-M11-02
+
+**Read first:**
+- `docs/decisions/0016-spring-boot-4-migration.md` (§2, §5 R1–R3)
+- `docs/specs/api-design/input-validation.md` (the `StreamReadConstraints` paragraph)
+- `docs/specs/api-design/error-handling.md`
+
+**Satisfies:** `platform-operations.md` CON-001
+
+**Done when:**
+- **Golden payloads first.** Before any Jackson change, round-trip tests capture the serialized form
+  of representative REST bodies (a profile, a room, a catalog page, a `ProblemDetail`), a STOMP room
+  event, a Redis-stored value (`GameLogStore`) and a `jsonb` column (`GameVersionRepository`), and they
+  pass on the branch as it stood after `IMP-M11-02`.
+- **Migrated.** No main or test source in `io.turnbase.platform` imports `com.fasterxml.jackson.databind`
+  or `com.fasterxml.jackson.core` (annotations excepted); the Spring-managed mapper is Boot 4's
+  Jackson 3 `JsonMapper`, customised in one place, with every Jackson-3 default that differs from the
+  golden payloads set explicitly. A test asserts the import rule. The temporary Jackson 2 dependency,
+  if `02` added one, is gone; `jjwt-jackson`'s own Jackson 2 is untouched.
+- **Unchanged wire.** The golden-payload tests pass unmodified.
+- **Nesting limit.** A request body nested deeper than the configured limit is rejected with the
+  status `input-validation.md` specifies.
+- **Pushed.** As `IMP-M11-02`.
+
+### IMP-M11-04 — Platform unit and integration tests are green on Boot 4
+
+**Repo:** `turnbase-platform` (branch `chore/boot4`) · **Depends on:** IMP-M11-03
+
+**Read first:**
+- `docs/decisions/0016-spring-boot-4-migration.md` (§4, §5 R5, R6, R8, R9)
+- `docs/specs/deployment/local-environment.md` (the test tiers)
+
+**Satisfies:** `platform-operations.md` FR-CICD-003
+
+**Done when:**
+- **Green locally** (M11 sense) — `./mvnw verify` and `./mvnw verify -Pintegration` pass; the unit
+  and integration test counts are at least `master`'s, and the item records both pairs of numbers.
+- **Modulith still bites.** `ModularityTest` runs under Modulith 2.1.x, and a deliberately introduced
+  cross-feature reference makes it fail (then is removed).
+- **Coverage.** The JaCoCo gate over merged unit + IT data holds at its configured threshold.
+- **Edges.** The gRPC registry IT (servlet transport on Tomcat 11), the rate-limit ITs (Bucket4j on
+  Lettuce 7), the ShedLock-guarded jobs and the S3/MinIO upload ITs pass without being disabled or
+  weakened.
+- **Clean properties.** No configuration property in `src/main/resources` is reported as renamed or
+  removed by `spring-boot-properties-migrator`, which is then removed from the pom.
+- **Pushed.** As `IMP-M11-02`.
+
+### IMP-M11-05 — `turnbase-game-host` compiles on Spring Boot 4.1.1 with Jackson 3 host-side
+
+**Repo:** `turnbase-game-host` (branch `chore/boot4`) · **Depends on:** IMP-M11-01
+
+**Read first:**
+- `docs/decisions/0016-spring-boot-4-migration.md` (§1, §2, §5 R1, R4, R7, R10)
+- `docs/specs/game-host/game-host-internals.md` (§4–§5: the guest bridge and serialization)
+- `docs/specs/manifest/bundle-format.md` (F4)
+
+**Satisfies:** `platform-architecture.md` CON-010; `platform-operations.md` FR-CICD-010
+
+**Done when:**
+- **Versions.** `spring-boot-starter-parent` is `4.1.1`; starters use their Boot 4 names; the
+  `dependabot.yml` ignore entry is rewritten as in `IMP-M11-02`; README and the repo's `CLAUDE.md`
+  name Boot 4.1.
+- **Host JSON.** Host-side code (outside the guest bridge) imports no `com.fasterxml.jackson.databind`
+  or `.core`; it uses Boot 4's Jackson 3 mapper.
+- **Guest untouched.** The guest bridge jar's dependency list — in particular every
+  `com.fasterxml.jackson.*` coordinate and version — is identical before and after, compared by a
+  recorded `dependency:tree` or jar listing from `master` and from the branch. The shade/repackage
+  configuration that keeps it out of `BOOT-INF/lib` (`pom.xml`) still produces the same layout.
+- **Compiles.** `./mvnw -DskipTests verify` passes with Error Prone/NullAway at full severity.
+- **Pushed.** As `IMP-M11-02`.
+
+### IMP-M11-06 — Game Host unit and integration tests are green on Boot 4
+
+**Repo:** `turnbase-game-host` (branch `chore/boot4`) · **Depends on:** IMP-M11-05
+
+**Read first:**
+- `docs/decisions/0016-spring-boot-4-migration.md` (§4, §5 R4, R9)
+- `docs/specs/game-host/game-host-internals.md` (§4–§5)
+
+**Satisfies:** `platform-operations.md` FR-CICD-003
+
+**Done when:**
+- **Green locally** (M11 sense), with unit and integration counts recorded and at least `master`'s.
+- **Guest round-trip.** The Espresso tests that load a real game JAR, run a move and round-trip its
+  state through the guest-side serializer pass unchanged.
+- **Pushed.** As `IMP-M11-02`.
+
+### IMP-M11-07 — The local stack and the acceptance suite run on both Boot 4 branches
+
+**Repo:** `turnbase-frontend` (suite only; no frontend change expected), `turnbase-platform`,
+`turnbase-game-host` · **Depends on:** IMP-M11-04, IMP-M11-06
+
+**Read first:**
+- `docs/decisions/0016-spring-boot-4-migration.md` (§5 R11, R12, R14)
+- `docs/specs/deployment/local-environment.md`
+- `docs/specs/deployment/observability.md` (the metric names dashboards and alerts depend on)
+
+**Satisfies:** `platform-operations.md` FR-CICD-010; `platform-operations.md` CON-001
+
+**Done when:**
+- **Stack.** The compose stack starts with images built from both `chore/boot4` branches, twice: on a
+  fresh database, and on a database migrated by the current `master` images (Flyway 12 continues it).
+- **Suite.** The frontend acceptance suite (`make e2e`) passes against that stack with no new
+  failures relative to a `master` run, and a full Tic-Tac-Toe game plays to an outcome.
+- **Observability.** Every metric name `observability.md` names is present in the platform's and the
+  Game Host's `/actuator/prometheus`; a trace for one REST request reaches Tempo.
+- **Scan.** A local `trivy fs` and `trivy image` at severity `CRITICAL` report zero findings for both
+  branches. A finding with no fix opens a gate under FR-CICD-010 instead.
+
+### IMP-M11-08 — Both migration branches merge and the pipelines are green
+
+**Repo:** `turnbase-platform`, `turnbase-game-host`, `turnbase` · **Depends on:** IMP-M11-07
+
+**Read first:**
+- `docs/decisions/0016-spring-boot-4-migration.md` (§4, §6)
+- `docs/decisions/0012-repo-strategy-polyrepo-submodules.md` (*Pull requests are suspended*, and its
+  2026-10-10 exception)
+
+**Satisfies:** `platform-operations.md` FR-CICD-010
+
+**Done when:**
+- **Merged.** In each repository `chore/boot4` is merged into `master` with `--ff-only` and deleted
+  locally and on the remote; no PR was opened.
+- **Green.** Each repository's `build` workflow on the merged `master` is green, including both Trivy
+  gates (dependency and image).
+- **Bumped.** Both submodule refs are updated in this repository.
+- **Unfrozen.** `IMP-M10-01`'s `**Remaining:**` (green pipeline, ref bump) is satisfied by the above,
+  and it is marked `DONE`; the M10 dependency on this item is satisfied; STATUS names M10 as the open
+  milestone again.
 
 ---
 

@@ -170,7 +170,7 @@ Teams are displayed as `{name} N` (e.g. "Attacker 1", "Defender 1", "Team 1", "T
 | ID | Description |
 |----|-------------|
 | CON-001 | Real-time lobby communication (readiness, parameter changes, player join/leave) must use WebSockets — no polling |
-| CON-002 | Backend: Java 21, Spring Boot 3.5+ |
+| CON-002 | Backend: Java 21, Spring Boot 4.1+ |
 | CON-003 | Frontend: React 19, TypeScript |
 | CON-004 | Game capability metadata (spectator support, AI support, team templates, configurable parameters, mid-game join support) is defined and owned by the game itself. Min/max player counts are derived from team templates and stored by the platform for efficient filtering. |
 

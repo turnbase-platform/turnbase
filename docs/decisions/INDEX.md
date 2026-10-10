@@ -23,6 +23,7 @@ Format: one file per decision, numbered sequentially (`NNNN-slug.md`). Status is
 | [0013](0013-astryx-design-system.md) | Astryx supersedes the in-house design system | Accepted |
 | [0014](0014-modular-monolith-spring-modulith.md) | The Platform Monolith is modular by feature, and Spring Modulith enforces it | Accepted |
 | [0015](0015-static-analysis-error-prone-nullaway.md) | Static analysis at skeleton time — Error Prone and NullAway | Accepted |
+| [0016](0016-spring-boot-4-migration.md) | Both Spring Boot services move to Spring Boot 4.1 | Accepted |
 
 ## Provenance
 
@@ -76,6 +77,11 @@ the retrofit arrives as one unreviewable change and gets downgraded to a warning
 later point at which either decision is still available on the same terms. The review also found that
 the corpus's sole evidence of the monolith's package root was an incidental logger name in a JSON log
 sample.
+
+ADR-0016 was taken on 2026-10-10 when two CRITICAL `spring-webmvc` CVEs with no fix on the Spring
+6.2 line turned `turnbase-platform`'s Trivy gate red (`IMP-GATE-97`). Upgrading was preferred to a
+waiver because the 3.5 line will not receive the fix at all. It is executed as milestone M11, and
+it carries the one recorded exception to ADR-0012's same-session branch rule.
 
 ADR-0011 closes OPS-3, open since the review and never addressed: the corpus defined roughly thirty
 tables while naming no migration tool at all. It is recorded as an ADR rather than as a spec section

@@ -238,7 +238,7 @@ This document defines the requirements for the game execution infrastructure: ho
 | CON-007 | Artifact storage is abstracted behind an interface supporting local filesystem, MinIO (S3-compatible), and AWS S3. |
 | CON-008 | Infrastructure runs on Kubernetes. Development uses Docker Desktop Kubernetes or equivalent local cluster. Production targets cloud Kubernetes. |
 | CON-009 | All services are designed with cloud-native architecture in mind, but initial development and testing is fully local. |
-| CON-010 | The Game Host service runs on Java 21 (GraalVM CE for JDK 21). Game code executes inside an Espresso Java 21 guest context. Platform Monolith uses Java 21 with Spring Boot 3.5+. |
+| CON-010 | The Game Host service runs on Java 21 (GraalVM CE for JDK 21). Game code executes inside an Espresso Java 21 guest context. Platform Monolith and the Game Host's host side use Java 21 with Spring Boot 4.1+ (ADR-0016). |
 | CON-011 | Redis is used for game state persistence, action queue durability, and session routing metadata. All Orchestration Service state is stored in Redis, making the service stateless and horizontally scalable. |
 
 ---

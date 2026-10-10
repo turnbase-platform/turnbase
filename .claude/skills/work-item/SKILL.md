@@ -26,6 +26,8 @@ Open `docs/implementation/registry.md`. Read the item's section and its row in t
 something new beside it is how an item stays half-built for good. Its `**Remaining:**` line is where
 you start. Check that line against the repository before trusting it, because it is one session's
 account of what exists. Session 92's said no compose stack existed when `IMP-M0-07` had built one.
+A `PARTIAL` item whose *Depends on* is not all `DONE` waits like any other — `IMP-M10-01` waits on
+`IMP-M11-08`.
 
 Every ID under *Depends on* must be `DONE`. If one is not, say so and stop rather than working around
 it — the dependency graph is the reason the milestones are ordered as they are, and an item built
@@ -97,6 +99,11 @@ submodule ref in the parent repo is updated. Then set the register row to `DONE`
 marker.
 
 If the item changed anything under `docs/`, `python3 scripts/check-corpus.py` before committing.
+
+**M11 is the one exception** (ADR-0016 §4). Its items `IMP-M11-02…07` live on a long-lived
+`chore/boot4` branch with CI paused; `DONE` there means the *Done when* clause holds from a clean local
+checkout of the pushed branch. Do not merge that branch or bump its ref before `IMP-M11-08`. The M11
+section of `registry.md` states the rules in full — read it before claiming any M11 item.
 
 ### 9. Or `PARTIAL`: when the session ends before the item does
 

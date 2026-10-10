@@ -158,8 +158,10 @@ payload is deserialized. `setMessageSizeLimit` is a single channel-wide ceiling,
 per-destination caps have to live here; without them the 256 KB the action destination legitimately
 needs would also be available to a chat flood.
 
-`StreamReadConstraints` (Jackson 2.15+) is what stops a 60 KB body of nothing but `[[[[[[…]]]]]]` from
-exhausting the parser's stack — a size cap alone does not.
+`StreamReadConstraints` is what stops a 60 KB body of nothing but `[[[[[[…]]]]]]` from
+exhausting the parser's stack — a size cap alone does not. Since ADR-0016 the platform parses request
+bodies with Jackson 3, where the type is `tools.jackson.core.StreamReadConstraints`; the nesting limit
+must survive that move, and a test sending a deeply nested body pins it.
 
 ---
 

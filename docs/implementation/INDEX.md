@@ -54,7 +54,7 @@ through rather than renumbered, and its number is never reused.
 | `BLOCKED` | A gate is open. The item cannot start. The gate is named in the item's *Gate* field. |
 | `READY` | All gates closed, all dependencies `DONE`. An agent may pick this up now. |
 | `WIP` | In progress. The owning session or agent is named. |
-| `PARTIAL` | Part of the item is merged, but its *Done when* clause does not hold yet. The item's `**Remaining:**` line says what is still owed. It is picked up before any `READY` item. |
+| `PARTIAL` | Part of the item is merged, but its *Done when* clause does not hold yet. The item's `**Remaining:**` line says what is still owed. It is picked up before any `READY` item — once every ID in its *Depends on* is `DONE`. |
 | `REVIEW` | Code complete, awaiting a passing pipeline. |
 | `DONE` | Merged, tests green, and — if the item touches a submodule — the submodule ref in this repo is updated. |
 | `CANCELLED` | The requirement it implemented was cut. The heading is struck through and kept; the number is never reused. |
@@ -202,5 +202,6 @@ Ordering follows the dependency graph rather than document order, per `STATUS.md
 | **M7** | MVP review remediation | Added after the 2026-10-01 black-box review: the room views `IMP-M6-04`/`05` left unbuilt, the backend and game defects the review found, and the acceptance suite that re-runs it. |
 | **M8** | Regression review remediation and MVP view completeness | Added after the 2026-10-03 regression review: five backend/game fixes (`01…05`), one minimal working UI item per MVP view including the game room (`06…14`), the client retry (`15`) and the acceptance suite that covers all of it (`16`). |
 | **M9** | MVP completeness audit remediation | Added after the 2026-10-04 completeness audit: the two planned functions still unreachable from the UI (`01`, `02`), the game outcome (`03`), desktop layout (`04`), inline leave dispatch (`05`), settings (`06`), the Lobby-reload decision (`07`), polish (`08`) and the suite (`09`). |
+| **M11** | Spring Boot 4 migration | Added 2026-10-10 by ADR-0016 after two CRITICAL `spring-webmvc` CVEs with no Boot 3.5 fix turned the Trivy gate red. **Runs before M10**, whose items all depend on `IMP-M11-08`. Corpus first (`01`), then platform (`02`–`04`) and Game Host (`05`–`06`) on long-lived `chore/boot4` branches with CI paused and *Done when* judged locally, then the running stack (`07`), then the merge and green pipelines (`08`). |
 | **M10** | E2E & security audit remediation | Added after the 2026-10-10 E2E & security audit: authorization and WebSocket-scoping fixes (the ownerless upload `01`, wildcard subscribe `02`, unauthorized-join writes `03`), rate-limit and proxy-trust hardening (`04…07`), the cold-start game-host wedge (`08`) and the Medium→Info tail (`09…24`), Critical first. |
 

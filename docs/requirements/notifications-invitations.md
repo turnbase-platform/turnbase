@@ -100,7 +100,7 @@
 | ID | Description |
 |----|-------------|
 | CON-001 | Real-time notification delivery mechanism (WebSocket, SSE, etc.) is an implementation decision — requirements must not prescribe it |
-| CON-002 | Backend: Java 21, Spring Boot 3.5+ |
+| CON-002 | Backend: Java 21, Spring Boot 4.1+ |
 | CON-003 | Frontend: React 19, TypeScript |
 
 ---

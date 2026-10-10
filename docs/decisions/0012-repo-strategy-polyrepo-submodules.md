@@ -27,7 +27,7 @@ All repos live under the `turnbase-platform` GitHub organisation (`github.com/tu
 | `turnbase` | Landing repo: docs, specs, submodule refs | — |
 | `turnbase-common` | Internal shared library: gRPC stubs, shared internal models | `io.turnbase:turnbase-grpc` (Maven / GitHub Packages) |
 | `turnbase-sdk` | Public GDK: `TurnBaseGame` interface, effect/input types, TypeScript types | `io.turnbase:turnbase-sdk` (Maven) + npm package |
-| `turnbase-platform` | Platform Monolith (Spring Boot 3.5+) | Docker image |
+| `turnbase-platform` | Platform Monolith (Spring Boot 4.1+ — [ADR-0016](0016-spring-boot-4-migration.md)) | Docker image |
 | `turnbase-game-host` | Game Host (GraalVM CE for JDK 21 + Truffle) | Docker image |
 | `turnbase-frontend` | Platform frontend (React 19, TypeScript) | Docker image / static assets |
 | `turnbase-game-tictactoe` | First official game — a **consumer** of the published GDK, not a platform component (`IMP-M3-10`; ADR-0006) | Game bundle (`<gameId>.zip`, `bundle-format.md` §2) |
@@ -103,6 +103,13 @@ What this does and does not change:
   because a contract check that never fires is worse than none.
 - **The `pull_request` triggers stay in the workflows.** They cost nothing while unused and are what
   makes resuming PRs a decision rather than a rebuild.
+
+**One exception, for the Spring Boot 4 migration** *(amended 2026-10-10,
+[ADR-0016](0016-spring-boot-4-migration.md) §4)*. `turnbase-platform` and `turnbase-game-host` may
+each carry one branch named `chore/boot4` across sessions while milestone M11 is open. It is pushed
+to the remote, no PR is opened, `master` of those two repositories is frozen meanwhile, and
+`IMP-M11-08` merges it `--ff-only` and deletes it everywhere. No other branch may outlive a session
+on the strength of this exception.
 
 This is a working-practice suspension for the remainder of Phase 1 implementation, reversible by
 amending this section. `platform-operations.md` FR-CICD-002 still specifies what a pull-request

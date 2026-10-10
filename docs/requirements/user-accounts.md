@@ -119,7 +119,7 @@
 
 | ID | Description |
 |----|-------------|
-| CON-001 | Backend must be implemented in Java 21 with Spring Boot 3.5+. |
+| CON-001 | Backend must be implemented in Java 21 with Spring Boot 4.1+. |
 | CON-002 | Email sending infrastructure is not available in the current phase. No emails are sent for any reason (verification, password reset, notifications). |
 | CON-003 | Password reset is not supported until email infrastructure is in place. |
 | CON-004 | Session tokens are stored client-side as httpOnly, Secure, SameSite=Strict cookies. Tokens are never stored in localStorage or accessible to JavaScript. SameSite=Strict prevents the cookie from being sent on cross-site requests, providing CSRF protection without a separate CSRF token. |

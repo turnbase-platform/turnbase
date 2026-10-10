@@ -74,7 +74,7 @@
 | ID | Description |
 |----|-------------|
 | CON-001 | All chat communication must use WebSockets — no polling |
-| CON-002 | Backend: Java 21, Spring Boot 3.5+ |
+| CON-002 | Backend: Java 21, Spring Boot 4.1+ |
 | CON-003 | Frontend: React 19, TypeScript |
 | CON-004 | Team structure metadata (team count, min/max size, assignment rules) is declared by the game; the platform treats it as opaque configuration |
 

@@ -200,7 +200,7 @@ For the MVP the platform runs as a single local instance (ADR-0001), so affinity
 
 | ID | Description |
 |----|-------------|
-| CON-001 | Backend services use Java 21 with Spring Boot 3.5+. |
+| CON-001 | Backend services use Java 21 with Spring Boot 4.1+ (ADR-0016; only GA releases). |
 | CON-002 | The Platform Monolith uses PostgreSQL as its primary relational database and Redis for live game-state persistence / crash recovery and application-level caching. Redis is **not** used for WebSocket routing (room affinity — ADR-0002). |
 | CON-003 | Metrics are instrumented via Micrometer (Spring Boot native) and exposed in Prometheus format. |
 | CON-004 | Logs are structured JSON, emitted to stdout, collected by Kubernetes and forwarded to Grafana Loki. |

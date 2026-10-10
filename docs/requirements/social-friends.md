@@ -80,7 +80,7 @@
 
 | ID | Description |
 |----|-------------|
-| CON-001 | Backend: Java 21, Spring Boot 3.5+ |
+| CON-001 | Backend: Java 21, Spring Boot 4.1+ |
 | CON-002 | Frontend: React 19, TypeScript |
 | CON-003 | Real-time notification delivery mechanism is an implementation decision (notifications-invitations.md CON-001) |
 

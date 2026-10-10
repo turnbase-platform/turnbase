@@ -15,7 +15,7 @@ TurnBase is a platform for hosting and playing multiplayer games online. It prov
 
 ## Current Phase
 
-**Phase 1 — Implementation** (under way, **105 of 129 work items done**; M9 closed the 2026-10-04 completeness audit, and M10 — 24 items — opened from the 2026-10-10 E2E & security audit). Phase 0 is complete and has
+**Phase 1 — Implementation** (under way, **106 of 137 work items done**; M9 closed the 2026-10-04 completeness audit, M10 — 24 items — opened from the 2026-10-10 E2E & security audit and is **paused** behind M11, the Spring Boot 4 migration — 8 items, [ADR-0016](docs/decisions/0016-spring-boot-4-migration.md)). Phase 0 is complete and has
 been audited for implementation-readiness — but the first item to actually compile against the corpus
 found three contradictions in its own read-list, so treat "audited" as meaning *no known* defects
 rather than *no* defects.
@@ -37,8 +37,8 @@ fired three times on the first item alone, so this is the normal case, not an ex
 
 | Layer | Technology | Notes |
 |-------|-----------|-------|
-| Platform Monolith | Java 21, Spring Boot 3.5+ | |
-| Game Host service | Java 21, GraalVM CE for JDK 21 + Truffle | Host JVM is Java 21; game code runs in Espresso (Java 21 guest). No CE build exists for JDK 23; the earlier "CE 23" label was the deprecated GraalVM product-version scheme. |
+| Platform Monolith | Java 21, Spring Boot 4.1+ | Migrated from 3.5 by milestone M11 ([ADR-0016](docs/decisions/0016-spring-boot-4-migration.md)). Host-side JSON is Jackson 3 (`tools.jackson`); only GA Boot releases, never milestones/RCs |
+| Game Host service | Java 21, Spring Boot 4.1+, GraalVM CE for JDK 21 + Truffle | Host JVM is Java 21; game code runs in Espresso (Java 21 guest). No CE build exists for JDK 23; the earlier "CE 23" label was the deprecated GraalVM product-version scheme. |
 | Game backends (SDK) | Java 21 (max) | Executed in Espresso; must not use Java 22+ APIs |
 | Frontend (platform) | React 19, TypeScript | Clean, responsive, modern |
 | Design system | [Astryx](https://github.com/facebook/astryx) (`@astryxdesign/core`) | Meta's open-source design system — 150+ components, MIT, React 19+. **Pin exact versions; it is Beta.** Look components up with `npm run astryx -- component <Name>` or the `astryx` MCP server, never from a list in this repo ([ADR-0013](docs/decisions/0013-astryx-design-system.md)) |
@@ -59,7 +59,7 @@ TurnBase lives under the **[turnbase-platform](https://github.com/turnbase-platf
 | [`turnbase`](https://github.com/turnbase-platform/turnbase) | This repo — landing page, docs, specs, submodule refs | — |
 | [`turnbase-common`](https://github.com/turnbase-platform/turnbase-common) | Internal shared library: gRPC stubs, internal models | `io.turnbase:turnbase-grpc` (Maven) |
 | [`turnbase-sdk`](https://github.com/turnbase-platform/turnbase-sdk) | Public GDK: `TurnBaseGame` interface, effect/input types, TS types | `io.turnbase:turnbase-sdk` (Maven) + npm package |
-| [`turnbase-platform`](https://github.com/turnbase-platform/turnbase-platform) | Platform Monolith (Spring Boot 3.5+) | Docker image |
+| [`turnbase-platform`](https://github.com/turnbase-platform/turnbase-platform) | Platform Monolith (Spring Boot 4.1+) | Docker image |
 | [`turnbase-game-host`](https://github.com/turnbase-platform/turnbase-game-host) | Game Host (GraalVM CE for JDK 21 + Truffle) | Docker image |
 | [`turnbase-frontend`](https://github.com/turnbase-platform/turnbase-frontend) | Platform frontend (React 19, TypeScript) | Docker image / static assets |
 | [`turnbase-game-tictactoe`](https://github.com/turnbase-platform/turnbase-game-tictactoe) | First official game (`IMP-M3-10`) — a **consumer** of the published SDK, not a platform component | Game bundle (`<gameId>.zip`) |
@@ -75,7 +75,7 @@ turnbase/                    # This repo (landing + docs)
 │   │                        #   deployment, internal-grpc, game-host, gdk-api, manifest,
 │   │                        #   platform-frontend, game-frontend)
 │   ├── decisions/           # ADRs — one numbered file per architectural decision
-│   ├── implementation/      # The build plan — INDEX.md (conventions) + registry.md (129 work items)
+│   ├── implementation/      # The build plan — INDEX.md (conventions) + registry.md (137 work items)
 │   └── reviews/             # Closed review rounds, reduced to their INDEX plus anything still cited
 ├── turnbase-common/         # git submodule
 ├── turnbase-sdk/            # git submodule
