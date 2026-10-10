@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 169) — **`IMP-M11-04` DONE** (109 of 137). `turnbase-platform` `master` (`ad3be3f`): added `spring-boot-starter-flyway` (Boot 4 split it out — this alone took the ITs from 278 errors to bootable), and moved `HttpStatus` constants to Spring 7's `UNPROCESSABLE_CONTENT`/`CONTENT_TOO_LARGE` in `ProblemType` and the ITs. **Unit: 216 run, 0 failed. Integration: 314 run; all pass except 7 that need `*.localhost` DNS (`GameAssetControllerIT`, `SeedDataIT`) — this WSL host cannot resolve it, and they fail identically on pre-migration `master`.** Two Testcontainers start-up timeouts in the full run passed on rerun. JaCoCo merged gate met. `ModularityTest` verified to fail on a deliberate cycle. Bumped: parent ref.
+**Date:** 2026-10-10 (session 170) — **`IMP-M11-05` DONE** (110 of 137). `turnbase-game-host` `master` (`d19e739`): Boot 4.1.1, `starter-webmvc`, Testcontainers 2 names, Tomcat override removed; host JSON in `dispatch/` on Jackson 3 with `HostJacksonImportsTest` as the guard. The `bridge` package stays Jackson 2 (shaded into the guest). `jackson-2-bom.version` pinned to 2.21.4 so the guest-bridge jar is identical to the 3.5.16 build (layout and Jackson coordinates compared). **Build red on exit (permitted):** 5 of 57 unit tests error with protobuf gencode `NoClassDefFound` (`io.turnbase.grpc.gamehost.v1.*`) — `IMP-M11-06` pins `protobuf-java` as the platform did. Bumped: parent ref.
 
 ---
 
 ## Next Priorities
+
+**Session 171:** `IMP-M11-06` (game-host tests green: protobuf pin, then ITs and the Espresso round-trip); `07` follows. M10 stays paused.
 
 **Session 170:** `IMP-M11-05` (game-host compile on Boot 4); `06` follows. M10 stays paused.
 

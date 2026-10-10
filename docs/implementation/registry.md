@@ -175,7 +175,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M11-02 | `turnbase-platform` compiles on Spring Boot 4.1.1 | platform | M11-01 | DONE |
 | IMP-M11-03 | Platform host-side JSON is Jackson 3 | platform | M11-02 | DONE |
 | IMP-M11-04 | Platform unit and integration tests are green on Boot 4 | platform | M11-03 | DONE |
-| IMP-M11-05 | `turnbase-game-host` compiles on Spring Boot 4.1.1 with Jackson 3 host-side | game-host | M11-01 | WIP (session 170) |
+| IMP-M11-05 | `turnbase-game-host` compiles on Spring Boot 4.1.1 with Jackson 3 host-side | game-host | M11-01 | DONE |
 | IMP-M11-06 | Game Host unit and integration tests are green on Boot 4 | game-host | M11-05 | READY |
 | IMP-M11-07 | The local stack and the acceptance suite run on both Boot 4 branches | platform, game-host, frontend | M11-04, M11-06 | READY |
 | IMP-M11-08 | Both migration branches merge and the pipelines are green | platform, game-host | M11-07 | READY |
@@ -6531,6 +6531,7 @@ guest-bridge comparison must hold.
   configuration that keeps it out of `BOOT-INF/lib` (`pom.xml`) still produces the same layout.
 - **Compiles.** `./mvnw -DskipTests verify` passes with Error Prone/NullAway at full severity.
 - **Landed.** As `IMP-M11-02`.
+- **Result (session 170):** `turnbase-game-host` `master` (`d19e739`): parent 4.1.1, `starter-webmvc`, Testcontainers 2 artifact names, `tomcat.version` override removed, dependabot/README/CLAUDE.md updated. Host JSON (`dispatch/TeamsJson`, `SessionRecordCodec`, `EnvelopeCodec`) on Jackson 3; `HostJacksonImportsTest` guards it. **The `bridge` package keeps Jackson 2 by design** — it is shaded into the guest — so "outside the guest bridge" excludes it. **Guest comparison:** `jackson-2-bom.version` pinned to 2.21.4 (Boot 4.1.1 would manage 2.21.5); guest-bridge jar file layout and Jackson coordinates (databind/core 2.21.4, annotations 2.21, parameter-names 2.21.4) identical to the 3.5.16 build. `./mvnw verify`: compiles, Spotless/Error Prone/NullAway clean; unit 57 run, 5 errors — all protobuf gencode `NoClassDefFound` on `io.turnbase.grpc.gamehost.v1.*` (platform's fix: pin `protobuf-java` to turnbase-common's gencode, as in `c2869d4`) — **`IMP-M11-06` owns it.**
 
 ### IMP-M11-06 — Game Host unit and integration tests are green on Boot 4
 
