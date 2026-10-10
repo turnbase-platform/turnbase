@@ -154,7 +154,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M10-06 | The gRPC registry is unreachable from the public edge | frontend, platform | M3-05, M11-08 | DONE |
 | IMP-M10-07 | The body-size limit applies to a chunked request | platform | M1-01, M11-08 | DONE |
 | IMP-M10-08 | The Game Host survives its first cold Espresso context | game-host | M3-02, M11-08 | DONE |
-| IMP-M10-09 | Catalog search tolerates NUL and control bytes | platform | M4-01, M11-08 | READY |
+| IMP-M10-09 | Catalog search tolerates NUL and control bytes | platform | M4-01, M11-08 | WIP (session 181) |
 | IMP-M10-10 | Login timing does not reveal account existence | platform | M1-04, M11-08 | READY |
 | IMP-M10-11 | Friends, rooms and notifications refresh live | frontend | M8-12, M8-14, M11-08 | READY |
 | IMP-M10-12 | Email change and account deletion re-authenticate | platform, frontend | M1-08, M11-08 | READY |
