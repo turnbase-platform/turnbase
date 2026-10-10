@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 177) — **`IMP-M10-05` DONE** (118 of 137). The defect was in the edge: nginx used `$proxy_add_x_forwarded_for` (appends), so a forged header reached the platform as a multi-entry value. All three `proxy_set_header` lines in `turnbase-frontend` now use `$remote_addr` (vitest asserts it). `ClientIpResolver` now takes the rightmost entry; a new `RateLimitInterceptorIT` case shows forged `X-Forwarded-For` neither evades the caller's lockout nor creates a victim's bucket. `rate-limiting.md` §Client identity amended. Platform `verify -Pintegration`: `GameAssetControllerIT`/`SeedDataIT` fail as baseline (`*.games.localhost` in WSL); `TurnBaseApplicationIT` hit a MinIO container-start failure once and passed on rerun. CI not awaited (`--skip-ci-wait`).
+**Date:** 2026-10-10 (session 178) — **`IMP-M10-06` DONE** (119 of 137). The public nginx now answers `404` for `/turnbase.gamehost.v1.*` on both servers (platform host and the games-origin fall-through, which previously proxied it to the registry). vitest asserts both blocks and that nothing is `grpc_pass`ed; also verified against a real `nginx:alpine` container (404 on both Hosts). `orchestration-gamehost-protocol.md` *Security* now states that unreachability is the registry's access control. The internal path is unchanged (`GameHostRegistryServerIT`). CI not awaited (`--skip-ci-wait`).
 
 ---
 
 ## Next Priorities
+
+**Session 179:** `IMP-M10-07` (chunked body-size limit), then `08`, `09`.
 
 **Session 178:** `IMP-M10-06` (gRPC registry unreachable from the public edge), then `07`, `08`.
 

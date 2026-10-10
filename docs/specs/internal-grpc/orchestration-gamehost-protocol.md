@@ -350,6 +350,13 @@ exceeded. Mitigation:
 
 ## Security and observability
 
+- **The registry's access control is unreachability from the public listener** (IMP-M10-06).
+  `GameHostRegistryService` shares the monolith's HTTP listener (`local-environment.md` §7.8) and
+  carries no credential of its own, so anything that can reach the path can `Register` a host. The
+  boundary is enforced at the public edge: the Frontend's nginx answers `404` for
+  `/turnbase.gamehost.v1.*` on both of its servers (platform host and the games-origin fall-through)
+  and never proxies it. Game Hosts dial `orchestration-address` over the internal network instead.
+  Any new public ingress must keep that prefix unrouted.
 - **mTLS** on both directions. The Game Host exposes an inbound gRPC server port for the
   dispatch path; a Kubernetes NetworkPolicy restricts inbound to the Orchestration
   Service only, mirroring FR-SEC-002's egress scoping.
