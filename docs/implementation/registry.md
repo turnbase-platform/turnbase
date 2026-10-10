@@ -5960,6 +5960,13 @@ the three version routes and the ownerless-Official consequence. Build from the 
 - **Tests.** An integration test reproduces AUD-02 (user A subscribes a crafted destination, user B is
   sent a `send_to_player` effect) and asserts A receives nothing; a test that the legitimate
   per-user subscription still works.
+- **`SEND` guard, same interceptor (SEC-S-03).** While in the subscription authorizer, also reject any
+  `SEND` frame whose destination is not under `/app/*` — the equivalent of
+  `simpDestMatchers("/topic/**","/queue/**","/user/**").denyAll()`. The 2026-10-10 live probe refuted
+  SEC-S-03 as independently exploitable (the per-destination `/app/*` handlers already authorize every
+  send), so this is defense-in-depth, not a separate finding; it is folded here because it lives in the
+  same `WebSocketChannelInterceptor.preSend` path and costs nothing to add alongside the subscribe fix.
+  An integration test asserts a `SEND` straight to `/topic/room.{id}.chat` is refused.
 
 ### IMP-M10-03 — An unauthorized room join is denied before it writes Redis
 
