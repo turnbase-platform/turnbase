@@ -14,6 +14,25 @@ The `ArtifactStore` interface supports three backends, selected by Spring profil
 
 The same pre-signed URL code path runs against MinIO in tests as in production against S3. No test-specific branching exists in the upload flow.
 
+## Authorization
+
+**Every route in this document is owner-scoped.** All three version sub-resources —
+`POST /api/games/{gameId}/versions`, `POST /api/games/{gameId}/versions/{uploadId}/confirm` and
+`GET /api/games/{gameId}/versions/{uploadId}` — are mutations of (or reads against) a game the caller
+must own. The predicate is `rest-conventions.md`'s *Authorization and Ownership* row for
+`/api/games/{id}` (mutate): `game.owner_user_id = principal`, resolved from the `{gameId}` in the path
+before any slot is created, returning `404` when the game is unlisted to the caller (`game-catalog.md`
+NFR-SEC-002) and `403` otherwise. Possession of a `gameId` is not authorization — the handler
+evaluates the predicate explicitly, exactly as every other id-taking handler does.
+
+**An Official game is ownerless and therefore unreachable here.** `owner_user_id IS NULL` under
+`game_official_ownerless_ck`, so `game.owner_user_id = principal` is never true and the public route
+refuses every caller, registered or not. The only path that updates an Official game's version is the
+management-port, Basic-auth admin mirror in [admin-rest-api.md](admin-rest-api.md) §4 — never this
+surface. This is why `game-catalog.md` FR-GAME-006/007/008 and FR-UPROF-002 all scope management to
+*the owner's own games*: a route that let any registered user upload a version to any game (the
+Official reference game included) is exactly the gap this section closes.
+
 ## Upload Flow
 
 ### Step 1 — Request an upload slot

@@ -177,7 +177,7 @@ inside the same transaction as the mutation.
 | Resource | Predicate | Failure |
 |---|---|---|
 | `/api/users/me/**` | Implicit — the principal *is* the resource. No user id is ever accepted in the path for a self-scoped operation | — |
-| `/api/games/{id}` (mutate) | `game.owner_user_id = principal` | `404` if the game is unlisted (`game-catalog.md` NFR-SEC-002), else `403` |
+| `/api/games/{id}` (mutate), **including the version sub-resources** `…/versions`, `…/versions/{uploadId}` and `…/versions/{uploadId}/confirm` (`file-uploads.md`) | `game.owner_user_id = principal` — so an Official game (`owner_user_id IS NULL`) is refused every caller; its versions move only through `admin-rest-api.md` §4 | `404` if the game is unlisted (`game-catalog.md` NFR-SEC-002), else `403` |
 | `/api/games/{id}` (read, unlisted) | `game.owner_user_id = principal` | `404` — never `403`, which would confirm existence |
 | `/api/rooms/{id}` (mutate) | `principal` is a participant; host commands additionally `room.host_user_id = principal`, re-checked under the room lock | `403` |
 | `/api/notifications/{id}` | `notification.user_id = principal` | `404` |
