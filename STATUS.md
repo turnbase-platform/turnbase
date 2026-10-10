@@ -1,9 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-10-10 (session 183) — **spec-defect fix only; no item completed** (123 of 137). `IMP-M10-11`'s clause required the Rooms list to refresh live, contradicting `game-rooms.md` FR-LIST-005 (explicit refresh, no polling) and `room-rest-api.md` §3, with no channel to carry it. Opened and closed `IMP-GATE-98`: Rooms dropped from the clause (and from AUD-11's note); Friends view + notification panel remain. Item is `READY`. Corpus check run.
+**Date:** 2026-10-10 (session 184) — `IMP-M10-11` **DONE** (124 of 137). `FriendsPage` now re-reads both lists on each pushed `FRIEND_*` notification and on each stream (re)connect, via a small subscribe hook (`notifications/liveSignal.ts`) fed by `NotificationBell`'s single EventSource — no second stream, no polling; Rooms untouched per `IMP-GATE-98`. Unit test + two-context e2e (carol's request appears in dave's open Friends view); 343 vitest, lint, tsc green; `friends.spec.ts` 6/6 against the rebuilt compose stack; frontend CI green; ref bumped.
 ---
 
 ## Next Priorities
+
+**Session 185:** `IMP-M10-12` (email change / account deletion re-auth), then `13`, `14`.
 
 **Session 184:** `IMP-M10-11` (Friends view live via SSE `FRIEND_*` notifications; Rooms out of scope per `IMP-GATE-98`), then `12`, `13`.
 
