@@ -6160,6 +6160,8 @@ that could carry it. Rooms dropped from the clause; the audit register's AUD-11 
 
 **Repo:** `turnbase-platform`, `turnbase-frontend` · **Depends on:** IMP-M1-08, IMP-M11-08 · **Closes:** AUD-12
 
+**Closed:** IMP-GATE-99 (opened and closed 2026-10-10, session 185) — `rest-conventions.md` said `DELETE /api/users/me` takes no body and needs no proof, and neither route stated the proof's wire shape. Fixed in `rest-conventions.md` (`PATCH`/`DELETE /api/users/me` carry `currentPassword`; `422` on missing or wrong; OAuth-only exempt) and `user-accounts.md` FR-ACCT-003/004.
+
 **Read first:**
 - `docs/requirements/user-accounts.md` (FR-ACCT-004 deletion, FR-ACCT-010's re-auth precedent and its rationale)
 - `docs/specs/api-design/rest-conventions.md` (`/api/users/me` self-scoped routes)
