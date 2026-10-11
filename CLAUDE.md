@@ -15,7 +15,7 @@ TurnBase is a platform for hosting and playing multiplayer games online. It prov
 
 ## Current Phase
 
-**Phase 1 — Implementation** (under way, **137 of 137 work items done**; M9 closed the 2026-10-04 completeness audit, M10 — 24 items — opened from the 2026-10-10 E2E & security audit and is now closed, as is M11, the Spring Boot 4 migration — 8 items; [ADR-0016](docs/decisions/0016-spring-boot-4-migration.md)). Phase 0 is complete and has
+**Phase 1 — Implementation** (under way, **138 of 148 work items done**; M9 closed the 2026-10-04 completeness audit, M10 — 24 items — opened from the 2026-10-10 E2E & security audit and is now closed, as is M11, the Spring Boot 4 migration — 8 items; [ADR-0016](docs/decisions/0016-spring-boot-4-migration.md). **M12 — 11 items — is open:** the TurnBase visual identity, [ADR-0017](docs/decisions/0017-turnbase-visual-identity.md)). Phase 0 is complete and has
 been audited for implementation-readiness — but the first item to actually compile against the corpus
 found three contradictions in its own read-list, so treat "audited" as meaning *no known* defects
 rather than *no* defects.
@@ -41,11 +41,11 @@ fired three times on the first item alone, so this is the normal case, not an ex
 | Game Host service | Java 21, Spring Boot 4.1+, GraalVM CE for JDK 21 + Truffle | Host JVM is Java 21; game code runs in Espresso (Java 21 guest). No CE build exists for JDK 23; the earlier "CE 23" label was the deprecated GraalVM product-version scheme. |
 | Game backends (SDK) | Java 21 (max) | Executed in Espresso; must not use Java 22+ APIs |
 | Frontend (platform) | React 19, TypeScript | Clean, responsive, modern |
-| Design system | [Astryx](https://github.com/facebook/astryx) (`@astryxdesign/core`) | Meta's open-source design system — 150+ components, MIT, React 19+. **Pin exact versions; it is Beta.** Look components up with `npm run astryx -- component <Name>` or the `astryx` MCP server, never from a list in this repo ([ADR-0013](docs/decisions/0013-astryx-design-system.md)) |
+| Design system | [Astryx](https://github.com/facebook/astryx) (`@astryxdesign/core`) + the TurnBase theme | Astryx is Meta's open-source design system — 150+ components, MIT, React 19+. **Pin exact versions; it is Beta.** The look is TurnBase's own — a custom theme built with `astryx theme build` and committed, Light/Dark/Auto, Figtree + Pixelify Sans self-hosted ([ADR-0017](docs/decisions/0017-turnbase-visual-identity.md), amending 0013 §4). Look components up with `npm run astryx -- component <Name>` or the `astryx` MCP server, never from a list in this repo ([ADR-0013](docs/decisions/0013-astryx-design-system.md)) |
 | Game UIs | Any JS-compilable language | Sandboxed iframes |
 | Infrastructure | Kubernetes | Auto-scaling by traffic and active games |
 | Build (backend) | Maven | |
-| Build (frontend) | Vite | Astryx ships pre-built CSS — no StyleX plugin, no PostCSS, no Babel config |
+| Build (frontend) | Vite | Astryx ships pre-built CSS and the TurnBase theme is built ahead of time — no StyleX plugin, no PostCSS, no Babel config |
 | Metrics | Micrometer → Prometheus → Grafana | Spring Boot native |
 | Logs | SLF4J/Logback (JSON) → Loki → Grafana | Structured, stdout in K8s |
 | Traces | OpenTelemetry → Tempo → Grafana | W3C trace context propagation |
@@ -75,7 +75,7 @@ turnbase/                    # This repo (landing + docs)
 │   │                        #   deployment, internal-grpc, game-host, gdk-api, manifest,
 │   │                        #   platform-frontend, game-frontend)
 │   ├── decisions/           # ADRs — one numbered file per architectural decision
-│   ├── implementation/      # The build plan — INDEX.md (conventions) + registry.md (137 work items)
+│   ├── implementation/      # The build plan — INDEX.md (conventions) + registry.md (148 work items)
 │   └── reviews/             # Closed review rounds, reduced to their INDEX plus anything still cited
 ├── turnbase-common/         # git submodule
 ├── turnbase-sdk/            # git submodule

@@ -1,6 +1,6 @@
 # ADR-0013: Astryx supersedes the in-house design system
 
-- **Status:** Accepted
+- **Status:** Accepted — §4 (*The aesthetic changes*) **superseded by [ADR-0017](0017-turnbase-visual-identity.md)** (2026-10-11); §1–3 and §5 stand
 - **Date:** 2026-08-17
 - **Deciders:** Project owner
 - **Supersedes:** the component-library half of
@@ -67,6 +67,9 @@ wrong within a release** — the same failure that made this project delete 1,79
 machine-extracted inventories on 2026-08-16.
 
 ### 4. The aesthetic changes, and that is accepted
+
+> **Superseded 2026-10-11 by [ADR-0017](0017-turnbase-visual-identity.md).** The custom theme this section
+> called "available later" is now taken. Kept as written because it is why the stock theme exists.
 
 `platform-ui-library.md` describes neon accents on near-black with frosted-glass surfaces and
 gradients (FR-TOK-005, FR-TOK-007, OQ-002). Astryx's `theme-neutral` is muted and minimal. **We take

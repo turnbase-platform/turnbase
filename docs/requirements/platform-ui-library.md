@@ -6,10 +6,14 @@
 > components, seven themes, MIT, React 19+. The requirements below still state **what the platform
 > needs**; the obligation they create is to *use* Astryx correctly rather than to rebuild it.
 >
-> Requirements marked **Astryx** in the Description column are met by the library as shipped. The
-> neon-and-frosted-glass aesthetic those requirements originally described is **superseded** — v1
-> takes Astryx's muted `theme-neutral` direction, which is what "functional and minimalistic" asked
-> for. Amended requirements say so inline.
+> Requirements marked **Astryx** in the Description column are met by the library as shipped. Amended
+> requirements say so inline.
+>
+> **The identity is TurnBase's own** ([ADR-0017](../decisions/0017-turnbase-visual-identity.md),
+> 2026-10-11, reversing ADR-0013 §4). The muted `theme-neutral` direction is replaced by a custom
+> Astryx theme — a deep-space arcade with a cyan, magenta and amber palette, fake-glass surfaces and a
+> pixel display face. The neon palette (FR-TOK-001) and gradients (FR-TOK-007) are back; the
+> `backdrop-filter` frosted-glass requirement is **not** — surfaces are glass in appearance only.
 
 ## Related API Specifications
 
@@ -31,14 +35,14 @@
 
 | ID | Title | Description | Priority |
 |----|-------|-------------|----------|
-| FR-TOK-001 | Color tokens | **Astryx, amended.** A complete token palette expressed as CSS custom properties: backgrounds, surfaces, text, borders and semantic state colors. **The neon accent palette is dropped** — `theme-neutral` is muted by design, and ADR-0013 takes that direction. Astryx's `--color-*` families supply this. | Must |
-| FR-TOK-002 | Typography tokens | **Astryx.** A typography scale in CSS custom properties. `theme-neutral` names Figtree, satisfying CON-004 — but does not load it; the application self-hosts the webfont (`design-system.md` §2). | Must |
+| FR-TOK-001 | Color tokens | **Astryx, amended by ADR-0017.** A complete token palette expressed as CSS custom properties: backgrounds, surfaces, text, borders and semantic state colors, supplied by Astryx's `--color-*` families **as set by the TurnBase theme**. The palette is the neon-accent one — cyan, magenta and amber on a near-black indigo, and a deeper-accented "starlight" light variant — and brand colours Astryx has no family for are the platform's own `--tb-*` tokens (`design-system.md` §5). Every text/background pair meets the WCAG AA floor in both appearances. | Must |
+| FR-TOK-002 | Typography tokens | **Astryx.** A typography scale in CSS custom properties. The TurnBase theme names Figtree and Pixelify Sans (CON-004 as amended) but does not load them; the application self-hosts the webfonts (`design-system.md` §2). | Must |
 | FR-TOK-003 | Spacing tokens | **Astryx.** `--spacing-*`, with `--spacing-1` as the 4px base unit. All padding, margin and gap values in application code reference these. | Must |
 | FR-TOK-004 | Border radius tokens | **Astryx, amended.** A radius scale — `--radius-inner` / `--radius-element` / `--radius-container` — rather than the single uniform value originally required. Astryx applies it consistently, which is the property that was actually wanted. Closes OQ-001. | Must |
-| FR-TOK-005 | Surface tokens | **Astryx, amended.** `--color-background-surface` / `-card` / `-body`. **The frosted-glass requirement is withdrawn**: `theme-neutral` uses opaque surfaces and elevation, and `backdrop-filter` was the platform's single most expensive style declaration. Closes OQ-004, which asked how the blur should degrade — there is no blur. | Must |
+| FR-TOK-005 | Surface tokens | **Astryx, amended.** `--color-background-surface` / `-card` / `-body`. **The `backdrop-filter` frosted-glass requirement stays withdrawn** — it was the platform's single most expensive style declaration, and it closes OQ-004: there is no blur. ADR-0017 adds *fake glass* instead: a translucent tint, a sheen gradient, a cursor spotlight and a lit edge, composed from gradients and shadows with no blur and no `backdrop-filter`. A list container is **not** a glass surface — it is a border and nothing else, so no surface effect reaches the rows inside it. | Must |
 | FR-TOK-006 | Elevation/shadow tokens | **Astryx.** `--shadow-low` / `-med` / `-high`, exposed on `Card` as an `elevation` prop. | Must |
-| ~~FR-TOK-007~~ | ~~Gradient tokens~~ | **Withdrawn.** Gradients were defined as compositions of the neon accents that FR-TOK-001 no longer has. Astryx ships no gradient tokens and a hero gradient is a screen-level decision, not a library one. | — |
-| FR-TOK-008 | Token-only color rule | No raw color value (hex, rgb, hsl, oklch, etc.) may appear in application code. **There is no longer a token definition file to exempt** — every value comes from Astryx — so the rule needs no path allow-list. Enforced via ESLint. | Must |
+| FR-TOK-007 | Gradient tokens | **Reinstated by ADR-0017** (withdrawn by ADR-0013). Glow, sheen and tile gradients are compositions of the brand `--tb-*` tokens, defined once in `src/theme/` and consumed by name. Astryx still ships none; a screen does not write its own. | Should |
+| FR-TOK-008 | Token-only color rule | No raw color value (hex, rgb, hsl, oklch, etc.) may appear in application code. **The one exemption is the token definition itself, `src/theme/**`** (ADR-0017 — the TurnBase theme is the first first-party file that defines values rather than consuming them). The spacing rule has no exemption. Enforced via ESLint. | Must |
 
 ### Components
 
@@ -52,7 +56,7 @@ equivalent, `design-system.md` §3's ladder applies: compose, then swizzle, then
 |----|-------|-------------|----------|
 | FR-COMP-001 | Button | Variants: primary, secondary, ghost, destructive. Supports disabled and loading states. Uses accent color tokens for emphasis. | Must |
 | FR-COMP-002 | Input | Text, number, password, and search variants. Includes label, helper text, and error state. | Must |
-| FR-COMP-003 | Card | Primary surface unit. **Amended with FR-TOK-005** — an opaque surface token, elevated above the base background via the `elevation` prop, uniformly rounded. No frosted glass. Serves as the default container for most platform views. | Must |
+| FR-COMP-003 | Card | Primary surface unit. **Amended with FR-TOK-005** — a surface token, elevated above the base background via the `elevation` prop, uniformly rounded, with the fake-glass treatment of ADR-0017. No `backdrop-filter`. Serves as the default container for an *item*; a scrolling *list* of items sits in a plain bordered container, not a Card. | Must |
 | FR-COMP-004 | Modal / Dialog | Overlay dialog. **Amended with FR-TOK-005** — an opaque surface, not frosted glass. Supports a title, body slot and action footer. Traps focus when open. | Must |
 | FR-COMP-005 | Navigation | Top navigation bar and/or sidebar navigation. Supports active state indication using accent color tokens. | Must |
 | FR-COMP-006 | Avatar | Displays a user's **initials** on a colour derived deterministically from their user ID. Supports size variants. **No image and no presence indicator.** As originally written this component required both, and the platform has neither: `user-accounts.md` puts user-provided personal information including avatars out of scope, so there is no image to display, and `social-friends.md` puts online/offline presence indicators out of scope, so there is no state to indicate. Both are additive if those decisions change. | Must |
@@ -77,8 +81,8 @@ equivalent, `design-system.md` §3's ladder applies: compose, then swizzle, then
 
 | ID | Title | Description | Priority |
 |----|-------|-------------|----------|
-| FR-THM-001 | Single theme | **Astryx, amended.** The platform ships `theme-neutral` in **dark mode**, with no in-app toggle and no runtime switching. Astryx supports light/dark; the platform selects one. The original wording forbade a light theme *existing*, which is not ours to forbid in a third-party library. | Must |
-| FR-THM-002 | Token injection | **Astryx.** `<Theme theme={neutralTheme}>` at the root plus `data-astryx-theme` on `<html>`. Application code must not redefine these properties. | Must |
+| FR-THM-001 | One theme, two appearances | **Amended by ADR-0017.** The platform ships one theme — TurnBase's own — in **Light, Dark and Auto**. Auto (the default) follows the OS preference; an explicit choice is made with a control in the shell and persists in the browser. The preference is presentation only: it is never sent to the server and never changes what a view does. | Must |
+| FR-THM-002 | Token injection | **Astryx.** `<Theme theme={turnbaseTheme}>` (the built TurnBase theme, ADR-0017) at the root plus `data-astryx-theme` on `<html>`. Application code must not redefine these properties. | Must |
 
 ## Non-Functional Requirements
 
@@ -89,7 +93,7 @@ equivalent, `design-system.md` §3's ladder applies: compose, then swizzle, then
 | NFR-DX-003 | Consistency | Visual output of a given component is identical regardless of which platform view it appears in. No context-dependent style leakage. | Zero known divergences at release | Must |
 | NFR-DX-004 | Enforcement | ESLint plugin (or config) is published alongside the component library and is required by consuming apps. Rules cover at minimum: raw color values, spacing values outside the scale, and font sizes outside the scale. | All rules enabled in platform repo CI | Must |
 | NFR-PERF-001 | Performance | Library adds no more than 50 kB (gzipped) to a consuming app's initial bundle when tree-shaken to only the imported components. | ≤ 50 kB gzipped (tree-shaken) | Should |
-| NFR-PERF-002 | Performance | Scrolling and animation hold 60 fps on mid-range hardware. **The frosted-glass clause is withdrawn with FR-TOK-005** — the expensive declaration it guarded no longer exists. | 60 fps maintained on reference device | Should |
+| NFR-PERF-002 | Performance | Scrolling and animation hold 60 fps on mid-range hardware. **The frosted-glass clause stays withdrawn** (FR-TOK-005). ADR-0017's pointer effects and starfield are held to this: one canvas, paused when the tab is hidden, and every effect off under `prefers-reduced-motion`. | 60 fps maintained on reference device | Should |
 | NFR-VER-001 | Versioning | Library follows semantic versioning. Breaking changes (token renames, removed components, changed prop APIs) are released as major versions with a migration guide. | Semver; migration guide per major | Must |
 
 ## Constraints
@@ -99,16 +103,16 @@ equivalent, `design-system.md` §3's ladder applies: compose, then swizzle, then
 | CON-001 | React 19 and TypeScript are the only supported runtime environments. The library is not required to work as plain CSS or web components. |
 | CON-002 | **Amended twice.** The component library is [Astryx](https://github.com/facebook/astryx), an external MIT-licensed npm dependency (ADR-0013) — so the original requirement for a self-contained module in its own repository is moot for components. What remains ours is a small `src/ui/` module inside `turnbase-frontend` holding only *composed* and *swizzled* components, with a single public entry point, no dependency on application code, and an ESLint rule enforcing the boundary in both directions. See [`../specs/platform-frontend/design-system.md`](../specs/platform-frontend/design-system.md) §4. |
 | CON-003 | **Narrowed.** Peer dependencies: React 19, TypeScript. No runtime CSS-in-JS **in platform code** — our own components use CSS Modules. Astryx authors its styles with StyleX but ships them **pre-built**: no Vite plugin, no PostCSS, no Babel transform is added to this project's build. |
-| CON-004 | Figtree is the only permitted typeface. `theme-neutral` names it in `--font-family-body` but does not load it, so the application self-hosts the `woff2` (`design-system.md` §2 — a CDN font would require widening `font-src` in the CSP). No second typeface is bundled. |
-| CON-005 | The platform renders in dark mode only and does not follow the OS preference. This is now `<Theme>` configuration rather than CSS we write; no `prefers-color-scheme` media query appears in platform code. |
+| CON-004 | **Amended by ADR-0017.** Two typefaces are permitted: **Figtree** for everything a person reads, and **Pixelify Sans** for the logo, display headings, large numbers and short labels only — never for forms, tables, chat or rules. Neither is loaded by the theme, so the application self-hosts the `woff2` files (`design-system.md` §2 — a CDN font would require widening `font-src` in the CSP). No third typeface is bundled. |
+| CON-005 | **Amended by ADR-0017.** Appearance is `<Theme mode>` configuration (Light, Dark, Auto — FR-THM-001), never CSS we write: no `prefers-color-scheme` media query appears in platform code. Auto is Astryx's `mode="system"`. |
 
 ## Out of Scope
 
 - GDK (game developer kit) UI library — deferred
 - Game UI components for sandboxed iframes
-- A light theme or any in-app theme switching mechanism. Astryx supports light/dark; the platform selects dark and does not expose a toggle (CON-005)
+- Multiple themes or user-authored themes. One theme, two appearances (FR-THM-001, CON-005)
 - Internationalization / RTL layout support
-- Animation/motion system (beyond basic state transitions on existing components)
+- A general animation/motion system. ADR-0017 permits a fixed set of decorative effects — pointer spotlight and tilt, a starfield, directional page transitions — all disabled under `prefers-reduced-motion` and none carrying meaning
 - Data fetching — table/list components receive data via props/callbacks; they do not own network calls
 
 ## Open Questions
@@ -118,7 +122,7 @@ platform to make a visual decision that Astryx has already made, and answering t
 overriding the library on day one.
 
 - ~~OQ-001~~ Exact border radius — **dropped.** Astryx ships a radius scale (`--radius-inner` / `-element` / `-container`); there is no single value to pick.
-- ~~OQ-002~~ Exact neon accent hex values — **dropped.** There is no neon palette. `theme-neutral` is muted, and FR-TOK-001 is amended to match.
-- ~~OQ-003~~ Accessibility target — **resolved: WCAG AA is a hard floor** for body text, with no exceptions (`design-system.md` §6). This one survives ADR-0013 unchanged, and the muted palette makes it materially easier to hold than neon-on-near-black would have.
+- ~~OQ-002~~ Exact neon accent hex values — **resolved by ADR-0017.** The palette is the theme source in `src/theme/`; FR-TOK-001 is amended to match.
+- ~~OQ-003~~ Accessibility target — **resolved: WCAG AA is a hard floor** for body text, with no exceptions (`design-system.md` §6). This one survives both ADRs; with the neon palette back (ADR-0017) it is enforced by a token-pair contrast test and an axe sweep in both appearances.
 - ~~OQ-004~~ `backdrop-filter` fallback — **dropped.** No frosted glass, so nothing to degrade.
 - ~~OQ-005~~ Storybook — **deferred, not declined** (`design-system.md` §8). Astryx ships one at `facebook.github.io/astryx`, and `src/ui/` is too small to warrant a second.

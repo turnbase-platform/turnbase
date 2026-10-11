@@ -4,10 +4,11 @@ How the platform frontend consumes [Astryx](https://github.com/facebook/astryx),
 and where the boundary between the two sits. Realizes
 `../../requirements/platform-ui-library.md`.
 
-**Astryx is the design system** ([ADR-0013](../../decisions/0013-astryx-design-system.md)). This
-document does not define components, tokens or a theme — Astryx defines those. It defines the
-*integration*: setup, the composition ladder, the rules that remain ours, and the small set of
-decisions Astryx leaves to its consumer.
+**Astryx is the design system** ([ADR-0013](../../decisions/0013-astryx-design-system.md)) and the
+**look is TurnBase's own** ([ADR-0017](../../decisions/0017-turnbase-visual-identity.md), which
+reverses ADR-0013 §4). This document does not define components or Astryx's tokens — Astryx defines
+those. It defines the *integration*: setup, the custom theme, the composition ladder, the rules that
+remain ours, and the small set of decisions Astryx leaves to its consumer.
 
 **Scope.** If the answer depends on a specific screen, it is not here — that is
 [`shell-architecture.md`](shell-architecture.md)'s and `../../requirements/platform-views.md`'s.
@@ -23,7 +24,8 @@ decisions Astryx leaves to its consumer.
 | Package | Role | Dependency type |
 |---|---|---|
 | `@astryxdesign/core` | Components, theme system, utilities | runtime |
-| `@astryxdesign/theme-neutral` | The base theme — muted and minimal | runtime |
+| `@astryxdesign/theme-neutral` | The base the TurnBase theme extends (`defineTheme({extends})`) | runtime |
+| `@fontsource/figtree`, `@fontsource/pixelify-sans` | Self-hosted typefaces (§2) | runtime |
 | `@stylexjs/stylex` | Peer dependency of `core` | runtime |
 | `@astryxdesign/cli` | Component docs, templates, swizzle, codemods | **dev** |
 
@@ -44,8 +46,8 @@ Astryx's own CI targets and what `.nvmrc` pins.
 
 ## 2. Setup
 
-Three CSS imports and two providers. **No Vite plugin, no PostCSS, no Babel config** — Astryx ships
-pre-built CSS and JS.
+Four CSS imports and two providers. **No Vite plugin, no PostCSS, no Babel config** — Astryx ships
+pre-built CSS and JS, and the TurnBase theme is compiled ahead of time by the Astryx CLI.
 
 ### The stylesheets, in this order
 
@@ -53,22 +55,37 @@ pre-built CSS and JS.
 /* src/index.css */
 @import '@astryxdesign/core/reset.css';        /* @layer reset */
 @import '@astryxdesign/core/astryx.css';       /* @layer astryx-base  — component styles */
-@import '@astryxdesign/theme-neutral/theme.css'; /* @layer astryx-theme — token overrides */
+@import '@astryxdesign/theme-neutral/theme.css'; /* @layer astryx-theme — the base's token overrides */
+@import './theme/turnbase.css';                  /* @layer astryx-theme — the TurnBase theme, built */
+@import './theme/tokens.css';                    /* our own --tb-* tokens, plain CSS */
 ```
 
 **The order is the cascade layer order and is not cosmetic.** Theme tokens must land after the
 component styles that read them; reversing two of these produces a page that renders with Astryx's
-built-in defaults and gives no error.
+built-in defaults and gives no error. The TurnBase theme comes after the base it extends so that it
+wins; `tokens.css` adds properties and redefines none of Astryx's.
+
+### The TurnBase theme is built, committed, and never injected at runtime
+
+`src/theme/turnbase.theme.ts` is a `defineTheme` source (`extends: neutralTheme`) that sets the
+palette as `[light, dark]` pairs, the radius scale, the shadows, the fonts and the component
+overrides. `astryx theme build` compiles it to `turnbase.css`, `turnbase.js` and `turnbase.d.ts`,
+which are **committed** and carry `__built: true`, so Astryx injects no `<style>` at runtime.
+
+This is not a preference: the shell CSP is `style-src 'self'` (`shell-architecture.md` §6), and an
+injected `<style>` is blocked. `npm run build` runs the theme build first, so an upgrade that renames
+a theming target fails the build instead of silently dropping an override, and a unit test fails when
+the committed output differs from a fresh build (drift).
 
 ### The providers
 
 ```tsx
 import {Theme} from '@astryxdesign/core/theme';
 import {LinkProvider} from '@astryxdesign/core/Link';
-import {neutralTheme} from '@astryxdesign/theme-neutral/built';
+import {turnbaseTheme} from './theme/turnbase';
 import {Link} from 'react-router';
 
-<Theme theme={neutralTheme}>
+<Theme theme={turnbaseTheme} mode={appearance}>
   <LinkProvider component={Link}>{children}</LinkProvider>
 </Theme>
 ```
@@ -83,11 +100,16 @@ than each view importing what it needs.
 
 - **`data-astryx-theme` must be on `<html>`.** Theme CSS is scoped to that attribute; without it the
   page renders with built-in defaults and looks *almost* right.
-- **The theme names Figtree but does not load it.** Nothing in the three stylesheets sets a document
-  font. Self-host the `woff2` and set it on `body` — `shell-architecture.md` §6's CSP sets
+- **The theme names its fonts but does not load them.** Nothing in the stylesheets sets a document
+  font. Self-host the `woff2` files via `@fontsource` — Figtree (400/600/700) for everything a person
+  reads, Pixelify Sans (the weights used, no more) for the logo, display headings, big numbers and
+  short labels (`platform-ui-library.md` CON-004 as amended). `shell-architecture.md` §6's CSP sets
   `font-src 'self'`, so a Google Fonts link would require widening a security directive for a
-  hosting convenience (`platform-ui-library.md` CON-004 already required Figtree; this is the same
-  typeface, now supplied by the theme's token rather than by us).
+  hosting convenience.
+- **`appearance` is `light | dark | system`** and is the `mode` prop above. The shell owns it: a
+  small provider reads and writes `localStorage` (guarded with try/catch — a blocked store falls back
+  to `system`), and the Light / Dark / Auto control lives in the shell (`shell-architecture.md` §2).
+  It is never sent to the server.
 
 ---
 
@@ -117,19 +139,31 @@ through props.
 
 ```
 turnbase-frontend/src/
-├── ui/                      # ONLY our own composed components (rung 1) and swizzled ones (rung 2)
+├── theme/                   # the identity: turnbase.theme.ts + its built output, tokens.css (§2, §5)
+├── ui/                      # the shared presentation layer: our own composed (rung 1) and written (rung 3) components
 │   ├── index.ts             # the public entry point
 │   └── <Component>/
 │       ├── <Component>.tsx
 │       └── <Component>.module.css
 ├── features/                # application code — screens, hooks, data access
-└── index.css                # the three Astryx imports, §2
+│   └── <feature>/
+│       ├── use<View>.ts     # the hook: loading, paging, filter and sort state → plain data + callbacks
+│       └── <View>.tsx       # the presentational component: renders what the hook returns
+└── index.css                # the stylesheet imports, §2
 ```
 
-`ui/` is deliberately small and may stay near-empty. It is **not** a wrapper layer: application code
-imports `Button` from `@astryxdesign/core/Button` directly. Wrapping every Astryx component in a
-pass-through of our own would re-create the maintenance burden ADR-0013 exists to avoid, and it
-would put a stale prop signature between the developer and the real documentation.
+`ui/` holds what the identity needs and Astryx does not ship (ADR-0017 §3): pointer-effect
+delegation, `Starfield`, `Logo`, the pixel-art and icon set, `Person` (initials avatar), `PillTabs`,
+and the list-query kit (`ScrollPanel`, `FilterPanel`, `FilterButton`, `SortControl`, `PageBar`). It
+is **not** a wrapper layer: application code imports `Button` from `@astryxdesign/core/Button`
+directly. Wrapping every Astryx component in a pass-through of our own would re-create the
+maintenance burden ADR-0013 exists to avoid, and it would put a stale prop signature between the
+developer and the real documentation.
+
+**Each view is a hook and a presentational component.** The hook owns the network-facing state (it
+calls the existing API modules, reducers and sockets, unchanged) and returns plain data and
+callbacks; the component takes them as props and renders. A presentational component imports no API
+module, so it is testable with literals and the look can change without touching a request.
 
 ### The import boundary
 
@@ -191,22 +225,30 @@ should have been rung 2 or rung 3.
 `-card` / `-body`. **`astryx docs tokens` is the reference** — this paragraph is orientation, not a
 list to code against.
 
-There is no `--tb-*` prefix any more. Nothing in the platform defines a parallel token scale.
+### Our own tokens: `--tb-*`
+
+Brand colours Astryx has no family for (the cyan / magenta / amber accents), the glow, sheen and
+spotlight recipes, the pixel-art palette and the motion dials are `--tb-*` custom properties in
+`src/theme/tokens.css`, as `light-dark()` values. They are **additions beside Astryx's tokens, never
+redefinitions of one** (FR-THM-002), and they are the only parallel names the platform defines. Own
+CSS reads `--spacing-*`, `--color-*`, `--radius-*`, `--shadow-*` and `--tb-*`, nothing else.
 
 ### Enforcement (FR-TOK-008)
 
-Astryx supplies the tokens; nothing stops our own code from bypassing them with a literal. Two
-ESLint rules close that gap, carried forward from the pre-Astryx design with one change: the
-`tokens.css` path allow-list is gone, because there is no token definition file left to exempt.
+Astryx supplies the tokens; nothing stops our own code from bypassing them with a literal. Local
+ESLint rules close that gap. ADR-0013 had removed the `tokens.css` path allow-list because no token
+definition file was left to exempt; ADR-0017 brings that file back, so the colour rules regain
+exactly one exemption.
 
 | Rule | Forbids | Escape |
 |---|---|---|
-| `no-raw-color` | Any hex, `rgb()`, `hsl()`, `oklch()` color literal in a `.css` or `.tsx` file | none |
-| `no-raw-spacing` | A `px`/`rem` length on `padding`, `margin`, `gap`, or `inset` in a `.css` file | none |
+| `no-raw-color-css`, `no-raw-color-tsx` | Any hex, `rgb()`, `hsl()`, `oklch()` color literal in a `.css` or `.tsx` file | **`src/theme/**` only** — the file that *defines* the values |
+| `no-raw-spacing-css` | A `px`/`rem` length on `padding`, `margin`, `gap`, or `inset` in a `.css` file | none |
 
-**Neither has an escape hatch.** An allow-list is used the first time the rule is inconvenient, which
-is the first time it is doing its job — and the one legitimate reason for one (the token file itself
-needing raw values) no longer exists.
+**The exemption is a path, not a comment.** There is no inline disable, and nothing outside
+`src/theme/` may define a colour. Spacing has no exemption at all: a length that is off the
+`--spacing-*` scale is rounded to it, because a view that needs a value the scale lacks has found a
+design question, not a lint problem.
 
 Both are local rules — no third-party package defines them. No `@astryxdesign/eslint-plugin` or
 equivalent exists (checked against the npm registry, not assumed); NFR-DX-004's "the library ships an
@@ -236,20 +278,21 @@ an accessible component can be composed into an inaccessible screen.
 | Every interactive element is keyboard-reachable with a visible focus ring | Astryx by default; ours not to remove |
 | Composed components preserve label/description wiring (`<label for>`, `aria-describedby`, `aria-invalid`) | Rungs 2 and 3 |
 
-The AA floor is the resolution of `platform-ui-library.md` OQ-003 and it survives ADR-0013 unchanged.
-What changes is that it is now much easier to meet: the muted `theme-neutral` palette was built for
-contrast, where the neon-on-near-black palette OQ-002 was reaching for could not have passed at body
-size.
+The AA floor is the resolution of `platform-ui-library.md` OQ-003 and it survives both ADRs. ADR-0017
+makes it harder to meet — neon accents on near-black are where OQ-002 worried about contrast — so it
+is **enforced, not asserted**: a unit test computes the contrast of every text/background token pair
+in both appearances, and the axe sweep runs in both. Accent colours used as *text* take the
+appearance's AA-passing variant; the saturated variants are for fills, glows and large display type.
 
 ### Theme selection
 
-**`theme-neutral`**, stock, for v1 — "muted, minimal", which is the stated direction. Dark mode is
-Astryx's, not a hand-rolled `prefers-color-scheme` block; `platform-ui-library.md` CON-005 forbade
-following the OS preference, and that is now a `Theme` configuration rather than CSS we write.
+**The TurnBase theme** (§2), in Light, Dark or Auto (`platform-ui-library.md` FR-THM-001 as amended).
+Appearance is Astryx's `<Theme mode>`, not a hand-rolled `prefers-color-scheme` block; CON-005 as
+amended keeps that rule. Auto is `mode="system"` and is the default.
 
-A custom theme via `defineTheme` is available whenever the visual identity is worth a design pass. A
-theme is a set of CSS custom property overrides, so this is reversible without touching a single
-component.
+The decorative effects (pointer spotlight and tilt, the starfield, directional page transitions) are
+all switched off by `prefers-reduced-motion` and by the user's Reduced-motion setting, carry no
+meaning, and the starfield pauses while the tab is hidden (NFR-PERF-002).
 
 ### Version discipline
 
@@ -290,9 +333,11 @@ without a local install and is the faster path when the frontend is not checked 
 ## 8. What is deliberately absent
 
 - **No wrapper layer.** §4 — application code imports Astryx directly.
-- **No parallel token scale.** §5 — one source, Astryx's.
+- **No parallel token scale.** §5 — Astryx's tokens plus the `--tb-*` additions, nothing that redefines one.
+- **No `backdrop-filter`.** Glass is faked (ADR-0017 §1); the cost ADR-0013 removed stays removed.
+- **No presence indicators.** Online/offline status is out of scope (`social-friends.md`), so `Person` is initials only.
 - **No charts.** §1 — canary-only packages, and no v1 requirement needs one.
-- **No animation system.** `platform-ui-library.md` *Out of Scope*, unchanged.
+- **No general animation system.** `platform-ui-library.md` *Out of Scope* as amended: a fixed set of decorative effects, nothing configurable.
 - **No i18n or RTL.** Out of scope. Our own CSS still prefers `inline-start`/`inline-end` over
   `left`/`right` where it costs nothing.
 - **No Storybook of our own.** Astryx has one at `facebook.github.io/astryx`; `ui/` is too small to
@@ -309,27 +354,28 @@ platform code — the obligation is to *use* it, not to rebuild it.
 
 | Requirement | Realized by |
 |---|---|
-| FR-TOK-001…007 | **Astryx** — theme tokens; §5 names the families and points at `astryx docs tokens` |
-| FR-TOK-008 (raw-value ban) | §5 *Enforcement* — `no-raw-color`/`no-raw-spacing`, our own lint rules, not Astryx's supply |
+| FR-TOK-001…006 | **Astryx**, set by the TurnBase theme (§2) — tokens; §5 names the families and points at `astryx docs tokens` |
+| FR-TOK-007 | §5 — gradient/glow recipes as `--tb-*` tokens (reinstated, ADR-0017) |
+| FR-TOK-008 (raw-value ban) | §5 *Enforcement* — `no-raw-color-*`/`no-raw-spacing-css`, our own lint rules; colours exempt `src/theme/**` only |
 | FR-COMP-001…009, 011…014 | **Astryx** — 150+ components; §7 is the lookup path |
 | FR-COMP-010 (`className`) | **Astryx** — supported on components; §5 append-not-substitute |
 | FR-LYT-001…003 | **Astryx** — `Stack`, `Layout` and the layout primitives |
-| FR-THM-001 | **Astryx** — `theme-neutral` via `<Theme>`; §6 |
+| FR-THM-001 | §2, §6 — the TurnBase theme via `<Theme mode>`; Light / Dark / Auto |
 | FR-THM-002 | **Astryx** — `data-astryx-theme` on `<html>`; §2 |
 | NFR-DX-001 | §7 — the CLI and MCP server are the documentation |
 | NFR-DX-002 | **Astryx** — full TypeScript; typed props on rung-3 components |
 | NFR-DX-003 | §5 — CSS Modules scope our styles mechanically; Astryx's are pre-scoped |
 | NFR-DX-004 | §4 — the two import-boundary rules |
 | NFR-PERF-001 | **Astryx** — pre-built CSS, no runtime style engine, per-component import paths |
-| NFR-PERF-002 | §6 — the frosted-glass requirement is amended; there is no `backdrop-filter` to cap |
+| NFR-PERF-002 | §6, §8 — no `backdrop-filter`; effects are reduced-motion-aware and the starfield pauses when hidden |
 | NFR-VER-001 | §1, §6 — exact pins and codemod-driven upgrades |
 | CON-001 | React 19 + TypeScript — also Astryx's own peer requirement |
 | CON-002 | **Amended (2nd time)** — §4: a small `ui/` module, not a package, not a submodule |
 | CON-003 | **Narrowed** — §5: no runtime CSS-in-JS *in our code*. Astryx's StyleX is pre-built and never compiled here |
-| CON-004 | §2 — Figtree, named by the theme, self-hosted for the CSP |
-| CON-005 | §6 — dark mode is `Theme` configuration, not `prefers-color-scheme` |
+| CON-004 | §2 — Figtree and Pixelify Sans, named by the theme, self-hosted for the CSP |
+| CON-005 | §6 — appearance is `Theme` configuration, not `prefers-color-scheme` |
 | OQ-001 (radius) | **Dropped** — Astryx's `--radius-*` scale replaces the single-radius question |
-| OQ-002 (neon hex) | **Dropped** — ADR-0013 takes the muted direction; no neon palette to specify |
-| OQ-003 (contrast) | §6 — **resolved**: WCAG AA is a hard floor, and `theme-neutral` clears it |
+| OQ-002 (neon hex) | **Resolved by ADR-0017** — the palette is the theme source (§2); the values live in `src/theme/` |
+| OQ-003 (contrast) | §6 — **resolved**: WCAG AA is a hard floor, enforced by a token-pair test and the axe sweep in both appearances |
 | OQ-004 (blur fallback) | **Dropped** — no frosted glass to degrade |
 | OQ-005 (Storybook) | §8 — deferred; Astryx ships one |

@@ -29,8 +29,9 @@ src/
 ├── features/     one directory per domain: auth, rooms, catalog, profile,
 │                 friends, notifications, game
 ├── shared/       api client, WebSocket client, hooks, types
-├── ui/           our own composed and swizzled components — usually near-empty
-└── index.css     the three Astryx stylesheet imports, in cascade-layer order
+├── theme/        the TurnBase theme source, its built output, and the --tb-* tokens (ADR-0017)
+├── ui/           the shared presentation layer: effects, Starfield, Logo, icons, Person, PillTabs, the list-query kit
+└── index.css     the stylesheet imports, in cascade-layer order
 ```
 
 Feature-first, not layer-first. A layer-first tree (`components/`, `hooks/`, `services/`) puts the
@@ -43,9 +44,12 @@ does **not** go through a local wrapper. A pass-through that "just wraps" a libr
 a design system dies: it becomes a stale prop signature between the developer and the real
 documentation. `className` is the supported override, and it appends rather than substitutes.
 
-`ui/` holds only what Astryx does not ship, obtained by climbing
-[`design-system.md`](design-system.md) §3's ladder — compose, then swizzle, then write. It is
-expected to stay small, and `no-restricted-imports` keeps `features/` out of it in both directions.
+`ui/` holds what the identity needs and Astryx does not ship, obtained by climbing
+[`design-system.md`](design-system.md) §3's ladder — compose, then swizzle, then write — and
+[`design-system.md`](design-system.md) §4 lists it. `no-restricted-imports` keeps `features/` out of it.
+
+**Each view is a hook plus a presentational component** (`design-system.md` §4): the hook calls the
+API modules and returns plain data and callbacks, the component renders them.
 
 ### Stack
 
@@ -58,13 +62,15 @@ expected to stay small, and `no-restricted-imports` keeps `features/` out of it 
 | Client state | React context + `useReducer` | There is no global client state worth a store; room and game state are server-owned |
 | Forms | React Hook Form + Zod | Zod schemas mirror the server's validation, and are the client half of `input-validation.md` |
 | Components | Astryx (`@astryxdesign/core`) | ADR-0013. Pre-built CSS — no Vite plugin, no PostCSS, no Babel config |
+| Look | The TurnBase theme, built by `astryx theme build` and committed | ADR-0017. Static CSS, so `style-src 'self'` holds |
+| Typefaces | Figtree + Pixelify Sans via `@fontsource` | Self-hosted; `font-src 'self'` is not widened |
 
-### The two providers
+### The providers
 
-The shell mounts both, once, at the root — nothing else in the application does:
+The shell mounts them once, at the root — nothing else in the application does:
 
 ```tsx
-<Theme theme={neutralTheme}>            {/* Astryx tokens; data-astryx-theme on <html> */}
+<Theme theme={turnbaseTheme} mode={appearance}>  {/* data-astryx-theme on <html>; appearance = light | dark | system */}
   <LinkProvider component={Link}>       {/* react-router's Link */}
     …
   </LinkProvider>
@@ -75,6 +81,10 @@ The shell mounts both, once, at the root — nothing else in the application doe
 components render internally — emits a plain `<a href>` and triggers a **full page reload**, which
 drops the STOMP connection, the room subscription and every piece of in-memory session state. It
 belongs in the shell because the shell is the only place that knows about the router.
+
+**Appearance.** `appearance` comes from a small shell provider that persists Light / Dark / Auto in
+`localStorage` (try/catch — a blocked store means Auto) and exposes the control rendered in the
+navigation bar. It is presentation only: never sent to the server, never read by a feature.
 
 **No Redux, no Zustand, no Jotai.** The state that matters is the room and the session, both of
 which are authoritative on the server and arrive as events. A client store holding a second copy is
@@ -267,6 +277,7 @@ response that carries it and cannot be displaced by injected markup earlier in t
 | `frame-ancestors 'none'` | The platform is never embedded. This replaces `X-Frame-Options`, which is not sent |
 | `base-uri 'none'` | An injected `<base>` retargets every relative URL in the document — including the script tags — which turns a single injection into full script control |
 | `object-src 'none'` | Nothing on the platform uses a plugin element |
+| `style-src 'self'` | Blocks an injected `<style>` — which is why the TurnBase theme is built ahead of time and committed rather than injected at runtime (ADR-0017 §2). React's CSSOM `style={{}}` and `element.style.setProperty` are not blocked, and are how pointer effects set their custom properties |
 
 **No `nonce` and no hash allow-list**, because there is no inline script to permit. Adding a nonce
 mechanism before there is anything to nonce creates the exact affordance — "put the nonce on it" —
