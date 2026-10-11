@@ -1,11 +1,13 @@
 ## Last Session Summary
 
-**Date:** 2026-10-11 (session 190) — `IMP-M10-17` **DONE** (130 of 137). The edge nginx now serves the SPA fallback only for the shell's own routes (regex location mirroring `src/app/routes.tsx` — keep in step); any other path is `404` with `index.html` as body, so the 404 view still renders. CSP moved to a shared `$shell_csp` variable on both locations. Tests: e2e `shell.spec.ts` (unknown paths 404 + view + CSP; known routes 200), `nginx.test.ts` adjusted. CI green. e2e `catalog`/`profile`/`rooms` specs were not re-run after the change (shell, auth, security, sweep, layout, resilience were).
+**Date:** 2026-10-11 (session 191) — `IMP-M10-18` **DONE** (131 of 137). The edge's `default_server` now proxies only the games origin: `15-derive-origins.envsh` derives `TURNBASE_GAME_HOST_REGEX` from the origin template, a `map $host` gates it, any other `Host` gets `421`. The shell locations carry `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options: DENY` and HSTS (only when `X-Forwarded-Proto: https`) beside the CSP. Proxied locations (`/api/`, `/ws`) and the games origin pass the monolith's own headers through. Tests: `nginx.test.ts` (regex derivation, 421 rule, headers); additionally verified against a real nginx 1.31 container (421 / 200 / proxy / HSTS). CI green.
 ---
 
 ## Next Priorities
 
-**Session 191:** `IMP-M10-18` (security headers and strict `Host` at the edge — same nginx template), then `19`, `20`.
+**Session 192:** `IMP-M10-19` (`__Host-` Secure session cookie), then `20`, `21`.
+
+**Session 191:** `IMP-M10-18` (done).
 
 **Session 190:** `IMP-M10-17` (unknown route returns 404), then `18`, `19`.
 
