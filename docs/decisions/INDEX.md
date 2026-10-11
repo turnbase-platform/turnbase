@@ -87,7 +87,7 @@ it carries the one recorded exception to ADR-0012's same-session branch rule.
 ADR-0017 was taken on 2026-10-11, after the clickable prototype of the intended look was approved. It
 reverses ADR-0013 §4 (the muted `theme-neutral` aesthetic) while keeping the rest of 0013: Astryx still
 owns components. The part worth reading is §2, *Delivery* — a built theme, own tokens in plain CSS,
-self-hosted fonts and one lint exemption — because the prototype itself broke the shell CSP and the
+self-hosted fonts and colours defined in one table — because the prototype itself broke the shell CSP and the
 raw-value rules, and the look would not have shipped as prototyped.
 
 ADR-0011 closes OPS-3, open since the review and never addressed: the corpus defined roughly thirty

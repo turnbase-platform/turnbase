@@ -229,24 +229,23 @@ list to code against.
 
 Brand colours Astryx has no family for (the cyan / magenta / amber accents), the glow, sheen and
 spotlight recipes, the pixel-art palette and the motion dials are `--tb-*` custom properties in
-`src/theme/tokens.css`, as `light-dark()` values. They are **additions beside Astryx's tokens, never
-redefinitions of one** (FR-THM-002), and they are the only parallel names the platform defines. Own
+the theme source, as `light-dark()` values built from the `[light, dark]` pairs in
+`src/theme/palette.ts`; the motion dials and other non-colour ones are in `src/theme/tokens.css`. They
+are **additions beside Astryx's tokens, never redefinitions of one** (FR-THM-002), and they are the only parallel names the platform defines. Own
 CSS reads `--spacing-*`, `--color-*`, `--radius-*`, `--shadow-*` and `--tb-*`, nothing else.
 
 ### Enforcement (FR-TOK-008)
 
 Astryx supplies the tokens; nothing stops our own code from bypassing them with a literal. Local
-ESLint rules close that gap. ADR-0013 had removed the `tokens.css` path allow-list because no token
-definition file was left to exempt; ADR-0017 brings that file back, so the colour rules regain
-exactly one exemption.
+ESLint rules close that gap. Colours are written once, in `src/theme/palette.ts`; the rules are
+unchanged and no hand-written file is exempt (ADR-0017 §2.5).
 
 | Rule | Forbids | Escape |
 |---|---|---|
-| `no-raw-color-css`, `no-raw-color-tsx` | Any hex, `rgb()`, `hsl()`, `oklch()` color literal in a `.css` or `.tsx` file | **`src/theme/**` only** — the file that *defines* the values |
+| `no-raw-color-css`, `no-raw-color-tsx` | Any hex, `rgb()`, `hsl()`, `oklch()` color literal in a `.css` or `.tsx` file | none — `palette.ts` is a `.ts` file outside the `.tsx` rule; the generated `turnbase.{css,js,d.ts}` build is ignored by lint |
 | `no-raw-spacing-css` | A `px`/`rem` length on `padding`, `margin`, `gap`, or `inset` in a `.css` file | none |
 
-**The exemption is a path, not a comment.** There is no inline disable, and nothing outside
-`src/theme/` may define a colour. Spacing has no exemption at all: a length that is off the
+**There is no inline disable**, and nothing outside `src/theme/palette.ts` may define a colour. Spacing has no exemption at all: a length that is off the
 `--spacing-*` scale is rounded to it, because a view that needs a value the scale lacks has found a
 design question, not a lint problem.
 
@@ -356,7 +355,7 @@ platform code — the obligation is to *use* it, not to rebuild it.
 |---|---|
 | FR-TOK-001…006 | **Astryx**, set by the TurnBase theme (§2) — tokens; §5 names the families and points at `astryx docs tokens` |
 | FR-TOK-007 | §5 — gradient/glow recipes as `--tb-*` tokens (reinstated, ADR-0017) |
-| FR-TOK-008 (raw-value ban) | §5 *Enforcement* — `no-raw-color-*`/`no-raw-spacing-css`, our own lint rules; colours exempt `src/theme/**` only |
+| FR-TOK-008 (raw-value ban) | §5 *Enforcement* — `no-raw-color-*`/`no-raw-spacing-css`, our own lint rules; colours defined only in `src/theme/palette.ts` |
 | FR-COMP-001…009, 011…014 | **Astryx** — 150+ components; §7 is the lookup path |
 | FR-COMP-010 (`className`) | **Astryx** — supported on components; §5 append-not-substitute |
 | FR-LYT-001…003 | **Astryx** — `Stack`, `Layout` and the layout primitives |

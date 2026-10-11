@@ -182,7 +182,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 
 | **M12 — TurnBase visual identity** ||||
 | IMP-M12-01 | The corpus describes the TurnBase visual identity | docs | — | DONE |
-| IMP-M12-02 | The TurnBase theme is built, themed and switchable | frontend | M12-01 | WIP (session 198) |
+| IMP-M12-02 | The TurnBase theme is built, themed and switchable | frontend | M12-01 | DONE |
 | IMP-M12-03 | The shared `src/ui/` presentation layer | frontend | M12-02 | READY |
 | IMP-M12-04 | Shell, landing and auth views carry the identity | frontend | M12-03 | READY |
 | IMP-M12-05 | Catalog and game detail: hook plus presentational view | frontend | M12-03 | READY |
@@ -6639,8 +6639,8 @@ look, not code to port** (ADR-0017 *Context*).
   written test-first. Coverage stays at or above the repository threshold.
 - **Follow the specification, not the prototype's sample data** (ADR-0017 §4): no presence, no
   invented endpoints, no dock.
-- **Lint stays strict.** The one new exemption is `src/theme/**` from the colour rules; spacing has
-  none. Nothing in `src/` outside `theme/` defines a colour.
+- **Lint stays strict.** No new exemption: colours are written only in `src/theme/palette.ts`, the
+  generated theme build is ignored as machine output, and spacing has none.
 - **Both appearances.** Anything visual is checked in Light and Dark, at 400 px and at desktop width,
   with `prefers-reduced-motion` honoured.
 
@@ -6659,7 +6659,7 @@ look, not code to port** (ADR-0017 *Context*).
   lists it.
 - **Cascaded.** `platform-ui-library.md`, `design-system.md`, `shell-architecture.md`, both
   `CLAUDE.md` files and the milestone map describe the identity, the built theme, `src/theme/`, the
-  `--tb-*` tokens, the one lint exemption and the hook-plus-view split.
+  `--tb-*` tokens, the palette table and the hook-plus-view split.
 - **Registered.** This milestone and its items exist; `python3 scripts/check-corpus.py` is clean.
 
 ### IMP-M12-02 — The TurnBase theme is built, themed and switchable
@@ -6681,11 +6681,13 @@ look, not code to port** (ADR-0017 *Context*).
   the shell CSP is unchanged.
 - **Drift and build.** `npm run build` runs the theme build first; a unit test fails when the committed
   output differs from a fresh build.
-- **Own tokens and fonts.** `src/theme/tokens.css` holds the `--tb-*` additions as `light-dark()`
-  values and redefines no Astryx property; Figtree and Pixelify Sans are self-hosted at exact pins and
+- **Own tokens and fonts.** `src/theme/palette.ts` holds every colour as a `[light, dark]` pair, built
+  into the theme as `light-dark()` values (`--tb-*` additions redefine no Astryx property);
+  `src/theme/tokens.css` holds the non-colour `--tb-*` tokens; Figtree and Pixelify Sans are self-hosted at exact pins and
   only the weights used; `font-src 'self'` is not widened.
-- **Lint.** `no-raw-color-css` and `no-raw-color-tsx` exempt `src/theme/**` and nothing else, with rule
-  tests for both sides of the exemption; `no-raw-spacing-css` is unchanged.
+- **Lint.** `no-raw-color-*` and `no-raw-spacing-css` are unchanged; the generated theme build is
+  ignored by lint and Prettier, and a rule test shows a hand-written stylesheet in `src/theme/`
+  still fails.
 - **Appearance.** A provider holds `light | dark | system` (default `system`), persists it in
   `localStorage` behind try/catch, and drives `<Theme mode>`; a control in the shell switches it and
   is keyboard-operable and labelled.

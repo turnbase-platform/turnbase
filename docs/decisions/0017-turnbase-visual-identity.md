@@ -56,17 +56,24 @@ reducers, sockets and API modules are not restyled and not rewritten.**
    **committed**, exactly as the proto is (`conventions.md` §5). A test fails when the committed
    output has drifted from the source. Components import the `__built` theme; no runtime style
    engine runs.
-2. **Own tokens are plain CSS.** The `--tb-*` tokens (brand colours, glow, sheen, spotlight,
-   pixel-art palette, motion dials) live in `src/theme/tokens.css` as `light-dark()` values. They are
-   *additions* beside Astryx's, never redefinitions of an Astryx property (FR-THM-002 stands).
+2. **Colours are one table; own tokens ride the built theme.** Every colour is a `[light, dark]`
+   pair in `src/theme/palette.ts`, which feeds both Astryx's `--color-*` tokens and the brand
+   `--tb-*` tokens (brand colours, glow, sheen, spotlight, pixel-art palette) as `light-dark()`
+   values in the theme source, so one edit reaches every consumer and the contrast test reads the
+   same table. `src/theme/tokens.css` holds the *non-colour* `--tb-*` tokens (motion dials, geometry).
+   They are *additions* beside Astryx's, never redefinitions of an Astryx property (FR-THM-002
+   stands). *(Amended 2026-10-11, IMP-M12-02: the first draft put the colours in `tokens.css`; a
+   single TS table is what lets a unit test hold every pair to WCAG AA.)*
 3. **Fonts are self-hosted.** `@fontsource/pixelify-sans` joins `@fontsource/figtree`, at exact pins
    and at only the weights used. `font-src 'self'` is not widened.
 4. **Own CSS stays CSS Modules**, one per component, consuming `--spacing-*`, `--color-*`,
    `--radius-*` and `--tb-*`. The prototype's global stylesheet is not carried over.
-5. **The raw-value lint rules keep their shape and gain one exemption.** `no-raw-color-*` (FR-TOK-008)
-   exempts `src/theme/**` — the token definition file the rule was waiting for, which ADR-0013
-   had removed because Astryx supplied every value. `no-raw-spacing-css` has **no** exemption; the
-   prototype's off-grid lengths (10, 14 px) are rounded to the `--spacing-*` scale.
+5. **The raw-value lint rules keep their shape; only generated output is out of scope.**
+   `no-raw-color-*` (FR-TOK-008) is unchanged and still fails in every hand-written `.css` and
+   `.tsx`, `src/theme/` included. Colours are written in `palette.ts` (a `.ts` file, outside the
+   `.tsx` rule), and the `astryx theme build` output is ignored by lint and Prettier as the
+   machine-made file it is. A rule test pins both sides. `no-raw-spacing-css` has **no** exemption;
+   the prototype's off-grid lengths (10, 14 px) are rounded to the `--spacing-*` scale.
 
 ### 3. Structure
 
@@ -123,7 +130,7 @@ Ported views follow the specification, not the prototype's sample data:
 
 | Document | Change |
 |---|---|
-| `platform-ui-library.md` | FR-TOK-001, 005, 007 amended or reinstated; FR-TOK-008 gains the theme-file exemption; FR-THM-001, CON-004, CON-005 and the *Out of Scope* lines amended; a banner points here |
+| `platform-ui-library.md` | FR-TOK-001, 005, 007 amended or reinstated; FR-TOK-008 states where colours may be written; FR-THM-001, CON-004, CON-005 and the *Out of Scope* lines amended; a banner points here |
 | `design-system.md` | §2 stylesheets and providers, §4 layout of `ui/` and `theme/`, §5 tokens and the `--tb-*` prefix, §6 theme selection, §8 absent items |
 | `shell-architecture.md` | Fonts (`font-src 'self'` unchanged; two families); the appearance control |
 | `registry.md` | M12, `IMP-M12-01…11` |
@@ -134,4 +141,4 @@ Ported views follow the specification, not the prototype's sample data:
 
 It reverses the decision ADR-0013 §4 recorded as "accepted", and it overrides seven requirement IDs
 that a reader would otherwise take as current. It also sets four rules (built theme, own tokens in
-CSS, self-hosted fonts, the one lint exemption) that every later view has to follow.
+CSS, self-hosted fonts, colours in one table) that every later view has to follow.
