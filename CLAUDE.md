@@ -15,7 +15,7 @@ TurnBase is a platform for hosting and playing multiplayer games online. It prov
 
 ## Current Phase
 
-**Phase 1 — Implementation** (under way, **132 of 137 work items done**; M9 closed the 2026-10-04 completeness audit, M10 — 24 items — opened from the 2026-10-10 E2E & security audit and is the open milestone now that M11, the Spring Boot 4 migration — 8 items, is done; [ADR-0016](docs/decisions/0016-spring-boot-4-migration.md)). Phase 0 is complete and has
+**Phase 1 — Implementation** (under way, **133 of 137 work items done**; M9 closed the 2026-10-04 completeness audit, M10 — 24 items — opened from the 2026-10-10 E2E & security audit and is the open milestone now that M11, the Spring Boot 4 migration — 8 items, is done; [ADR-0016](docs/decisions/0016-spring-boot-4-migration.md)). Phase 0 is complete and has
 been audited for implementation-readiness — but the first item to actually compile against the corpus
 found three contradictions in its own read-list, so treat "audited" as meaning *no known* defects
 rather than *no* defects.

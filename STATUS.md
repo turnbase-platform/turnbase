@@ -1,9 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-10-11 (session 192) — `IMP-M10-19` **DONE** (132 of 137). `SessionCookies.name()` yields `__Host-turnbase_session` when the platform origin is `https://` (Secure, `Path=/`, no `Domain`) and plain `turnbase_session` on the local http stack; `SessionAuthenticationFilter` and the STOMP handshake interceptor read the name from it, so under TLS a plain-named cookie is ignored. Tests: `SessionCookiesTest`, `SessionAuthenticationFilterTest`. Platform CI green. Local note: `GameAssetControllerIT`/`SeedDataIT` fail on this WSL box (`*.games.localhost` resolves to `::1` only); unrelated, green in CI. Registry read-list fixed (named a nonexistent `session-management.md`).
+**Date:** 2026-10-11 (session 193) — `IMP-M10-20` **DONE** (133 of 137). The actuator `loggers` endpoint is exposed read-only (`management.endpoint.loggers.access=read-only`): `POST /actuator/loggers/{name}` is refused on the unauthenticated management listener; level changes go through config (`LOGGING_LEVEL_*`) and a rollout. Test: `ActuatorLoggersAccessTest`; `observability.md` runtime-log-level section rewritten. Platform CI green.
 ---
 
 ## Next Priorities
+
+**Session 194:** `IMP-M10-21` (scoped object-store credential), then `22`, `23`.
 
 **Session 193:** `IMP-M10-20` (actuator `loggers` read-only), then `21`, `22`.
 

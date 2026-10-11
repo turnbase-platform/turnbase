@@ -195,11 +195,13 @@ create / release (with reason) and `Deregister`. Never logged: credentials, sess
 
 ### Runtime log level, and the endpoint that grants it
 
-FR-OBS-004 requires the level to be adjustable without a restart. `/actuator/loggers/{name}` does
-this, and it is a **write** endpoint: a `POST` changes application behaviour at runtime. It is
-exposed only on the management port, which is the same control that protects the admin API
-(`rest-conventions.md`). Enabling it on the public listener would let anyone set the root logger to
-TRACE and turn the platform into its own denial of service.
+FR-OBS-004 requires the level to be adjustable without a restart. `/actuator/loggers/{name}` could do
+this, but a `POST` there changes application behaviour at runtime, and the management listener is
+unauthenticated — it is restricted by network placement only (`local-environment.md` §1). So the
+endpoint is exposed **read-only** (`management.endpoint.loggers.access=read-only`, IMP-M10-20): `GET`
+shows the current levels, `POST` is refused. A level change is a configuration change
+(`LOGGING_LEVEL_ROOT` / `LOGGING_LEVEL_<logger>`) rolled out as a pod restart; runtime change without a
+restart returns only behind an authenticated path.
 
 ### Shipping: Promtail, not the Loki Docker driver
 
