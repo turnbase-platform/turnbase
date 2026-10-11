@@ -169,7 +169,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M10-21 | The object store uses a scoped service credential | platform | M0-09, M11-08 | DONE |
 | IMP-M10-22 | The Espresso sandbox's container dependency is documented | game-host | M3-02, M11-08 | DONE |
 | IMP-M10-23 | The SDK game frame does not post to a detached parent | sdk | M3-12, M11-08 | DONE |
-| IMP-M10-24 | The anonymous session probe does not log a 401 error | frontend | M7-11, M11-08 | WIP (session 197) |
+| IMP-M10-24 | The anonymous session probe does not log a 401 error | frontend | M7-11, M11-08 | DONE |
 | **M11 — Spring Boot 4 migration** ||||
 | IMP-M11-01 | The corpus describes the Spring Boot 4.1 stack | docs | — | DONE |
 | IMP-M11-02 | `turnbase-platform` compiles on Spring Boot 4.1.1 | platform | M11-01 | DONE |

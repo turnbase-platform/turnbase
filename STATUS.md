@@ -1,12 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-11 (session 196) — `IMP-M10-23` **DONE** (136 of 137). `turnbase-sdk` `TurnBaseClient.post()` already skipped `window.parent === window` (IMP-M9-08); it now also skips a `null` parent (what the HTML spec returns for a detached frame), which previously threw. New unit test red-then-green; `verify`, lint, typecheck, build green; sdk CI green. The warning tripwire (`e2e/fixtures.ts`) already counts warnings (IMP-M9-08), so no frontend change. **Not done:** `turnbase-game-tictactoe`'s `vendor/turnbase-gdk-0.1.0.tgz` still carries the M9-08 build (self-parent guard only) — re-vendor it when next touching that repo for the null case to reach the stack.
+**Date:** 2026-10-11 (session 197) — `IMP-M10-24` **DONE** (137 of 137; M10 closed). A visitor with *no* cookie already got `200 {"authenticated":false}` from the probe (IMP-M7-11), verified live — console and responses clean on `/`, `/games`, `/login`, `/register`. The real frontend gap was a visitor with a *stale* cookie: the probe got the `user-accounts.md` FR-SESS-004 `401`, and because `AuthProvider` did not pass `expectUnauthorized` it fired the VW-REDIR-007 listeners as if a session had ended mid-use. It now passes `expectUnauthorized: true` (unit test in `App.test.tsx`, red-then-green) and a new e2e (`shell.spec.ts`) asserts an anonymous first load logs no console error/warning and sees no 4xx, with the probe at `200` — no `status of 4xx` exemption, unlike the suite tripwire. Format, lint, typecheck, 354 unit tests, build green; frontend CI green. **Not done / observation:** the browser itself still logs `Failed to load resource … 401` for a stale-cookie visitor; JS cannot suppress that, only a platform change (answer the probe `200` with the rejection reason, amending `rest-conventions.md` and `user-accounts.md` FR-SESS-004) could. Not gated: the item's clause is "anonymous first load", which holds.
 
 ---
 
 ## Next Priorities
 
-**Session 197:** `IMP-M10-24` (anonymous session probe does not log a 401 error) — the last open item.
+**Session 198:** every `IMP-*` item is `DONE`; none is `PARTIAL` or `BLOCKED`. Candidates: the stale-cookie probe `401` above (platform + spec), re-vendoring `vendor/turnbase-gdk-0.1.0.tgz` in `turnbase-game-tictactoe` (session 196), and the two absent metrics (histogram config for `HighLatencyP95`, repository metrics).
 
 **Session 196:** `IMP-M10-23` (SDK game frame does not post to a detached parent), then `24`.
 
