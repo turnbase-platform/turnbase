@@ -46,7 +46,7 @@ reducers, sockets and API modules are not restyled and not rewritten.**
 | Surfaces | Fake glass: tint, sheen, a cursor spotlight and a lit edge. **No `backdrop-filter`** — the cost ADR-0013 §4 removed stays removed |
 | Radius | Container 18 px, control 12 px, avatar and overflow buttons full circles. Controls are 44 px tall |
 | Motion | Cursor spotlight and tilt, a reactive starfield, directional page transitions. All of it honours `prefers-reduced-motion`, and none of it carries meaning |
-| Appearance | Light, Dark and Auto, persisted in the browser |
+| Appearance | Light, Dark and Auto, persisted in the browser. Settings → Appearance also holds two browser-local motion choices: **Cursor effects** (off stops the spotlight, tilt and parallax) and **Reduce motion** (treats the page as `prefers-reduced-motion: reduce` when the OS does not ask). Neither is sent to the server |
 
 ### 2. Delivery
 
@@ -65,7 +65,10 @@ reducers, sockets and API modules are not restyled and not rewritten.**
    stands). *(Amended 2026-10-11, IMP-M12-02: the first draft put the colours in `tokens.css`; a
    single TS table is what lets a unit test hold every pair to WCAG AA.)*
 3. **Fonts are self-hosted.** `@fontsource/pixelify-sans` joins `@fontsource/figtree`, at exact pins
-   and at only the weights used. `font-src 'self'` is not widened.
+   and at only the weights used. `font-src 'self'` is not widened. *(Amended 2026-10-11,
+   IMP-M12-11: Vite inlines any asset under 4 KB, which turned the small latin-ext and vietnamese
+   subsets into `data:` URIs the CSP blocks, and the console tripwire failed every spec. The build
+   sets `assetsInlineLimit` so `.woff2` is never inlined.)*
 4. **Own CSS stays CSS Modules**, one per component, consuming `--spacing-*`, `--color-*`,
    `--radius-*` and `--tb-*`. The prototype's global stylesheet is not carried over.
 5. **The raw-value lint rules keep their shape; only generated output is out of scope.**
@@ -124,7 +127,10 @@ Ported views follow the specification, not the prototype's sample data:
   both appearances, and a unit test computes the contrast of every text/background token pair.
 - **Motion budget.** NFR-PERF-002 (60 fps) now applies to something real. The starfield is one
   canvas, paused when the tab is hidden and static under `prefers-reduced-motion`.
-- **Two appearances double the visual surface** the acceptance suite covers.
+- **Two appearances double the visual surface** the acceptance suite covers. The axe sweep runs
+  every route in Light and in Dark by switching the emulated `prefers-color-scheme` (Appearance →
+  Auto follows it), after the colour transitions have settled; a mid-transition read is not a
+  contrast defect.
 
 ### Cascade
 

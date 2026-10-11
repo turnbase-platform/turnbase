@@ -191,7 +191,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M12-08 | Profile, history and statistics | frontend | M12-03 | DONE |
 | IMP-M12-09 | Friends and notifications | frontend | M12-03 | DONE |
 | IMP-M12-10 | Settings | frontend | M12-03 | DONE |
-| IMP-M12-11 | The acceptance sweeps pass in both appearances | frontend, docs | M12-04…10 | WIP (session 198) |
+| IMP-M12-11 | The acceptance sweeps pass in both appearances | frontend, docs | M12-04…10 | DONE |
 
 **148 live items.** `IMP-M12-01…11` were added 2026-10-11 by [ADR-0017](../decisions/0017-turnbase-visual-identity.md): the approved prototype look replaces the stock Astryx theme across every view while the services, reducers and sockets stay as they are (see the M12 section). Before them, 137 live items. `IMP-M11-01…08` were added 2026-10-10 by [ADR-0016](../decisions/0016-spring-boot-4-migration.md), closing `IMP-GATE-97`: both Spring Boot services move to Boot 4.1.1 because two CRITICAL `spring-webmvc` CVEs have no fix on the 3.5 line. **M11 runs before M10** — every `IMP-M10-*` item depends on `IMP-M11-08` — and its items are judged locally with CI not awaited (see the M11 section). `IMP-M10-01…24` were added 2026-10-10 from the
 [E2E & security audit](../reviews/2026-10-10-e2e-security-audit/INDEX.md) (`AUD-01…24`), the first
