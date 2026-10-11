@@ -182,7 +182,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 
 | **M12 — TurnBase visual identity** ||||
 | IMP-M12-01 | The corpus describes the TurnBase visual identity | docs | — | DONE |
-| IMP-M12-02 | The TurnBase theme is built, themed and switchable | frontend | M12-01 | READY |
+| IMP-M12-02 | The TurnBase theme is built, themed and switchable | frontend | M12-01 | WIP (session 198) |
 | IMP-M12-03 | The shared `src/ui/` presentation layer | frontend | M12-02 | READY |
 | IMP-M12-04 | Shell, landing and auth views carry the identity | frontend | M12-03 | READY |
 | IMP-M12-05 | Catalog and game detail: hook plus presentational view | frontend | M12-03 | READY |
