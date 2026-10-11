@@ -318,6 +318,42 @@ the spike proved they do not interpose Espresso's native `java.io`/`java.net`; t
 container provides FS/network/memory (CON-001 correction). Native access is on, so
 the guest JDK's native methods run against the (container-restricted) host OS.
 
+### 4.3 The container dependency (defense in depth, stated so it is not silent)
+
+FR-SEC-005 promises two independent layers (`platform-architecture.md` FR-SEC-005,
+NFR-SEC-003). On GraalVM CE the Espresso layer is the *weaker* one, and several guarantees
+the guest context appears to give are actually the container's. Nothing in the JVM
+changes for this note; it records what the design leans on.
+
+| Guarantee | Held in-JVM by Espresso? | Actually held by |
+|-----------|--------------------------|------------------|
+| Heap/static isolation between game-version contexts (FR-CTX-001/003) | ✅ yes | Espresso |
+| `System.exit` containment (FR-CTX-006) | ✅ yes | Espresso (`java.ExitHost=false`) |
+| Handler wall-clock stop (FR-CTX-008) | ✅ yes | Espresso (`Context.interrupt`) |
+| No filesystem access (FR-CTX-004) | ❌ **no** — guest read `/etc/passwd` with `IOAccess.NONE` | **Container**: read-only rootfs, non-root user |
+| No network access (FR-CTX-005) | ❌ **no** — guest opened a TCP connection | **Container**: egress `NetworkPolicy` |
+| Memory cap (FR-CTX-007) | ❌ **no** — `sandbox.MaxHeapMemory` is Oracle-GraalVM-only | **Container**: pod cgroup limit (pod-wide, not per context) |
+| Syscall-level containment of the native `java.io`/`java.net` surface Espresso forces open (`allowNativeAccess(true)`) | ❌ no | **gVisor** (`runsc`), production only (FR-SEC-001; ADR-0001) |
+
+Evidence and the tests behind each row:
+[`espresso-spike-results.md`](../../reviews/2026-07-02-mvp-readiness/espresso-spike-results.md).
+
+**What follows from this.**
+
+- A breach of the container layer removes the only enforcement of FR-CTX-004/005/007; the
+  Espresso layer does not back it up. The "two layers contain each other" reading of FR-SEC-005
+  therefore holds for cross-context isolation, exit and timeouts, **not** for filesystem,
+  network or memory.
+- The model is safe for the MVP only because the Game Host runs **trusted, official Java
+  games** (ADR-0006). The row labelled "container" is robustness plus defense in depth for
+  such code, not an adversarial boundary; it must be completed (hardened container + gVisor)
+  before untrusted backends are hosted.
+- **The container properties of §4.1 are not provisioned today.** Neither the Compose stack
+  (`deploy/compose/docker-compose.yml`) nor the Helm chart (`gamehost-deployment.yaml`) sets a
+  read-only root filesystem, a `securityContext`, a memory limit (the chart's
+  `gamehost.resources` defaults to `{}`), an egress `NetworkPolicy` or a gVisor
+  `runtimeClassName`; only the image's non-root `USER` is in force. "It ran locally" says nothing about the container layer.
+
 ---
 
 ## 5. Serialization engine (shared component — GRMP-F4)
