@@ -78,8 +78,8 @@ reducers, sockets and API modules are not restyled and not rewritten.**
 ### 3. Structure
 
 - **`src/ui/`** grows from near-empty to the shared presentation layer: the pointer-effect
-  delegation, `Starfield`, `Logo`, the pixel-art and icon set, `Person` (initials avatar),
-  `PillTabs`, and the list-query kit — `ScrollPanel`, `FilterPanel`, `FilterButton`, `SortControl`,
+  delegation, `Starfield`, `Logo`, the pixel-art and icon set, `PillTabs`, the
+  directional `Pane`, and the list-query kit — `ScrollPanel`, `FilterPanel`, `FilterButton`, `SortControl`,
   `PageBar`. ADR-0013 §2's ladder still applies to *Astryx* components: `ui/` composes and, where
   Astryx ships nothing, writes; it does not wrap an Astryx component to rename it. The two import
   rules in `design-system.md` §4 stand — entered through `ui/index.ts` only, and `ui/` imports nothing
@@ -98,7 +98,7 @@ reducers, sockets and API modules are not restyled and not rewritten.**
 Ported views follow the specification, not the prototype's sample data:
 
 - **No presence.** `social-friends.md` puts online/offline indicators out of scope, so the Friends
-  view is one list, not Online / In a game / Offline groups, and `Person` has no status dot.
+  view is one list, not Online / In a game / Offline groups, and an avatar is Astryx `Avatar` with `name` and no `status`, so no dot.
 - **No invented endpoints.** The prototype's "Invites" column in Rooms shows only what a real
   notification or API already carries; where none exists the column is not built.
 - **The prototype dock is not product.** The session switcher and "sample data" labels are dropped;

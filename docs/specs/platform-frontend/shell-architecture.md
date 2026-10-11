@@ -30,7 +30,7 @@ src/
 │                 friends, notifications, game
 ├── shared/       api client, WebSocket client, hooks, types
 ├── theme/        the TurnBase theme source, its built output, and the --tb-* tokens (ADR-0017)
-├── ui/           the shared presentation layer: effects, Starfield, Logo, icons, Person, PillTabs, the list-query kit
+├── ui/           the shared presentation layer: effects, Starfield, Logo, icons, PillTabs, Pane, the list-query kit
 └── index.css     the stylesheet imports, in cascade-layer order
 ```
 

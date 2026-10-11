@@ -183,7 +183,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M12 — TurnBase visual identity** ||||
 | IMP-M12-01 | The corpus describes the TurnBase visual identity | docs | — | DONE |
 | IMP-M12-02 | The TurnBase theme is built, themed and switchable | frontend | M12-01 | DONE |
-| IMP-M12-03 | The shared `src/ui/` presentation layer | frontend | M12-02 | WIP (session 198) |
+| IMP-M12-03 | The shared `src/ui/` presentation layer | frontend | M12-02 | DONE |
 | IMP-M12-04 | Shell, landing and auth views carry the identity | frontend | M12-03 | READY |
 | IMP-M12-05 | Catalog and game detail: hook plus presentational view | frontend | M12-03 | READY |
 | IMP-M12-06 | Rooms list and join-by-code: hook plus presentational view | frontend | M12-03 | READY |
@@ -6709,9 +6709,10 @@ look, not code to port** (ADR-0017 *Context*).
 
 **Done when:**
 - **The layer.** `src/ui/index.ts` exports the pointer-effect delegation (spotlight and tilt),
-  `Starfield`, `Logo`, the pixel-art and icon set, `Person` (initials, no status dot), `PillTabs`, a
-  directional pane transition, and the list-query kit: `ScrollPanel` (a border and nothing else),
-  `FilterPanel`, `FilterButton`, `SortControl`, `PageBar`.
+  `Starfield`, `Logo`, the pixel-art and icon set, `PillTabs`, a directional pane transition, and the list-query kit: `ScrollPanel` (a border and nothing else),
+  `FilterPanel`, `FilterButton`, `SortControl`, `PageBar`. There is no `Person`: Astryx `Avatar` already
+  shows initials from `name` and a status dot only when given `status`, so a wrapper would only rename
+  it (ADR-0017 §3); views pass `name` and never `status`.
 - **Controlled and honest.** `PageBar` and `SortControl` are controlled over the API's `page`, `size`
   and `sort=field,dir`; they never slice or sort data themselves.
 - **Motion budget.** Every effect is disabled under `prefers-reduced-motion`; `Starfield` is one

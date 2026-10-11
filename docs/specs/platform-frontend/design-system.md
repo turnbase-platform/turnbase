@@ -153,8 +153,8 @@ turnbase-frontend/src/
 ```
 
 `ui/` holds what the identity needs and Astryx does not ship (ADR-0017 §3): pointer-effect
-delegation, `Starfield`, `Logo`, the pixel-art and icon set, `Person` (initials avatar), `PillTabs`,
-and the list-query kit (`ScrollPanel`, `FilterPanel`, `FilterButton`, `SortControl`, `PageBar`). It
+delegation, `Starfield`, `Logo`, the pixel-art and icon set, `PillTabs`, the directional `Pane`, and the
+list-query kit (`ScrollPanel`, `FilterPanel`, `FilterButton`, `SortControl`, `PageBar`). It
 is **not** a wrapper layer: application code imports `Button` from `@astryxdesign/core/Button`
 directly. Wrapping every Astryx component in a pass-through of our own would re-create the
 maintenance burden ADR-0013 exists to avoid, and it would put a stale prop signature between the
@@ -334,7 +334,7 @@ without a local install and is the faster path when the frontend is not checked 
 - **No wrapper layer.** §4 — application code imports Astryx directly.
 - **No parallel token scale.** §5 — Astryx's tokens plus the `--tb-*` additions, nothing that redefines one.
 - **No `backdrop-filter`.** Glass is faked (ADR-0017 §1); the cost ADR-0013 removed stays removed.
-- **No presence indicators.** Online/offline status is out of scope (`social-friends.md`), so `Person` is initials only.
+- **No presence indicators.** Online/offline status is out of scope (`social-friends.md`), so an avatar is Astryx `Avatar` with `name` and never `status`.
 - **No charts.** §1 — canary-only packages, and no v1 requirement needs one.
 - **No general animation system.** `platform-ui-library.md` *Out of Scope* as amended: a fixed set of decorative effects, nothing configurable.
 - **No i18n or RTL.** Out of scope. Our own CSS still prefers `inline-start`/`inline-end` over
