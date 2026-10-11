@@ -81,7 +81,7 @@ equivalent, `design-system.md` §3's ladder applies: compose, then swizzle, then
 
 | ID | Title | Description | Priority |
 |----|-------|-------------|----------|
-| FR-THM-001 | One theme, two appearances | **Amended by ADR-0017.** The platform ships one theme — TurnBase's own — in **Light, Dark and Auto**. Auto (the default) follows the OS preference; an explicit choice is made with a control in the shell and persists in the browser. The preference is presentation only: it is never sent to the server and never changes what a view does. | Must |
+| FR-THM-001 | One theme, two appearances | **Amended by ADR-0017.** The platform ships one theme — TurnBase's own — in **Light, Dark and Auto**. Auto (the default) follows the OS preference; an explicit choice is made with a control in the shell (and in Settings → Appearance, beside the cursor-effects and reduce-motion switches) and persists in the browser. The preference is presentation only: it is never sent to the server and never changes what a view does. | Must |
 | FR-THM-002 | Token injection | **Astryx.** `<Theme theme={turnbaseTheme}>` (the built TurnBase theme, ADR-0017) at the root plus `data-astryx-theme` on `<html>`. Application code must not redefine these properties. | Must |
 
 ## Non-Functional Requirements

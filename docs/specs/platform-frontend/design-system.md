@@ -293,6 +293,12 @@ The decorative effects (pointer spotlight and tilt, the starfield, directional p
 all switched off by `prefers-reduced-motion` and by the user's Reduced-motion setting, carry no
 meaning, and the starfield pauses while the tab is hidden (NFR-PERF-002).
 
+The two motion settings live in Settings → Appearance beside Light / Dark / Auto, and are
+browser-local like it: `ui/motion/preferences.ts` keeps *Cursor effects* (default on) and *Reduce
+motion* (default off) in `localStorage`, mirrors a departure from the default onto `<html>`
+(`data-cursor-effects="off"`, `data-reduce-motion="true"`) so stylesheets honour them the way they
+honour the media query, and `prefersReducedMotion()` reads both. Neither is ever sent to the server.
+
 ### Version discipline
 
 Exact pins (§1), deliberate upgrades through `astryx upgrade --apply`, and a swizzle inventory that
