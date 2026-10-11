@@ -1,9 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-11 (session 195) — `IMP-M10-22` **DONE** (135 of 137). Docs only: `game-host-internals.md` §4.3 records which isolation guarantees Espresso holds in-JVM (cross-context heaps, `System.exit`, `Context.interrupt`) and which the container holds (filesystem, network, memory cap; gVisor for syscalls, production only), links `espresso-spike-results.md`, and states that neither the Compose stack nor the Helm chart provisions the §4.1 container properties yet (`gamehost.resources: {}`, no `securityContext`/`NetworkPolicy`). `turnbase-game-host` README gained a pointer section; game-host CI green. No in-JVM behaviour change.
+**Date:** 2026-10-11 (session 196) — `IMP-M10-23` **DONE** (136 of 137). `turnbase-sdk` `TurnBaseClient.post()` already skipped `window.parent === window` (IMP-M9-08); it now also skips a `null` parent (what the HTML spec returns for a detached frame), which previously threw. New unit test red-then-green; `verify`, lint, typecheck, build green; sdk CI green. The warning tripwire (`e2e/fixtures.ts`) already counts warnings (IMP-M9-08), so no frontend change. **Not done:** `turnbase-game-tictactoe`'s `vendor/turnbase-gdk-0.1.0.tgz` still carries the M9-08 build (self-parent guard only) — re-vendor it when next touching that repo for the null case to reach the stack.
+
 ---
 
 ## Next Priorities
+
+**Session 197:** `IMP-M10-24` (anonymous session probe does not log a 401 error) — the last open item.
 
 **Session 196:** `IMP-M10-23` (SDK game frame does not post to a detached parent), then `24`.
 
