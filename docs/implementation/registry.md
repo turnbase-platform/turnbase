@@ -164,7 +164,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M10-16 | Denial copy states the real reason | frontend, platform | M8-06, M11-08 | DONE |
 | IMP-M10-17 | An unknown route returns 404, not a soft 200 | frontend | M8-06, M11-08 | DONE |
 | IMP-M10-18 | Security headers and strict `Host` matching at the edge | frontend | M8-06, M11-08 | DONE |
-| IMP-M10-19 | The session cookie is `Secure` and `__Host-`-prefixed under TLS | platform | M1-06, M11-08 | WIP (session 192) |
+| IMP-M10-19 | The session cookie is `Secure` and `__Host-`-prefixed under TLS | platform | M1-06, M11-08 | DONE |
 | IMP-M10-20 | The actuator `loggers` endpoint is read-only | platform | M0-10, M11-08 | READY |
 | IMP-M10-21 | The object store uses a scoped service credential | platform | M0-09, M11-08 | READY |
 | IMP-M10-22 | The Espresso sandbox's container dependency is documented | game-host | M3-02, M11-08 | READY |
@@ -6287,7 +6287,7 @@ a copy fix, not a corpus contradiction.
 
 **Read first:**
 - `docs/requirements/user-accounts.md` CON-004 (httpOnly, Secure, SameSite=Strict cookie)
-- `docs/specs/platform/session-management.md` (cookie attributes)
+- `docs/specs/api-design/rest-conventions.md` § Authentication (cookie attributes; the former `platform/session-management.md` does not exist)
 
 **Satisfies:** `user-accounts.md` FR-SESS-001
 

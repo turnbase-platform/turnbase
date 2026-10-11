@@ -1,9 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-10-11 (session 191) — `IMP-M10-18` **DONE** (131 of 137). The edge's `default_server` now proxies only the games origin: `15-derive-origins.envsh` derives `TURNBASE_GAME_HOST_REGEX` from the origin template, a `map $host` gates it, any other `Host` gets `421`. The shell locations carry `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options: DENY` and HSTS (only when `X-Forwarded-Proto: https`) beside the CSP. Proxied locations (`/api/`, `/ws`) and the games origin pass the monolith's own headers through. Tests: `nginx.test.ts` (regex derivation, 421 rule, headers); additionally verified against a real nginx 1.31 container (421 / 200 / proxy / HSTS). CI green.
+**Date:** 2026-10-11 (session 192) — `IMP-M10-19` **DONE** (132 of 137). `SessionCookies.name()` yields `__Host-turnbase_session` when the platform origin is `https://` (Secure, `Path=/`, no `Domain`) and plain `turnbase_session` on the local http stack; `SessionAuthenticationFilter` and the STOMP handshake interceptor read the name from it, so under TLS a plain-named cookie is ignored. Tests: `SessionCookiesTest`, `SessionAuthenticationFilterTest`. Platform CI green. Local note: `GameAssetControllerIT`/`SeedDataIT` fail on this WSL box (`*.games.localhost` resolves to `::1` only); unrelated, green in CI. Registry read-list fixed (named a nonexistent `session-management.md`).
 ---
 
 ## Next Priorities
+
+**Session 193:** `IMP-M10-20` (actuator `loggers` read-only), then `21`, `22`.
 
 **Session 192:** `IMP-M10-19` (`__Host-` Secure session cookie), then `20`, `21`.
 
