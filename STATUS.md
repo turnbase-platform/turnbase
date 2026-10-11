@@ -1,9 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-10-11 (session 193) — `IMP-M10-20` **DONE** (133 of 137). The actuator `loggers` endpoint is exposed read-only (`management.endpoint.loggers.access=read-only`): `POST /actuator/loggers/{name}` is refused on the unauthenticated management listener; level changes go through config (`LOGGING_LEVEL_*`) and a rollout. Test: `ActuatorLoggersAccessTest`; `observability.md` runtime-log-level section rewritten. Platform CI green.
+**Date:** 2026-10-11 (session 194) — `IMP-M10-21` **DONE** (134 of 137). The monolith and Game Host authenticate to the object store with a bucket-scoped MinIO user (`TURNBASE_ARTIFACT_STORE_ACCESS_KEY`/`_SECRET_KEY`), not the root account: the compose `minio-init` step and the Helm init Job create the user and attach the `turnbase-app` policy (`deploy/compose/minio/app-policy.json`; Helm renders it from `minio.bucket`). Verified live against MinIO (put/get/list/delete allowed on the bucket; `mb` and admin denied). Test: `ObjectStoreCredentialScopeTest`; `local-environment.md` §5/§7.9 and `secrets-and-configuration.md` §1/§4 updated. Platform CI green (build + e2e). Note: `GameAssetControllerIT` fails locally in this WSL sandbox (`*.games.localhost` unresolvable inside the JDK) on master too; CI is green.
 ---
 
 ## Next Priorities
+
+**Session 195:** `IMP-M10-22` (Espresso sandbox container dependency documented), then `23`, `24`.
 
 **Session 194:** `IMP-M10-21` (scoped object-store credential), then `22`, `23`.
 

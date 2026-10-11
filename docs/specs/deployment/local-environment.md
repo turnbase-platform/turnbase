@@ -373,10 +373,24 @@ minio-init:
     /bin/sh -c "
     mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
     mc mb --ignore-existing local/$$TURNBASE_ARTIFACT_STORE_BUCKET &&
-    mc anonymous set none local/$$TURNBASE_ARTIFACT_STORE_BUCKET"
+    mc anonymous set none local/$$TURNBASE_ARTIFACT_STORE_BUCKET &&
+    mc admin policy create local turnbase-app /policy/app-policy.json &&
+    mc admin user add local $$TURNBASE_ARTIFACT_STORE_ACCESS_KEY $$TURNBASE_ARTIFACT_STORE_SECRET_KEY &&
+    mc admin policy attach local turnbase-app --user $$TURNBASE_ARTIFACT_STORE_ACCESS_KEY"
 ```
 
-Under Kubernetes the same three commands run as a `Job` with the chart's `minio` credentials.
+Under Kubernetes the same commands run as a `Job` with the chart's `minio` credentials (the policy
+comes from a `ConfigMap` rendered from `minio.bucket`).
+
+**The applications never hold the root account** (`IMP-M10-21`). The last three commands create the
+scoped service credential: a MinIO user whose only policy (`turnbase-app`) allows
+`s3:ListBucket`/`s3:GetBucketLocation` on the bundle bucket and `s3:GetObject`/`s3:PutObject`/
+`s3:DeleteObject` on its objects, and nothing on any other bucket or on the admin API. The monolith
+and the Game Host receive that pair as `TURNBASE_ARTIFACT_STORE_ACCESS_KEY`/`_SECRET_KEY`; the root
+pair (`MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`) reaches only the MinIO server and this init step.
+Every `mc admin` command is idempotent, so the job still runs on each `docker compose up`.
+`ObjectStoreCredentialScopeTest` in `turnbase-platform` fails the build if an application setting is
+pointed back at the root variables or the policy widens beyond the bucket.
 
 `--ignore-existing` makes the step idempotent, which matters because it runs on every
 `docker compose up` and a second run must not fail the stack. `mc anonymous set none` is explicit
@@ -649,6 +663,7 @@ the Game Host does not read them.
 | `spring.data.redis.password` | **no default** — secret, `secrets-and-configuration.md` § Redis (`TURNBASE_REDIS_PASSWORD`) | `SPRING_DATA_REDIS_PASSWORD` |
 | `turnbase.artifact-store.endpoint` | `http://minio:9000` | `TURNBASE_ARTIFACT_STORE_ENDPOINT` |
 | `turnbase.artifact-store.bucket` | `turnbase-bundles` | `TURNBASE_ARTIFACT_STORE_BUCKET` |
+| `turnbase.artifact-store.access-key` / `secret-key` | **no default** — the scoped service credential, never the MinIO root pair (§5, `secrets-and-configuration.md` § MinIO / S3) | `TURNBASE_ARTIFACT_STORE_ACCESS_KEY` / `TURNBASE_ARTIFACT_STORE_SECRET_KEY` |
 | `management.server.port` | `8081` | `MANAGEMENT_SERVER_PORT` |
 | `management.server.address` | **unset**, both profiles (§1 — compose restricts by publishing the port to `127.0.0.1` on the host, not by the app's own bind address) | `MANAGEMENT_SERVER_ADDRESS` |
 | `logging.level.root` | `INFO` | `LOGGING_LEVEL_ROOT` |

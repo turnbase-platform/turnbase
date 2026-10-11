@@ -166,7 +166,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M10-18 | Security headers and strict `Host` matching at the edge | frontend | M8-06, M11-08 | DONE |
 | IMP-M10-19 | The session cookie is `Secure` and `__Host-`-prefixed under TLS | platform | M1-06, M11-08 | DONE |
 | IMP-M10-20 | The actuator `loggers` endpoint is read-only | platform | M0-10, M11-08 | DONE |
-| IMP-M10-21 | The object store uses a scoped service credential | platform | M0-09, M11-08 | WIP (session 194) |
+| IMP-M10-21 | The object store uses a scoped service credential | platform | M0-09, M11-08 | DONE |
 | IMP-M10-22 | The Espresso sandbox's container dependency is documented | game-host | M3-02, M11-08 | READY |
 | IMP-M10-23 | The SDK game frame does not post to a detached parent | sdk | M3-12, M11-08 | READY |
 | IMP-M10-24 | The anonymous session probe does not log a 401 error | frontend | M7-11, M11-08 | READY |
@@ -843,7 +843,7 @@ identically). Fixed: `local-environment.md` §7.9 now names `spring.data.redis.h
 that the chart and compose "carry `SPRING_DATA_REDIS_URL`" is superseded.
 
 **Read first:**
-- `docs/specs/deployment/secrets-and-configuration.md` in full — the nine secrets, the two-role
+- `docs/specs/deployment/secrets-and-configuration.md` in full — the ten secrets, the two-role
   Postgres split (§4), and §6 *What must never be written down*
 - `docs/specs/deployment/local-environment.md` §7 — the consolidated configuration surface
 

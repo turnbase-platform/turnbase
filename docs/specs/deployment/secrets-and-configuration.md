@@ -21,13 +21,14 @@ belongs in version control and in a `ConfigMap`, and nothing here ever does.
 | PostgreSQL **owner** password (`turnbase_owner`) | Provisioning only — never held by a running service | Restart of the init step | `.env` |
 | PostgreSQL **application** password (`turnbase_app`) | Platform Monolith | With a two-phase change | `.env` |
 | Redis password | Monolith, Game Host | With a two-phase change | `.env` |
-| MinIO access key + secret | Monolith, Game Host | Yes (second key pair, then retire) | `.env` |
+| MinIO **root** user + password | MinIO server and the init step only — never an application | Restart | `.env` |
+| MinIO scoped access key + secret | Monolith, Game Host | Yes (second key pair, then retire) | `.env` |
 | Google OAuth client ID + secret | Platform Monolith | Yes (Google permits two) | `.env`, absent by default |
 | Admin Basic-auth credentials | Platform Monolith | Restart | `.env` |
 | Grafana admin password | Grafana | Restart | `.env` |
 | Alert webhook URL (`TURNBASE_ALERT_WEBHOOK_URL`) | Alertmanager | Replace the URL | `.env`, absent by default |
 
-Nine secrets, one of which rotates on a schedule. The rest rotate when something has gone wrong,
+Ten secrets, one of which rotates on a schedule. The rest rotate when something has gone wrong,
 which is why only the first gets a mechanism and the others get a procedure.
 
 **A Slack or email webhook URL is a bearer credential**, not a configuration value: anyone holding it
@@ -279,15 +280,18 @@ inward is a production concern (§7).
 
 ### MinIO / S3
 
-Access key and secret, held by both services. The Game Host needs read access to fetch bundles; the
+The applications hold a **scoped service credential**, never the root account: a MinIO user limited by
+policy to the bundle bucket (`local-environment.md` §5, `IMP-M10-21`). Access key and secret, held by
+both services. The Game Host needs read access to fetch bundles; the
 monolith needs write access to issue pre-signed upload URLs
 ([`../api-design/file-uploads.md`](../api-design/file-uploads.md)). A single credential does both
 locally; the production escalation is two IAM roles, one read-only.
 
 The bucket itself is **not** a secret and is therefore in
 [`local-environment.md`](local-environment.md) §7.9, not here. It is created by the init step in §5 of
-that document, using the same root credentials; the application's own credential needs only object
-read/write on it.
+that document, using the root credentials — the one place they are used, together with the MinIO server
+itself; the same step creates the scoped credential, which has object read/write/delete and bucket
+listing on that one bucket and nothing else.
 
 **A pre-signed URL is itself a bearer credential** with the lifetime of
 `turnbase.uploads.slot-ttl`. It appears in a `201` response body and therefore in any client that
