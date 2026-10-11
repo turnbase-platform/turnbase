@@ -154,7 +154,7 @@ turnbase-frontend/src/
 
 `ui/` holds what the identity needs and Astryx does not ship (ADR-0017 §3): pointer-effect
 delegation, `Starfield`, `Logo`, the pixel-art and icon set, `PillTabs`, the directional `Pane`, and the
-list-query kit (`ScrollPanel`, `FilterPanel`, `FilterButton`, `SortControl`, `PageBar`, `ListPage`) and the single-purpose `CardPage` frame (sign-in, invite). It
+list-query kit (`ScrollPanel`, `FilterPanel`, `FilterButton`, `SortControl`, `PageBar`, `ListPage`), the single-purpose `CardPage` frame (sign-in, invite) and the titled `SectionCard` panel. It
 is **not** a wrapper layer: application code imports `Button` from `@astryxdesign/core/Button`
 directly. Wrapping every Astryx component in a pass-through of our own would re-create the
 maintenance burden ADR-0013 exists to avoid, and it would put a stale prop signature between the

@@ -80,7 +80,7 @@ reducers, sockets and API modules are not restyled and not rewritten.**
 - **`src/ui/`** grows from near-empty to the shared presentation layer: the pointer-effect
   delegation, `Starfield`, `Logo`, the pixel-art and icon set, `PillTabs`, the
   directional `Pane`, and the list-query kit — `ScrollPanel`, `FilterPanel`, `FilterButton`, `SortControl`,
-  `PageBar`, `ListPage` — plus `CardPage`, the frame of a single-purpose screen. ADR-0013 §2's ladder still applies to *Astryx* components: `ui/` composes and, where
+  `PageBar`, `ListPage` — plus `CardPage`, the frame of a single-purpose screen, and `SectionCard`, a titled panel for a profile or room section. ADR-0013 §2's ladder still applies to *Astryx* components: `ui/` composes and, where
   Astryx ships nothing, writes; it does not wrap an Astryx component to rename it. The two import
   rules in `design-system.md` §4 stand — entered through `ui/index.ts` only, and `ui/` imports nothing
   from `features/`.

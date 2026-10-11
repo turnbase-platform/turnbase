@@ -188,8 +188,8 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M12-05 | Catalog and game detail: hook plus presentational view | frontend | M12-03 | DONE |
 | IMP-M12-06 | Rooms list and join-by-code: hook plus presentational view | frontend | M12-03 | DONE |
 | IMP-M12-07 | The room (lobby, chat, participants, game, result) | frontend | M12-03, M12-06 | DONE |
-| IMP-M12-08 | Profile, history and statistics | frontend | M12-03 | WIP (session 198) |
-| IMP-M12-09 | Friends and notifications | frontend | M12-03 | READY |
+| IMP-M12-08 | Profile, history and statistics | frontend | M12-03 | DONE |
+| IMP-M12-09 | Friends and notifications | frontend | M12-03 | WIP (session 198) |
 | IMP-M12-10 | Settings | frontend | M12-03 | READY |
 | IMP-M12-11 | The acceptance sweeps pass in both appearances | frontend, docs | M12-04…10 | READY |
 
