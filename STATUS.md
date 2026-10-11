@@ -1,9 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-10-11 (session 189) — `IMP-M10-16` **DONE** (129 of 137). New `denialMessage(error, fallback)` in `shared/api.ts` maps a refused action by class: `422`/`409` keep the server's own `detail`, `403` → permission copy, `404` → "does not exist or closed", `429` → wait from `Retry-After`, `503`/`5xx` → server-side copy, non-API failure → connectivity copy. Used by the three join paths (`RoomsPage`, `JoinByCodePage`, `RoomPage`). Platform: full-room `422` detail now "This room is full." (`RoomControllerIT` asserts it). Tests: `api.test.ts`, e2e `rooms.spec.ts` "a refused join names the real reason" (4 classes via mocked responses; a mocked 500 trips the fixture tripwire, so `5xx` is unit-only). Both CI runs green. Not covered: `InviteFriendsButton` and other non-join refusals keep their own copy.
+**Date:** 2026-10-11 (session 190) — `IMP-M10-17` **DONE** (130 of 137). The edge nginx now serves the SPA fallback only for the shell's own routes (regex location mirroring `src/app/routes.tsx` — keep in step); any other path is `404` with `index.html` as body, so the 404 view still renders. CSP moved to a shared `$shell_csp` variable on both locations. Tests: e2e `shell.spec.ts` (unknown paths 404 + view + CSP; known routes 200), `nginx.test.ts` adjusted. CI green. e2e `catalog`/`profile`/`rooms` specs were not re-run after the change (shell, auth, security, sweep, layout, resilience were).
 ---
 
 ## Next Priorities
+
+**Session 191:** `IMP-M10-18` (security headers and strict `Host` at the edge — same nginx template), then `19`, `20`.
 
 **Session 190:** `IMP-M10-17` (unknown route returns 404), then `18`, `19`.
 
