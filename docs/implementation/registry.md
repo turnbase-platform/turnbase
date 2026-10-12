@@ -198,8 +198,8 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M13-03 | Landing page and the quick tour | frontend | M13-02 | DONE |
 | IMP-M13-04 | Auth views and join-by-code | frontend | M13-02 | DONE |
 | IMP-M13-05 | Catalog cards and game detail | frontend | M13-02 | DONE |
-| IMP-M13-06 | Rooms list and the room | frontend | M13-02 | WIP (session 199) |
-| IMP-M13-07 | Profile, friends and settings | frontend | M13-02 | READY |
+| IMP-M13-06 | Rooms list and the room | frontend | M13-02 | DONE |
+| IMP-M13-07 | Profile, friends and settings | frontend | M13-02 | WIP (session 199) |
 | IMP-M13-08 | Side-by-side acceptance and the suites | frontend, docs | M13-03…07 | READY |
 
 **156 live items.** `IMP-M13-01…08` were added 2026-10-12 after the owner reviewed the running M12 build and found it did not match the approved prototype: see the M13 section. `IMP-M12-01…11` were added 2026-10-11 by [ADR-0017](../decisions/0017-turnbase-visual-identity.md): the approved prototype look replaces the stock Astryx theme across every view while the services, reducers and sockets stay as they are (see the M12 section). Before them, 137 live items. `IMP-M11-01…08` were added 2026-10-10 by [ADR-0016](../decisions/0016-spring-boot-4-migration.md), closing `IMP-GATE-97`: both Spring Boot services move to Boot 4.1.1 because two CRITICAL `spring-webmvc` CVEs have no fix on the 3.5 line. **M11 runs before M10** — every `IMP-M10-*` item depends on `IMP-M11-08` — and its items are judged locally with CI not awaited (see the M11 section). `IMP-M10-01…24` were added 2026-10-10 from the
