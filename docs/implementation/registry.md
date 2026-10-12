@@ -193,9 +193,9 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M12-10 | Settings | frontend | M12-03 | DONE |
 | IMP-M12-11 | The acceptance sweeps pass in both appearances | frontend, docs | M12-04…10 | DONE |
 | **M13 — Prototype fidelity** ||||
-| IMP-M13-01 | Fidelity method and the shared presentation kit | docs, frontend | M12-11 | WIP (session 199) |
-| IMP-M13-02 | Shell: floating glass nav, bottom bar, page frame, transitions | frontend | M13-01 | READY |
-| IMP-M13-03 | Landing page and the quick tour | frontend | M13-02 | READY |
+| IMP-M13-01 | Fidelity method and the shared presentation kit | docs, frontend | M12-11 | DONE |
+| IMP-M13-02 | Shell: floating glass nav, bottom bar, page frame, transitions | frontend | M13-01 | DONE |
+| IMP-M13-03 | Landing page and the quick tour | frontend | M13-02 | WIP (session 199) |
 | IMP-M13-04 | Auth views and join-by-code | frontend | M13-02 | READY |
 | IMP-M13-05 | Catalog cards and game detail | frontend | M13-02 | READY |
 | IMP-M13-06 | Rooms list and the room | frontend | M13-02 | READY |
