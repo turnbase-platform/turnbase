@@ -23,11 +23,11 @@ code."*
 
 Phase 1 has since produced a working application whose look is the stock theme. On 2026-10-11 a
 clickable prototype of the intended identity — a deep-space arcade with FTL touches — was built and
-reviewed to approval as a private Claude Artifact (no repository file; the prototype was throwaway
-and is not archived). The owner approved the look and asked for it to replace the stock theme across
+reviewed to approval as a private Claude Artifact (see §5: its screens are the specification of the
+platform's layout, so reference captures of it are kept in `docs/design/prototype/`). The owner approved the look and asked for it to replace the stock theme across
 every view, keeping the services and the BE integration as they are.
 
-The prototype is an *evidence* of the look, not code to port. It ran on static data, injected its
+The prototype's *code* is not ported as it stands. It ran on static data, injected its
 theme with a runtime `<style>`, loaded its font from Google Fonts and used global CSS with raw
 values. Four of those are incompatible with this repository's own rules, so this ADR also settles
 how the look is delivered.
@@ -98,7 +98,8 @@ reducers, sockets and API modules are not restyled and not rewritten.**
 
 ### 4. What the prototype showed that the platform does not have
 
-Ported views follow the specification, not the prototype's sample data:
+Ported views follow the specification for *data*, not the prototype's sample data (the screens' layout
+is governed by §5):
 
 - **No presence.** `social-friends.md` puts online/offline indicators out of scope, so the Friends
   view is one list, not Online / In a game / Offline groups, and an avatar is Astryx `Avatar` with `name` and no `status`, so no dot.
@@ -106,6 +107,35 @@ Ported views follow the specification, not the prototype's sample data:
   notification or API already carries; where none exists the column is not built.
 - **The prototype dock is not product.** The session switcher and "sample data" labels are dropped;
   the Light / Dark / Auto control is kept and moves into the shell (§1).
+
+### 5. Amendment 2026-10-12: the prototype is the specification of the screens
+
+The owner ran the finished M12 build and rejected it as not matching the prototype. M12 ported the
+look but re-designed the screens: a flat top bar for the floating glass navigation, a stripped
+landing, a table where the prototype has cards, and sample content dropped without a word. It passed
+`make e2e` and axe, which cannot see a layout. Milestone M13 corrects that, under three rules.
+
+1. **Layout, copy, components, motion and navigation are reproduced as the prototype shows them.**
+   The code is written for this repository (hooks, CSS Modules, tokens, tests); the screens are not
+   redesigned. A deviation is allowed only where the corpus forbids the prototype's behaviour or the
+   backend has no such data, and only if it is listed below.
+2. **Acceptance is side by side.** A screen is done when a capture of it, Light and Dark, desktop and
+   400 px, has been compared with the prototype's capture in `docs/design/prototype/` and the only
+   differences are in the list below.
+3. **The dock stays out** (§4). The appearance control lives in Settings > Appearance, where the
+   prototype put it.
+
+Deviations — each is a datum the platform does not hold, or a behaviour the corpus rules out:
+
+| Prototype shows | Platform | Why |
+|---|---|---|
+| Friends grouped Online / In a game / Offline, status dots, "Playing Orbit Four" | One list, no dot | `social-friends.md` puts presence out of scope |
+| "128 playing" on every catalog card | Shown on the detail page only (`activePlayerCount`) | `GET /api/games` does not return it |
+| Game cover art, "2 min" length, rules list, "Open rooms" per game | Cover is derived from the game id; length and rules are omitted unless the game ships an info document | The catalog API carries no art, duration or rules |
+| Invites panel in Rooms | Not built unless a notification carries it | No endpoint (§4) |
+| Room "Design preview state" switcher | Absent; the phase follows the room's real state | It is a preview control, not product |
+
+The list is closed: adding a row needs an ADR amendment, not a commit message.
 
 ## Consequences
 
