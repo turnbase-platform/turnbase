@@ -25,12 +25,16 @@
 
 The navigation bar is present on every view.
 
+The bar is a floating glass bar (`IMP-M13-02`). Landing (`/`), Login (`/login`) and Registration
+(`/register`) are *bare* pages: each leads with its own way into the catalog or the account, so the
+bar carries no Game Catalog link there (VW-NAV-002).
+
 ### Nav Components
 
 | ID | Component | Unauth | Guest | Registered |
 |----|-----------|--------|-------|------------|
 | VW-NAV-001 | Logo / brand mark — links to Landing (`/`) | Visible | Visible | Visible |
-| VW-NAV-002 | Game Catalog link | Visible | Visible | Visible |
+| VW-NAV-002 | Game Catalog link — absent on the bare pages `/`, `/login` and `/register` | Visible | Visible | Visible |
 | VW-NAV-003 | Active Rooms link | Hidden | Visible | Visible |
 | VW-NAV-004 | Friends link | Hidden | Hidden | Visible |
 | VW-NAV-005 | Notifications bell | Hidden | Visible | Visible |
