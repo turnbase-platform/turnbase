@@ -80,7 +80,7 @@ async function setup() {
   b.cmd(`/app/room.${roomId}.member`, "TOGGLE_READY", { ready: true });
   await a.wait((m) => m.type === "READINESS_CHANGED");
   const t0 = a.cmd(`/app/room.${roomId}.host`, "START_GAME");
-  const started = await a.wait((m) => m.type === "GAME_STARTED", 30000);
+  const started = await a.wait((m) => m.type === "GAME_STARTED", 200000);
   const sid = started.msg.payload.sessionId;
   for (const x of [a, b, c, d]) x.sub(`/topic/game.${sid}`);
   await sleep(500);

@@ -616,6 +616,7 @@ asserts the difference at startup and refuses to boot if it does not hold.
 |---|---|---|---|
 | `turnbase.gamehost.grpc.port` | `9090` | `TURNBASE_GAMEHOST_GRPC_PORT` | IMP-GATE-17 |
 | `turnbase.gamehost.handler-timeout` | `30s` | `TURNBASE_GAMEHOST_HANDLER_TIMEOUT` | FR-CTX-008 |
+| `turnbase.gamehost.boot-timeout` | `20s` | `TURNBASE_GAMEHOST_BOOT_TIMEOUT` | longest a guest-JVM boot (warm-up or a new context) may run before the host declares itself wedged, deregisters and exits with code 70; `0` disables. `game-host-internals.md` §11, [ADR-0018](../../decisions/0018-game-start-resilience.md). Compose runs the service with `restart: unless-stopped` so the exit is followed by a fresh boot. The image's `docker/supervise.sh` entrypoint additionally kills a JVM that stops answering `/actuator/health` (`TURNBASE_SUPERVISOR_GRACE` 45 s, `TURNBASE_SUPERVISOR_FAILURES` 4) |
 | `turnbase.gamehost.interrupt-escalation-grace` | `5s` | `TURNBASE_GAMEHOST_INTERRUPT_ESCALATION_GRACE` | game-host-internals §15 |
 | `turnbase.gamehost.context-idle-eviction` | `5m` | `TURNBASE_GAMEHOST_CONTEXT_IDLE_EVICTION` | FR-CTX-009 |
 | `turnbase.gamehost.memory-pressure-threshold` | `80%` | `TURNBASE_GAMEHOST_MEMORY_PRESSURE_THRESHOLD` | FR-CTX-010 |
@@ -646,6 +647,8 @@ the Game Host does not read them.
 |---|---|---|---|
 | `turnbase.orchestration.heartbeat-interval` | `5s` | `TURNBASE_ORCHESTRATION_HEARTBEAT_INTERVAL` | `RegisterResponse.heartbeat_interval_seconds` |
 | `turnbase.orchestration.lease-ttl` | `15s` | `TURNBASE_ORCHESTRATION_LEASE_TTL` | `RegisterResponse.lease_ttl_seconds`; three intervals, under NFR-REL-002's 30 s |
+| `turnbase.orchestration.host-wait` | `40s` | `TURNBASE_ORCHESTRATION_HOST_WAIT` | how long each `CreateSession` attempt of a start waits for a Game Host to register, polling every 500 ms; covers a cold stack and a host being restarted after a wedge. `0` fails at once ([ADR-0018](../../decisions/0018-game-start-resilience.md)) |
+| `turnbase.orchestration.quarantine-ttl` | `60s` | `TURNBASE_ORCHESTRATION_QUARANTINE_TTL` | how long a host that timed out a `CreateSession` is skipped by host selection, whichever way its lease stands |
 | `turnbase.orchestration.dispatch-deadline` | `35s` | `TURNBASE_ORCHESTRATION_DISPATCH_DEADLINE` | deadline on `CreateSession`/`ProcessInput`/`Resync`; must exceed `turnbase.gamehost.handler-timeout` (30s) by the transport overhead (`orchestration-gamehost-protocol.md` *Error model*) |
 
 `TerminateSession`'s deadline is not configurable: it is a fixed 2 s

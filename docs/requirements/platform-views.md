@@ -231,6 +231,7 @@ prompts only when both roles are available.
 | VW-RLOBBY-015 | Chat panel (unified message view) | Players only; spectators excluded per `in-room-chat.md` FR-CHAN-004 | Visible | Visible |
 | VW-RLOBBY-016 | Team channel tab | Players with a team assignment; only when the game declares team support | Visible | Visible |
 | VW-RLOBBY-017 | Write channel switcher | Players with access to both room and team channels | Enabled | Enabled |
+| VW-RLOBBY-018 | Game start progress — a spinner and one sentence naming the current phase (starting, waiting for a game server, loading the game, retrying) while a start is in progress; on failure the reason and what to do next (the host also gets the unicast error). The Start Game button is disabled while a start is in progress | All participants, including spectators | Visible | Visible |
 
 Note: Chat behavior, channel rules, and message format are fully specified in `in-room-chat.md`.
 

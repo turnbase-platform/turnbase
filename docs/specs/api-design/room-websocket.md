@@ -57,6 +57,7 @@ The following destinations extend [websocket.md](websocket.md). The game-session
 | `/topic/room.{roomId}` | server→client | Room players and spectators | All room lifecycle, membership, team, readiness, and presence events |
 | `/topic/room.{roomId}.chat` | server→client | Room players only (not spectators) | Room-channel chat messages |
 | `/topic/room.{roomId}.team.{teamId}` | server→client | Players assigned to that team | Team-channel chat messages |
+| `/topic/room.{roomId}.start` | server→client | Current room participants — players and spectators | `GAME_START_STATUS` progress while a `START_GAME` is being carried out. Ephemeral and unversioned; never replayed |
 | `/user/queue/room-state` | server→client | Individual user | Unicast `ROOM_STATE` snapshot in response to `REQUEST_ROOM_STATE` |
 | `/app/room.{roomId}.member` | client→server | Room players and spectators | Member commands: readiness, role switch, snapshot request |
 | `/app/room.{roomId}.host` | client→server | Current room host | Host commands: team management, kick, parameters, game start, host transfer |
@@ -353,6 +354,30 @@ After receiving this event, clients not already told the room was closed by one 
 
 ### Game Lifecycle
 
+#### `GAME_START_STATUS`
+
+Published on `/topic/room.{roomId}.start` while a `START_GAME` whose preconditions hold is being carried
+out, so that every participant sees why the lobby is waiting. It is **not** on `/topic/room.{roomId}`:
+that topic is versioned and its state is reconstructible from `ROOM_STATE`, while a start phase is
+transient and would be replayed stale. It carries no `version`, is never replayed, and a client that
+subscribes mid-start sees nothing until the next phase or `GAME_STARTED`.
+
+```json
+{ "type": "GAME_START_STATUS", "payload": { "phase": "WAITING_FOR_HOST" } }
+```
+
+| `phase` | Meaning |
+|---|---|
+| `STARTING` | The start was accepted; a Game Host is being chosen |
+| `WAITING_FOR_HOST` | No Game Host is eligible yet; the platform is waiting up to `turnbase.orchestration.host-wait` for one to register (a cold stack) |
+| `LOADING_GAME` | `CreateSession` is in flight; the host is loading the game bundle and running `onInit` |
+| `RETRYING` | An attempt failed at the transport or timed out; another is under way, on a different host if one is eligible |
+| `FAILED` | The start was abandoned; `payload.reason` is the `GAME_START_FAILED` reason. The unicast error follows |
+
+Success has no phase of its own: `GAME_STARTED` on `/topic/room.{roomId}` ends the sequence. Every
+sequence ends in `GAME_STARTED` or `FAILED`; a client clears its progress display on either.
+([ADR-0018](../../decisions/0018-game-start-resilience.md))
+
 #### `GAME_STARTED`
 
 The host has started the game (FR-HOST-009). Clients transition to the game view and enter the game-session attach flow: subscribe to the game destinations, then request a sync. See [websocket.md § Game Session Protocol](websocket.md#game-session-protocol).
@@ -610,8 +635,13 @@ to a button it may still render disabled.
 A `START_GAME` whose preconditions hold but whose session cannot be created — no Game Host is eligible
 to take it (`game-host-internals.md` §11's selection finds none), or `CreateSession` fails at the
 transport or in-band (`orchestration-gamehost-protocol.md` *Error model*) — is rejected with
-`GAME_START_FAILED`, unicast to the host. `details.reason` is `NO_HOST_AVAILABLE` or
-`SESSION_CREATION_FAILED`; the failure's own message is never forwarded (it can be text from game
+`GAME_START_FAILED`, unicast to the host. `details.reason` is `NO_HOST_AVAILABLE` (no host registered
+within `host-wait`), `HOST_UNRESPONSIVE` (a host accepted the call and did not answer within the
+dispatch deadline, on every attempt; it is set aside for `quarantine-ttl`) or
+`SESSION_CREATION_FAILED` (the call failed in-band or at the transport for a reason a retry cannot
+help); each carries a message that says what the host can do next. The platform makes at most three
+attempts, and waits for a host to register before each; progress is published as
+`GAME_START_STATUS`. The failure's own message is never forwarded (it can be text from game
 code). Nothing about the room changes: it stays in Lobby with `active_session_id` unset, no
 `GAME_STARTED` is broadcast, and the host may send `START_GAME` again (`IMP-GATE-88`).
 
@@ -630,6 +660,7 @@ Authorization is enforced at two layers.
 | `/topic/room.{roomId}` (subscribe) | Sender is a member or spectator of the room | Silent drop — **except** the one case below |
 | `/topic/room.{roomId}.chat` (subscribe) | Sender is a non-spectator player in the room | Silent drop |
 | `/topic/room.{roomId}.team.{teamId}` (subscribe) | Sender is a player assigned to `teamId` | Silent drop |
+| `/topic/room.{roomId}.start` (subscribe) | Sender is a current participant (player or spectator) of the room | Silent drop |
 | `/app/room.{roomId}.member` (send) | Sender is a member or spectator of the room | Error on `/user/queue/errors` |
 | `/app/room.{roomId}.host` (send) | `principal.id == room.hostId` (evaluated at message time) | Error on `/user/queue/errors` |
 
@@ -675,7 +706,7 @@ The client follows this sequence on entering a room:
 
 1. REST join or create → response sets routing hint directing traffic to the owning pod.
 2. Client establishes WebSocket (`/ws`) to the owning pod.
-3. Client subscribes to `/topic/room.{roomId}`, `/user/queue/room-state`, `/user/queue/errors`, and — if a player — `/topic/room.{roomId}.chat`; and — if team-assigned — `/topic/room.{roomId}.team.{teamId}`.
+3. Client subscribes to `/topic/room.{roomId}`, `/user/queue/room-state`, `/user/queue/errors`, and — if a player — `/topic/room.{roomId}.chat`; and — if team-assigned — `/topic/room.{roomId}.team.{teamId}`; and `/topic/room.{roomId}.start`.
 4. Client sends `REQUEST_ROOM_STATE` on `/app/room.{roomId}.member`.
 5. Server acquires room lock → reads current state → stamps snapshot with current version → sends `ROOM_STATE` to `/user/queue/room-state` for the requesting user → releases lock.
 6. Client receives snapshot, sets `localVersion = snapshot.version`.
@@ -725,7 +756,7 @@ errors use the envelope above, and REST errors use [error-handling.md](error-han
 | `TEMPLATE_MAX_TEAMS` | `ADD_TEAM` would exceed `count.max` for the template |
 | `SIZE_OUT_OF_RANGE` | `configuredSize` outside `[size.min, size.max]` |
 | `START_CONDITIONS_NOT_MET` | `START_GAME` when FR-TEAM-009 conditions are not satisfied; `details` lists the unmet conditions |
-| `GAME_START_FAILED` | `START_GAME` when the preconditions hold but the session could not be created; `details.reason` is `NO_HOST_AVAILABLE` or `SESSION_CREATION_FAILED`. The room stays in Lobby |
+| `GAME_START_FAILED` | `START_GAME` when the preconditions hold but the session could not be created; `details.reason` is `NO_HOST_AVAILABLE`, `HOST_UNRESPONSIVE` or `SESSION_CREATION_FAILED`. The room stays in Lobby |
 | `TARGET_NOT_PLAYER` | `TRANSFER_HOST` targeting a spectator or AI player |
 | `SPECTATOR_CAPACITY_FULL` | `SWITCH_TO_SPECTATOR` when spectator limit is reached |
 | `SPECTATING_NOT_ENABLED` | `SWITCH_TO_SPECTATOR` when spectating is disabled for the room |
@@ -807,6 +838,6 @@ Within a single, uninterrupted claim, gaps should not occur (single producer, ST
 
 ## Spectator Event Visibility
 
-Spectators subscribe to `/topic/room.{roomId}` and receive all events in that topic, including readiness, team, and parameter events. They do not subscribe to chat topics (`/topic/room.{roomId}.chat`, `/topic/room.{roomId}.team.{teamId}`); the `SubscriptionInterceptor` rejects spectator subscriptions to those destinations silently.
+Spectators subscribe to `/topic/room.{roomId}` and receive all events in that topic, including readiness, team, and parameter events. They also subscribe to `/topic/room.{roomId}.start`, so the start progress is visible to them too. They do not subscribe to chat topics (`/topic/room.{roomId}.chat`, `/topic/room.{roomId}.team.{teamId}`); the `SubscriptionInterceptor` rejects spectator subscriptions to those destinations silently.
 
 Spectator visibility of game effects during an active session is governed by `platform-architecture.md` FR-DELIVER-002 and `game-contracts.md` FR-FE-006, which restrict spectators to `broadcast` effects only. The permissive lobby visibility policy does not extend to the game topic.

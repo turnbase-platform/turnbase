@@ -119,6 +119,17 @@ the host.
 | 10 | Monolith | Broadcast `GAME_STARTED {sessionId, gameFrontendUrl}` on `/topic/room.{roomId}` | — |
 | 11 | Both clients | Load the iframe from `gameFrontendUrl`, subscribe to the game destinations, then `REQUEST_GAME_SYNC` — see [flow 03](03-game-turn.md) | — |
 
+**Steps 6–9 are resilient to a cold or restarting Game Host, and visible
+([ADR-0018](../../decisions/0018-game-start-resilience.md)).** Orchestration makes at most three
+`CreateSession` attempts. If no host is eligible it first polls for `turnbase.orchestration.host-wait`
+(40 s, before each attempt). `UNAVAILABLE` — a stale pooled channel after a host restart — retries on a
+fresh channel. `DEADLINE_EXCEEDED` quarantines that host for `quarantine-ttl` (60 s) and retries on
+another; three timeouts end as `HOST_UNRESPONSIVE`. Any other failure is `SESSION_CREATION_FAILED` and is
+not retried. Throughout, the Monolith publishes `GAME_START_STATUS` (`STARTING`, `WAITING_FOR_HOST`,
+`LOADING_GAME`, `RETRYING`, then `FAILED` with its reason) on `/topic/room.{roomId}.start`, which every
+participant receives; the sequence ends with `GAME_STARTED` (step 10) or with `FAILED` and the unicast
+`GAME_START_FAILED`. The retry is safe because `CreateSession` is idempotent per `sessionId`.
+
 **Step 3 re-validates under the lock because host identity is mutable runtime state.** The
 channel-level check reads a `Principal` bound at connect time; `TRANSFER_HOST` can have landed since.
 The same two-level pattern appears throughout the protocol — cheap guard at the interceptor,

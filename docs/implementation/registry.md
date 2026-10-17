@@ -201,8 +201,11 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M13-06 | Rooms list and the room | frontend | M13-02 | DONE |
 | IMP-M13-07 | Profile, friends and settings | frontend | M13-02 | DONE |
 | IMP-M13-08 | Side-by-side acceptance and the suites | frontend, docs | M13-03…07 | WIP (session 199) |
+| IMP-M14-01 | Game start waits, retries, quarantines and publishes progress | platform, docs | — | DONE |
+| IMP-M14-02 | Game Host boot watchdog and restart supervision | game-host, platform | — | DONE |
+| IMP-M14-03 | Game start progress in the lobby | frontend | M14-01 | DONE |
 
-**156 live items.** `IMP-M13-01…08` were added 2026-10-12 after the owner reviewed the running M12 build and found it did not match the approved prototype: see the M13 section. `IMP-M12-01…11` were added 2026-10-11 by [ADR-0017](../decisions/0017-turnbase-visual-identity.md): the approved prototype look replaces the stock Astryx theme across every view while the services, reducers and sockets stay as they are (see the M12 section). Before them, 137 live items. `IMP-M11-01…08` were added 2026-10-10 by [ADR-0016](../decisions/0016-spring-boot-4-migration.md), closing `IMP-GATE-97`: both Spring Boot services move to Boot 4.1.1 because two CRITICAL `spring-webmvc` CVEs have no fix on the 3.5 line. **M11 runs before M10** — every `IMP-M10-*` item depends on `IMP-M11-08` — and its items are judged locally with CI not awaited (see the M11 section). `IMP-M10-01…24` were added 2026-10-10 from the
+**159 live items.** `IMP-M14-01…03` were added 2026-10-17 by ADR-0018: a game start that survives a cold, restarting or wedged Game Host and shows its progress; see the M14 section. `IMP-M13-01…08` were added 2026-10-12 after the owner reviewed the running M12 build and found it did not match the approved prototype: see the M13 section. `IMP-M12-01…11` were added 2026-10-11 by [ADR-0017](../decisions/0017-turnbase-visual-identity.md): the approved prototype look replaces the stock Astryx theme across every view while the services, reducers and sockets stay as they are (see the M12 section). Before them, 137 live items. `IMP-M11-01…08` were added 2026-10-10 by [ADR-0016](../decisions/0016-spring-boot-4-migration.md), closing `IMP-GATE-97`: both Spring Boot services move to Boot 4.1.1 because two CRITICAL `spring-webmvc` CVEs have no fix on the 3.5 line. **M11 runs before M10** — every `IMP-M10-*` item depends on `IMP-M11-08` — and its items are judged locally with CI not awaited (see the M11 section). `IMP-M10-01…24` were added 2026-10-10 from the
 [E2E & security audit](../reviews/2026-10-10-e2e-security-audit/INDEX.md) (`AUD-01…24`), the first
 black-box run of the full stack after the build plan reached 105: two Critical cross-user breaches
 (`IMP-M10-01` the ownerless-upload hole closed by `IMP-GATE-96`, `IMP-M10-02` the wildcard-subscribe
@@ -6974,6 +6977,50 @@ was accepted on e2e and axe alone, which cannot see a layout.
 - Every screen has been compared with the prototype in both appearances at both widths; `make e2e`
   and the axe sweep pass; STATUS and both `CLAUDE.md` files name M13 as closed.
 
+
+## M14 — Game start resilience
+
+Opened 2026-10-17 by [ADR-0018](../decisions/0018-game-start-resilience.md). On a freshly set-up stack
+*Start* failed with "The game could not be started" until the Game Host was restarted by hand, and
+the lobby showed nothing meanwhile. The corpus amendments (`room-websocket.md`, flow 02 §E,
+`game-host-internals.md` §11, `local-environment.md`, `VW-RLOBBY-018`) landed with the ADR.
+
+### IMP-M14-01 — Game start waits, retries, quarantines and publishes progress
+
+**Repo:** `turnbase-platform`
+
+**Done when:**
+- `GameSessionService.create` makes at most three attempts, waits up to `host-wait` for a host on the
+  first, retries `UNAVAILABLE` on a fresh channel, and quarantines a host that times out for
+  `quarantine-ttl`; `selectHost` skips quarantined hosts. A unit test covers each branch.
+- `START_GAME` failures carry `NO_HOST_AVAILABLE`, `HOST_UNRESPONSIVE` or `SESSION_CREATION_FAILED`
+  with an actionable message.
+- `GAME_START_STATUS` is published on `/topic/room.{id}.start` and the subscription is authorised for
+  current participants only.
+
+### IMP-M14-02 — Game Host boot watchdog and restart supervision
+
+**Repo:** `turnbase-game-host`, `turnbase-platform` (Compose)
+
+**Done when:**
+- The image's entrypoint (`docker/supervise.sh`) SIGKILLs a JVM that stops answering its health
+  probe, so a whole-JVM stall ends in a restart. Every guest boot also runs under `BootWatchdog`; on
+  expiry the host reports DOWN, deregisters, halts with code 70 and SIGKILLs itself if that hangs.
+  Unit tests cover the watchdog, the wedge sequence, the health indicator and Spring's choice of
+  `HostWedge` constructor.
+- The Compose `gamehost` service has `restart: unless-stopped`.
+- Forty consecutive Game Host restarts, each followed by a full game on the driver, all pass.
+
+### IMP-M14-03 — Game start progress in the lobby
+
+**Repo:** `turnbase-frontend`
+
+**Depends on:** IMP-M14-01
+
+**Done when:**
+- Every lobby participant, spectators included, sees a spinner and the phase's sentence from
+  `GAME_START_STATUS`; the host's Start button is disabled while a start is running; a failure shows
+  its reason and what to do; the display clears on `GAME_STARTED`.
 
 ---
 

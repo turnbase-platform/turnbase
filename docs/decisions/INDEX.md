@@ -25,6 +25,7 @@ Format: one file per decision, numbered sequentially (`NNNN-slug.md`). Status is
 | [0015](0015-static-analysis-error-prone-nullaway.md) | Static analysis at skeleton time — Error Prone and NullAway | Accepted |
 | [0016](0016-spring-boot-4-migration.md) | Both Spring Boot services move to Spring Boot 4.1 | Accepted |
 | [0017](0017-turnbase-visual-identity.md) | The platform takes a TurnBase visual identity on top of Astryx (amends 0013 §4) | Accepted |
+| [0018](0018-game-start-resilience.md) | Starting a game survives a cold, restarting or wedged Game Host, and says what it is doing | Accepted |
 
 ## Provenance
 
@@ -95,3 +96,8 @@ tables while naming no migration tool at all. It is recorded as an ADR rather th
 because two of its rules constrain every future change — forward-only, and backward-compatible with
 the previous application version — and because the second is what makes the image rollback the CI/CD
 pipeline already promises (FR-CICD-008) true rather than nominal.
+
+ADR-0018 was taken on 2026-10-17 after a freshly set-up stack refused every game start with a generic
+error until the Game Host was restarted by hand. The part worth reading is §2: a sizeable share of cold
+boots stall the whole JVM inside Truffle's native interface, so no code inside it can notice, and a
+separate process has to kill it.
