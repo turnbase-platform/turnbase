@@ -369,6 +369,27 @@ ConfigMap sets `SPRING_PROFILES_ACTIVE=local`. Its liveness and readiness probes
 The Prometheus Deployment uses the image's default config (self-scrape only). `driver.mjs` already
 honours `PLATFORM_HOST` and `PLATFORM_URL`.
 
+- [ ] **Step 0: Preflight (this task needs a live cluster).** Run each, in this order, and stop at
+  the first that fails:
+  1. `docker info >/dev/null` exits 0 (Docker Desktop is running).
+  2. `kubectl config current-context` prints `docker-desktop`.
+  3. `kubectl get nodes --no-headers` shows one node `Ready`.
+  4. `helm version --short` prints a v3 version.
+  5. `kubectl get pods -n ingress-nginx --no-headers` shows the controller `Running`. If the
+     namespace is absent, install ingress-nginx as `local-environment.md` §5 describes; do not skip it,
+     the origins in Step 6 depend on it.
+  6. `test -f turnbase-platform/deploy/helm/turnbase/values-local.secrets.yaml`. If missing, **generate
+     it; this is not a blocker**: copy `values-local.secrets.example.yaml` and fill every non-OAuth
+     value with `openssl rand -hex 16` (the file is git-ignored). `minio.appAccessKey` must differ from
+     `minio.rootUser`. `auth.jwtKeySet` is the JSON in the example's comment, with `secret` set to
+     `openssl rand -base64 32`, `kid` `k1`, `notBefore` `2020-01-01T00:00:00Z`, `retired` `[]`. Leave the
+     `oauth` values empty.
+  7. `docker image inspect turnbase/platform:dev turnbase/game-host:dev turnbase/frontend:dev` exits 0.
+     Build any that is missing (`docker build -t turnbase/<name>:dev .` in its repository) from `master`
+     after Tasks 2 to 4 merged. Build the Tic-Tac-Toe seed bundle (`local-environment.md` §6) and note
+     its absolute path for `platform.seed.bundlesHostPath`.
+  If 1 to 5 fail, the cluster is down: report `BLOCKED` naming the failed command, after re-running it
+  once (CLAUDE.md, *Re-check externally-gated blockers live*). Steps 6 and 7 never block.
 - [ ] **Step 1: Prove the failure.** Install the unchanged chart on Docker Desktop Kubernetes with the
   git-ignored `values-local.secrets.yaml`, with the platform and Game Host images built from merged `master`
   after Tasks 2 to 4 (`docker build -t turnbase/platform:dev .` in `turnbase-platform`, the same with
@@ -411,12 +432,11 @@ honours `PLATFORM_HOST` and `PLATFORM_URL`.
   `--set 'gamehost.extraEnv[0].name=X,gamehost.extraEnv[0].value=1'` (and the `platform.` form); the
   Prometheus args contain `--web.enable-remote-write-receiver` only with the flag set. Re-run
   `helm lint`.
-- [ ] **Step 9: Verify live.** `helm upgrade --install turnbase deploy/helm/turnbase -f values-local.yaml -f values-local.secrets.yaml`,
+- [ ] **Step 9: Verify live.** `helm upgrade --install turnbase deploy/helm/turnbase -f values-local.yaml -f values-local.secrets.yaml --set platform.seed.bundlesHostPath=<Step 0 path>`,
   then confirm in this order and record the commands in `local-environment.md`: all pods Ready; the
   `hosts` set holds one member whose address is the Game Host pod IP with port `9090`;
   `PLATFORM_HOST=turnbase.localhost PLATFORM_URL=http://turnbase.localhost node .claude/skills/run-turnbase/driver.mjs game`
-  passes (set `platform.seed.bundlesHostPath` in the values overlay to the tic-tac-toe bundle
-  directory so the game exists); Prometheus `/api/v1/targets` shows both jobs `up`;
+  passes; Prometheus `/api/v1/targets` shows both jobs `up`;
   `http_server_requests_seconds_bucket` returns a series. Any failure here is a defect in the chart or
   in Tasks 2 to 4; fix it where it lives.
 - [ ] **Step 10: Commit.** In `turnbase-platform`:

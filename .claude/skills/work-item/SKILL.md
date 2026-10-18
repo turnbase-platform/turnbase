@@ -135,6 +135,32 @@ existed.
 
 When the item finally becomes `DONE`, delete its `**Remaining:**` line.
 
+## Live-environment and measurement items
+
+Some sections carry an `**Environment:**` line (the M15 load-testing items). It overrides the
+defaults above where it speaks, and nowhere else.
+
+- **Preflight first.** Run the preflight the line names before anything else. A failed check on the
+  cluster (Docker, the `docker-desktop` context, a Ready node, Helm, ingress) is `BLOCKED`, naming the
+  failed command, but only after you run that command again live and it still fails. A
+  git-ignored secrets file that is missing is generated from its `*.example`; that is setup, not a
+  blocker, and neither is a missing local image (build it).
+- **Long commands.** One shell call is capped at ten minutes and the loop warns after fifteen without
+  output. A command expected to take more than eight minutes runs in the background, and you poll its
+  output at most every five minutes, emitting a `LOOP_PHASE` line each time. Never end the turn to
+  "check back".
+- **Umbrella-only items** (**Repo:** `turnbase`, "nothing to bump") have no submodule, so there is no
+  ref to bump and no pipeline to wait for: the umbrella repository has no CI workflow. `DONE` means the
+  *Done when* clause holds, `check-corpus.py` is clean, and `master` is pushed. Do not `gh run watch`. An item that also lists a component repository (`IMP-M15-07` changes the chart in
+  `turnbase-platform`) is not umbrella-only: that part follows §8 as usual.
+- **Measurement items** (a section that says "measurement only") record what the system does. No code,
+  chart or overlay change, whatever the numbers are, and a bad number is a result, not a failure. A
+  finding goes into the run's report and into the list the section names, and does not become a new
+  registry item. The item is `DONE` when the reports exist and are complete, not when the system passes.
+- **Owner-reserved decisions.** When a section says to *record* a conflict rather than resolve it,
+  write the open question where the section says (an `OQ-*` entry in the owning document's *Open
+  questions*). That is not a `Gate:` line and the row does not become `BLOCKED`. Do not choose a side.
+
 ## When the documents fail you
 
 Two documents contradict each other, or the item leaves you a decision that should have been made —

@@ -43,6 +43,11 @@ class PromptsTest(unittest.TestCase):
                 self.assertIn("starting, claiming, reading, implementing, testing,", prompt)
                 self.assertTrue(prompt.endswith("LOOP_STATUS: FINISHED <all items complete>"))
 
+    def test_ci_wait_applies_only_where_ci_exists(self):
+        self.assertIn("only where a CI workflow", prompts.PROMPT)
+        self.assertIn("umbrella repository has none", prompts.PROMPT.replace("\n", " "))
+        self.assertIn("umbrella-only items have none", prompts.RESUME_PROMPT)
+
     def test_prompt_openings_are_unchanged(self):
         self.assertTrue(prompts.PROMPT.startswith("Pick up the next TurnBase Phase 1 work item"))
         self.assertTrue(prompts.RESUME_PROMPT.startswith("This session was interrupted before"))

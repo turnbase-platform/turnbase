@@ -371,8 +371,8 @@ Spec work is in scope of this effort (orchestrator's call):
 - A0 picks the pod IP or a headless Service, as the spec already permits either; no spec change is
   needed unless the code path disagrees, and then it goes through the `spec-defect` skill.
 - The four recon defects below are filed and fixed through `spec-defect`.
-- Work items go in a **new milestone M15** in `docs/implementation`, per the work-item conventions.
-  Registry entries are created later, during planning.
+- Work items are registered as **milestone M15** in
+  [`registry.md`](../../implementation/registry.md) (`IMP-M15-01…13`, 2026-10-18).
 
 ### Known spec defects found during recon
 
@@ -388,8 +388,10 @@ To be filed through the `spec-defect` skill when work starts:
 ## 12. Phase A outcome
 
 **Measurement only** (owner). Phase A delivers the harness plus committed reports stating where and why
-the system breaks. It does not fix what it finds. Each degradation found is filed as a separate
-follow-up work item (or spec defect) and prioritised by the owner afterwards; Phase B starts after.
+the system breaks. It does not fix what it finds. Each degradation found is recorded in the
+run's report and listed in §13; the owner turns entries into work items (or spec defects) and
+prioritises them afterwards, and Phase B starts after. An agent running a Phase A item does not add
+registry items.
 
 **Sequencing** (owner):
 
@@ -398,3 +400,11 @@ follow-up work item (or spec defect) and prioritised by the owner afterwards; Ph
 2. **Then the test definition.** A2 provisioning, the A3 k6 harness and scenarios, `loadtest/reset.sh`,
    the report template and the README.
 3. **Then test runs and reports.**
+
+## 13. Follow-ups
+
+Findings of the Phase A runs, one entry each, appended by the run items (`IMP-M15-11…13`) and read by the
+owner. An entry names the report it comes from, the symptom with its numbers, the suspected cause and
+what was not checked. It is not a work item and nothing here is scheduled.
+
+_No entries yet._

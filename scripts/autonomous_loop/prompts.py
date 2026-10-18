@@ -46,7 +46,10 @@ This is a single non-interactive turn: there is no later turn in which to
 bumping its ref at the top level, block on it synchronously in one tool call
 (e.g. `gh run watch <run-id> --exit-status`) and then finish the rest of the
 checklist in the same turn — never end your turn planning to check CI, or
-anything else, "once it completes".
+anything else, "once it completes". This applies only where a CI workflow
+exists: an item that changes only the umbrella repository has none (see the
+`work-item` skill, "Live-environment and measurement items"), so there is
+nothing to wait for.
 
 {_PHASES}
 
@@ -96,7 +99,7 @@ tree is left clean and on master.
 
 Same rule as before: block synchronously on anything you need (e.g.
 `gh run watch <run-id> --exit-status`) rather than ending your turn planning
-to check back later.
+to check back later. (Only where a CI workflow exists; umbrella-only items have none.)
 
 {_PHASES}
 
