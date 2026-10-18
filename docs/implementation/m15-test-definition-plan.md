@@ -410,7 +410,7 @@ Every scenario file exports `options`, `setup` (calls `loginAll`) and a `default
 - [ ] **Step 12: Verify reset.**
   ```bash
   bash loadtest/reset.sh
-  kubectl exec statefulset/turnbase-postgres -- psql -U turnbase_owner -d turnbase -tA -c "SELECT count(*) FROM users WHERE username LIKE 'lt-%'"
+  kubectl exec statefulset/turnbase-postgres -- psql -U turnbase_owner -d turnbase -tA -c "SELECT count(*) FROM app_user WHERE username LIKE 'lt-%'"
   kubectl exec statefulset/turnbase-redis -- sh -c 'redis-cli -a "$TURNBASE_REDIS_PASSWORD" DBSIZE' 2>/dev/null
   ```
   Expected: `RESET OK`, `0`, and a `DBSIZE` of a handful of keys (the Game Host lease and the platform's

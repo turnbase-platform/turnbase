@@ -1,14 +1,14 @@
 ## Last Session Summary
 
-**Date:** 2026-10-18 (session 207) — **`IMP-M15-06` DONE: the Game Host runs under the Helm chart.** `turnbase-platform` `16e1aa5`; 164 of 172 items done, `IMP-M13-08` still `WIP` and owner-held. **`IMP-M15-01…06`, the M15 blockers, are all done.**
+**Date:** 2026-10-18 (session 208) — **`IMP-M15-07` DONE: the load-test scaffold.** `turnbase-platform` `b287e9b` (chart CI green); 165 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
 
-**What landed.** `gamehost-configmap.yaml` gains the Redis and artifact-store endpoints; new `gamehost-secret.yaml` holds exactly the Redis password and the scoped artifact pair; the Game Host Deployment advertises `status.podIP`. `platform.extraEnv` and `gamehost.extraEnv` (both default `[]`), `observability.prometheus.remoteWriteReceiver` (default `false`), a Prometheus ConfigMap with the `platform` and `gamehost` jobs, and `values-local.yaml` origins without `:8080`. `local-environment.md` has a new *Installing the chart on Docker Desktop Kubernetes* section with the commands that were run.
+**What landed.** Chart: `postgres.resources` and `redis.resources` (default `{}`). Umbrella `loadtest/`: `helm/values-loadtest.yaml` (the fixed overlay), `preflight.sh`, `install.sh`, `reset.sh`, `lib/{config,metrics,player}.js` (HTTP half), `scenarios/provision.js`, `README.md` (run procedure, reset, `.wslconfig`, memory limits, a placeholder for `IMP-M15-09`'s scripts).
 
-**Verified live** (Docker Desktop, Helm 4.3): before the change the Game Host pod was `Running` but logged `Redis health check failed` and never registered; after it, every pod ready, `host:<id>` `address` = `10.1.3.217:9090` = the pod IP, the driver's `game` scenario exits 0, Prometheus has both jobs `up` and 295 `http_server_requests_seconds_bucket` series.
+**Verified live** (Docker Desktop): `PREFLIGHT OK` before and after the install, `FAIL` with exit 1 on a dead `BASE_URL`; pods carry the overlay (platform 4 CPU/3Gi, Game Host 4/4Gi, Postgres 2/1Gi, Redis 1/512Mi), none `Pending`; the platform log shows profiles `local, loadtest`; `provision.js` created 2,000 users in 68 s, the second run created 0, `lt-00001` logs in with 200; `reset.sh` took 44 s, left 0 `lt-%` rows and Redis `DBSIZE` 5, and provisioning created 2,000 again.
 
-**Findings.** (1) The *Done when* clause said `smembers hosts` prints `<pod IP>:9090`; the set holds host ids and the address is in the `host:<id>` hash. The clause was corrected in the registry, the intent was unambiguous. (2) Under WSL 2 the seed `hostPath` must be a Windows-side path (`/run/desktop/mnt/host/c/...`), and Node cannot resolve `turnbase.localhost` (`EAI_AGAIN`); both are in the new section. The deleted `m15-blockers-plan.md` is gone with its INDEX row. The cluster is left running with release `turnbase` installed; the seed bundle copy is in `C:\Users\Hubert\turnbase-seed`.
+**Findings.** (1) The *Done when* clause named a `users` table; it is `app_user`. Corrected in the registry and the plan. (2) The plan's `--set platform.seed=…` is `platform.seed.bundlesHostPath` in the chart, and under WSL 2 it must be the `/run/desktop/mnt/host/c/...` form; `install.sh` copies the bundle to `C:\Users\<you>\turnbase-seed` or takes `SEED_HOST_PATH`. (3) Pods are labelled `app.kubernetes.io/name`, not `component`. The cluster is left running with the loadtest overlay installed and 2,000 users provisioned.
 
-**Not done.** Nothing else from M15. `IMP-M15-07` is next.
+**Not done.** Nothing else from M15. `IMP-M15-08` is next.
 
 ---
 
@@ -18,7 +18,7 @@
 `scripts/autonomous-work-loop.sh`; each item's *Read first* list in the registry is all the context an
 agent needs.
 
-**Order:** `IMP-M15-01`…`06` (DONE) -> `07` -> `08`
+**Order:** `IMP-M15-01`…`07` (DONE) -> `08`
 -> `09` -> `10` -> `11` -> `12`, `13`. The registry's *Depends on* column enforces this; `12` also waits
 for `10`, and `13` for `12`.
 

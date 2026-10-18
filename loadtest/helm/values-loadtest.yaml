@@ -1,0 +1,35 @@
+# Phase A load-test overlay, applied after values-local (and the secrets file). Every value here is
+# fixed for all Phase A runs (m15-test-definition-plan.md); a run item never edits it.
+# requests == limits, so the cgroup caps are the figures reported. If the Docker Desktop VM has
+# fewer than 12 CPUs, halve every cpu below and record it in the report.
+origins:
+  platform: http://turnbase.localhost
+  gameFrontendTemplate: "http://{gameId}.games.localhost"
+platform:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+  resources:
+    requests: { cpu: "4", memory: 3Gi }
+    limits:   { cpu: "4", memory: 3Gi }
+  extraEnv:
+    - { name: SPRING_PROFILES_ACTIVE, value: "local,loadtest" }
+    - { name: JDK_JAVA_OPTIONS, value: "-XX:MaxRAMPercentage=70" }
+gamehost:
+  replicaCount: 1
+  resources:
+    requests: { cpu: "4", memory: 4Gi }
+    limits:   { cpu: "4", memory: 4Gi }
+  extraEnv:
+    - { name: JDK_JAVA_OPTIONS, value: "-XX:MaxRAMPercentage=70" }
+postgres:
+  resources:
+    requests: { cpu: "2", memory: 1Gi }
+    limits:   { cpu: "2", memory: 1Gi }
+redis:
+  resources:
+    requests: { cpu: "1", memory: 512Mi }
+    limits:   { cpu: "1", memory: 512Mi }
+observability:
+  prometheus:
+    remoteWriteReceiver: true

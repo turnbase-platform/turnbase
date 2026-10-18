@@ -211,7 +211,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M15-04 | HTTP latency histograms | platform | M15-01 | DONE |
 | IMP-M15-05 | Configurable Game Host advertised address | game-host | M15-01 | DONE |
 | IMP-M15-06 | Game Host runs under the Helm chart | platform (chart), docs | M15-03, M15-04, M15-05 | DONE |
-| IMP-M15-07 | Load-test scaffold: overlay, reset, user provisioning | platform (chart), docs (umbrella) | M15-06 | WIP (session 208) |
+| IMP-M15-07 | Load-test scaffold: overlay, reset, user provisioning | platform (chart), docs (umbrella) | M15-06 | DONE |
 | IMP-M15-08 | k6 STOMP client and pair game loop | docs (umbrella) | M15-07 | READY |
 | IMP-M15-09 | Load scenarios, thresholds and report template | docs (umbrella) | M15-08 | READY |
 | IMP-M15-10 | `contexts` scenario (droppable) | docs (umbrella) | M15-09 | READY |
@@ -7283,7 +7283,7 @@ generated, not a blocker; a cluster that is down is `BLOCKED`.
   Redis (512Mi); `kubectl get pods` shows none `Pending`.
 - The platform log shows the `loadtest` profile active and no `RateLimitEnabledProfileCheck` failure.
 - Provisioning creates 2,000 `lt-*` users: a second run reports 0 created, and a login for `lt-00001` returns 200.
-- `bash loadtest/reset.sh` empties the stack (`SELECT count(*) FROM users WHERE username LIKE 'lt-%'`
+- `bash loadtest/reset.sh` empties the stack (`SELECT count(*) FROM app_user WHERE username LIKE 'lt-%'`
   returns 0 and `redis-cli dbsize` is no more than the seed's) and provisioning then works again.
 - `loadtest/README.md` documents the run procedure, the reset and the `.wslconfig` recommendation.
 - `python3 scripts/check-corpus.py` prints `clean`; the `turnbase-platform` chart branch is green, merged
