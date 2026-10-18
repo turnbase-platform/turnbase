@@ -150,7 +150,8 @@ Nothing else is measurable until this is done.
 - Advertise a dialable address: pod IP through the downward API, or a headless Service **(builder's
   call)**. Follow the spec; if spec and code conflict, use the `spec-defect` skill.
 - Supply Redis host and password and the artifact-store credentials from a Secret.
-- Add a liveness probe on `/actuator/health` (the session-200 note).
+- The Game Host Deployment already has liveness and readiness probes on
+  `/actuator/health/liveness` and `/actuator/health/readiness`; nothing to add.
 - Add Prometheus scrape jobs for the platform and Game Host management ports.
 - Enable `http.server.requests` percentile histograms **by default**. This fixes `HighLatencyP95` and is
   not load-test-only.

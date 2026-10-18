@@ -130,7 +130,12 @@ The five failure modes most likely to survive a green build, each with the test 
   its resolution order: configured value verbatim when it contains `:`; configured value plus
   `:` and `grpc.port` when it does not; the local host name plus the port when blank or absent;
   `localhost:` plus the port when the host name does not resolve. Say the chart sets it from the pod
-  IP.
+  IP. An IPv6 literal must be given bracketed with its port (for example `[fd00::1]:9090`); a bare IPv6 literal is unsupported, because the colon rule would read it as already carrying a port. Task 4 implements the colon rule only and adds no IPv6 handling.
+- [ ] **Step 4a: Reword the e2e statement.** `local-environment.md` §8 (*Testing*, the paragraph
+  beginning "E2E runs with `turnbase.rate-limit.enabled=false`", near line 721) becomes: E2E runs with
+  the master rate-limit switch off; the master switch or any per-mechanism switch may be off only
+  under the `test`, `e2e` or `loadtest` profile, and the application refuses to start otherwise
+  (§7.6). Keep the GRMP rationale sentence.
 - [ ] **Step 5: Specify the metrics.** In `observability.md` *Exposure* state that
   `http.server.requests` publishes percentile histograms with a 5 ms minimum and 30 s maximum
   expected value. Replace the sentence "Under Kubernetes the two `static_configs` become a
