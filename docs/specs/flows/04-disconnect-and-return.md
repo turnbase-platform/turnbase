@@ -103,7 +103,7 @@ against `lastAppliedSequence`.
 | 2 | Sweep | Holds the room claim (or skips the row) | — |
 | 3 | Sweep | One transaction: `left_at = now()`, `leave_reason = 'GRACE_EXPIRED'`, slot released, `version++`, **and** `INSERT INTO game_input_outbox` a `player_left` for this session | **`room_participant`, `game_input_outbox`** |
 | 4 | Sweep | Commit, broadcast `PLAYER_LOST` | — |
-| 5 | Drain | Allocate `sequence` once via `UPDATE … SET sequence=:seq WHERE id=:id AND sequence IS NULL`; `SubmitInput(player_left)`; stamp `dispatched_at` **on ACK** | **`game_input_outbox`** |
+| 5 | Drain | Allocate `sequence` once via `UPDATE … SET sequence=:seq WHERE id=:id AND sequence IS NULL`; `ProcessInput(player_left)`; stamp `dispatched_at` **on ACK** | **`game_input_outbox`** |
 | 6 | Game Host | `onPlayerLeft` — the game decides: replace with AI, continue, forfeit (`FR-EXPIRY-002`) | — |
 
 **Step 3 writes the outbox row inside the same transaction as the slot release**, and that is the

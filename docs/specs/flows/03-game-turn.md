@@ -67,7 +67,7 @@ inside the handler — `FR-DELIVER-002`'s filtering is not the only thing keepin
 |---|---|---|---|
 | 1 | Orchestration | `INCR seq:{sessionId}` → `sequence = 43` | **Redis** |
 | 2 | Orchestration | Enqueue the input on the session queue | **Redis** |
-| 3 | Orchestration | gRPC `SubmitInput(sessionId, sequence=43, input)` | — |
+| 3 | Orchestration | gRPC `ProcessInput(sessionId, sequence=43, input)` | — |
 | 4 | Game Host | `sequence <= lastAppliedSequence` → **replay**: return the retained result, do not re-invoke | — |
 | 5 | Game Host | Otherwise acquire the session's **single-flight lock** | — |
 | 6 | Game Host | GDK Host deserializes the input across the Espresso boundary | — |

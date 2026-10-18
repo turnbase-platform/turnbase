@@ -636,6 +636,8 @@ dequeued without `OK`). If the dead host had actually applied it (advanced
 §9.1 step 1 → **replay**, so the action is not double-applied (GAME-B2 closed). If it
 had not applied it, the new host applies it fresh. Either way: exactly-once.
 
+*Whether reassignment happens when the lease expires or on the next input is open: see §18 `OQ-5`.*
+
 **Platform pod crash (the other direction).** When the Platform Monolith pod that owns
 a room dies, the Game Host is unaffected: the session record is intact, and no guest
 state is lost. The room is adopted by another pod under the ownership claim of
@@ -945,3 +947,12 @@ All tunable via env/config, never hard-coded:
   invocation. If a real game's state (de)serialization proves a hotspot within the
   30 s budget, add an opt-in live-guest-object cache keyed by session (still
   persisting JSON to Redis).
+- **OQ-5 — eager or lazy reassignment after a Game Host dies.** §9.3 reads as *eager*: when the
+  liveness lease expires, Orchestration marks the instance failed, clears `routing:{sessionId}` for all
+  its sessions and selects a new host, with no input needed to trigger it. The code reassigns *lazily*:
+  nothing happens at lease expiry, and the first `ProcessInput` for a session whose routed host is
+  unreachable calls `reassign`, which selects a replacement and rewrites `routing:{sessionId}`
+  (`turnbase-platform/src/main/java/io/turnbase/platform/game/GameInputService.java`, `reassign`). The
+  difference shows only for a session that receives no input between the crash and the next turn, and in
+  how long a restored session sits with a dead routing entry. Neither reading is chosen here; the owner
+  decides which one the spec describes and whether the code changes. Found by `IMP-M15-02` (2026-10-18).

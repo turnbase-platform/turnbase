@@ -145,7 +145,7 @@ Out of Scope).
 ```
 
 The gRPC seam runs in **both** directions, and that is easy to miss: the monolith is the client for
-`CreateSession`/`SubmitInput`/`TerminateSession`, and the *server* for
+`CreateSession`/`ProcessInput`/`TerminateSession`, and the *server* for
 `Register`/`Heartbeat`/`ReportContexts` ([`../game-host/game-host-internals.md`](../game-host/game-host-internals.md)
 §2). The registry service is hosted on the monolith's `8080` listener alongside HTTP, so no
 additional port is opened.
@@ -266,11 +266,12 @@ Two things keep them honest:
 1. **Configuration is expressed once.** Both read the same `.env`-shaped key set (§7). The Helm chart
    projects it into a `ConfigMap` and a `Secret`; compose projects it into `environment:`. Neither
    file contains a literal value that the other also contains.
-2. **CI runs Kubernetes.** `platform-operations.md` FR-CICD-004/005 run integration and e2e against
-   compose because a compose stack is what fits in a GitHub Actions runner; a separate workflow
-   applies the Helm chart to a `kind` cluster and runs the smoke path. Compose being the *test*
-   substrate and Kubernetes being the *deployment* substrate is the drift risk, and the kind job is
-   the mitigation.
+2. **No CI job applies the chart to a cluster.** `platform-operations.md` FR-CICD-004/005 run
+   integration and e2e against compose because a compose stack is what fits in a GitHub Actions
+   runner, and no workflow applies the Helm chart anywhere. Compose being the *test* substrate and
+   Kubernetes being the *deployment* substrate is therefore a standing drift risk; rule 1 (one
+   configuration source) is the only mitigation, and the load-test runs
+   ([`load-testing.md`](load-testing.md)) are the first thing to exercise the chart.
 
 ```
 turnbase-platform/deploy/

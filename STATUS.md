@@ -1,10 +1,10 @@
 ## Last Session Summary
 
-**Date:** 2026-10-18 (session 202) — **`IMP-M15-01` DONE: load-testing spec groundwork.** Documentation only; 159 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
+**Date:** 2026-10-18 (session 203) — **`IMP-M15-02` DONE: recon spec defects filed.** Documentation only; 160 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
 
-**What landed.** `rate-limiting.md` now specifies the 14 per-mechanism switches (all default `true`), the rule that a mechanism acts only when the master and its own switch are on, that the master switch gates Tier 6 too, and that any switch may be off only under `test`, `e2e` or `loadtest` (`local` alone refuses, the message names every disabled switch). `local-environment.md` §7.6 carries the same keys plus the `loadtest` profile definition (every switch off except `ws.switches.max-connections-per-user`, master on, never default) and §8's e2e paragraph is reworded. `turnbase.gamehost.advertised-address` and its four-step resolution (bracketed IPv6 only) are in `orchestration-gamehost-protocol.md` and §7.8. `observability.md` *Exposure* states the percentile histograms (5 ms to 30 s) and the chart's static scrape targets. `NFR-LOAD-001…004` are defined in `platform-operations.md`, registered in `requirements/INDEX.md`, and linked both ways with `load-testing.md` §7. `check-corpus.py` is clean.
+**What landed.** Fixed: the RPC is `ProcessInput` everywhere in `docs/specs` (`flows/03-game-turn.md`, `flows/04-disconnect-and-return.md`, `local-environment.md` §3; `grep -rn SubmitInput docs/specs` is empty); `deployment/INDEX.md` and `local-environment.md` §4 now say no CI job applies the chart to a cluster; `STATUS.md` no longer says the Kubernetes manifests are missing. Recorded for the owner, no side chosen and no code touched: `game-host-internals.md` §18 `OQ-5` (eager reassignment in §9.3 against the lazy one in `GameInputService.reassign`; §9.3 points at it) and `OQ-004` in `platform-operations.md` and `platform-architecture.md` (`NFR-AVAIL-001`, 99% against 99.9%). `load-testing.md` §11 now lists the five as handled. `check-corpus.py` is clean.
 
-**Not done.** Nothing else from M15. `IMP-M15-02…05` are now unblocked (any order).
+**Not done.** Nothing else from M15. `IMP-M15-03`, `04`, `05` are unblocked (any order).
 
 ---
 
@@ -14,7 +14,7 @@
 `scripts/autonomous-work-loop.sh`; each item's *Read first* list in the registry is all the context an
 agent needs.
 
-**Order:** `IMP-M15-01` (DONE) -> `02`, `03`, `04`, `05` (any order) -> `06` -> `07` -> `08`
+**Order:** `IMP-M15-01`, `02` (DONE) -> `03`, `04`, `05` (any order) -> `06` -> `07` -> `08`
 -> `09` -> `10` -> `11` -> `12`, `13`. The registry's *Depends on* column enforces this; `12` also waits
 for `10`, and `13` for `12`.
 

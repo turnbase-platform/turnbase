@@ -371,16 +371,19 @@ Spec work is in scope of this effort (orchestrator's call):
 - Work items are registered as **milestone M15** in
   [`registry.md`](../../implementation/registry.md) (`IMP-M15-01…13`, 2026-10-18).
 
-### Known spec defects found during recon
+### Spec defects found during recon
 
-To be filed through the `spec-defect` skill when work starts:
+Filed and handled by `IMP-M15-02` (2026-10-18):
 
-- [`flows/03-game-turn.md`](../flows/03-game-turn.md) §C names the RPC `SubmitInput`; the proto and the
-  code use `ProcessInput`.
-- `game-host-internals.md` §9.3 describes eager reassignment on lease expiry; the code reassigns lazily
-  on the next input.
-- `NFR-AVAIL-001` conflicts: 99% in `platform-operations.md`, 99.9% in `platform-architecture.md`.
-- `STATUS.md` says the Kubernetes manifests do not exist; they do.
+- **Fixed.** The flows and `local-environment.md` named the internal RPC with a name the proto does not
+  have; they now use `ProcessInput`, as `gamehost.proto` and the code do.
+- **Fixed.** No CI job applies the Helm chart to a cluster; `deployment/INDEX.md` and
+  `local-environment.md` §4 said one did and now say it does not.
+- **Fixed.** `STATUS.md` said the Kubernetes manifests do not exist; they do (the Helm chart).
+- **Recorded for the owner.** `game-host-internals.md` §9.3 describes eager reassignment on lease expiry
+  while the code reassigns lazily on the next input: `game-host-internals.md` §18 `OQ-5`.
+- **Recorded for the owner.** `NFR-AVAIL-001` is 99% in `platform-operations.md` and 99.9% in
+  `platform-architecture.md`: `OQ-004` in both documents' *Open Questions*.
 
 ## 12. Phase A outcome
 
