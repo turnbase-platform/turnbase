@@ -3,7 +3,7 @@
 k6 scripts and shell tooling that drive real Tic-Tac-Toe player pairs (one VU = two users, two STOMP
 sockets) against the Helm install on Docker Desktop Kubernetes, to find where a single-node, laptop
 install breaks. Design: [`docs/specs/deployment/load-testing.md`](../docs/specs/deployment/load-testing.md);
-test definition and run protocol: `docs/implementation/m15-test-definition-plan.md`. Every report states
+results: [`reports/SUMMARY.md`](reports/SUMMARY.md). Every report states
 that the result is a single-node, laptop ceiling.
 
 ## Prerequisites

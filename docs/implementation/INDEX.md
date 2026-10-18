@@ -27,7 +27,6 @@ that surfaces three milestones later. Record it against the item's *Gate* field.
 | [INDEX.md](INDEX.md) | This file — registry conventions, the milestone map, and how to read a work item |
 | [conventions.md](conventions.md) | **Code and build conventions** — package layout, formatting, tests, coverage, git, cross-repo versions. Normative, and shared by every item |
 | [registry.md](registry.md) | The register itself, and the per-item detail: read-lists, requirements satisfied, done-when clauses |
-| [m15-test-definition-plan.md](m15-test-definition-plan.md) | **Working file, deleted once spent.** The step-by-step plan for the M15 test-definition items (`IMP-M15-07…10`) and the run protocol for the measurement items (`IMP-M15-11…13`). Deleted by the session that closes `IMP-M15-13` (with this row) |
 
 ## Related
 

@@ -448,3 +448,31 @@ what was not checked. It is not a work item and nothing here is scheduled.
     (`ws_connecting` max 10.0 s, the harness connect timeout). The machine is idle during them (platform 1.4 of 4 cores) and platform threads step up (123 to 232). Token expiry is ruled out (session TTL 24 h). Not checked: JVM safepoint or GC logs, ingress and frontend nginx access logs, the Tomcat accept queue, whether the interval is exact.
 11. **`start-rate` did not find the rate at which `game_start` degrades.** Report: `2026-10-18-start-rate.md`. Warm `game_start` p95 was 11 to 16 ms (p99 13 to 18) at every rate from 1 to 32 games/s, resources far below their limits; the clean ceiling is 16 games/s only because of the stall in item 10. A rerun with higher rates (64, 128 games/s) would be needed.
 12. **The `default-limits` load trips the WebSocket action bucket in every iteration.** Report: `2026-10-18-default-limits.md`. 320 `RATE_LIMIT_EXCEEDED`, one per iteration in the third game, 961 starts against 641 completions; the HTTP tiers never fired (1,320 requests, 0 429). A client with no think time cannot play more than about two games per burst under the stock limits. Not checked: the server-side frame, a run with think times, the HTTP tiers.
+
+### From `IMP-M15-13` (reports `2026-10-18-soak.md`, `2026-10-19-up-down.md`)
+
+13. **Redis keeps two keys per room and never removes them.** Reports: `2026-10-19-up-down.md`, `2026-10-18-soak.md`. After `up-down`, 18,021 rooms created and 36,047 keys (5 base keys plus
+    `room:<id>:pod` and `room:<id>:epoch`, 18,021 each), `used_memory` 1.77 -> 6.91 MB (about 0.29 KB per room), `connected_clients` 4 -> 5, none of it released five minutes after the last room closed.
+    In the 30-minute `soak`, 86,271 keys and 1.77 -> 13.93 MB, linear at about 0.36 MB per minute with no plateau. Suspected cause: ownership keys written at room creation with no TTL and no delete on close.
+    Not checked: the TTL of those keys, what the reconciliation job removes, how Redis behaves near its 512 MiB limit (at about 285 bytes per room, roughly 1.9 million rooms).
+14. **The platform lost the ownership of about 35 rooms at once, and the room and session gauges never recovered.** Report: `2026-10-18-soak.md`. At 21:22:38Z, 17.5 minutes into the hold, the platform log shows one `ERROR`
+    (`IllegalStateException: room ... is not owned by this instance`, `RoomOwnershipService.nextVersion`, "Game end ... could not be detached") and 35 `WARN` "detach of room ... deferred: This instance does not own room" within 2 s.
+    `rooms_active` went 48 -> 97 and `sessions_active` 40 -> 75 and stayed there for the rest of the hold; several minutes after the load ended 53 rooms and 38 sessions were still reported with no socket open.
+    Suspected cause: a stall like item 10 let the ownership lease lapse and the deferred detaches were not completed. Not checked: the lease TTL and renew interval, whether the stall is the 300 s event of item 10, whether the gauges or the rooms themselves are stale.
+15. **Latency rises and throughput falls across a 30-minute hold at constant load.** Report: `2026-10-18-soak.md`. 49 pairs; HTTP p95 10 -> 48 ms and p99 18 -> 89 ms, requests per second 150 -> 113 (-25%), move p95 38 -> 52 ms, while platform CPU fell 2.96 -> 2.29 cores.
+    All targets still held. Suspected cause: growth of a structure the platform walks on each operation (the room and session sets, the Redis keyspace of item 13). Not checked: a profile at the end of the hold, Postgres statistics, the same load after a platform restart.
+16. **Game Host heap after GC grows 251 -> 371 MB over the soak** (+48%, maximum 403 -> 529 MB) with 53 to 56 threads throughout. Report: `2026-10-18-soak.md`. Suspected cause: retained per-session state (more sessions are reported active after item 14) or Espresso context growth.
+    Not checked: a heap histogram, whether it stabilises with a longer hold.
+17. **The platform keeps its threads after the load is gone.** Reports: `2026-10-19-up-down.md`, `2026-10-18-soak.md`. `up-down`: 57 before the ramp, 131 at the peak, 129 at the end of the ramp down, 110 from 70 s later and 109 five minutes after, with 0 sockets.
+    `soak`: 58 -> 151 in steps at about 5, 10 and 20 minutes, flat after. Related to item 5. Suspected cause: a pool that shrinks once and not to its core size. Not checked: which pool, a longer idle wait.
+18. **The Game Host wedges on its first cold start with the default single context too, and the restart took about 6 minutes.** Report: `2026-10-19-up-down.md` (attempt 1, run directory `20261018-234603-up-down-attempt1`). Context created 21:46:24Z, `BootWatchdog` "Guest boot wedged ... after 20000 ms" at 21:46:44Z,
+    "supervisor: the JVM has not answered 4 probes in a row; killing it", next JVM log line 21:52:39Z. No game ran in the meantime (platform CPU 0.10 cores for the first 300 s, one `tb_game_start` of 59 s, 278 errors).
+    Extends item 7 (seen with four contexts, and there the supervisor did not act). Attempt 2, on a reset stack, did not wedge. Not checked: the frequency, why the kill took about 6 minutes, whether it needs a freshly started pod.
+
+### Phase A results
+
+- Date: 2026-10-18 and 2026-10-19; single node, Docker Desktop Kubernetes (16 CPUs, 15.2 GiB), the load generator on the same VM.
+- Ceiling: 70 pairs (140 sockets, about 55 concurrent sessions) in `ramp-to-break`; 64 pairs in `parallelism`; 16 games/s clean in `start-rate`.
+- What broke first: platform CPU and threads, with Postgres at 1.85 of 2 cores, while the Game Host used 0.9 to 1.5 of 4 cores (`tb_room_join` tail in `ramp-to-break`).
+- Capacity targets: 500 concurrent sessions not reached (about 55 at the ceiling); 5,000 WebSockets not reached (140 at the ceiling; 160 open at the abort).
+- Summary and all links: [`loadtest/reports/SUMMARY.md`](../../../loadtest/reports/SUMMARY.md).

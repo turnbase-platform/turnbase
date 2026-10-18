@@ -1,42 +1,24 @@
 ## Last Session Summary
 
-**Date:** 2026-10-18 (session 213) — **`IMP-M15-12` DONE: the `start-rate`, `default-limits` and `contexts` reports are committed.** Umbrella-only (nothing to bump, no CI); 170 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
+**Date:** 2026-10-19 (session 214) — **`IMP-M15-13` DONE: Phase A of load and scalability testing is complete.** Umbrella-only (nothing to bump, no CI); 171 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
 
-**Results** (`loadtest/reports/2026-10-18-start-rate.md`, `…-default-limits.md`, `…-contexts.md`). `start-rate`: 1 to 32 games/s, no threshold crossed, warm `game_start` p95 11 to 16 ms and p99 13 to 18 ms (35 / 43 ms in one stalled step), first cold start 4.95 s; ceiling **16 games/s** because the 32 games/s step lost 146 iterations and had 54 `ready_timeout` in a 15 s stall with the machine idle (1.4 of 4 platform cores); the rate at which `game_start` degrades was **not reached**. `default-limits`: 320 `RATE_LIMIT_EXCEEDED`, one per iteration, in the third game (the WebSocket action bucket, inferred from the counts), 0 unexpected errors, 0 5xx, HTTP tiers never fired. `contexts`: **attempt 1 failed** (the Game Host wedged on its first start with four contexts: `BootWatchdog` logged, health 503, process alive, never restarted because `supervise.sh` counts a 503 as alive; 0 games in 357 s); the rerun was clean at 810 moves/s (909 / 897 in `parallelism`), move p95 58 ms, warm start p95 66 ms, cold start 10.3 s, but the Game Host used 2.95 cores against 0.99 for one context at the same throughput.
+**Results** (`loadtest/reports/2026-10-18-soak.md`, `2026-10-19-up-down.md`, `SUMMARY.md`). `soak`: 49 pairs (70 x 7 / 10 of the 70-pair ceiling), 30 min, every target met, no restart, but Redis 3.18 -> 13.75 MB (86,271 keys, two per room, never deleted), platform threads 125 -> 151, Game Host heap after GC 251 -> 371 MB, HTTP p95 10 -> 48 ms with requests per second down 25%, and at 17.5 min the platform lost the ownership of about 35 rooms after which `rooms_active` and `sessions_active` stayed doubled (still 53 and 38 with no socket open). `up-down`: attempt 1 was lost to a Game Host wedge on its first cold start with the single default context (`BootWatchdog`, then the supervisor killed the JVM; about 6 min without games; the same wedge as `contexts` attempt 1), attempt 2 was clean: sockets, rooms, sessions, Hikari at 0 within 30 s, but platform threads 57 -> 109 and Redis 1.77 -> 6.91 MB (36,047 keys) were not released. `SUMMARY.md` answers the owner's three questions; neither capacity target was reached (about 55 sessions and 140 sockets at the ceiling; platform CPU and Postgres CPU limit, not the Game Host).
 
-**Notes for `IMP-M15-13`.** `load-testing.md` §13 gained items 7 to 12 (wedge, cold start with four contexts, context CPU, a 10 s WebSocket connect stall about every 300 s, `start-rate` ceiling not reached, action bucket). Use `jcmd 7` for thread dumps (PID 1 is `supervise.sh`), but a wedged Game Host has neither `jcmd` nor `kill`. The stack was reset after the last run, the preflight is OK, and the test bundle copies were removed from `C:\Users\Hubert\turnbase-seed`. A run that wedges is a result: record it and rerun once (as `contexts` did).
+**Done too.** `load-testing.md` §13 items 13 to 18 and *Phase A results*; `docs/implementation/m15-test-definition-plan.md` and its INDEX row deleted; `loadtest/README.md` points to `SUMMARY.md` instead. `loadtest/helm/values-loadtest.yaml` still names the deleted plan in a comment (a run item never edits it).
 
-**Not done.** `IMP-M15-13` (soak and the summary) is next.
+**Not done.** Nothing is owed on M15. The Redis 2-keys-per-room leak, the lost room ownership and the cold-start wedge are the findings most worth turning into work; the owner decides. A Redis time series comes from a side loop in `/tmp`, because `snapshot.sh` reads Redis once at the end.
 
 ---
 
 ## Next Priorities
 
-**Session 202 onward: milestone M15, Phase A of load and scalability testing.** Run unattended through
-`scripts/autonomous-work-loop.sh`; each item's *Read first* list in the registry is all the context an
-agent needs.
-
-**Order:** `IMP-M15-01`…`12` (DONE)
--> `13`. The registry's *Depends on* column enforces this; `13` waits for `12`.
+**Phase B has its own design round** (autoscaling, multiple replicas; `load-testing.md` §9 is only an outline). The Phase A findings
+([`load-testing.md` §13](docs/specs/deployment/load-testing.md#13-follow-ups), summary in
+[`loadtest/reports/SUMMARY.md`](loadtest/reports/SUMMARY.md)) are the owner's to turn into work items or spec defects; an agent session does not add registry items for them.
 
 - **`IMP-M13-08` stays `WIP` and is owner-held.** It is a visual comparison against the approved
-  artefact that only the owner can finish. Skip it: no M15 item depends on it.
-- **`01`…`05` need no cluster.** `01` and `02` are documentation (`02` only *records* two spec
-  conflicts as open questions and never reports `BLOCKED`); `03`…`05` are code in `turnbase-platform`
-  and `turnbase-game-host`.
-- **`07`…`13` need Docker Desktop's Kubernetes running.** The release `turnbase` is installed on it now;
-  `07` creates `loadtest/preflight.sh` and every later item runs it first. A missing
-  `values-local.secrets.yaml` is generated from the example and is not a blocker. A cluster that is
-  down is `BLOCKED` after one live re-check. A command that runs longer than eight minutes goes in the
-  background and is polled at most every five minutes.
-- **`11`…`13` are measurement only.** No code, chart or overlay change; a bad number is a result, not a
-  failure. Findings go into the run's report and into `load-testing.md` §13 *Follow-ups*, never into
-  new registry items. The owner turns the follow-ups into work.
-- **Where things are:** the design is [`docs/specs/deployment/load-testing.md`](docs/specs/deployment/load-testing.md);
-  the test definition and run protocol are
-  [`docs/implementation/m15-test-definition-plan.md`](docs/implementation/m15-test-definition-plan.md)
-  (deleted when `13` is `DONE`).
-
+  artefact that only the owner can finish.
+- No `READY` or `PARTIAL` item is left in the register.
 
 **[`docs/implementation/conventions.md`](docs/implementation/conventions.md) applies to every item and
 is not repeated in read-lists** — package layout, static analysis, Spotless, test suffixes, JaCoCo,

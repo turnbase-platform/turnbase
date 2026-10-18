@@ -217,7 +217,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M15-10 | `contexts` scenario (droppable) | docs (umbrella) | M15-09 | DONE |
 | IMP-M15-11 | Phase A runs — parallelism and ramp-to-break | docs (umbrella) | M15-09 | DONE |
 | IMP-M15-12 | Phase A runs — start-rate, default-limits, contexts | docs (umbrella) | M15-10, M15-11 | DONE |
-| IMP-M15-13 | Phase A runs — soak, up-down and Phase A summary | docs (umbrella) | M15-11, M15-12 | WIP (session 214) |
+| IMP-M15-13 | Phase A runs — soak, up-down and Phase A summary | docs (umbrella) | M15-11, M15-12 | DONE |
 
 **172 live items.** `IMP-M15-01…13` were added 2026-10-18 by the load-testing design ([`load-testing.md`](../specs/deployment/load-testing.md)): the spec groundwork and the four fixes the chart and the platform need before anything can be measured (`01…06`), the k6 harness and its scenarios (`07…10`), and the baseline runs, split into three run items so that none outlasts a session (`11…13`); see the M15 section. `IMP-M14-01…03` were added 2026-10-17 by ADR-0018: a game start that survives a cold, restarting or wedged Game Host and shows its progress; see the M14 section. `IMP-M13-01…08` were added 2026-10-12 after the owner reviewed the running M12 build and found it did not match the approved prototype: see the M13 section. `IMP-M12-01…11` were added 2026-10-11 by [ADR-0017](../decisions/0017-turnbase-visual-identity.md): the approved prototype look replaces the stock Astryx theme across every view while the services, reducers and sockets stay as they are (see the M12 section). Before them, 137 live items. `IMP-M11-01…08` were added 2026-10-10 by [ADR-0016](../decisions/0016-spring-boot-4-migration.md), closing `IMP-GATE-97`: both Spring Boot services move to Boot 4.1.1 because two CRITICAL `spring-webmvc` CVEs have no fix on the 3.5 line. **M11 runs before M10** — every `IMP-M10-*` item depends on `IMP-M11-08` — and its items are judged locally with CI not awaited (see the M11 section). `IMP-M10-01…24` were added 2026-10-10 from the
 [E2E & security audit](../reviews/2026-10-10-e2e-security-audit/INDEX.md) (`AUD-01…24`), the first
@@ -7047,8 +7047,8 @@ Phase B and gets its own design round.
 **Sequencing (owner decision).** Blockers first (`01…06`: spec changes, the toggleable rate limits, the
 latency histograms, the Game Host's address and the chart that runs it), then the test definition
 (`07…10`: scaffold, harness, scenarios), then the runs and their reports (`11…13`). The order to build in
-is `01` → `02`, `03`, `04`, `05` → `06` → `07` → `08` → `09` → `10` → `11` → `12`, `13`. The test definition and the run protocol are in [`m15-test-definition-plan.md`](m15-test-definition-plan.md),
-deleted when `13` is `DONE` by the session that closes it.
+is `01` → `02`, `03`, `04`, `05` → `06` → `07` → `08` → `09` → `10` → `11` → `12`, `13`. The test definition and the run protocol were in `m15-test-definition-plan.md`,
+deleted by the session that closed `13`; the harness is documented in `loadtest/README.md`.
 
 **Measurement only (owner decision).** `11…13` produce committed reports stating where and why the
 system breaks. They do not fix what they find: no code, chart or overlay change, and a bad number is a
@@ -7441,6 +7441,8 @@ background it, poll at most every five minutes.
 - `load-testing.md` §13 holds every degradation from `IMP-M15-11…13`; `SUMMARY.md` links each.
 - `docs/implementation/m15-test-definition-plan.md` and its `INDEX.md` row are deleted.
 - `python3 scripts/check-corpus.py` prints `clean`; merged to `master` and pushed.
+
+**Evidence (session 214).** `soak` (49 pairs = 70 x 7 / 10, 30 min hold): every target met, no restart; Redis 3.18 -> 13.75 MB (86,271 keys), platform threads 125 -> 151, Game Host heap after GC 251 -> 371 MB, HTTP p95 10 -> 48 ms with requests per second down 25%, and a loss of ownership of about 35 rooms at 17.5 min after which `rooms_active` stayed doubled. `up-down` (attempt 1 lost to a Game Host wedge on its first cold start, attempt 2 clean): sockets, rooms, sessions and Hikari back to 0 within 30 s; platform threads 57 -> 109 and Redis 1.77 -> 6.91 MB (36,047 keys, two per room) not released. `SUMMARY.md` answers the three questions; neither capacity target was reached (about 55 sessions, 140 sockets at the ceiling). `load-testing.md` §13 items 13 to 18 and *Phase A results* added; the test-definition plan is deleted.
 
 ---
 
