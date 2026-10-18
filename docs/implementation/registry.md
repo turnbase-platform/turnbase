@@ -7097,8 +7097,9 @@ the owner prioritises those afterwards.
 
 **Done when:** each of these is fixed, or recorded through the `spec-defect` skill with the owner's
 decision where one is needed:
-- `docs/specs/flows/03-game-turn.md` §C names the RPC `SubmitInput`; the proto and the code use
-  `ProcessInput`. Fixed in the flow.
+- `docs/specs/flows/03-game-turn.md` §C, `flows/04-disconnect-and-return.md` and
+  `local-environment.md` §2 name the RPC `SubmitInput`; the proto and the code use `ProcessInput`.
+  Fixed in all three.
 - `docs/specs/game-host/game-host-internals.md` §9.3 describes eager reassignment on lease expiry; the
   code reassigns lazily on the next input. **Owner decision**: recorded, not resolved.
 - `NFR-AVAIL-001` says 99% in `platform-operations.md` and 99.9% in `platform-architecture.md`.

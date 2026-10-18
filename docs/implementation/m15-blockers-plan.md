@@ -34,43 +34,57 @@ AssertJ, Helm 3, Docker Desktop Kubernetes.
   Conventional Commits (`conventions.md` §4). Submodule refs in this repository move only after the
   submodule's build and tests pass.
 - Specification before code. If a step reveals that two documents disagree, stop and use the
-  `spec-defect` skill; do not reconcile silently. Task 1 lands, and `python3 scripts/check-corpus.py`
-  is clean, before Tasks 2 to 5 start.
+  `spec-defect` skill; do not reconcile silently. `IMP-M15-01` (Task 1, Steps 1 to 8) lands, and
+  `python3 scripts/check-corpus.py` is clean, before Tasks 2 to 5 start. `IMP-M15-02` (Task 1,
+  Steps 9 to 12) gates nothing and may land at any point before Task 5's close-out.
 - Every safety default stays as it is. A test asserts each new switch defaults to enabled; nothing in
   this plan loosens a default, a profile rule or a port exposure.
 
 ## Review Focus
 
-Reviewers should spend their attention on:
+The five failure modes most likely to survive a green build, each with the test that catches it:
 
-1. **The safety rule.** Can any combination of the new switches reach a production-like boot
-   (`local` alone, or no profile) with a limiter off? `RateLimitEnabledProfileCheck` is the only
-   guard; read every branch of it.
-2. **Gating completeness.** Each switch must gate its mechanism at every place that mechanism acts
-   (admission, refund, lockout write, lockout read), or a disabled limiter still costs Redis calls or
-   still closes sockets.
-3. **The master switch now covers WebSocket limits.** `WebSocketRateLimitProperties`' Javadoc has
-   claimed this since `IMP-M2-02`; the code never did it.
-4. **Secret scoping in the chart.** The Game Host Secret must hold only the Redis password and the
-   scoped artifact-store credential. Never the JWT key set, the admin pair or the database password.
-5. **Defaults unchanged.** The Compose path and the stock chart behave exactly as before.
+1. **A switch is added but the profile guard never sees it.** `RateLimitEnabledProfileCheck` holds its
+   own list of keys, so a new `Switches` component silently bypasses the production refusal.
+   Task 2: `everySwitchComponentIsInTheProfileGuardKeyList`.
+2. **A disabled mechanism still acts at a second site** (the refund, the lockout write, the lockout
+   read), so a "disabled" limiter still costs Redis calls or still closes sockets. Task 2:
+   `disabledAuthLockoutNeverLocksOutRepeatedBadLogins`,
+   `disabledViolationLockoutDropsButNeverForceClosesOrWritesALockout`,
+   `disabledViolationLockoutMakesIsLockedOutFalseDespiteAStoredKey`.
+3. **The master switch still ignores WebSocket limits, or the cap bypass is not wired into the
+   interceptor.** The Javadoc has claimed it since `IMP-M2-02`; the code never did it. Task 2:
+   `disabledMasterSwitchAllowsEveryFrame` and `WebSocketChannelInterceptorTest`.
+4. **The histogram property binds but the meter does not publish buckets** (a Boot 4 property move
+   would pass a binding test). Task 3: `HttpLatencyHistogramIT`, which scrapes the real endpoint.
+5. **The Game Host registers an address nobody can dial**, or the chart's Game Host Secret is wider
+   than Redis plus the scoped artifact credential. Task 5, Step 8 (render checks) and Step 9 (the
+   `hosts` member equals the pod IP and the driver completes a game). Task 4's four-case unit tests
+   cover only the resolution order, not the chart.
 
 ---
 
 ## Task 1: Specification groundwork (`IMP-M15-01`, `IMP-M15-02`)
 
-**Repo:** `turnbase` (docs). **Files:**
+**Repo:** `turnbase` (docs), on the existing branch `docs/m15-load-testing`. **Files**, by item:
+
+`IMP-M15-01`:
 
 - Modify: `docs/specs/api-design/rate-limiting.md` (*Configuration and environments*, the `properties`
-  block, and the *Tier 6* note on the kill switch)
+  block, and one new sentence in the *Tier 6* section)
 - Modify: `docs/specs/deployment/local-environment.md` (§7.6 table, §7.8 table and the paragraph
-  after it, §4 item 3's `kind` claim)
+  after it)
 - Modify: `docs/specs/internal-grpc/orchestration-gamehost-protocol.md` (*Addressing the Game Host
   pods*)
 - Modify: `docs/specs/deployment/observability.md` (*Exposure*)
-- Modify: `docs/specs/deployment/INDEX.md` (the `kind` sentence on line 29)
-- Modify: `docs/specs/flows/03-game-turn.md` (`SubmitInput` to `ProcessInput`)
 - Modify: `docs/requirements/platform-operations.md` and `docs/requirements/INDEX.md` (new IDs)
+
+`IMP-M15-02`:
+
+- Modify: `docs/specs/flows/03-game-turn.md` and `docs/specs/flows/04-disconnect-and-return.md`
+  (`SubmitInput` to `ProcessInput`), `docs/specs/deployment/local-environment.md` §2
+- Modify: `docs/specs/deployment/INDEX.md` (the `kind` sentence on line 29) and
+  `docs/specs/deployment/local-environment.md` §4 item 2 (the `kind` job)
 - Modify: `STATUS.md` (the "Kubernetes manifests do not exist yet" sentence)
 
 **Property names fixed here, used verbatim by Tasks 2, 4 and 5.**
@@ -100,10 +114,11 @@ Reviewers should spend their attention on:
 - [ ] **Step 2: Specify the switches.** In `rate-limiting.md` *Configuration and environments* add the
   fourteen `switches` keys above to the `properties` block with one sentence each on what the switch
   turns off. State the effective rule: a mechanism acts only when the master
-  `turnbase.rate-limit.enabled` and its own switch are both `true`. In the *Tier 6* section replace
-  the "single kill switch" wording: the master switch gates Tier 6 too, and each bucket, the violation
-  lockout and the connection cap also have their own. In `local-environment.md` §7.6 add the same
-  keys and the rule, and add `loadtest` beside `test` and `e2e`.
+  `turnbase.rate-limit.enabled` and its own switch are both `true`. The *Tier 6* section says nothing
+  about the master switch today, so add one sentence there: the master switch gates Tier 6, and each
+  bucket, the violation lockout and the connection cap also have their own switch. In
+  `local-environment.md` §7.6 add the same keys and the rule, and add `loadtest` beside `test` and
+  `e2e`.
 - [ ] **Step 3: Specify the profile rule.** Both documents state: with the master switch or any
   switch off, the application starts only when `test`, `e2e` or `loadtest` is active; `local` alone
   does not permit it; the refusal message names every disabled switch by property name. Define the
@@ -118,27 +133,33 @@ Reviewers should spend their attention on:
   IP.
 - [ ] **Step 5: Specify the metrics.** In `observability.md` *Exposure* state that
   `http.server.requests` publishes percentile histograms with a 5 ms minimum and 30 s maximum
-  expected value, and that the Helm Prometheus carries the two-job scrape config shown there (the
-  chart does not have it today; `IMP-M15-06` adds it).
+  expected value. Replace the sentence "Under Kubernetes the two `static_configs` become a
+  `kubernetes_sd_config` on pod annotations" with: the Helm chart's Prometheus uses the same two
+  jobs with the chart's Service DNS names (`<release>-platform:8081`, `<release>-gamehost:8081`) as
+  static targets (`IMP-M15-06` adds it; the chart scrapes only itself today).
 - [ ] **Step 6: Define the NFRs.** In `platform-operations.md` add `NFR-LOAD-001` (warm game start,
   p95 < 1 s and p99 < 2 s, cold start recorded and not gated), `NFR-LOAD-002` (`move_rtt` p99 <
   500 ms), `NFR-LOAD-003` (non-game HTTP p99 < 500 ms), `NFR-LOAD-004` (lobby event p99 < 600 ms),
-  priority Should, each linking `load-testing.md` §7, and add the Related Documents link. Add
+  priority Should, each linking `load-testing.md` §7, and make `load-testing.md` §7 link back to the four IDs. Add
   `NFR-LOAD` to that document's *Defines* cell in `docs/requirements/INDEX.md`. Confirm first with
-  `grep -rn "NFR-LOAD\b" docs/` that the prefix is unused; `FR-LOAD-*` is the Game Host's artifact
-  loading and is a different prefix.
-- [ ] **Step 7: File the recon defects (`IMP-M15-02`).** Replace `SubmitInput` with `ProcessInput` in
-  `flows/03-game-turn.md` step 3 and anywhere else `grep -rn SubmitInput docs/specs` finds it
-  (`local-environment.md` §2 line 148 included). Reword the `kind` sentences in
-  `deployment/INDEX.md` and `local-environment.md` §4 item 3 to say no such job exists yet. Fix the
-  `STATUS.md` sentence (the chart exists; the Game Host half has never run under it until
-  `IMP-M15-06`). Run the `spec-defect` skill for the two owner decisions (eager versus lazy
-  reassignment in `game-host-internals.md` §9.3; 99% versus 99.9% `NFR-AVAIL-001`) and record them
-  without resolving them.
-- [ ] **Step 8: Verify.** `python3 scripts/check-corpus.py` is clean, and the Step 1 greps now
-  return non-zero counts.
-- [ ] **Step 9: Commit.** `docs(specs): rate-limit switches, advertised address, load NFRs`; merge
-  `--ff-only` and delete the branch.
+  `grep -rn "NFR-LOAD" docs/requirements docs/specs` that the prefix is unused; `FR-LOAD-*` is the
+  Game Host's artifact loading and is a different prefix.
+- [ ] **Step 7: Verify `IMP-M15-01`.** `python3 scripts/check-corpus.py` is clean, and the Step 1
+  greps now return non-zero counts.
+- [ ] **Step 8: Commit.** `docs(specs): rate-limit switches, advertised address, load NFRs`.
+- [ ] **Step 9: Fix the RPC name (`IMP-M15-02`).** Replace `SubmitInput` with `ProcessInput` in every
+  file `grep -rn SubmitInput docs/specs` finds (`flows/03-game-turn.md` step 3,
+  `flows/04-disconnect-and-return.md` step 5, `local-environment.md` §2).
+- [ ] **Step 10: Correct the two stale claims.** Reword the `kind` sentences in
+  `deployment/INDEX.md` and `local-environment.md` §4 item 2 to say no such CI job exists yet. Fix
+  the `STATUS.md` sentence: the chart exists, and the Game Host half has never run under it until
+  `IMP-M15-06`.
+- [ ] **Step 11: Record the two owner decisions.** Run the `spec-defect` skill for eager versus lazy
+  reassignment (`game-host-internals.md` §9.3) and for 99% versus 99.9% `NFR-AVAIL-001`, and record
+  both without resolving them.
+- [ ] **Step 12: Verify and commit `IMP-M15-02`.** `python3 scripts/check-corpus.py` is clean;
+  commit `docs: fix recon spec defects, record owner decisions`. Merge `docs/m15-load-testing`
+  `--ff-only` into `master` and delete it, locally and on the remote.
 
 ---
 
@@ -155,20 +176,23 @@ stated:
 - Create: `src/main/resources/application-loadtest.yml`
 - Tests, under `src/test/java/io/turnbase/platform/`: modify `common/RateLimitEnabledProfileCheckTest`,
   `common/RateLimitInterceptorIT`, `websocket/WebSocketRateLimiterTest`,
-  `ConfigurationDefaultsTest`, and whichever existing test drives `CONNECT` through
-  `WebSocketChannelInterceptor`; create `LoadtestProfileTest`
+  `ConfigurationDefaultsTest`; create `websocket/WebSocketChannelInterceptorTest` (no test of the
+  interceptor in isolation exists today)
 
 **Design notes.**
 
 - Add a nested `Switches` record to each properties class with `@DefaultValue("true")` booleans
   named as in Task 1, and mark the `switches` component `@DefaultValue` so a YAML without the key
   binds all-true. Give each `Switches` a static `allEnabled()` so the test fixtures that construct the
-  records by hand (`RateLimitEnabledProfileCheckTest.properties`, `WebSocketRateLimiterTest.newLimiter`)
-  change by one argument.
+  records by hand change by one argument: the one `WebSocketRateLimitProperties` construction in
+  `RateLimitEnabledProfileCheckTest` and the two in `WebSocketRateLimiterTest`.
 - `common` must not depend on `websocket` (Spring Modulith, ADR-0014; `websocket` already depends on
   `common`). So the profile check reads the switch keys from the `Environment`, not from the typed
-  records, and keeps one `List<String>` of the fourteen keys. `WebSocketRateLimiter` takes
-  `RateLimitProperties` for the master flag.
+  records, and keeps one package-visible `static final List<String> SWITCH_KEYS` of the fourteen
+  keys, each read with `environment.getProperty(key, Boolean.class, true)`. The `WebSocketRateLimiter`
+  constructors take `RateLimitProperties` for the master flag. With the master flag off,
+  `checkFrame` returns Allow, `isLockedOut` returns `false`, and a new `connectionCapEnforced()`
+  returns `false`.
 - Gates, in the order a request meets them. `RateLimitInterceptor.classify` returns `null` for a
   disabled tier, and it must do so for `upload` and `public` separately: a disabled `upload` tier
   must not fall through to `api`. `preHandle` skips `admitAuthAttempt` when `auth-lockout` is off and
@@ -178,8 +202,8 @@ stated:
   `onViolation` never reach `writeLockout` or `ForceClose` when `violation-lockout` is off (it
   returns the ordinary `Drop`). `isLockedOut` returns `false` when `violation-lockout` is off, so a
   lockout key left by an earlier run cannot refuse a connection. The connection cap is bypassed in
-  `WebSocketChannelInterceptor` (around the `registry.tryRegister(..., maxConnectionsPerUser())` call)
-  when `max-connections-per-user` is off.
+  `WebSocketChannelInterceptor` (the `registry.tryRegister(..., maxConnectionsPerUser())` call): when
+  `connectionCapEnforced()` is false it passes `Integer.MAX_VALUE` as the cap.
 
 - [ ] **Step 1: Write the failing tests.**
   - `RateLimitEnabledProfileCheckTest`: `perMechanismSwitchOffFailsUnderLocalProfile` (a single
@@ -191,26 +215,30 @@ stated:
   - `RateLimitInterceptorIT`: `disabledApiTierAdmitsMoreThanItsCapacity`,
     `disabledUploadTierDoesNotFallThroughToTheApiBucket`, `disabledPublicTierAdmitsMoreThanItsCapacity`,
     `disabledAuthLockoutNeverLocksOutRepeatedBadLogins` (also asserts no `rate:auth:*` key exists in
-    Redis afterwards), `disabledGuestMintingDoesNotAffectRegistrationMinting` (and the converse), and
-    `masterOffStillRequiresTestOrE2eOrLoadtest`. Boot with `--spring.profiles.active=test` and one
-    `--turnbase.rate-limit.switches.<name>=false`, using the existing `bootApplication(String...)`
-    helper and the `guest()` helper.
+    Redis afterwards), `disabledGuestMintingDoesNotAffectRegistrationMinting` (and the converse).
+    Extend the existing `rateLimitingCanBeDisabledOnlyUnderTestOrE2eProfile` to cover `loadtest`
+    and a single switch off under `local` (rename it `rateLimitingCanBeDisabledOnlyUnderTestE2eOrLoadtestProfile`).
+    Boot with `--spring.profiles.active=test` and one `--turnbase.rate-limit.switches.<name>=false`,
+    using the existing `bootApplication(String...)` helper and the `guest()` helper.
   - `WebSocketRateLimiterTest`: `disabledMasterSwitchAllowsEveryFrame`,
     `disabledConnectionBucketAllowsFramesThatWouldExhaustIt`,
     `disabledClassBucketAllowsItsFramesButNotOthers`,
     `disabledViolationLockoutDropsButNeverForceClosesOrWritesALockout` (verify no `set` on the
     mocked `valueOperations`), `disabledViolationLockoutMakesIsLockedOutFalseDespiteAStoredKey`.
-  - `WebSocketChannelInterceptor` coverage: `disabledConnectionCapAdmitsMoreConnectionsThanTheCap`,
-    in whichever existing test class already drives `CONNECT` through the interceptor.
-  - `ConfigurationDefaultsTest`: extend `bindsEveryTunableToItsSection7Default` with
-    `assertThat(rateLimit.switches().api()).isTrue()` and the same for all fourteen, through the real
-    `application.yml`.
-  - `LoadtestProfileTest` (new, `ApplicationContextRunner` with
-    `ConfigDataApplicationContextInitializer` and `spring.profiles.active=local,loadtest`): every
-    switch is `false` except `ws.switches.max-connections-per-user`, and the master `enabled` is
-    `true`.
+  - `WebSocketChannelInterceptorTest` (new, mocks `WebSocketConnectionRegistry` and the limiter):
+    `disabledConnectionCapAdmitsMoreConnectionsThanTheCap` (asserts `tryRegister` receives
+    `Integer.MAX_VALUE`) and `enabledConnectionCapPassesTheConfiguredCap`.
+  - `ConfigurationDefaultsTest`: add `WebSocketRateLimitProperties.class` to its `PropertiesConfig`
+    (it does not bind it today), extend `bindsEveryTunableToItsSection7Default` with
+    `assertThat(rateLimit.switches().api()).isTrue()` and the same for all fourteen, through the
+    real `application.yml`, and add `loadtestProfileTurnsEverySwitchOffExceptTheConnectionCap` (the
+    same runner with `spring.profiles.active=local,loadtest`: thirteen switches `false`,
+    `ws.switches.max-connections-per-user` and the master `enabled` `true`).
+  - `RateLimitEnabledProfileCheckTest.everySwitchComponentIsInTheProfileGuardKeyList`: reflect over
+    both `Switches` records, convert each component name to its kebab-case property key, and assert
+    the set equals `SWITCH_KEYS`. A switch added later and missing from the guard fails here.
 - [ ] **Step 2: Run, expect failure.**
-  `./mvnw test -Dtest='RateLimitEnabledProfileCheckTest,WebSocketRateLimiterTest,ConfigurationDefaultsTest,LoadtestProfileTest'`.
+  `./mvnw test -Dtest='RateLimitEnabledProfileCheckTest,WebSocketRateLimiterTest,ConfigurationDefaultsTest,WebSocketChannelInterceptorTest'`.
   Expected: compilation errors or failures naming the missing `switches`.
 - [ ] **Step 3: Implement.** Add the `Switches` records and the YAML keys (each as
   `${TURNBASE_RATE_LIMIT_SWITCHES_<NAME>:true}`, next to the budget it governs). Apply the gates
@@ -248,11 +276,11 @@ stated:
     asserts `true`, and binds `...minimum-expected-value.http.server.requests` to `5ms` and
     `...maximum-expected-value.http.server.requests` to `30s`.
   - `HttpLatencyHistogramIT.prometheusEndpointExposesHttpServerRequestBuckets`, extending
-    `PostgresIntegrationTest` with the boot helper `RateLimitInterceptorIT` uses and
-    `--management.server.port=0` (compare `TurnBaseApplicationIT`): `GET /api/games` on the public
-    port once, then `GET /actuator/prometheus` on the management port, and assert the body contains a
-    line starting `http_server_requests_seconds_bucket{` that includes `le="`. Pick the public
-    endpoint from the live route list rather than assuming `/api/games`.
+    `PostgresIntegrationTest`, booting with the same inline arguments `TurnBaseApplicationIT` uses
+    (`RateLimitInterceptorIT`'s boot helper is private) and `--management.server.port=0`: `GET
+    /api/auth/providers` (public) on the main port once, then `GET /actuator/prometheus` on the
+    port in `local.management.port`, polling up to 5 s (no awaitility) until the body contains a
+    line starting `http_server_requests_seconds_bucket{` that includes `le="`.
 - [ ] **Step 2: Run, expect failure.**
   `./mvnw test -Dtest=HttpLatencyHistogramTest`; the binder `get()` throws `NoSuchElementException`.
 - [ ] **Step 3: Implement.** Add under `management.metrics`:
@@ -273,14 +301,14 @@ stated:
 **Repo:** `turnbase-game-host`. **Files**, under `src/main/java/io/turnbase/gamehost/`:
 
 - Modify: `GameHostProperties.java` (new last component `@Nullable String advertisedAddress`, with no
-  default so it binds `null`)
+  default so it binds `null`; `IMP-M15-05` requires `null` by default)
 - Modify: `registration/RegistrationLifecycle.java` (line 46 call site and the private
   `resolveAdvertisedAddress` near line 108)
 - Create: `registration/AdvertisedAddress.java` (package-private final class, one static method
-  `resolve(@Nullable String configured, int grpcPort, Supplier<String> hostName)`; the supplier
-  throws `UnknownHostException` through a small functional interface, so the fourth case is testable
-  without touching the real resolver)
-- Modify: `src/main/resources/application.yml` (`advertised-address: ${TURNBASE_GAMEHOST_ADVERTISED_ADDRESS:}`)
+  `resolve(@Nullable String configured, int grpcPort, HostNameSource hostName)`, where
+  `HostNameSource` is a nested functional interface whose `get()` throws `UnknownHostException`, so
+  the fourth case is testable without touching the real resolver)
+- Modify: `src/main/resources/application.yml` (a comment only; the key is deliberately absent, see Step 3)
 - Tests, under `src/test/java/io/turnbase/gamehost/`: create `registration/AdvertisedAddressTest`;
   modify `GameHostPropertiesTest`
 
@@ -296,10 +324,15 @@ stated:
   compile error on the missing class and accessor.
 - [ ] **Step 3: Implement.** Extract the body of `resolveAdvertisedAddress` into
   `AdvertisedAddress.resolve`, adding the configured-value branches ahead of the host-name fallback;
-  `RegistrationLifecycle` calls it with `properties.advertisedAddress()`, the gRPC port and
-  `InetAddress.getLocalHost()::getHostName`-backed supplier. Add the property to `application.yml`
-  with an empty default, which the blank branch handles. Nothing else changes: Compose behaviour is
-  identical because the variable is unset there.
+  `RegistrationLifecycle` calls it with `properties.advertisedAddress()`, the gRPC port and the
+  lambda `() -> InetAddress.getLocalHost().getHostName()`. Do not put `${VAR:}` in `application.yml`:
+  Spring binds an empty default to the empty string, not `null`, which would contradict the
+  registry's Done-when. Leave the key out and add a comment next to the other `gamehost` keys saying
+  `turnbase.gamehost.advertised-address` (env `TURNBASE_GAMEHOST_ADVERTISED_ADDRESS`) is absent by
+  default; relaxed binding picks the environment variable up regardless. The blank branch of
+  `resolve` still handles an explicitly empty value. Nothing else changes: Compose behaviour is
+  identical because the variable is unset there. A bare IPv6 literal contains `:` and would be taken
+  verbatim; this is a documented limitation, so bracket the literal and give its port.
 - [ ] **Step 4: Run, expect green.** `./mvnw test`, then `./mvnw verify -Pintegration`.
 - [ ] **Step 5: Format and commit.** `./mvnw spotless:apply`, then
   `feat(registration): configurable advertised address`. Merge `--ff-only`, delete the branch.
@@ -316,20 +349,24 @@ repository at `.claude/skills/run-turnbase/driver.mjs`. **Files**, under
   `templates/platform-configmap.yaml`, `templates/platform-deployment.yaml`,
   `templates/observability/prometheus.yaml`, `values.yaml`, `values-local.yaml`
 - Create: `templates/gamehost-secret.yaml`, `templates/observability/prometheus-configmap.yaml`
-- Modify: `docs/specs/deployment/local-environment.md` (verified Helm install commands)
+
+Umbrella repository (`turnbase`): modify `docs/specs/deployment/local-environment.md` (verified Helm
+install commands, the observed Step 1 symptom, and the stale "Then http://turnbase.localhost:8080"
+line, which becomes port 80 after Step 6).
 
 **Facts established by reading the chart (2026-10-18).** The Game Host Deployment has `envFrom` its
 ConfigMap only: no Redis host (the image defaults to the hostname `redis`, the chart's Service is
 `<release>-redis`), no Redis password, no artifact-store endpoint, bucket or credential, and the
 ConfigMap sets `SPRING_PROFILES_ACTIVE=local`. Its liveness and readiness probes already exist, on
-`/actuator/health/liveness` and `/actuator/health/readiness`. The platform has no `extraEnv`.
+`/actuator/health/liveness` and `/actuator/health/readiness`, so the A0 liveness-probe bullet in
+`load-testing.md` is already satisfied and needs no task. The platform has no `extraEnv`.
 `values-local.yaml` serves origins on port 8080, but ingress-nginx on Docker Desktop listens on 80.
 The Prometheus Deployment uses the image's default config (self-scrape only). `driver.mjs` already
 honours `PLATFORM_HOST` and `PLATFORM_URL`.
 
 - [ ] **Step 1: Prove the failure.** Install the unchanged chart on Docker Desktop Kubernetes with the
-  git-ignored `values-local.secrets.yaml`, the platform and Game Host images built from the Task 2 to
-  4 branches (`docker build -t turnbase/platform:dev .` in `turnbase-platform`, the same with
+  git-ignored `values-local.secrets.yaml`, with the platform and Game Host images built from merged `master`
+  after Tasks 2 to 4 (`docker build -t turnbase/platform:dev .` in `turnbase-platform`, the same with
   `turnbase/game-host:dev` in `turnbase-game-host`). Expected: the Game Host pod is not Ready or the
   `hosts` set in Redis is empty
   (`kubectl exec <redis-pod> -- redis-cli -a <password> smembers hosts`, the set key is `hosts`, `HostRegistry.HOSTS`). Record the observed symptom in
@@ -346,8 +383,10 @@ honours `PLATFORM_HOST` and `PLATFORM_URL`.
 - [ ] **Step 4: Dialable address.** In `gamehost-deployment.yaml` add an `env` entry
   `TURNBASE_GAMEHOST_ADVERTISED_ADDRESS` with `valueFrom.fieldRef.fieldPath: status.podIP`. The value
   has no port, which the Task 4 resolution order completes with `grpc.port`.
-- [ ] **Step 5: `extraEnv`.** Add `platform.extraEnv: []` and `gamehost.extraEnv: []` to `values.yaml`
-  and render them in both Deployments' `env` with `{{- with .Values.<c>.extraEnv }}{{ toYaml . | nindent 12 }}{{- end }}`.
+- [ ] **Step 5: `extraEnv`.** Add `platform.extraEnv: []` and `gamehost.extraEnv: []` to `values.yaml`.
+  The Game Host `env:` block exists after Step 4; append the list to it. The platform Deployment has
+  no `env:` today, so emit the key inside the `with`: `{{- with .Values.platform.extraEnv }}`,
+  `env:`, `{{ toYaml . | nindent 12 }}`, `{{- end }}`, which renders nothing when the list is empty.
   Container `env` wins over `envFrom`, so this is the override hook `IMP-M15-07` uses for
   `SPRING_PROFILES_ACTIVE`.
 - [ ] **Step 6: Origins.** Change `values-local.yaml` to
@@ -357,19 +396,22 @@ honours `PLATFORM_HOST` and `PLATFORM_URL`.
 - [ ] **Step 7: Prometheus.** Create `prometheus-configmap.yaml` with the two-job config from
   `observability.md` *Exposure*, with targets `<release>-platform:<platform.managementPort>` and
   `<release>-gamehost:<gamehost.managementPort>`; mount it in the Deployment at `/etc/prometheus`
-  and pass `--config.file=/etc/prometheus/prometheus.yml`. Add
+  and set the container `args` in full: `--config.file=/etc/prometheus/prometheus.yml` and
+  `--storage.tsdb.path=/prometheus` (the data volume's mount path). Add
   `observability.prometheus.remoteWriteReceiver: false` to `values.yaml`; when `true`, add
   `--web.enable-remote-write-receiver` to the container `args`.
 - [ ] **Step 8: Render checks.** `helm template` with the values from Step 2 and assert, by
   `grep`: the Game Host Secret contains no `JWT`, `ADMIN` or `DATASOURCE` key; the Game Host
   Deployment contains `status.podIP`; both Deployments render an `extraEnv` entry when given
-  `--set 'gamehost.extraEnv[0].name=X,gamehost.extraEnv[0].value=1'`; the Prometheus args contain
-  `--web.enable-remote-write-receiver` only with the flag set. Re-run `helm lint`.
+  `--set 'gamehost.extraEnv[0].name=X,gamehost.extraEnv[0].value=1'` (and the `platform.` form); the
+  Prometheus args contain `--web.enable-remote-write-receiver` only with the flag set. Re-run
+  `helm lint`.
 - [ ] **Step 9: Verify live.** `helm upgrade --install turnbase deploy/helm/turnbase -f values-local.yaml -f values-local.secrets.yaml`,
   then confirm in this order and record the commands in `local-environment.md`: all pods Ready; the
   `hosts` set holds one member whose address is the Game Host pod IP with port `9090`;
-  `node .claude/skills/run-turnbase/driver.mjs game` passes against `http://turnbase.localhost`
-  (set `PLATFORM_URL`); Prometheus `/api/v1/targets` shows both jobs `up`;
+  `PLATFORM_HOST=turnbase.localhost PLATFORM_URL=http://turnbase.localhost node .claude/skills/run-turnbase/driver.mjs game`
+  passes (set `platform.seed.bundlesHostPath` in the values overlay to the tic-tac-toe bundle
+  directory so the game exists); Prometheus `/api/v1/targets` shows both jobs `up`;
   `http_server_requests_seconds_bucket` returns a series. Any failure here is a defect in the chart or
   in Tasks 2 to 4; fix it where it lives.
 - [ ] **Step 10: Commit.** In `turnbase-platform`:
