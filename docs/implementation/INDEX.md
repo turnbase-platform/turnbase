@@ -27,6 +27,7 @@ that surfaces three milestones later. Record it against the item's *Gate* field.
 | [INDEX.md](INDEX.md) | This file — registry conventions, the milestone map, and how to read a work item |
 | [conventions.md](conventions.md) | **Code and build conventions** — package layout, formatting, tests, coverage, git, cross-repo versions. Normative, and shared by every item |
 | [registry.md](registry.md) | The register itself, and the per-item detail: read-lists, requirements satisfied, done-when clauses |
+| [m15-blockers-plan.md](m15-blockers-plan.md) | **Working file, deleted once spent.** The step-by-step plan for the M15 blocker items (`IMP-M15-01…06`) |
 
 ## Related
 
@@ -207,4 +208,5 @@ Ordering follows the dependency graph rather than document order, per `STATUS.md
 | **M12** | TurnBase visual identity | Added 2026-10-11 by ADR-0017: the approved prototype look replaces the stock Astryx theme across every view. The built theme and appearance switch (`02`), the shared `src/ui/` layer (`03`), then every view as a hook plus a presentational component (`04…10`), then the sweeps in both appearances (`11`). **Services are not touched.** |
 | **M13** | Prototype fidelity | Added 2026-10-12 by ADR-0017 §5 after the owner rejected the M12 build as not matching the approved prototype: shared kit (`01`), shell (`02`), then every screen (`03…07`), then side-by-side acceptance (`08`). |
 | **M14** | Game start resilience | Added 2026-10-17 by ADR-0018: a start that waits for, retries and sets aside a cold, restarting or wedged Game Host (`01`), the Game Host's own boot watchdog (`02`), and lobby-wide progress feedback (`03`). |
+| **M15** | Load and scalability testing, Phase A | Added 2026-10-18 from `docs/specs/deployment/load-testing.md`. Blockers first: spec groundwork and recon defects (`01`, `02`), toggleable rate limits (`03`), HTTP latency histograms (`04`), the Game Host's advertised address (`05`) and a chart that runs it (`06`); then the test definition: scaffold (`07`), k6 client and pair loop (`08`), scenarios and report template (`09`), the droppable `contexts` scenario (`10`); then the baseline runs (`11`). Measurement only: degradations found become follow-up items. |
 

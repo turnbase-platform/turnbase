@@ -204,8 +204,20 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M14-01 | Game start waits, retries, quarantines and publishes progress | platform, docs | — | DONE |
 | IMP-M14-02 | Game Host boot watchdog and restart supervision | game-host, platform | — | DONE |
 | IMP-M14-03 | Game start progress in the lobby | frontend | M14-01 | DONE |
+| **M15 — Load and scalability testing, Phase A** ||||
+| IMP-M15-01 | Load-testing spec groundwork | docs | — | READY |
+| IMP-M15-02 | Recon spec defects filed | docs | — | READY |
+| IMP-M15-03 | Toggleable rate-limiting mechanisms | platform | M15-01 | READY |
+| IMP-M15-04 | HTTP latency histograms | platform | M15-01 | READY |
+| IMP-M15-05 | Configurable Game Host advertised address | game-host | M15-01 | READY |
+| IMP-M15-06 | Game Host runs under the Helm chart | platform (chart), docs | M15-03, M15-04, M15-05 | READY |
+| IMP-M15-07 | Load-test scaffold: overlay, reset, user provisioning | docs (umbrella) | M15-06 | READY |
+| IMP-M15-08 | k6 STOMP client and pair game loop | docs (umbrella) | M15-07 | READY |
+| IMP-M15-09 | Load scenarios, thresholds and report template | docs (umbrella) | M15-08 | READY |
+| IMP-M15-10 | `contexts` scenario (droppable) | docs (umbrella) | M15-09 | READY |
+| IMP-M15-11 | Phase A baseline runs and reports | docs (umbrella) | M15-09 | READY |
 
-**159 live items.** `IMP-M14-01…03` were added 2026-10-17 by ADR-0018: a game start that survives a cold, restarting or wedged Game Host and shows its progress; see the M14 section. `IMP-M13-01…08` were added 2026-10-12 after the owner reviewed the running M12 build and found it did not match the approved prototype: see the M13 section. `IMP-M12-01…11` were added 2026-10-11 by [ADR-0017](../decisions/0017-turnbase-visual-identity.md): the approved prototype look replaces the stock Astryx theme across every view while the services, reducers and sockets stay as they are (see the M12 section). Before them, 137 live items. `IMP-M11-01…08` were added 2026-10-10 by [ADR-0016](../decisions/0016-spring-boot-4-migration.md), closing `IMP-GATE-97`: both Spring Boot services move to Boot 4.1.1 because two CRITICAL `spring-webmvc` CVEs have no fix on the 3.5 line. **M11 runs before M10** — every `IMP-M10-*` item depends on `IMP-M11-08` — and its items are judged locally with CI not awaited (see the M11 section). `IMP-M10-01…24` were added 2026-10-10 from the
+**170 live items.** `IMP-M15-01…11` were added 2026-10-18 by the load-testing design ([`load-testing.md`](../specs/deployment/load-testing.md)): the spec groundwork and the four fixes the chart and the platform need before anything can be measured (`01…06`), the k6 harness and its scenarios (`07…10`), and the baseline runs (`11`); see the M15 section. `IMP-M14-01…03` were added 2026-10-17 by ADR-0018: a game start that survives a cold, restarting or wedged Game Host and shows its progress; see the M14 section. `IMP-M13-01…08` were added 2026-10-12 after the owner reviewed the running M12 build and found it did not match the approved prototype: see the M13 section. `IMP-M12-01…11` were added 2026-10-11 by [ADR-0017](../decisions/0017-turnbase-visual-identity.md): the approved prototype look replaces the stock Astryx theme across every view while the services, reducers and sockets stay as they are (see the M12 section). Before them, 137 live items. `IMP-M11-01…08` were added 2026-10-10 by [ADR-0016](../decisions/0016-spring-boot-4-migration.md), closing `IMP-GATE-97`: both Spring Boot services move to Boot 4.1.1 because two CRITICAL `spring-webmvc` CVEs have no fix on the 3.5 line. **M11 runs before M10** — every `IMP-M10-*` item depends on `IMP-M11-08` — and its items are judged locally with CI not awaited (see the M11 section). `IMP-M10-01…24` were added 2026-10-10 from the
 [E2E & security audit](../reviews/2026-10-10-e2e-security-audit/INDEX.md) (`AUD-01…24`), the first
 black-box run of the full stack after the build plan reached 105: two Critical cross-user breaches
 (`IMP-M10-01` the ownerless-upload hole closed by `IMP-GATE-96`, `IMP-M10-02` the wildcard-subscribe
@@ -7021,6 +7033,225 @@ the lobby showed nothing meanwhile. The corpus amendments (`room-websocket.md`, 
 - Every lobby participant, spectators included, sees a spinner and the phase's sentence from
   `GAME_START_STATUS`; the host's Start button is disabled while a start is running; a failure shows
   its reason and what to do; the display clears on `GAME_STARTED`.
+
+## M15 — Load and scalability testing, Phase A
+
+Opened 2026-10-18 from [`load-testing.md`](../specs/deployment/load-testing.md): the owner wants to know
+how much the platform carries in the worst case, how it behaves as load rises and falls, and where it
+breaks, focused on room creation, game start and player actions. Phase A measures what exists on one
+Docker Desktop Kubernetes node, with one Platform instance and one Game Host; Game Host autoscaling is
+Phase B and gets its own design round.
+
+**Sequencing (owner decision).** Blockers first (`01…06`: spec changes, the toggleable rate limits, the
+latency histograms, the Game Host's address and the chart that runs it), then the test definition
+(`07…10`: scaffold, harness, scenarios), then the runs and their reports (`11`). The blockers have a
+step-by-step plan in [`m15-blockers-plan.md`](m15-blockers-plan.md), a working file deleted once spent.
+
+**Measurement only (owner decision).** `11` produces committed reports stating where and why the system
+breaks. It does not fix what it finds: each degradation becomes a follow-up item or a spec defect, and
+the owner prioritises those afterwards.
+
+### IMP-M15-01 — Load-testing spec groundwork
+
+**Repo:** `turnbase` (docs) · **Depends on:** nothing
+
+**Read first:**
+- `docs/specs/deployment/load-testing.md` §4 (A0, A1, A1a), §7, §11
+- `docs/specs/api-design/rate-limiting.md` (*Configuration and environments*)
+- `docs/specs/deployment/local-environment.md` §7.6, §7.8
+- `docs/specs/internal-grpc/orchestration-gamehost-protocol.md` (*Addressing the Game Host pods*)
+- `docs/specs/deployment/observability.md` §2 (*Exposure*) and §6
+
+**Satisfies:** `platform-operations.md` FR-MET-001 (the latency histogram it already requires)
+
+**Done when:**
+- **Switches specified.** `rate-limiting.md` *Configuration and environments* and `local-environment.md`
+  §7.6 define a per-mechanism `enabled` switch, default `true`, for the auth-failure lockout, the API,
+  public and upload tiers, guest and registration minting, each WebSocket bucket, the WebSocket
+  violation lockout and max-connections-per-user, under the exact property names
+  [`m15-blockers-plan.md`](m15-blockers-plan.md) Task 1 lists.
+- **Profile rule specified.** Disabling the master switch or any per-mechanism switch is allowed only
+  when the active profiles include `test`, `e2e` or `loadtest`; otherwise the platform refuses to boot
+  and names every disabled switch. `local` alone does not permit it. The `loadtest` profile is defined.
+- **Master switch scope stated.** The master switch governs the WebSocket limits too. The
+  `WebSocketRateLimitProperties` Javadoc says so today and the code does not honour it; this item
+  records the rule and `IMP-M15-03` makes the code agree.
+- **Game Host address specified.** `orchestration-gamehost-protocol.md` *Addressing the Game Host pods*
+  and `local-environment.md` §7.8 name `turnbase.gamehost.advertised-address`
+  (`TURNBASE_GAMEHOST_ADVERTISED_ADDRESS`), its resolution order, and that the chart sets it from the
+  pod IP.
+- **Metrics specified.** `observability.md` states that `http.server.requests` publishes percentile
+  histograms and that the Helm Prometheus scrapes the platform and Game Host management ports.
+- **New NFRs.** Warm game start p95 < 1 s and p99 < 2 s, `move_rtt` p99 < 500 ms, non-game HTTP p99 <
+  500 ms and lobby event p99 < 600 ms, priority Should, are defined under fresh IDs that collide with
+  nothing, in their defining document, and `load-testing.md` and that document link each other.
+- `python3 scripts/check-corpus.py` is clean.
+
+### IMP-M15-02 — Recon spec defects filed
+
+**Repo:** `turnbase` (docs) · **Depends on:** nothing
+
+**Read first:**
+- `docs/specs/deployment/load-testing.md` §11
+- `.claude/skills/spec-defect/SKILL.md`
+
+**Done when:** each of these is fixed, or recorded through the `spec-defect` skill with the owner's
+decision where one is needed:
+- `docs/specs/flows/03-game-turn.md` §C names the RPC `SubmitInput`; the proto and the code use
+  `ProcessInput`. Fixed in the flow.
+- `docs/specs/game-host/game-host-internals.md` §9.3 describes eager reassignment on lease expiry; the
+  code reassigns lazily on the next input. **Owner decision**: recorded, not resolved.
+- `NFR-AVAIL-001` says 99% in `platform-operations.md` and 99.9% in `platform-architecture.md`.
+  **Owner decision**: recorded, not resolved.
+- `docs/specs/deployment/INDEX.md` and `local-environment.md` §4 claim a CI job that applies the Helm
+  chart to a `kind` cluster; no such workflow exists. The text says what exists.
+- `STATUS.md` says the Kubernetes manifests do not exist yet; they do. Corrected.
+
+### IMP-M15-03 — Toggleable rate-limiting mechanisms
+
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M15-01
+
+**Read first:**
+- `docs/specs/api-design/rate-limiting.md` (*Configuration and environments*, as amended by `IMP-M15-01`)
+- `docs/specs/deployment/local-environment.md` §7.6
+- `docs/implementation/m15-blockers-plan.md` Task 2
+
+**Done when:**
+- **Switches exist and default on.** Each mechanism `IMP-M15-01` names reads its own `enabled` property
+  and every one defaults to `true`; a defaults test asserts it.
+- **Effective rule.** A mechanism is active only when the master `turnbase.rate-limit.enabled` and its
+  own switch are both `true`. The master switch now gates the WebSocket limits as well.
+- **Gates honoured.** A disabled HTTP tier admits without consuming a token or arming a refund; a
+  disabled WebSocket bucket allows every frame and counts no violation; a disabled lockout never closes
+  a socket or writes a reconnect lockout; a disabled connection cap registers every connection.
+- **Safety rule.** With the master switch or any per-mechanism switch off and none of `test`, `e2e` or
+  `loadtest` active, the application refuses to start, and the message names every disabled switch by
+  property name. `local` alone does not permit it.
+- **`loadtest` profile.** `application-loadtest.yml` turns off every switch except
+  `turnbase.rate-limit.ws.switches.max-connections-per-user`, and leaves the master switch on. Booting with `local,loadtest`
+  reads exactly that.
+- **Tests.** Unit and integration tests cover each of the above, as listed in the plan.
+
+### IMP-M15-04 — HTTP latency histograms
+
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M15-01
+
+**Read first:**
+- `docs/specs/deployment/observability.md` §2 (*Exposure*), §6
+- `docs/implementation/m15-blockers-plan.md` Task 3
+
+**Satisfies:** `platform-operations.md` FR-MET-001; `platform-operations.md` FR-ALERT-002
+
+**Done when:**
+- `management.metrics.distribution.percentiles-histogram.http.server.requests` is `true`, with a
+  `minimum-expected-value` of 5 ms and a `maximum-expected-value` of 30 s, in `application.yml` for
+  every profile (not load-test-only).
+- An integration test boots the application, issues one request to a public endpoint, scrapes
+  `/actuator/prometheus` on the management port and finds an `http_server_requests_seconds_bucket{`
+  line with an `le=` label.
+
+### IMP-M15-05 — Configurable Game Host advertised address
+
+**Repo:** `turnbase-game-host` · **Depends on:** IMP-M15-01
+
+**Read first:**
+- `docs/specs/internal-grpc/orchestration-gamehost-protocol.md` (*Addressing the Game Host pods*)
+- `docs/specs/deployment/local-environment.md` §7.8
+- `docs/implementation/m15-blockers-plan.md` Task 4
+
+**Done when:**
+- `turnbase.gamehost.advertised-address` (`TURNBASE_GAMEHOST_ADVERTISED_ADDRESS`) is an optional
+  property, absent by default.
+- The address sent in `RegisterRequest.address` is: the configured value verbatim when it contains a
+  `:`; the configured value plus `:` and the gRPC port when it does not; the local host name plus the
+  port when it is blank or absent; `localhost:` plus the port when the host name cannot be resolved.
+  A unit test covers each of the four cases.
+- The property binds from configuration (a test asserts the bound value and the `null` default).
+  Compose behaviour is unchanged.
+
+### IMP-M15-06 — Game Host runs under the Helm chart
+
+**Repo:** `turnbase-platform` (chart), `.claude/skills/run-turnbase` · **Depends on:** IMP-M15-03, IMP-M15-04, IMP-M15-05
+
+**Read first:**
+- `docs/specs/deployment/load-testing.md` §3.1, §4 (A0, A1)
+- `docs/specs/deployment/local-environment.md` §4, §5, §7.8
+- `docs/specs/deployment/observability.md` §2 (*Exposure*)
+- `docs/implementation/m15-blockers-plan.md` Task 5
+
+**Done when:**
+- **Game Host configuration.** The Game Host pod receives the Redis host and port, the artifact-store
+  endpoint and bucket from its ConfigMap, and the Redis password and the scoped artifact-store
+  credential from its own Secret, which never holds the platform's JWT or admin credentials.
+- **Dialable address.** The pod sets `TURNBASE_GAMEHOST_ADVERTISED_ADDRESS` from its pod IP.
+- **Hook.** The platform and Game Host containers accept a generic `extraEnv` list, which wins over
+  `envFrom`.
+- **Origins.** `values-local.yaml` serves the origins on port 80 to match ingress-nginx.
+- **Prometheus.** The chart's Prometheus scrapes the platform and Game Host management ports, and can
+  enable the remote-write receiver through a value.
+- **Verified live on Docker Desktop.** `helm lint` and `helm template` are clean; all pods are Ready;
+  the `hosts` set in Redis holds one member whose address is the pod IP and port `9090`;
+  `node .claude/skills/run-turnbase/driver.mjs game` passes against `http://turnbase.localhost`;
+  Prometheus shows the platform and Game Host targets `up` and `http_server_requests_seconds_bucket`
+  is queryable.
+- `local-environment.md`'s Helm install section holds the verified commands.
+
+### IMP-M15-07 — Load-test scaffold: overlay, reset, user provisioning
+
+**Repo:** `turnbase` (umbrella) · **Depends on:** IMP-M15-06
+
+**Read first:**
+- `docs/specs/deployment/load-testing.md` §4 (A1, A2), §8
+
+**Done when:**
+- `loadtest/helm/values-loadtest.yaml` installs on top of `values-local` with `local,loadtest` active,
+  the platform pinned to one replica without autoscaling, the Game Host to one replica, resource
+  requests and limits recorded, and every limiter off.
+- Provisioning creates 2,000 `lt-*` users idempotently: a second run creates none.
+- `loadtest/reset.sh` returns the stack to empty (schema wiped and Redis flushed, or a Helm uninstall
+  with its PVCs deleted) and re-provisioning then works.
+- `loadtest/README.md` documents the run procedure, the reset, and the `.wslconfig` recommendation.
+
+### IMP-M15-08 — k6 STOMP client and pair game loop
+
+**Repo:** `turnbase` (umbrella) · **Depends on:** IMP-M15-07
+
+**Read first:**
+- `docs/specs/deployment/load-testing.md` §3.6, §4 (A3)
+- `.claude/skills/run-turnbase/driver.mjs`
+
+**Done when:** a `smoke` scenario (one pair, three games, including a rematch and a fresh room)
+completes with zero errors and emits every custom metric `load-testing.md` §4 (A3) names.
+
+### IMP-M15-09 — Load scenarios, thresholds and report template
+
+**Repo:** `turnbase` (umbrella) · **Depends on:** IMP-M15-08
+
+**Read first:**
+- `docs/specs/deployment/load-testing.md` §5, §6, §8
+
+**Done when:** `ramp-to-break`, `soak`, `up-down`, `parallelism`, `start-rate` and `default-limits` run
+as `load-testing.md` §5 specifies, with the §6 threshold set, generator-bound flagging, and
+`loadtest/reports/TEMPLATE.md`.
+
+### IMP-M15-10 — `contexts` scenario (droppable)
+
+**Repo:** `turnbase` (umbrella) · **Depends on:** IMP-M15-09
+
+**Done when:** the scenario is implemented, or it is dropped and the reason recorded in
+`load-testing.md` (`load-testing.md` §5 names the case: bundle identity rules forbid a re-identified
+copy of the Tic-Tac-Toe bundle).
+
+### IMP-M15-11 — Phase A baseline runs and reports
+
+**Repo:** `turnbase` (umbrella) · **Depends on:** IMP-M15-09
+
+**Done when:**
+- Committed reports exist under `loadtest/reports/` for `parallelism`, `ramp-to-break`, `start-rate`,
+  `default-limits`, `soak` and `up-down`.
+- Each degradation found is filed as a follow-up work item or a spec defect; none is fixed here.
+- The capacity targets (500 concurrent sessions, 5,000 WebSockets) are marked reached or not reached,
+  each with the limiting factor.
 
 ---
 

@@ -22,6 +22,7 @@ escalation path rather than deferring the whole subject to a cloud phase that ha
 | [schema-migrations.md](schema-migrations.md) | Flyway layout and naming, what a migration may contain, the baseline, CI drift and checksum checks, seeds, Flyway configuration |
 | [observability.md](observability.md) | Metrics, logs, traces and alert routing: Actuator/Prometheus scrape, Logback JSON → Promtail → Loki, OTLP → Tempo, Grafana provisioning, Alertmanager rules |
 | [secrets-and-configuration.md](secrets-and-configuration.md) | JWT signing keys and their rotation, database and Redis credentials, OAuth client secrets, per-environment configuration, what must never reach a log |
+| [load-testing.md](load-testing.md) | k6 load and scalability testing: goals and anti-goals, the chart fixes and load-test overlay the harness needs, the pair-per-VU scenario design, scenarios, thresholds, proposed game-start and p99 NFRs, run reports; Phase B Game Host autoscaling outline |
 
 ## Key Decisions
 
