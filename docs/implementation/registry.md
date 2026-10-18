@@ -212,7 +212,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M15-05 | Configurable Game Host advertised address | game-host | M15-01 | DONE |
 | IMP-M15-06 | Game Host runs under the Helm chart | platform (chart), docs | M15-03, M15-04, M15-05 | DONE |
 | IMP-M15-07 | Load-test scaffold: overlay, reset, user provisioning | platform (chart), docs (umbrella) | M15-06 | DONE |
-| IMP-M15-08 | k6 STOMP client and pair game loop | docs (umbrella) | M15-07 | READY |
+| IMP-M15-08 | k6 STOMP client and pair game loop | docs (umbrella) | M15-07 | WIP (session 209) |
 | IMP-M15-09 | Load scenarios, thresholds and report template | docs (umbrella) | M15-08 | READY |
 | IMP-M15-10 | `contexts` scenario (droppable) | docs (umbrella) | M15-09 | READY |
 | IMP-M15-11 | Phase A runs — parallelism and ramp-to-break | docs (umbrella) | M15-09 | READY |
