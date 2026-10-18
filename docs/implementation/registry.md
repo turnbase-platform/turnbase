@@ -215,7 +215,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M15-08 | k6 STOMP client and pair game loop | docs (umbrella) | M15-07 | DONE |
 | IMP-M15-09 | Load scenarios, thresholds and report template | docs (umbrella) | M15-08 | DONE |
 | IMP-M15-10 | `contexts` scenario (droppable) | docs (umbrella) | M15-09 | DONE |
-| IMP-M15-11 | Phase A runs — parallelism and ramp-to-break | docs (umbrella) | M15-09 | WIP (session 212) |
+| IMP-M15-11 | Phase A runs — parallelism and ramp-to-break | docs (umbrella) | M15-09 | DONE |
 | IMP-M15-12 | Phase A runs — start-rate, default-limits, contexts | docs (umbrella) | M15-10, M15-11 | READY |
 | IMP-M15-13 | Phase A runs — soak, up-down and Phase A summary | docs (umbrella) | M15-11, M15-12 | READY |
 

@@ -411,4 +411,24 @@ Findings of the Phase A runs, one entry each, appended by the run items (`IMP-M1
 owner. An entry names the report it comes from, the symptom with its numbers, the suspected cause and
 what was not checked. It is not a work item and nothing here is scheduled.
 
-_No entries yet._
+### From `IMP-M15-11` (reports `2026-10-18-parallelism.md`, `2026-10-18-ramp-to-break.md`)
+
+1. **Throughput plateaus at 16 pairs and declines past 32; the Game Host is not the limit.**
+   Report: `2026-10-18-parallelism.md`. Moves/s 759 (8 pairs), 805 (16), 909 (32), 678 (256), with the Game Host at 0.9 to 1.25 of
+   4 cores and its gRPC executors parked in the thread dump, while the platform pod held about 3.0 of 4 cores and Postgres
+   1.6 to 1.8 of 2. Suspected cause: platform CPU (STOMP broker, HTTP, event fan-out), with Postgres as co-limit. Not checked: CPU
+   throttling counters of the platform pod, a platform thread dump, Postgres statistics.
+2. **The 200 ms move target fails at 128 pairs.** Report: `2026-10-18-parallelism.md`. `tb_move_rtt` p95 223 ms (241 ms at 256),
+   `tb_room_join` p99 511 ms at 128; latency grows about linearly with the pair count from 16 pairs on. Suspected cause: queueing
+   behind the saturated platform. Not checked: the same load with realistic think times.
+3. **The ramp stops at 80 pairs on a `tb_room_join` tail.** Report: `2026-10-18-ramp-to-break.md`. p95 311.5 ms, p99 474 ms, max 535 ms
+   over 838 joins (p50 18 ms) while move p95 was 81 ms; ceiling 70 pairs = 140 sockets, about 55 concurrent sessions, against
+   the 500-session and 5,000-WebSocket targets (neither reached). Suspected cause: Postgres at 1.85 of 2 cores and the platform at
+   2.9 of 4. Not checked: whether the tail is a periodic stall (step-50 p99 was also 199 ms), Postgres statistics, a rerun of 80 pairs alone.
+4. **`ready_timeout` errors under load.** Reports: both. 46 at 128 pairs (`parallelism`) and 10 in settle windows (`ramp-to-break`), 0.04%
+   of operations at most. Suspected cause: the `SUBSCRIBE_SETTLE_MS` race described in `loadtest/README.md` or a late broadcast.
+   Not checked: which rooms, and the server-side order of subscribe and ready.
+5. **Platform threads grow from 80 to 226 under load** (`parallelism`: 226 at 256 pairs; `ramp-to-break`: 138 at 80 pairs); no pool
+   exhaustion (`hikari_pending` max 9 once). Not checked: what the extra threads are.
+6. **The run protocol's `jcmd 1` fails on the Game Host image** (PID 1 is `supervise.sh`; the JVM is PID 7). Report: `2026-10-18-parallelism.md`.
+   `IMP-M15-12` and `13` use `jcmd 7`.

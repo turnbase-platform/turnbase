@@ -1,14 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-18 (session 211) — **`IMP-M15-10` DONE: the `contexts` scenario was built, not dropped.** Umbrella-only (nothing to bump, no CI); 168 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
+**Date:** 2026-10-18 (session 212) — **`IMP-M15-11` DONE: the `parallelism` and `ramp-to-break` reports are committed.** Umbrella-only (nothing to bump, no CI); 169 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
 
-**What landed.** `loadtest/lib/bundles.sh <count>` (copies of the seed bundle under fresh UUIDs, `title` suffixed, `version` 1.0.<k>), `loadtest/scenarios/contexts.js` (`constant-vus`, pair `i` plays `CONTEXT_IDS[i % n]`), `pairSession` takes an optional `gameId`, README rows and procedure, and a *Built* paragraph in `load-testing.md` §5.
+**Results** (`loadtest/reports/2026-10-18-parallelism.md`, `…-ramp-to-break.md`). `parallelism`: moves/s scaled to 8 pairs (759/s), plateaued at 16 (805/s), peaked at 32 (909/s) and fell to 678/s at 256; the Game Host stayed at 0.9 to 1.25 of 4 cores (its gRPC executors idle in the thread dump) while the platform held about 3 of 4 cores and Postgres 1.6 to 1.8 of 2; move p95 crossed 200 ms at 128 pairs; ceiling 64 pairs. `ramp-to-break`: ceiling 70 pairs; aborted 67 s into the 80-pair step on a `tb_room_join` tail (p95 311 ms, 838 samples) while moves were at 81 ms p95. 500 sessions and 5,000 WebSockets: **not reached** (70 sessions, 140 sockets at the ceiling); the idle-socket run was not made, as the protocol directs when the ceiling is below 1,000 pairs. No restart, OOM kill, 5xx or generator-bound step in either run. Six entries were added to `load-testing.md` §13.
 
-**Verified live.** Route 2 (seeder directory, the official path): the platform seeded all four copies, all `ACTIVE`; the minimum run (`PAIRS=4 DURATION=60s`) exited 0 with `tb_errors` 0 and 2,105 games, and the Game Host logged four `Game context created` lines with four distinct `gameId`/`gameVersion` pairs. The copies were then removed from `C:\Users\Hubert\turnbase-seed`, the stack reset (one game, empty `loadtest/results/`), preflight OK. No upload-API route was needed.
+**Notes for `IMP-M15-12` and `13`.** The protocol's `jcmd 1` does not work on the Game Host image (PID 1 is `supervise.sh`); use `jcmd 7`. Both runs used the same chart values and images; no harness change was needed. The snapshot segments start at the run launch, so they are offset from the steps by the setup time (14 s and 30 s); the reports say so.
 
-**Note for `IMP-M15-12`.** It must copy the bundles into the seed directory, reset, provision, run, then delete the copies and reset again (README, *`contexts`: the bundle copies*).
-
-**Not done.** `IMP-M15-11` (parallelism and ramp-to-break runs) is next; `12` then waits for it.
+**Not done.** `IMP-M15-12` (start-rate, default-limits, contexts) is next, then `13`. The cluster was reset after the last run and the preflight is OK.
 
 ---
 
@@ -18,8 +16,8 @@
 `scripts/autonomous-work-loop.sh`; each item's *Read first* list in the registry is all the context an
 agent needs.
 
-**Order:** `IMP-M15-01`…`10` (DONE)
--> `11` -> `12`, `13`. The registry's *Depends on* column enforces this; `12` also waits
+**Order:** `IMP-M15-01`…`11` (DONE)
+-> `12`, `13`. The registry's *Depends on* column enforces this; `12` also waits
 for `10`, and `13` for `12`.
 
 - **`IMP-M13-08` stays `WIP` and is owner-held.** It is a visual comparison against the approved
