@@ -205,7 +205,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M14-02 | Game Host boot watchdog and restart supervision | game-host, platform | — | DONE |
 | IMP-M14-03 | Game start progress in the lobby | frontend | M14-01 | DONE |
 | **M15 — Load and scalability testing, Phase A** ||||
-| IMP-M15-01 | Load-testing spec groundwork | docs | — | READY |
+| IMP-M15-01 | Load-testing spec groundwork | docs | — | WIP (session 202) |
 | IMP-M15-02 | Recon spec defects filed | docs | — | READY |
 | IMP-M15-03 | Toggleable rate-limiting mechanisms | platform | M15-01 | READY |
 | IMP-M15-04 | HTTP latency histograms | platform | M15-01 | READY |
