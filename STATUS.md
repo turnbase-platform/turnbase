@@ -1,12 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-18 (session 205) — **`IMP-M15-04` DONE: HTTP latency histograms.** `turnbase-platform` `1be9e0a`; 162 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
+**Date:** 2026-10-18 (session 206) — **`IMP-M15-05` DONE: configurable Game Host advertised address.** `turnbase-game-host` `4b07fbe`; 163 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
 
-**What landed.** `management.metrics.distribution` in `application.yml` publishes a percentile histogram for `http.server.requests` with a 5 ms minimum and 30 s maximum expected value, outside any profile block. `HttpLatencyHistogramTest` binds the three keys; `HttpLatencyHistogramIT` boots the app, makes one public request and polls `/actuator/prometheus` on the management port for an `http_server_requests_seconds_bucket{…le="…"` line.
+**What landed.** `GameHostProperties` gains a last component `@Nullable String advertisedAddress` (no default, binds `null`; the key is deliberately absent from `application.yml`, with a comment). New package-private `registration/AdvertisedAddress.resolve(configured, grpcPort, HostNameSource)` implements the four-step resolution of `local-environment.md` §7.8; `RegistrationLifecycle` calls it. `AdvertisedAddressTest` (5 cases) and `GameHostPropertiesTest` (`null` default, explicit binding) pass. A bare IPv6 literal is taken verbatim and untested, as §7.8 says.
 
-**Verification.** `spotless:apply`, `verify` and CI green. `verify -Pintegration` has the same seven environmental errors as session 204 (`GameAssetControllerIT` 6, `SeedDataIT` 1: `*.games.localhost` resolves to `::1` on this WSL machine); `HttpLatencyHistogramIT` passes.
+**Verification.** `spotless:apply`, `verify -Pintegration` (71 unit, 17 integration) and CI green.
 
-**Not done.** Nothing else from M15. `IMP-M15-05` is next; `06` waits for it.
+**Not done.** Nothing else from M15. `IMP-M15-06` is next (needs a live Docker Desktop Kubernetes cluster; Step 0 preflight).
 
 ---
 
@@ -16,7 +16,7 @@
 `scripts/autonomous-work-loop.sh`; each item's *Read first* list in the registry is all the context an
 agent needs.
 
-**Order:** `IMP-M15-01`, `02`, `03`, `04` (DONE) -> `05` -> `06` -> `07` -> `08`
+**Order:** `IMP-M15-01`, `02`, `03`, `04`, `05` (DONE) -> `06` -> `07` -> `08`
 -> `09` -> `10` -> `11` -> `12`, `13`. The registry's *Depends on* column enforces this; `12` also waits
 for `10`, and `13` for `12`.
 
