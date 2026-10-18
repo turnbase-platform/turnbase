@@ -305,15 +305,12 @@ the owner may adjust them. Priority **Should**.
 
 | Proposed target | Value |
 |---|---|
-| Warm game start (`START_GAME` → `GAME_STARTED`) | p95 < 1 s, p99 < 2 s. Cold start is recorded, not gated |
-| `move_rtt` | p99 < 500 ms |
-| Non-game HTTP endpoints | p99 < 500 ms |
-| Lobby event delivery | p99 < 600 ms |
+| Warm game start (`START_GAME` → `GAME_STARTED`) | p95 < 1 s, p99 < 2 s. Cold start is recorded, not gated. [`platform-operations.md`](../../requirements/platform-operations.md) NFR-LOAD-001 |
+| `move_rtt` | p99 < 500 ms. NFR-LOAD-002 |
+| Non-game HTTP endpoints | p99 < 500 ms. NFR-LOAD-003 |
+| Lobby event delivery | p99 < 600 ms. NFR-LOAD-004 |
 
-The builder chooses the defining requirements document and fresh IDs that collide with nothing (check
-[`../../requirements/INDEX.md`](../../requirements/INDEX.md); `NFR-PERF` is already defined in nine
-documents, and `platform-operations.md` currently stops at NFR-PERF-003), and links this document from
-that requirement's Related section.
+The four IDs are defined in [`platform-operations.md`](../../requirements/platform-operations.md) (`NFR-LOAD`, registered in [`../../requirements/INDEX.md`](../../requirements/INDEX.md)), which links this document from its *Related Documents*.
 
 ## 8. Outputs and procedure
 

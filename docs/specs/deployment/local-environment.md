@@ -583,13 +583,36 @@ URL, which is the reason the small cap can be small.
 ### 7.6 Rate limiting
 
 The full tier table is in [`../api-design/rate-limiting.md`](../api-design/rate-limiting.md) §
-*Configuration* and is not duplicated here. The keys are all under `turnbase.rate-limit.*`; the two
+*Configuration* and is not duplicated here. The keys are all under `turnbase.rate-limit.*`; the ones
 that are not tier budgets:
 
 | Property | Default | Env | Note |
 |---|---|---|---|
-| `turnbase.rate-limit.enabled` | `true` | `TURNBASE_RATE_LIMIT_ENABLED` | `false` is honoured **only** under the `test` or `e2e` profile; the application fails to start otherwise |
+| `turnbase.rate-limit.enabled` | `true` | `TURNBASE_RATE_LIMIT_ENABLED` | master switch; gates Tiers 1 to 6. `false` is honoured **only** under the `test`, `e2e` or `loadtest` profile; the application fails to start otherwise |
+| `turnbase.rate-limit.switches.auth-lockout` | `true` | `TURNBASE_RATE_LIMIT_SWITCHES_AUTH_LOCKOUT` | Tier 1 |
+| `turnbase.rate-limit.switches.api` | `true` | `TURNBASE_RATE_LIMIT_SWITCHES_API` | Tier 2 |
+| `turnbase.rate-limit.switches.upload` | `true` | `TURNBASE_RATE_LIMIT_SWITCHES_UPLOAD` | Tier 3 |
+| `turnbase.rate-limit.switches.public` | `true` | `TURNBASE_RATE_LIMIT_SWITCHES_PUBLIC` | Tier 4 |
+| `turnbase.rate-limit.switches.guest-minting` | `true` | `TURNBASE_RATE_LIMIT_SWITCHES_GUEST_MINTING` | Tier 5, guests |
+| `turnbase.rate-limit.switches.registration-minting` | `true` | `TURNBASE_RATE_LIMIT_SWITCHES_REGISTRATION_MINTING` | Tier 5, registrations |
+| `turnbase.rate-limit.ws.switches.connection` | `true` | `TURNBASE_RATE_LIMIT_WS_SWITCHES_CONNECTION` | Tier 6 backstop bucket |
+| `turnbase.rate-limit.ws.switches.snapshot` | `true` | `TURNBASE_RATE_LIMIT_WS_SWITCHES_SNAPSHOT` | Tier 6 |
+| `turnbase.rate-limit.ws.switches.action` | `true` | `TURNBASE_RATE_LIMIT_WS_SWITCHES_ACTION` | Tier 6 |
+| `turnbase.rate-limit.ws.switches.chat` | `true` | `TURNBASE_RATE_LIMIT_WS_SWITCHES_CHAT` | Tier 6 |
+| `turnbase.rate-limit.ws.switches.command` | `true` | `TURNBASE_RATE_LIMIT_WS_SWITCHES_COMMAND` | Tier 6 |
+| `turnbase.rate-limit.ws.switches.subscribe` | `true` | `TURNBASE_RATE_LIMIT_WS_SWITCHES_SUBSCRIBE` | Tier 6 |
+| `turnbase.rate-limit.ws.switches.violation-lockout` | `true` | `TURNBASE_RATE_LIMIT_WS_SWITCHES_VIOLATION_LOCKOUT` | Tier 6 violation counting, force-close and lockout |
+| `turnbase.rate-limit.ws.switches.max-connections-per-user` | `true` | `TURNBASE_RATE_LIMIT_WS_SWITCHES_MAX_CONNECTIONS_PER_USER` | Tier 6 connection cap |
 | `turnbase.security.trusted-proxies` | `10.0.0.0/8,172.16.0.0/12` | `TURNBASE_SECURITY_TRUSTED_PROXIES` | Client-IP derivation. Wrong here means every IP-keyed tier keys on the ingress |
+
+A mechanism acts only when the master switch **and** its own switch are both `true`. With the master
+switch or any switch off, the application starts only when the `test`, `e2e` or `loadtest` profile is
+active; `local` alone does not permit it, and the refusal message names every disabled switch by
+property name.
+
+**The `loadtest` profile** (`load-testing.md` §4 A1a) turns every switch off except
+`turnbase.rate-limit.ws.switches.max-connections-per-user` and leaves the master switch on. It is never
+activated by default; the load-test Helm overlay sets `SPRING_PROFILES_ACTIVE=local,loadtest`.
 
 ### 7.7 Origins
 
@@ -624,6 +647,7 @@ asserts the difference at startup and refuses to boot if it does not hold.
 | `turnbase.gamehost.retry-limit` | `3` | `TURNBASE_GAMEHOST_RETRY_LIMIT` | FR-FAIL-003 |
 | `turnbase.gamehost.grpc.max-message-size` | `32MB` | `TURNBASE_GAMEHOST_GRPC_MAX_MESSAGE_SIZE` | protocol doc |
 | `turnbase.gamehost.guest-java-home` | `/opt/graalvm-guest-jdk21` | `TURNBASE_GAMEHOST_GUEST_JAVA_HOME` | game-host-internals §15 |
+| `turnbase.gamehost.advertised-address` | *(absent)* | `TURNBASE_GAMEHOST_ADVERTISED_ADDRESS` | what `RegisterRequest.address` carries. Four-step resolution: a value containing `:` verbatim; otherwise the value plus `:` and `grpc.port`; blank or absent, the local host name plus the port; `localhost:` plus the port if the host name does not resolve. The chart sets it from the pod IP. An IPv6 literal must be bracketed with its port (`[fd00::1]:9090`); a bare one is unsupported. `orchestration-gamehost-protocol.md` *Addressing the Game Host pods* |
 | `turnbase.gamehost.orchestration-address` | `platform:8080` | `TURNBASE_GAMEHOST_ORCHESTRATION_ADDRESS` | IMP-GATE-09 |
 | `turnbase.gamehost.sdk-jar-path` | `/opt/turnbase/guest-bridge.jar` | `TURNBASE_GAMEHOST_SDK_JAR_PATH` | game-host-internals §4.2 |
 | `turnbase.gamehost.artifact-cache-dir` | `/var/lib/turnbase/game-host/artifact-cache` | `TURNBASE_GAMEHOST_ARTIFACT_CACHE_DIR` | FR-LOAD-003 |
@@ -718,8 +742,10 @@ schema, which means every integration test run is a migration test — the check
 [`schema-migrations.md`](schema-migrations.md) §6 as a side effect of ordinary work rather than as a
 job somebody has to remember.
 
-**E2E runs with `turnbase.rate-limit.enabled=false`.** This is the one place the escape hatch is
-legitimate, and it is profile-gated for exactly that reason
+**E2E runs with the master rate-limit switch off.** The master switch or any per-mechanism switch may
+be off only under the `test`, `e2e` or `loadtest` profile, and the application refuses to start
+otherwise (§7.6). E2E is a place the escape hatch is legitimate, and it is profile-gated for exactly
+that reason
 ([`../api-design/rate-limiting.md`](../api-design/rate-limiting.md)): the GRMP prototype's hardcoded
 login limit blocked every test session for months, and the workaround was deleting Redis keys by
 hand.

@@ -121,6 +121,18 @@ FR-SESS-003 (login displaces the previous session). Two complementary mechanisms
   DNS, and/or the pod advertises its **pod IP + port** in `RegisterRequest.address`.
 - The advertised address is stored in the Redis registry and used by every replica.
 
+**`turnbase.gamehost.advertised-address`** (env `TURNBASE_GAMEHOST_ADVERTISED_ADDRESS`, absent by
+default) decides what the Game Host puts in `RegisterRequest.address`. Resolution order:
+
+1. A configured value containing `:` is used verbatim.
+2. A configured value without `:` gets `:` and `turnbase.gamehost.grpc.port` appended.
+3. A blank or absent value becomes the local host name plus `:` and the gRPC port.
+4. When the host name does not resolve, `localhost:` plus the gRPC port.
+
+The Helm chart sets it from the pod IP (downward API). An IPv6 literal must be given bracketed with its
+port (for example `[fd00::1]:9090`); a bare IPv6 literal is unsupported, because the colon rule would
+read it as already carrying a port.
+
 The Orchestration Service **pools one gRPC channel per Game Host instance** (not
 dial-per-call) to meet the <50ms routing overhead budget (NFR-PERF-003), and treats a
 channel as disposable on `UNAVAILABLE`.

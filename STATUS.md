@@ -1,18 +1,10 @@
 ## Last Session Summary
 
-**Date:** 2026-10-18 (session 201) — **M15 opened: Phase A of load and scalability testing.** Documentation only, no code in a service; 13 items `READY` (`IMP-M15-01…13`), 172 live items in all. `IMP-M13-08` is still `WIP` and owner-held.
+**Date:** 2026-10-18 (session 202) — **`IMP-M15-01` DONE: load-testing spec groundwork.** Documentation only; 159 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
 
-**The design.** [`load-testing.md`](docs/specs/deployment/load-testing.md) answers the owner's three questions: how much the platform carries in the worst case, how it behaves as load rises and falls, and where it breaks, centred on room creation, game start and player actions. Two plans carry the build: [`m15-blockers-plan.md`](docs/implementation/m15-blockers-plan.md) (`IMP-M15-01…06`, deleted when `06` is `DONE`) and [`m15-test-definition-plan.md`](docs/implementation/m15-test-definition-plan.md) (`07…10` plus the run protocol for `11…13`, deleted when `13` is `DONE`).
+**What landed.** `rate-limiting.md` now specifies the 14 per-mechanism switches (all default `true`), the rule that a mechanism acts only when the master and its own switch are on, that the master switch gates Tier 6 too, and that any switch may be off only under `test`, `e2e` or `loadtest` (`local` alone refuses, the message names every disabled switch). `local-environment.md` §7.6 carries the same keys plus the `loadtest` profile definition (every switch off except `ws.switches.max-connections-per-user`, master on, never default) and §8's e2e paragraph is reworded. `turnbase.gamehost.advertised-address` and its four-step resolution (bracketed IPv6 only) are in `orchestration-gamehost-protocol.md` and §7.8. `observability.md` *Exposure* states the percentile histograms (5 ms to 30 s) and the chart's static scrape targets. `NFR-LOAD-001…004` are defined in `platform-operations.md`, registered in `requirements/INDEX.md`, and linked both ways with `load-testing.md` §7. `check-corpus.py` is clean.
 
-**Owner decisions.** k6 as the tool; `loadtest/` at the top level of this repository; a pessimistic max-rate load model; rate limits made toggleable per mechanism, off only under the `test`, `e2e` or `loadtest` profile and never under `local` alone; Phase A is measurement only (reports and `load-testing.md` §13 *Follow-ups*, no fixes, no new registry items); four new requirements `NFR-LOAD-001…004`, defined by `IMP-M15-01`.
-
-**Defects found while planning, and where they go.** The Game Host cannot run under the Helm chart (no advertised address, no Postgres or Redis resources) and Prometheus does not scrape it: `IMP-M15-05`, `06`. The platform has no HTTP latency histograms, so `HighLatencyP95` could never be evaluated: `04`. The WebSocket limits ignore the master rate-limit switch: `03`. Specs claim a `kind` CI job that does not exist and say `SubmitInput` where the proto has `ProcessInput`: `02`. Two conflicts are owner decisions and `02` only *records* them as open questions: eager versus lazy host reassignment (`game-host-internals.md` §9.3 against the code) and NFR-AVAIL-001 at 99% against 99.9%.
-
-**The limits.** The overlay fixes platform 3 GiB, Game Host 4 GiB, Postgres 1 GiB, Redis 512 MiB: 8.5 GiB of a 15.21 GiB Docker Desktop VM. A larger first draft (13 GiB) would have left pods unschedulable. Pending for memory is `BLOCKED`, never solved by lowering the limits.
-
-**The loop.** The base prompt in `scripts/autonomous_loop/prompts.py` now tells agents to wait for CI only where a CI workflow exists; umbrella-only items have none. `work-item` gained "Live-environment and measurement items" (preflight, long commands, measure-only, owner decisions recorded as `OQ-*`, not gates).
-
-**Not done / open.** Nothing from M15 is built. `docs/m15-load-testing` is merged to `master` so the loop can start from a clean tree on `master`. The Kubernetes manifests exist (the Helm chart) but no CI job applies them to a cluster; `IMP-M15-02` corrects the spec text that said otherwise.
+**Not done.** Nothing else from M15. `IMP-M15-02…05` are now unblocked (any order).
 
 ---
 
@@ -22,7 +14,7 @@
 `scripts/autonomous-work-loop.sh`; each item's *Read first* list in the registry is all the context an
 agent needs.
 
-**Order:** `IMP-M15-01` -> `02`, `03`, `04`, `05` (any order once `01` is `DONE`) -> `06` -> `07` -> `08`
+**Order:** `IMP-M15-01` (DONE) -> `02`, `03`, `04`, `05` (any order) -> `06` -> `07` -> `08`
 -> `09` -> `10` -> `11` -> `12`, `13`. The registry's *Depends on* column enforces this; `12` also waits
 for `10`, and `13` for `12`.
 

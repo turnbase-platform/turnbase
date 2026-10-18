@@ -171,6 +171,10 @@ budget. `CONNECT` is authenticated (`websocket.md` § Authentication), so every 
 **guests included**. Guests are the cheapest identity on the platform to obtain, which is precisely
 why no tier may exempt them.
 
+The master switch `turnbase.rate-limit.enabled` gates Tier 6 as well as Tiers 1 to 5: with it off, every
+frame is allowed and the connection cap does not apply. Each bucket, the violation lockout and the
+connection cap also have their own switch (see *Configuration and environments*).
+
 ### The budgets
 
 | Bucket | Frames it covers | Sustained | Burst | Why this number |
@@ -327,15 +331,56 @@ turnbase.rate-limit.ws.lockout.initial=30s
 turnbase.rate-limit.ws.lockout.max=15m
 
 turnbase.security.trusted-proxies=10.0.0.0/8,172.16.0.0/12
+
+# Per-mechanism switches. Every one defaults to true.
+turnbase.rate-limit.switches.auth-lockout=true
+turnbase.rate-limit.switches.api=true
+turnbase.rate-limit.switches.upload=true
+turnbase.rate-limit.switches.public=true
+turnbase.rate-limit.switches.guest-minting=true
+turnbase.rate-limit.switches.registration-minting=true
+turnbase.rate-limit.ws.switches.connection=true
+turnbase.rate-limit.ws.switches.snapshot=true
+turnbase.rate-limit.ws.switches.action=true
+turnbase.rate-limit.ws.switches.chat=true
+turnbase.rate-limit.ws.switches.command=true
+turnbase.rate-limit.ws.switches.subscribe=true
+turnbase.rate-limit.ws.switches.violation-lockout=true
+turnbase.rate-limit.ws.switches.max-connections-per-user=true
 ```
+
+### Per-mechanism switches
+
+Besides the master `turnbase.rate-limit.enabled`, each mechanism has its own switch, so a load test can
+turn off exactly what would distort it and keep the rest. A mechanism acts only when the master switch
+**and** its own switch are both `true`. Every switch defaults to `true`.
+
+| Switch | When `false`… |
+|---|---|
+| `switches.auth-lockout` | Tier 1: failed logins are neither counted nor locked out |
+| `switches.api` | Tier 2: the per-user API bucket does not apply |
+| `switches.upload` | Tier 3: the upload sub-bucket does not apply |
+| `switches.public` | Tier 4: the IP-based bucket for unauthenticated reads does not apply |
+| `switches.guest-minting` | Tier 5: guest minting is not counted or refused |
+| `switches.registration-minting` | Tier 5: registration is not counted or refused |
+| `ws.switches.connection` | Tier 6: the backstop bucket on every inbound frame does not apply |
+| `ws.switches.snapshot` | Tier 6: the snapshot-request bucket does not apply |
+| `ws.switches.action` | Tier 6: the game-action bucket does not apply |
+| `ws.switches.chat` | Tier 6: the chat bucket does not apply |
+| `ws.switches.command` | Tier 6: the room-command bucket does not apply |
+| `ws.switches.subscribe` | Tier 6: the `SUBSCRIBE` bucket does not apply |
+| `ws.switches.violation-lockout` | Tier 6: violations are neither counted nor force-closed, and no lockout is written or read |
+| `ws.switches.max-connections-per-user` | Tier 6: the per-user connection cap does not apply |
 
 Two rules keep this from becoming the hole it is meant to close:
 
 - **Absent property → strict default**, never "unlimited". A typo in a key name must fail closed.
-- **`turnbase.rate-limit.enabled=false` is honoured only under the `test` or `e2e` Spring profile.**
-  Under any other profile the application **fails to start**. The escape hatch that makes e2e runs
-  bearable must not be the one that ships to production, so the guard is a startup assertion, not a
-  convention.
+- **The master switch, or any per-mechanism switch, may be `false` only under the `test`, `e2e` or
+  `loadtest` Spring profile.** Under any other profile the application **fails to start**, and the
+  refusal names every disabled switch by property name. `local` alone does **not** permit it. The escape
+  hatch that makes e2e and load runs bearable must not be the one that ships to production, so the guard
+  is a startup assertion, not a convention. The `loadtest` profile is defined in
+  [`local-environment.md`](../deployment/local-environment.md) §7.6.
 
 Local development (`dev` profile) keeps limits **on**, with the same values. Rate limiting is a thing
 you want to have exercised before it is the only thing between you and the public internet.

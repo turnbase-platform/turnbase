@@ -58,8 +58,13 @@ scrape_configs:
     static_configs: [{ targets: ['gamehost:8081'] }]
 ```
 
-Under Kubernetes the two `static_configs` become a `kubernetes_sd_config` on pod annotations; the
-scrape path and port do not change.
+Under Kubernetes the Helm chart's Prometheus uses the same two jobs with the chart's Service DNS names
+(`<release>-platform:8081`, `<release>-gamehost:8081`) as static targets (`IMP-M15-06` adds it; the
+chart scrapes only itself today). The scrape path and port do not change.
+
+`http.server.requests` publishes percentile histograms, with a 5 ms minimum and a 30 s maximum expected
+value, so that FR-MET-001's latency quantiles and the `HighLatencyP95` alert can be evaluated. It is on
+by default, not only under load tests.
 
 ### What each requirement maps to
 

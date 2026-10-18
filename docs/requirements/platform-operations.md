@@ -11,6 +11,7 @@ This document defines operational requirements for the TurnBase platform: servic
 - `../decisions/INDEX.md` — ADR-0001 (local-first platform), ADR-0002 (WebSocket room affinity), ADR-0003 (availability target), ADR-0011 (schema migrations)
 - `../specs/deployment/INDEX.md` — local environment and service topology, schema migrations, secrets and configuration
 - `../specs/deployment/observability.md` — the wiring for FR-OBS-*, FR-MET-*, FR-TRACE-* and FR-ALERT-*
+- `../specs/deployment/load-testing.md` — how NFR-LOAD-001…004 are measured (§7) and where the load-test runs report them
 
 ---
 
@@ -191,6 +192,10 @@ For the MVP the platform runs as a single local instance (ADR-0001), so affinity
 | NFR-PERF-003 | Performance | Platform Monolith must support concurrent WebSocket connections without degrading HTTP API latency | 5,000 concurrent connections | Should |
 | NFR-SCALE-001 | Scalability | The Platform Monolith is designed to scale horizontally behind a load balancer using WebSocket **room affinity** (route by `roomId`; ADR-0002) rather than cross-instance pub/sub. Multi-instance horizontal scaling, HPA, connection draining, and cold-start budgets (`FR-SCALE-*`) are **deferred to post-MVP** (ADR-0001); the MVP runs a single local instance. | ≥2 instances without data races | Post-MVP |
 | NFR-OBS-001 | Observability | All production incidents must be diagnosable using logs, metrics, and traces without requiring access to the live production environment. | Full post-incident observability | Must |
+| NFR-LOAD-001 | Performance | Warm game start, `START_GAME` to `GAME_STARTED`, measured under load (`load-testing.md` §7). A cold start (first start after a Game Host boot) is recorded, not gated. | p95 < 1 s, p99 < 2 s | Should |
+| NFR-LOAD-002 | Performance | Game action round trip (`move_rtt`: an action sent to the resulting state update received), measured under load (`load-testing.md` §7). | p99 < 500 ms | Should |
+| NFR-LOAD-003 | Performance | Non-game HTTP endpoints under load (`load-testing.md` §7). Complements NFR-PERF-001, which is the p95 target at the design load. | p99 < 500 ms | Should |
+| NFR-LOAD-004 | Performance | Lobby event delivery, the command to the broadcast received by a participant, under load (`load-testing.md` §7). | p99 < 600 ms | Should |
 | NFR-JOB-001 | Correctness | Grace expiry and deferred closure take effect no later than their persisted deadline plus one sweep interval (FR-JOB-006), **for a room that has a live owner**. FR-JOB-006 is partitioned by ownership, so a room whose owner was lost is not swept at all until it is adopted; that case is bounded by NFR-JOB-002 instead, and the two bounds add. Mirrors `reconnection-flow.md` NFR-PERF-003. | deadline + 5s p99 | Must |
 | NFR-JOB-002 | Recoverability | A room whose owning instance is lost becomes owned again — by a returning client (immediately, on the claim its rejoin performs) or by reconciliation (FR-JOB-007) — within this bound, after which its deadlines are enforced normally. The bound is set by FR-JOB-007's interval, since a room nobody returns to has no other path to an owner: it must therefore exceed one full interval, and the adopt duty (FR-JOB-007e) is **exempt from the two-observation rule of FR-JOB-008(b)** — an absent liveness lease is not a divergence to be corroborated, and requiring a second run would double this bound. | < 90s (one FR-JOB-007 interval + margin) | Must |
 
