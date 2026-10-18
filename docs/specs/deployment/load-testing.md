@@ -432,3 +432,19 @@ what was not checked. It is not a work item and nothing here is scheduled.
    exhaustion (`hikari_pending` max 9 once). Not checked: what the extra threads are.
 6. **The run protocol's `jcmd 1` fails on the Game Host image** (PID 1 is `supervise.sh`; the JVM is PID 7). Report: `2026-10-18-parallelism.md`.
    `IMP-M15-12` and `13` use `jcmd 7`.
+
+### From `IMP-M15-12` (reports `2026-10-18-start-rate.md`, `2026-10-18-default-limits.md`, `2026-10-18-contexts.md`)
+
+7. **The Game Host can wedge into health 503 and stay there; the supervisor does not restart it.** Report: `2026-10-18-contexts.md` (attempt 1).
+   On the first cold start with four contexts no game started in 357 s: `DEADLINE_EXCEEDED` on `CreateSession` in the platform log, the `BootWatchdog` line in the Game Host log,
+   `/actuator/health` answering 503 with the JVM alive, and no restart because `supervise.sh` counts any HTTP answer as alive (ADR-0018 §2). The in-JVM exit with code 70 did not follow.
+   No `kill` binary and no `jcmd` in the pod; `kill -3` produced no dump. The rerun (attempt 2) was clean. Suspected cause: the `HostWedge` path marks health DOWN but the halt is not reached.
+   Not checked: the exact log lines (lost with the stack reset), whether four contexts started at once make a wedge likelier, a thread dump of the wedged JVM.
+8. **A cold start with four contexts takes 10.2 to 10.3 s, twice the single-context 5 s.** Report: `2026-10-18-contexts.md`. All 50 cold-tagged starts are within 0.1 s of each other; half of the 20 s `BootWatchdog` limit.
+   Not checked: whether the contexts are created one after another, and whether more contexts would pass the 20 s limit.
+9. **Four contexts cost about three times the Game Host CPU for the same throughput.** Report: `2026-10-18-contexts.md`. 2.95 against 0.99 cores at 810 against 812 moves/s, heap 0.8 against 0.4 GB, same median latency (36 ms), tail slightly worse
+   (move p99 85 against 54 ms). The CPU is flat over 5 minutes, so it does not look like warm-up. Compared against `ramp-to-break` at 50 pairs, not a controlled A/B. Not checked: a profile at the plateau, the same 50 pairs on one context in the same session.
+10. **A 10 s WebSocket connect stall recurs about every 300 s.** Reports: `2026-10-18-start-rate.md` (at 300 s and 605 s after the scenario start, the second with 146 dropped iterations and 54 `ready_timeout` at 32 games/s) and `2026-10-18-contexts.md`
+    (`ws_connecting` max 10.0 s, the harness connect timeout). The machine is idle during them (platform 1.4 of 4 cores) and platform threads step up (123 to 232). Token expiry is ruled out (session TTL 24 h). Not checked: JVM safepoint or GC logs, ingress and frontend nginx access logs, the Tomcat accept queue, whether the interval is exact.
+11. **`start-rate` did not find the rate at which `game_start` degrades.** Report: `2026-10-18-start-rate.md`. Warm `game_start` p95 was 11 to 16 ms (p99 13 to 18) at every rate from 1 to 32 games/s, resources far below their limits; the clean ceiling is 16 games/s only because of the stall in item 10. A rerun with higher rates (64, 128 games/s) would be needed.
+12. **The `default-limits` load trips the WebSocket action bucket in every iteration.** Report: `2026-10-18-default-limits.md`. 320 `RATE_LIMIT_EXCEEDED`, one per iteration in the third game, 961 starts against 641 completions; the HTTP tiers never fired (1,320 requests, 0 429). A client with no think time cannot play more than about two games per burst under the stock limits. Not checked: the server-side frame, a run with think times, the HTTP tiers.

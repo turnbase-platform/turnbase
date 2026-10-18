@@ -1,12 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-18 (session 212) — **`IMP-M15-11` DONE: the `parallelism` and `ramp-to-break` reports are committed.** Umbrella-only (nothing to bump, no CI); 169 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
+**Date:** 2026-10-18 (session 213) — **`IMP-M15-12` DONE: the `start-rate`, `default-limits` and `contexts` reports are committed.** Umbrella-only (nothing to bump, no CI); 170 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
 
-**Results** (`loadtest/reports/2026-10-18-parallelism.md`, `…-ramp-to-break.md`). `parallelism`: moves/s scaled to 8 pairs (759/s), plateaued at 16 (805/s), peaked at 32 (909/s) and fell to 678/s at 256; the Game Host stayed at 0.9 to 1.25 of 4 cores (its gRPC executors idle in the thread dump) while the platform held about 3 of 4 cores and Postgres 1.6 to 1.8 of 2; move p95 crossed 200 ms at 128 pairs; ceiling 64 pairs. `ramp-to-break`: ceiling 70 pairs; aborted 67 s into the 80-pair step on a `tb_room_join` tail (p95 311 ms, 838 samples) while moves were at 81 ms p95. 500 sessions and 5,000 WebSockets: **not reached** (70 sessions, 140 sockets at the ceiling); the idle-socket run was not made, as the protocol directs when the ceiling is below 1,000 pairs. No restart, OOM kill, 5xx or generator-bound step in either run. Six entries were added to `load-testing.md` §13.
+**Results** (`loadtest/reports/2026-10-18-start-rate.md`, `…-default-limits.md`, `…-contexts.md`). `start-rate`: 1 to 32 games/s, no threshold crossed, warm `game_start` p95 11 to 16 ms and p99 13 to 18 ms (35 / 43 ms in one stalled step), first cold start 4.95 s; ceiling **16 games/s** because the 32 games/s step lost 146 iterations and had 54 `ready_timeout` in a 15 s stall with the machine idle (1.4 of 4 platform cores); the rate at which `game_start` degrades was **not reached**. `default-limits`: 320 `RATE_LIMIT_EXCEEDED`, one per iteration, in the third game (the WebSocket action bucket, inferred from the counts), 0 unexpected errors, 0 5xx, HTTP tiers never fired. `contexts`: **attempt 1 failed** (the Game Host wedged on its first start with four contexts: `BootWatchdog` logged, health 503, process alive, never restarted because `supervise.sh` counts a 503 as alive; 0 games in 357 s); the rerun was clean at 810 moves/s (909 / 897 in `parallelism`), move p95 58 ms, warm start p95 66 ms, cold start 10.3 s, but the Game Host used 2.95 cores against 0.99 for one context at the same throughput.
 
-**Notes for `IMP-M15-12` and `13`.** The protocol's `jcmd 1` does not work on the Game Host image (PID 1 is `supervise.sh`); use `jcmd 7`. Both runs used the same chart values and images; no harness change was needed. The snapshot segments start at the run launch, so they are offset from the steps by the setup time (14 s and 30 s); the reports say so.
+**Notes for `IMP-M15-13`.** `load-testing.md` §13 gained items 7 to 12 (wedge, cold start with four contexts, context CPU, a 10 s WebSocket connect stall about every 300 s, `start-rate` ceiling not reached, action bucket). Use `jcmd 7` for thread dumps (PID 1 is `supervise.sh`), but a wedged Game Host has neither `jcmd` nor `kill`. The stack was reset after the last run, the preflight is OK, and the test bundle copies were removed from `C:\Users\Hubert\turnbase-seed`. A run that wedges is a result: record it and rerun once (as `contexts` did).
 
-**Not done.** `IMP-M15-12` (start-rate, default-limits, contexts) is next, then `13`. The cluster was reset after the last run and the preflight is OK.
+**Not done.** `IMP-M15-13` (soak and the summary) is next.
 
 ---
 
@@ -16,9 +16,8 @@
 `scripts/autonomous-work-loop.sh`; each item's *Read first* list in the registry is all the context an
 agent needs.
 
-**Order:** `IMP-M15-01`…`11` (DONE)
--> `12`, `13`. The registry's *Depends on* column enforces this; `12` also waits
-for `10`, and `13` for `12`.
+**Order:** `IMP-M15-01`…`12` (DONE)
+-> `13`. The registry's *Depends on* column enforces this; `13` waits for `12`.
 
 - **`IMP-M13-08` stays `WIP` and is owner-held.** It is a visual comparison against the approved
   artefact that only the owner can finish. Skip it: no M15 item depends on it.
