@@ -1,7 +1,8 @@
-// One user: HTTP half (login, request with cookie jar). The STOMP socket half is added by IMP-M15-08.
+// One user: HTTP half (login, request with cookie jar) and the STOMP socket half (one socket per user).
 import http from 'k6/http';
 import { cfg, userName } from './config.js';
 import { m, ok, fail } from './metrics.js';
+import { StompClient } from './stomp.js';
 
 // 429 -> RATE_LIMIT_EXCEEDED, 5xx -> http_5xx, body.code, else http_<status>; status 0 is a network error.
 export function errorCode(res) {
@@ -19,6 +20,7 @@ export class Player {
   constructor(name, cookies) {
     this.name = name;
     this.jar = new http.CookieJar();
+    this.ws = null;
     for (const c of cookies || []) this.jar.set(cfg.baseUrl, c.name, c.value);
   }
 
@@ -35,6 +37,31 @@ export class Player {
   cookieHeader() {
     const cookies = this.jar.cookiesForURL(cfg.baseUrl + '/');
     return Object.keys(cookies).map((k) => k + '=' + cookies[k][0]).join('; ');
+  }
+
+  // Opens the socket (reused while it is open; `close()` ends it); subscribes the two user queues.
+  // After an unexpected close the next call reconnects. A refused upgrade (401) is retried once after login().
+  async ensureConnected() {
+    if (this.ws && this.ws.open) return;
+    for (let attempt = 0; ; attempt++) {
+      const client = new StompClient(cfg.wsUrl,
+        { Host: cfg.host, Origin: cfg.origin, Cookie: this.cookieHeader() },
+        { onUnexpectedClose: () => { m.wsDisconnects.add(1); } });
+      try {
+        await client.connect(10000);
+        client.subscribe('/user/queue/errors');
+        client.subscribe('/user/queue/game');
+        this.ws = client;
+        return;
+      } catch (e) {
+        if (attempt > 0) throw e;
+        if (!(await this.login())) throw e;
+      }
+    }
+  }
+
+  close() {
+    if (this.ws) this.ws.close();
   }
 
   async login() {

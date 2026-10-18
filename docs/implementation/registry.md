@@ -212,7 +212,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M15-05 | Configurable Game Host advertised address | game-host | M15-01 | DONE |
 | IMP-M15-06 | Game Host runs under the Helm chart | platform (chart), docs | M15-03, M15-04, M15-05 | DONE |
 | IMP-M15-07 | Load-test scaffold: overlay, reset, user provisioning | platform (chart), docs (umbrella) | M15-06 | DONE |
-| IMP-M15-08 | k6 STOMP client and pair game loop | docs (umbrella) | M15-07 | WIP (session 209) |
+| IMP-M15-08 | k6 STOMP client and pair game loop | docs (umbrella) | M15-07 | DONE |
 | IMP-M15-09 | Load scenarios, thresholds and report template | docs (umbrella) | M15-08 | READY |
 | IMP-M15-10 | `contexts` scenario (droppable) | docs (umbrella) | M15-09 | READY |
 | IMP-M15-11 | Phase A runs — parallelism and ramp-to-break | docs (umbrella) | M15-09 | READY |
@@ -7310,8 +7310,8 @@ generated, not a blocker; a cluster that is down is `BLOCKED`.
   `login`, `room_create`, `room_join`, `lobby_event`, `game_start`, `move_rtt`, `game_duration`,
   `games_completed`, `errors`, `ws_disconnects`.
 - After the run, `bash loadtest/reset.sh` is not needed for the next run to start: the VU's defensive
-  cleanup left no `lt-*` user in a room (`SELECT count(*) FROM room_participants rp JOIN users u ON u.id = rp.user_id WHERE u.username LIKE 'lt-%'`
-  returns 0; adjust the table names to the schema).
+  cleanup left no `lt-*` user in a room (`SELECT count(*) FROM room_participant rp JOIN app_user u ON u.user_id = rp.user_id WHERE u.username LIKE 'lt-%' AND rp.left_at IS NULL`
+  returns 0; table names corrected session 209).
 - `python3 scripts/check-corpus.py` prints `clean`; merged to `master` and pushed.
 
 ### IMP-M15-09 — Load scenarios, thresholds and report template

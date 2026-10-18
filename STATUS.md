@@ -1,14 +1,14 @@
 ## Last Session Summary
 
-**Date:** 2026-10-18 (session 208) — **`IMP-M15-07` DONE: the load-test scaffold.** `turnbase-platform` `b287e9b` (chart CI green); 165 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
+**Date:** 2026-10-18 (session 209) — **`IMP-M15-08` DONE: the k6 STOMP client and pair game loop.** Umbrella-only (nothing to bump, no CI); 166 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
 
-**What landed.** Chart: `postgres.resources` and `redis.resources` (default `{}`). Umbrella `loadtest/`: `helm/values-loadtest.yaml` (the fixed overlay), `preflight.sh`, `install.sh`, `reset.sh`, `lib/{config,metrics,player}.js` (HTTP half), `scenarios/provision.js`, `README.md` (run procedure, reset, `.wslconfig`, memory limits, a placeholder for `IMP-M15-09`'s scripts).
+**What landed.** `loadtest/lib/stomp.js` (STOMP 1.2 over `k6/websockets`, 4 s heart-beat, consume-on-match `waitFor`), the socket half of `lib/player.js`, `lib/pair.js` (`getPair`, `pairSession`, `winner`/`isOver`/`pickEmpty`, `readView`), `scenarios/smoke.js` and `test/selftest.js`; README *Scenarios* section.
 
-**Verified live** (Docker Desktop): `PREFLIGHT OK` before and after the install, `FAIL` with exit 1 on a dead `BASE_URL`; pods carry the overlay (platform 4 CPU/3Gi, Game Host 4/4Gi, Postgres 2/1Gi, Redis 1/512Mi), none `Pending`; the platform log shows profiles `local, loadtest`; `provision.js` created 2,000 users in 68 s, the second run created 0, `lt-00001` logs in with 200; `reset.sh` took 44 s, left 0 `lt-%` rows and Redis `DBSIZE` 5, and provisioning created 2,000 again.
+**Verified live.** Selftest exit 0 (all checks). Smoke: exit 0, `tb_errors` 0, `tb_games_completed` 3, all ten custom metrics in the summary, `tb_game_start` has `cold:true` ×1 and `cold:false` ×2 (as thresholds). Three consecutive runs all green. With 5 s think time (sessions up to 70 s) `tb_ws_disconnects` 0 and `tb_errors` 0, so the heart-beat works. After the runs, `room_participant` rows of `lt-%` users with `left_at IS NULL`: 0.
 
-**Findings.** (1) The *Done when* clause named a `users` table; it is `app_user`. Corrected in the registry and the plan. (2) The plan's `--set platform.seed=…` is `platform.seed.bundlesHostPath` in the chart, and under WSL 2 it must be the `/run/desktop/mnt/host/c/...` form; `install.sh` copies the bundle to `C:\Users\<you>\turnbase-seed` or takes `SEED_HOST_PATH`. (3) Pods are labelled `app.kubernetes.io/name`, not `component`. The cluster is left running with the loadtest overlay installed and 2,000 users provisioned.
+**Findings.** (1) `GAME_SYNC.view.turn` and a move's `payload.next` are **user ids**, not marks (the plan assumed marks); `readView` maps them. (2) An open socket plus its heart-beat timer keeps a k6 iteration from ending, so sockets live for one `pairSession`, not for the VU; the plan's "one socket per user for the VU's life" cannot hold. Both are in the README. (3) The registry's clause named `room_participants`/`users`; the tables are `room_participant`/`app_user` (key `user_id`), corrected. (4) The stale-membership-on-first-iteration path is not exercised by the smoke.
 
-**Not done.** Nothing else from M15. `IMP-M15-08` is next.
+**Not done.** Nothing else from M15. `IMP-M15-09` is next.
 
 ---
 
@@ -18,8 +18,8 @@
 `scripts/autonomous-work-loop.sh`; each item's *Read first* list in the registry is all the context an
 agent needs.
 
-**Order:** `IMP-M15-01`…`07` (DONE) -> `08`
--> `09` -> `10` -> `11` -> `12`, `13`. The registry's *Depends on* column enforces this; `12` also waits
+**Order:** `IMP-M15-01`…`08` (DONE) -> `09`
+-> `10` -> `11` -> `12`, `13`. The registry's *Depends on* column enforces this; `12` also waits
 for `10`, and `13` for `12`.
 
 - **`IMP-M13-08` stays `WIP` and is owner-held.** It is a visual comparison against the approved

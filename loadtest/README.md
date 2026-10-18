@@ -48,6 +48,37 @@ frontend}:dev` built locally, and the Tic-Tac-Toe seed bundle in `turnbase-game-
   'lt-%'` returns 0 and Redis `DBSIZE` is 5 (the seed's: the Game Host lease and the platform's startup
   keys).
 
+## Scenarios
+
+| Scenario | What it does |
+|---|---|
+| `scenarios/smoke.js` | One pair (`lt-00000`, `lt-00001`), three games: two in one room (the second is the rematch), then one in a fresh room. Exits 0 with `tb_errors` at 0, `tb_games_completed` at 3 and both a `cold:true` and a `cold:false` `tb_game_start` sample. About 10 s. `THINK_MIN_MS=5000 THINK_MAX_MS=5000` stretches it to about 90 s of idle sockets, the heart-beat proof |
+| `test/selftest.js` | `k6 run loadtest/test/selftest.js`: STOMP codec and board helpers, no cluster needed |
+
+### The pair loop (`lib/pair.js`, `lib/stomp.js`)
+
+Differences from the plan, found against the live stack:
+
+- **`GAME_SYNC.view.turn` is a user id**, not a mark. The mover is the player whose `init.self.id`
+  equals `turn`; `payload.next` of a `move` event is a user id too. `readView(f)` is the one function
+  that knows the field names (`init.self.id`, `view.yourMark`, `view.board`, `view.turn`). The empty
+  cell is `""`, read from the first board, not hard-coded.
+- **Sockets live for one `pairSession`, not for the VU.** An open WebSocket and its heart-beat timer
+  keep a k6 iteration from ever ending (the smoke ran to its `maxDuration` and was interrupted), so
+  `pairSession` closes both sockets when it leaves the room and the next one reconnects. Each
+  iteration therefore opens two sockets, which `ws_connecting` measures.
+- Failures: a timeout is reported under the code of an error frame on `/user/queue/errors` when one is
+  buffered, otherwise under its own code (`start_timeout`, `move_timeout`, `ws_closed`, …). `-e DEBUG=1`
+  logs the first failure's message and stack.
+- `tb_game_start` is tagged `cold=true` only for a pair's first game within `COLD_WINDOW_MS` of the
+  scenario start. A rerun against a warm Game Host still tags it `cold:true`, because the tag is the
+  harness's, not the Game Host's; the first start after `reset.sh` is the really cold one.
+- **Clean-room check.** The participants table is `room_participant` (`user_id`, `left_at`) and the user
+  table is `app_user` (key `user_id`):
+  `SELECT count(*) FROM room_participant rp JOIN app_user u ON u.user_id = rp.user_id WHERE u.username LIKE 'lt-%' AND rp.left_at IS NULL`
+  returns 0 after every smoke run. The stale-membership-on-first-iteration case (a VU interrupted
+  mid-room) is not exercised by the smoke; `reset.sh` covers abort paths.
+
 ## Overlay and resources
 
 `helm/values-loadtest.yaml` fixes everything a run depends on: `SPRING_PROFILES_ACTIVE=local,loadtest`
