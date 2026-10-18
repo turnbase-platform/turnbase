@@ -1,12 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-18 (session 204) — **`IMP-M15-03` DONE: toggleable rate-limiting mechanisms.** `turnbase-platform` `e78ba85`; 161 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
+**Date:** 2026-10-18 (session 205) — **`IMP-M15-04` DONE: HTTP latency histograms.** `turnbase-platform` `1be9e0a`; 162 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
 
-**What landed.** Fourteen per-mechanism switches (`turnbase.rate-limit.switches.*` for Tiers 1-5, `turnbase.rate-limit.ws.switches.*` for Tier 6), all `true` by default; a mechanism acts only when the master switch and its own switch are both on. `RateLimitEnabledProfileCheck` now fails startup under any profile but `test`, `e2e` or `loadtest` when the master or any switch is off, naming each one; it reads the keys from the `Environment` (`common` must not depend on `websocket`) and a reflection test keeps its key list in step with both `Switches` records. `application-loadtest.yml` turns every switch off except `ws.switches.max-connections-per-user`. `WebSocketRateLimiter` takes `RateLimitProperties` for the master flag: master off allows every frame, `isLockedOut` is `false`, `connectionCapEnforced()` is `false` (the interceptor then passes `Integer.MAX_VALUE`). Disabled `upload` does not fall through to `api`.
+**What landed.** `management.metrics.distribution` in `application.yml` publishes a percentile histogram for `http.server.requests` with a 5 ms minimum and 30 s maximum expected value, outside any profile block. `HttpLatencyHistogramTest` binds the three keys; `HttpLatencyHistogramIT` boots the app, makes one public request and polls `/actuator/prometheus` on the management port for an `http_server_requests_seconds_bucket{…le="…"` line.
 
-**Verification.** `spotless:apply`, `verify` and CI (build, e2e) green. `verify -Pintegration` passes except seven errors in `GameAssetControllerIT` (6) and `SeedDataIT` (1): they resolve `*.games.localhost` to `::1` on this WSL machine and fail identically on untouched `master`, so they are environmental, not from this item.
+**Verification.** `spotless:apply`, `verify` and CI green. `verify -Pintegration` has the same seven environmental errors as session 204 (`GameAssetControllerIT` 6, `SeedDataIT` 1: `*.games.localhost` resolves to `::1` on this WSL machine); `HttpLatencyHistogramIT` passes.
 
-**Not done.** Nothing else from M15. `IMP-M15-04` and `05` are unblocked.
+**Not done.** Nothing else from M15. `IMP-M15-05` is next; `06` waits for it.
 
 ---
 
@@ -16,7 +16,7 @@
 `scripts/autonomous-work-loop.sh`; each item's *Read first* list in the registry is all the context an
 agent needs.
 
-**Order:** `IMP-M15-01`, `02`, `03` (DONE) -> `04`, `05` (any order) -> `06` -> `07` -> `08`
+**Order:** `IMP-M15-01`, `02`, `03`, `04` (DONE) -> `05` -> `06` -> `07` -> `08`
 -> `09` -> `10` -> `11` -> `12`, `13`. The registry's *Depends on* column enforces this; `12` also waits
 for `10`, and `13` for `12`.
 
