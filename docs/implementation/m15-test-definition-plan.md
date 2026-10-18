@@ -24,7 +24,7 @@ used).
 §4 (A1, A2, A3), §5, §6, §8, §12, §13.
 
 **Depends on:** `IMP-M15-06` (the chart runs the Game Host, `extraEnv`, `remoteWriteReceiver`, the
-`loadtest` profile). Dependency graph of the later items: `IMP-M15-12` depends on 10 and 11, `IMP-M15-13` on 11 and 12. `docs/implementation/m15-blockers-plan.md` is deleted by then.
+`loadtest` profile). Dependency graph of the later items: `IMP-M15-12` depends on 10 and 11, `IMP-M15-13` on 11 and 12.
 
 ---
 

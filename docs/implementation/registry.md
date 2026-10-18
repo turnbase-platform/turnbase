@@ -210,7 +210,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M15-03 | Toggleable rate-limiting mechanisms | platform | M15-01 | DONE |
 | IMP-M15-04 | HTTP latency histograms | platform | M15-01 | DONE |
 | IMP-M15-05 | Configurable Game Host advertised address | game-host | M15-01 | DONE |
-| IMP-M15-06 | Game Host runs under the Helm chart | platform (chart), docs | M15-03, M15-04, M15-05 | WIP (session 207) |
+| IMP-M15-06 | Game Host runs under the Helm chart | platform (chart), docs | M15-03, M15-04, M15-05 | DONE |
 | IMP-M15-07 | Load-test scaffold: overlay, reset, user provisioning | platform (chart), docs (umbrella) | M15-06 | READY |
 | IMP-M15-08 | k6 STOMP client and pair game loop | docs (umbrella) | M15-07 | READY |
 | IMP-M15-09 | Load scenarios, thresholds and report template | docs (umbrella) | M15-08 | READY |
@@ -7047,9 +7047,7 @@ Phase B and gets its own design round.
 **Sequencing (owner decision).** Blockers first (`01…06`: spec changes, the toggleable rate limits, the
 latency histograms, the Game Host's address and the chart that runs it), then the test definition
 (`07…10`: scaffold, harness, scenarios), then the runs and their reports (`11…13`). The order to build in
-is `01` → `02`, `03`, `04`, `05` → `06` → `07` → `08` → `09` → `10` → `11` → `12`, `13`. The blockers have
-a step-by-step plan in [`m15-blockers-plan.md`](m15-blockers-plan.md), deleted when `06` is `DONE`; the
-test definition and the run protocol are in [`m15-test-definition-plan.md`](m15-test-definition-plan.md),
+is `01` → `02`, `03`, `04`, `05` → `06` → `07` → `08` → `09` → `10` → `11` → `12`, `13`. The test definition and the run protocol are in [`m15-test-definition-plan.md`](m15-test-definition-plan.md),
 deleted when `13` is `DONE` by the session that closes it.
 
 **Measurement only (owner decision).** `11…13` produce committed reports stating where and why the
@@ -7222,11 +7220,10 @@ can finally be evaluated)
 
 **Repo:** `turnbase-platform` (chart), `turnbase` (docs) · **Depends on:** IMP-M15-03, IMP-M15-04, IMP-M15-05
 
-**Environment:** a live Docker Desktop Kubernetes cluster. Run the plan's Step 0 first. Missing secrets
-are generated there, not a blocker; a cluster that is down is `BLOCKED`.
+**Environment:** a live Docker Desktop Kubernetes cluster. Missing secrets are generated, not a blocker;
+a cluster that is down is `BLOCKED`.
 
 **Read first:**
-- `docs/implementation/m15-blockers-plan.md`, Task 5 (Step 0 is the preflight)
 - `docs/specs/deployment/load-testing.md` §3.1, §4 (A0, A1)
 - `docs/specs/deployment/local-environment.md` §4, §5, §6, §7.8
 - `docs/specs/deployment/observability.md` (*Exposure*)
@@ -7244,7 +7241,7 @@ are generated there, not a blocker; a cluster that is down is `BLOCKED`.
   the remote-write flag appears only when enabled.
 - **Origins.** `grep -n 'origins' -A3 turnbase-platform/deploy/helm/turnbase/values-local.yaml` shows no `:8080`.
 - **Live.** `kubectl get pods` shows every pod `Running` and ready; `redis-cli smembers hosts` prints one
-  member `<pod IP>:9090`;
+  host id whose `host:<id>` hash has `address` `<pod IP>:9090` (the set holds ids, not addresses; corrected session 207);
   `PLATFORM_HOST=turnbase.localhost PLATFORM_URL=http://turnbase.localhost node .claude/skills/run-turnbase/driver.mjs game`
   exits 0; Prometheus `/api/v1/targets` lists the platform and Game Host jobs `up`; the query
   `http_server_requests_seconds_bucket` returns a series.
@@ -7252,6 +7249,11 @@ are generated there, not a blocker; a cluster that is down is `BLOCKED`.
 - `python3 scripts/check-corpus.py` prints `clean`; `turnbase-platform` branch merged `--ff-only`,
   pushed and deleted; the `turnbase-platform` ref bumped; `docs/implementation/m15-blockers-plan.md` and
   its `INDEX.md` row deleted.
+
+**Evidence (session 207).** Chart lint and render greps clean; `kubectl get pods` all Running/ready;
+`host:<id>` `address` `10.1.3.217:9090` equals the Game Host pod IP; the driver's `game` scenario exited 0
+(start 3.8 s, moves 35 to 316 ms, spectator `ROLE_NOT_ELIGIBLE`, outsider 0 frames); Prometheus lists
+`platform` and `gamehost` `up` and `http_server_requests_seconds_bucket` returns 295 series.
 
 ### IMP-M15-07 — Load-test scaffold: overlay, reset, user provisioning
 

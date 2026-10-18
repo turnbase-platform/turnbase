@@ -1,12 +1,14 @@
 ## Last Session Summary
 
-**Date:** 2026-10-18 (session 206) — **`IMP-M15-05` DONE: configurable Game Host advertised address.** `turnbase-game-host` `4b07fbe`; 163 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
+**Date:** 2026-10-18 (session 207) — **`IMP-M15-06` DONE: the Game Host runs under the Helm chart.** `turnbase-platform` `16e1aa5`; 164 of 172 items done, `IMP-M13-08` still `WIP` and owner-held. **`IMP-M15-01…06`, the M15 blockers, are all done.**
 
-**What landed.** `GameHostProperties` gains a last component `@Nullable String advertisedAddress` (no default, binds `null`; the key is deliberately absent from `application.yml`, with a comment). New package-private `registration/AdvertisedAddress.resolve(configured, grpcPort, HostNameSource)` implements the four-step resolution of `local-environment.md` §7.8; `RegistrationLifecycle` calls it. `AdvertisedAddressTest` (5 cases) and `GameHostPropertiesTest` (`null` default, explicit binding) pass. A bare IPv6 literal is taken verbatim and untested, as §7.8 says.
+**What landed.** `gamehost-configmap.yaml` gains the Redis and artifact-store endpoints; new `gamehost-secret.yaml` holds exactly the Redis password and the scoped artifact pair; the Game Host Deployment advertises `status.podIP`. `platform.extraEnv` and `gamehost.extraEnv` (both default `[]`), `observability.prometheus.remoteWriteReceiver` (default `false`), a Prometheus ConfigMap with the `platform` and `gamehost` jobs, and `values-local.yaml` origins without `:8080`. `local-environment.md` has a new *Installing the chart on Docker Desktop Kubernetes* section with the commands that were run.
 
-**Verification.** `spotless:apply`, `verify -Pintegration` (71 unit, 17 integration) and CI green.
+**Verified live** (Docker Desktop, Helm 4.3): before the change the Game Host pod was `Running` but logged `Redis health check failed` and never registered; after it, every pod ready, `host:<id>` `address` = `10.1.3.217:9090` = the pod IP, the driver's `game` scenario exits 0, Prometheus has both jobs `up` and 295 `http_server_requests_seconds_bucket` series.
 
-**Not done.** Nothing else from M15. `IMP-M15-06` is next (needs a live Docker Desktop Kubernetes cluster; Step 0 preflight).
+**Findings.** (1) The *Done when* clause said `smembers hosts` prints `<pod IP>:9090`; the set holds host ids and the address is in the `host:<id>` hash. The clause was corrected in the registry, the intent was unambiguous. (2) Under WSL 2 the seed `hostPath` must be a Windows-side path (`/run/desktop/mnt/host/c/...`), and Node cannot resolve `turnbase.localhost` (`EAI_AGAIN`); both are in the new section. The deleted `m15-blockers-plan.md` is gone with its INDEX row. The cluster is left running with release `turnbase` installed; the seed bundle copy is in `C:\Users\Hubert\turnbase-seed`.
+
+**Not done.** Nothing else from M15. `IMP-M15-07` is next.
 
 ---
 
@@ -16,7 +18,7 @@
 `scripts/autonomous-work-loop.sh`; each item's *Read first* list in the registry is all the context an
 agent needs.
 
-**Order:** `IMP-M15-01`, `02`, `03`, `04`, `05` (DONE) -> `06` -> `07` -> `08`
+**Order:** `IMP-M15-01`…`06` (DONE) -> `07` -> `08`
 -> `09` -> `10` -> `11` -> `12`, `13`. The registry's *Depends on* column enforces this; `12` also waits
 for `10`, and `13` for `12`.
 
@@ -25,7 +27,7 @@ for `10`, and `13` for `12`.
 - **`01`…`05` need no cluster.** `01` and `02` are documentation (`02` only *records* two spec
   conflicts as open questions and never reports `BLOCKED`); `03`…`05` are code in `turnbase-platform`
   and `turnbase-game-host`.
-- **`06`…`13` need Docker Desktop's Kubernetes running.** `06` runs the preflight in its plan's Step 0;
+- **`07`…`13` need Docker Desktop's Kubernetes running.** The release `turnbase` is installed on it now;
   `07` creates `loadtest/preflight.sh` and every later item runs it first. A missing
   `values-local.secrets.yaml` is generated from the example and is not a blocker. A cluster that is
   down is `BLOCKED` after one live re-check. A command that runs longer than eight minutes goes in the
@@ -34,8 +36,7 @@ for `10`, and `13` for `12`.
   failure. Findings go into the run's report and into `load-testing.md` §13 *Follow-ups*, never into
   new registry items. The owner turns the follow-ups into work.
 - **Where things are:** the design is [`docs/specs/deployment/load-testing.md`](docs/specs/deployment/load-testing.md);
-  the blocker steps are [`docs/implementation/m15-blockers-plan.md`](docs/implementation/m15-blockers-plan.md)
-  (deleted when `06` is `DONE`); the test definition and run protocol are
+  the test definition and run protocol are
   [`docs/implementation/m15-test-definition-plan.md`](docs/implementation/m15-test-definition-plan.md)
   (deleted when `13` is `DONE`).
 

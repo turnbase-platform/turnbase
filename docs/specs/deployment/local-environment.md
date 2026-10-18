@@ -350,11 +350,68 @@ docker compose -f deploy/compose/docker-compose.yml up -d
 docker compose -f deploy/compose/docker-compose.yml \
                -f deploy/compose/docker-compose.observability.yml up -d
 
-# canonical path
-helm upgrade --install turnbase deploy/helm/turnbase -f deploy/helm/turnbase/values-local.yaml
+# canonical path — see "Installing the chart on Docker Desktop Kubernetes" below
 ```
 
-Then `http://turnbase.localhost:8080`. Grafana on `http://localhost:3000`.
+Compose serves on `http://turnbase.localhost:8080`. Grafana on `http://localhost:3000`.
+
+### Installing the chart on Docker Desktop Kubernetes
+
+Verified end to end on 2026-10-18 (`IMP-M15-06`; Docker Desktop Kubernetes with the `docker-desktop`
+context, ingress-nginx on port 80, Helm 4.3). Run from `turnbase-platform`:
+
+```bash
+# once: ingress-nginx must be running on port 80 (`kubectl get pods -n ingress-nginx`); install it from
+# its own chart if the namespace is absent.
+
+# once: the git-ignored secrets file. Copy deploy/helm/turnbase/values-local.secrets.example.yaml to
+# values-local.secrets.yaml and fill every value except oauth.* with `openssl rand -hex 16`;
+# minio.appAccessKey must differ from minio.rootUser; auth.jwtKeySet is the JSON in the example's
+# comment with `secret` from `openssl rand -base64 32`.
+
+# the images, from the merged `master` (both Dockerfiles copy a jar built outside the image, so
+# `./mvnw package -DskipTests` comes first when `target/` is stale)
+docker build -t turnbase/platform:dev  turnbase-platform
+docker build -t turnbase/game-host:dev turnbase-game-host
+docker build -t turnbase/frontend:dev  turnbase-frontend
+
+H=deploy/helm/turnbase
+helm lint $H -f $H/values-local.yaml -f $H/values-local.secrets.yaml
+helm upgrade --install turnbase $H -f $H/values-local.yaml -f $H/values-local.secrets.yaml \
+  --set platform.seed.bundlesHostPath=<absolute path of the directory holding <gameId>.zip>
+```
+
+Then `http://turnbase.localhost` (port 80: `values-local.yaml` sets both origins without a port).
+
+**`platform.seed.bundlesHostPath` is a path in the Kubernetes node, not in your shell.** Under WSL 2
+the node cannot see the WSL file system: a Linux path fails with `hostPath type check failed: … is
+not a directory` and the platform pod stays in `ContainerCreating`. Copy the bundle to a Windows
+directory and pass its `/run/desktop/mnt/host/c/...` form (for `C:\Users\Me\turnbase-seed`:
+`/run/desktop/mnt/host/c/Users/Me/turnbase-seed`).
+
+**What a chart without the Game Host configuration looked like.** The Game Host pod reported
+`Running`/Ready, because liveness and readiness do not depend on Redis, but its log repeated
+`Redis health check failed` (the image defaults to the host name `redis`, the chart's Service is
+`turnbase-redis`) and it never registered. The chart now sets the Redis and artifact-store endpoints
+and a Secret holding only the Redis password and the scoped artifact pair, and advertises the pod IP
+(`TURNBASE_GAMEHOST_ADVERTISED_ADDRESS` from `status.podIP`).
+
+Checks, in order:
+
+```bash
+kubectl get pods                                  # every pod Running and ready; minio-init Completed
+kubectl exec turnbase-redis-0 -- redis-cli -a <redis.password> smembers hosts    # one host id
+kubectl exec turnbase-redis-0 -- redis-cli -a <redis.password> hget host:<id> address   # <pod IP>:9090
+PLATFORM_HOST=turnbase.localhost PLATFORM_URL=http://turnbase.localhost node .claude/skills/run-turnbase/driver.mjs game
+kubectl port-forward svc/turnbase-prometheus 19090:9090 &
+curl -s localhost:19090/api/v1/targets            # jobs platform and gamehost, both "up"
+curl -s 'localhost:19090/api/v1/query?query=http_server_requests_seconds_bucket'   # a non-empty result
+```
+
+The `hosts` set holds host ids; each id's `host:<id>` hash carries the `address`. Under WSL 2, Node
+may fail to resolve `turnbase.localhost` (`EAI_AGAIN`) although `curl` and a browser can; preload a
+`dns.lookup` that answers `127.0.0.1` for `*.localhost` (`NODE_OPTIONS="--require shim.cjs"`) rather
+than editing `/etc/hosts`.
 
 The inner loop for backend work is neither of those: run the dependencies in compose and the monolith
 from the IDE against them, which is what the `local` Spring profile's defaults in §7 point at.
