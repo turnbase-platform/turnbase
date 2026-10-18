@@ -214,7 +214,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M15-07 | Load-test scaffold: overlay, reset, user provisioning | platform (chart), docs (umbrella) | M15-06 | DONE |
 | IMP-M15-08 | k6 STOMP client and pair game loop | docs (umbrella) | M15-07 | DONE |
 | IMP-M15-09 | Load scenarios, thresholds and report template | docs (umbrella) | M15-08 | DONE |
-| IMP-M15-10 | `contexts` scenario (droppable) | docs (umbrella) | M15-09 | WIP (session 211) |
+| IMP-M15-10 | `contexts` scenario (droppable) | docs (umbrella) | M15-09 | DONE |
 | IMP-M15-11 | Phase A runs — parallelism and ramp-to-break | docs (umbrella) | M15-09 | READY |
 | IMP-M15-12 | Phase A runs — start-rate, default-limits, contexts | docs (umbrella) | M15-10, M15-11 | READY |
 | IMP-M15-13 | Phase A runs — soak, up-down and Phase A summary | docs (umbrella) | M15-11, M15-12 | READY |
@@ -7360,6 +7360,8 @@ generated, not a blocker; a cluster that is down is `BLOCKED`.
   `load-testing.md` §5 records the refusal, quoting the validation error. `IMP-M15-12` then runs no
   `contexts` scenario.
 - `python3 scripts/check-corpus.py` prints `clean`; merged to `master` and pushed.
+
+**Evidence (session 211).** Built. Route: the seeder directory. `loadtest/lib/bundles.sh 4` made four copies (fresh UUID, `title` suffixed, `version` 1.0.1 to 1.0.4); after `reset.sh` the platform logged `Seeded official game <id> version 1.0.<k>` for each and all four `game_version` rows were `ACTIVE`. `k6 run` of `contexts.js` with `PAIRS=4 DURATION=60s` exited 0, `tb_errors` 0, 2,105 games in 60 s, and `kubectl logs deploy/turnbase-gamehost | grep 'Game context created'` printed four lines with four distinct `gameId`/`gameVersion` pairs. `pairSession` takes `gameId` (default `cfg.gameId`). The copies were removed from the seed directory and the stack reset afterwards.
 
 ### IMP-M15-11 — Phase A runs — parallelism and ramp-to-break
 

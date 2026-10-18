@@ -170,6 +170,7 @@ Prometheus series k6 pushes by remote write (`k6_tb_*`). The `summary.json` perc
 | `soak` | `ramping-vus` to `PAIRS`, hold, down in half the ramp time; `PAIRS` required | `PAIRS=2 HOLD_MINUTES=1 RAMP_SECONDS=10` |
 | `up-down` | up, hold, down (`RAMP_MINUTES`, `HOLD_MINUTES`), then `IDLE_MINUTES` of nothing (a sleeping VU; k6 drops a trailing zero-VU stage); `PAIRS` required | `PAIRS=2 RAMP_MINUTES=0.25 HOLD_MINUTES=0.25` |
 | `default-limits` | `constant-vus` with every limiter on; `RATE_LIMIT_EXCEEDED` is expected, anything else is not | `VUS=4 DURATION=60s` after `install.sh --default-limits` |
+| `contexts` | `constant-vus`, `PAIRS` (50) for `DURATION` (5m); pair `i` plays `CONTEXT_IDS[i % n]`, so the Game Host holds one Espresso context per id. Needs the copies below; no thresholds abort | `PAIRS=4 DURATION=60s CONTEXT_IDS=<four ids>` |
 
 `THRESHOLD_SCALE=0.001` makes every threshold impossible: `ramp-to-break` then aborts within about 30 s and
 exits 99. Samples carry `step:<tag>` (the first `SETTLE_SECONDS` of a step are `step:warmup`) and thresholds
@@ -180,3 +181,23 @@ percentile.
 
 `default-limits` flow: reset, `install.sh`, provision, `install.sh --default-limits`, preflight, run, then
 `install.sh` and preflight again. The DB survives the upgrade.
+
+### `contexts`: the bundle copies
+
+`lib/bundles.sh <count>` writes `<count>` copies of the seed bundle to `results/contexts-bundles/`, each named
+`<fresh UUID>.zip` (the stem is the game id), with the manifest `title` suffixed ` <k>` and `version` `1.0.<k>`,
+and prints the ids comma separated. Route used: the seeder directory (the official path, `bundle-format.md` §1.1;
+the platform accepted all four copies and logged `Seeded official game <id> version 1.0.<k>`). Copy the zips into
+the seed directory (`C:\Users\<you>\turnbase-seed`), `bash loadtest/reset.sh` (the seeder runs on the platform's
+start), provision, run the scenario, then **delete the copies and reset again**: they would otherwise be in the
+catalog of every later run.
+
+Proof of spread, from the minimum run (`PAIRS=4 DURATION=60s`, exit 0, `tb_errors` 0, 2,105 games in 60 s):
+
+```bash
+kubectl logs deploy/turnbase-gamehost | grep 'Game context created'
+```
+
+printed four lines, one per copy, from `GameContextManager`: `gameId=4a2ba2df-… gameVersion=1.0.3`,
+`gameId=e858badf-… gameVersion=1.0.1`, `gameId=2725900a-… gameVersion=1.0.2`, `gameId=6eef12b7-… gameVersion=1.0.4`.
+(The Redis session keys are not the proof; the Game Host's own context log is.)

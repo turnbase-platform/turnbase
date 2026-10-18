@@ -282,6 +282,10 @@ A test-only copy of the Tic-Tac-Toe bundle with a rewritten manifest `gameId`/ve
 (orchestrator's call). If the bundle identity rules (signing, catalog) forbid it, drop the scenario and
 record why in the report.
 
+**Built (`IMP-M15-10`, 2026-10-18).** The seeder directory accepted four copies, each under a fresh `gameId` and
+version `1.0.<k>`; `loadtest/lib/bundles.sh` makes them, `loadtest/scenarios/contexts.js` plays them, and the Game Host
+logged four `Game context created` lines. `loadtest/README.md` has the procedure.
+
 ## 6. Thresholds
 
 Pass or fail is evaluated per step. A threshold that fails ends the step, and the previous step is the

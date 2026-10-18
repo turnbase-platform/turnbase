@@ -136,7 +136,7 @@ async function playGame(pair, roomId) {
 }
 
 // Plays `games` games in ONE room (the second and later are rematches), then leaves it and closes both sockets.
-export async function pairSession(pair, { games }) {
+export async function pairSession(pair, { games, gameId = cfg.gameId }) {
   const { host, guest } = pair;
   if (!pair.counted) { // first iteration: make the zero-valued counters print in the summary
     pair.counted = true;
@@ -149,7 +149,7 @@ export async function pairSession(pair, { games }) {
   try {
     await Promise.all([host.ensureConnected(), guest.ensureConnected()]);
     const created = await host.request('POST', '/api/rooms',
-      { gameId: cfg.gameId, visibility: 'PUBLIC', spectatingEnabled: false }, 'POST /api/rooms');
+      { gameId, visibility: 'PUBLIC', spectatingEnabled: false }, 'POST /api/rooms');
     if (created.res.status !== 201) throw Object.assign(new Error('room create ' + created.res.status), { code: errorCode(created.res) });
     const body = created.res.json();
     roomId = body.roomId || (body.room && body.room.roomId);

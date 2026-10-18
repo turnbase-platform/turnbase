@@ -1,14 +1,14 @@
 ## Last Session Summary
 
-**Date:** 2026-10-18 (session 210) — **`IMP-M15-09` DONE: load scenarios, thresholds, scripts and the report template.** Umbrella-only (nothing to bump, no CI); 167 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
+**Date:** 2026-10-18 (session 211) — **`IMP-M15-10` DONE: the `contexts` scenario was built, not dropped.** Umbrella-only (nothing to bump, no CI); 168 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
 
-**What landed.** `lib/metrics.js` gained `stepper` (step tags, `warmup` settle window) and `thresholds()` (the §6/§7 set per step, `abortOnFail` with `delayAbortEval 30s`); every metric write in the pair loop is step-tagged. Scenarios `parallelism`, `ramp-to-break`, `start-rate`, `soak`, `up-down`, `default-limits` (shared plumbing in `lib/shape.js`). Scripts `run.sh` (start/wait, pinned k6, run directory), `sample-generator.sh`, `check-generator.sh`, `steps-table.sh`, `snapshot.sh`, `check-report.sh`; `reports/TEMPLATE.md`; `helm/values-default-limits.yaml`; two selftest scripts; README *Scripts* and *Scenarios*.
+**What landed.** `loadtest/lib/bundles.sh <count>` (copies of the seed bundle under fresh UUIDs, `title` suffixed, `version` 1.0.<k>), `loadtest/scenarios/contexts.js` (`constant-vus`, pair `i` plays `CONTEXT_IDS[i % n]`), `pairSession` takes an optional `gameId`, README rows and procedure, and a *Built* paragraph in `load-testing.md` §5.
 
-**Verified live.** Each scenario at minimum size exited 0 with `tb_errors` 0 in 49 to 84 s; `default-limits` saw 20 `RATE_LIMIT_EXCEEDED` and nothing unexpected; `THRESHOLD_SCALE=0.001` aborted `ramp-to-break` after 31 s with exit 99; the generator check flags the synthetic overloaded segment; `check-report.sh` rejects the template. The cluster is back on the `loadtest` overlay (preflight OK, 2,000 users), `loadtest/results/` emptied.
+**Verified live.** Route 2 (seeder directory, the official path): the platform seeded all four copies, all `ACTIVE`; the minimum run (`PAIRS=4 DURATION=60s`) exited 0 with `tb_errors` 0 and 2,105 games, and the Game Host logged four `Game context created` lines with four distinct `gameId`/`gameVersion` pairs. The copies were then removed from `C:\Users\Hubert\turnbase-seed`, the stack reset (one game, empty `loadtest/results/`), preflight OK. No upload-API route was needed.
 
-**Findings (harness, all fixed and in the README).** (1) `install.sh` hung on any upgrade that changed a pod template: the rolling update needs a second 4-CPU platform pod and the VM cannot schedule it; it now removes the platform and Game Host pods first. (2) One `ready_timeout` in ~3,000 games: the simple broker sends no `RECEIPT`, so the guest's first ready could precede the host's room subscription; `SUBSCRIBE_SETTLE_MS` (50) fixed it. (3) k6 drops a trailing zero-VU stage, so `up-down`'s idle hold is a second scenario with one sleeping VU. (4) The first step starts when `setup()` ends, not at launch: `scenario.epoch` (from a `TB_SETUP_DONE` log line) replaces `start.epoch` for `check-generator.sh` (plan R4 corrected). (5) `steps.csv` has a seventh column, `rate`, for `tb_op_failed`.
+**Note for `IMP-M15-12`.** It must copy the bundles into the seed directory, reset, provision, run, then delete the copies and reset again (README, *`contexts`: the bundle copies*).
 
-**Not done.** Nothing else from M15. `IMP-M15-10` (`contexts`, droppable) is next.
+**Not done.** `IMP-M15-11` (parallelism and ramp-to-break runs) is next; `12` then waits for it.
 
 ---
 
@@ -18,7 +18,7 @@
 `scripts/autonomous-work-loop.sh`; each item's *Read first* list in the registry is all the context an
 agent needs.
 
-**Order:** `IMP-M15-01`…`09` (DONE) -> `10`
+**Order:** `IMP-M15-01`…`10` (DONE)
 -> `11` -> `12`, `13`. The registry's *Depends on* column enforces this; `12` also waits
 for `10`, and `13` for `12`.
 
