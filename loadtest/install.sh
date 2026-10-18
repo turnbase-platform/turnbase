@@ -43,8 +43,18 @@ if [ -z "${SEED_HOST_PATH:-}" ]; then
   SEED_HOST_PATH="/run/desktop/mnt/host/c/Users/$WINUSER/turnbase-seed"
 fi
 
+# Switching overlays changes the Deployments' pod templates. A rolling update needs a second 4-CPU platform pod
+# next to the first, which the VM cannot schedule (Insufficient cpu: the upgrade then hangs until the timeout),
+# so the application pods are removed first and the upgrade starts them again.
+if helm status turnbase >/dev/null 2>&1; then
+  kubectl scale deploy/turnbase-platform deploy/turnbase-gamehost --replicas=0
+  for c in platform gamehost; do
+    kubectl wait --for=delete pod -l "app.kubernetes.io/name=$c" --timeout=120s 2>/dev/null || true
+  done
+fi
+
 helm upgrade --install turnbase "$CHART" \
   -f "$CHART/values-local.yaml" -f "$SECRETS" -f "$OVERLAY" \
   --set "platform.seed.bundlesHostPath=$SEED_HOST_PATH" \
   --wait --timeout 10m
-# No rollout restart here: reset.sh owns restarts.
+# reset.sh owns restarts of a running install; this script has already removed the application pods.

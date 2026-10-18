@@ -1,14 +1,14 @@
 ## Last Session Summary
 
-**Date:** 2026-10-18 (session 209) — **`IMP-M15-08` DONE: the k6 STOMP client and pair game loop.** Umbrella-only (nothing to bump, no CI); 166 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
+**Date:** 2026-10-18 (session 210) — **`IMP-M15-09` DONE: load scenarios, thresholds, scripts and the report template.** Umbrella-only (nothing to bump, no CI); 167 of 172 items done, `IMP-M13-08` still `WIP` and owner-held.
 
-**What landed.** `loadtest/lib/stomp.js` (STOMP 1.2 over `k6/websockets`, 4 s heart-beat, consume-on-match `waitFor`), the socket half of `lib/player.js`, `lib/pair.js` (`getPair`, `pairSession`, `winner`/`isOver`/`pickEmpty`, `readView`), `scenarios/smoke.js` and `test/selftest.js`; README *Scenarios* section.
+**What landed.** `lib/metrics.js` gained `stepper` (step tags, `warmup` settle window) and `thresholds()` (the §6/§7 set per step, `abortOnFail` with `delayAbortEval 30s`); every metric write in the pair loop is step-tagged. Scenarios `parallelism`, `ramp-to-break`, `start-rate`, `soak`, `up-down`, `default-limits` (shared plumbing in `lib/shape.js`). Scripts `run.sh` (start/wait, pinned k6, run directory), `sample-generator.sh`, `check-generator.sh`, `steps-table.sh`, `snapshot.sh`, `check-report.sh`; `reports/TEMPLATE.md`; `helm/values-default-limits.yaml`; two selftest scripts; README *Scripts* and *Scenarios*.
 
-**Verified live.** Selftest exit 0 (all checks). Smoke: exit 0, `tb_errors` 0, `tb_games_completed` 3, all ten custom metrics in the summary, `tb_game_start` has `cold:true` ×1 and `cold:false` ×2 (as thresholds). Three consecutive runs all green. With 5 s think time (sessions up to 70 s) `tb_ws_disconnects` 0 and `tb_errors` 0, so the heart-beat works. After the runs, `room_participant` rows of `lt-%` users with `left_at IS NULL`: 0.
+**Verified live.** Each scenario at minimum size exited 0 with `tb_errors` 0 in 49 to 84 s; `default-limits` saw 20 `RATE_LIMIT_EXCEEDED` and nothing unexpected; `THRESHOLD_SCALE=0.001` aborted `ramp-to-break` after 31 s with exit 99; the generator check flags the synthetic overloaded segment; `check-report.sh` rejects the template. The cluster is back on the `loadtest` overlay (preflight OK, 2,000 users), `loadtest/results/` emptied.
 
-**Findings.** (1) `GAME_SYNC.view.turn` and a move's `payload.next` are **user ids**, not marks (the plan assumed marks); `readView` maps them. (2) An open socket plus its heart-beat timer keeps a k6 iteration from ending, so sockets live for one `pairSession`, not for the VU; the plan's "one socket per user for the VU's life" cannot hold. Both are in the README. (3) The registry's clause named `room_participants`/`users`; the tables are `room_participant`/`app_user` (key `user_id`), corrected. (4) The stale-membership-on-first-iteration path is not exercised by the smoke.
+**Findings (harness, all fixed and in the README).** (1) `install.sh` hung on any upgrade that changed a pod template: the rolling update needs a second 4-CPU platform pod and the VM cannot schedule it; it now removes the platform and Game Host pods first. (2) One `ready_timeout` in ~3,000 games: the simple broker sends no `RECEIPT`, so the guest's first ready could precede the host's room subscription; `SUBSCRIBE_SETTLE_MS` (50) fixed it. (3) k6 drops a trailing zero-VU stage, so `up-down`'s idle hold is a second scenario with one sleeping VU. (4) The first step starts when `setup()` ends, not at launch: `scenario.epoch` (from a `TB_SETUP_DONE` log line) replaces `start.epoch` for `check-generator.sh` (plan R4 corrected). (5) `steps.csv` has a seventh column, `rate`, for `tb_op_failed`.
 
-**Not done.** Nothing else from M15. `IMP-M15-09` is next.
+**Not done.** Nothing else from M15. `IMP-M15-10` (`contexts`, droppable) is next.
 
 ---
 
@@ -18,8 +18,8 @@
 `scripts/autonomous-work-loop.sh`; each item's *Read first* list in the registry is all the context an
 agent needs.
 
-**Order:** `IMP-M15-01`…`08` (DONE) -> `09`
--> `10` -> `11` -> `12`, `13`. The registry's *Depends on* column enforces this; `12` also waits
+**Order:** `IMP-M15-01`…`09` (DONE) -> `10`
+-> `11` -> `12`, `13`. The registry's *Depends on* column enforces this; `12` also waits
 for `10`, and `13` for `12`.
 
 - **`IMP-M13-08` stays `WIP` and is owner-held.** It is a visual comparison against the approved

@@ -866,7 +866,7 @@ fix for a harness failure (below). The item is `DONE` when every report exists, 
   loop `bash loadtest/run.sh wait <RUN_DIR> 280`, emitting `LOOP_PHASE: testing <scenario> <elapsed>`
   after each return, until it returns 0. Between polls do nothing else that touches the cluster.
 - [ ] **R4. Collect.** `bash loadtest/steps-table.sh <RUN_DIR>/summary.json`,
-  `bash loadtest/check-generator.sh <RUN_DIR>/samples.csv $(cat <RUN_DIR>/start.epoch) <STEP_SECONDS> <cores>`,
+  `bash loadtest/check-generator.sh <RUN_DIR>/samples.csv $(cat <RUN_DIR>/scenario.epoch) <STEP_SECONDS> <cores>`,
   `bash loadtest/snapshot.sh <RUN_DIR>`. Read `<RUN_DIR>/k6.log` for `dropped_iterations` and for the
   line that names an aborted threshold.
 - [ ] **R5. Report.** `cp loadtest/reports/TEMPLATE.md loadtest/reports/$(date +%F)-<scenario>.md` and fill

@@ -2,7 +2,7 @@
 // Port of the protocol in .claude/skills/run-turnbase/driver.mjs; destinations in load-testing.md §3.6.
 import exec from 'k6/execution';
 import { cfg, pairUsers } from './config.js';
-import { m, ok, fail } from './metrics.js';
+import { m, ok, fail, stepTags } from './metrics.js';
 import { Player, errorCode } from './player.js';
 
 const PAIRS_PROVISIONED = 1000;
@@ -76,7 +76,7 @@ async function playGame(pair, roomId) {
 
   const tReady = guest.ws.send('/app/room.' + roomId + '.member', 'TOGGLE_READY', { ready: true });
   const ready = await host.ws.waitFor((f) => f.msg && f.msg.type === 'READINESS_CHANGED', T, 'ready_timeout');
-  m.lobbyEvent.add(ready.t - tReady);
+  m.lobbyEvent.add(ready.t - tReady, stepTags());
   ok();
 
   const cold = pair.gamesStarted === 0 && Date.now() - exec.scenario.startTime < cfg.coldWindowMs;
@@ -86,7 +86,7 @@ async function playGame(pair, roomId) {
     host.ws.waitFor(isStarted, cfg.startTimeoutMs, 'start_timeout'),
     guest.ws.waitFor(isStarted, cfg.startTimeoutMs, 'start_timeout'),
   ]);
-  m.gameStart.add(startedHost.t - tStart, { cold: String(cold) });
+  m.gameStart.add(startedHost.t - tStart, stepTags({ cold: String(cold) }));
   pair.gamesStarted++;
   ok();
   const sid = startedHost.msg.payload.sessionId;
@@ -117,16 +117,16 @@ async function playGame(pair, roomId) {
         && x.msg.payload && ((x.msg.payload.type === 'move' && x.msg.payload.cell === cell) || x.msg.payload.type === 'rejected'),
       T, 'move_timeout');
       if (f.msg.payload.type === 'rejected') throw Object.assign(new Error('move rejected'), { code: 'move_rejected' });
-      m.moveRtt.add(f.t - t0);
+      m.moveRtt.add(f.t - t0, stepTags());
       board[cell] = f.msg.payload.mark;
       turn = f.msg.payload.next;
       ok();
     }
 
     await Promise.all([host, guest].map((p) => p.ws.waitFor((f) => f.msg && f.msg.type === 'GAME_OVER', T, 'game_over_timeout')));
-    m.gameDuration.add(Date.now() - tFirstMove);
+    m.gameDuration.add(Date.now() - tFirstMove, stepTags());
     await Promise.all([host, guest].map((p) => p.ws.waitFor((f) => f.msg && f.msg.type === 'GAME_ENDED', T, 'game_ended_timeout')));
-    m.gamesCompleted.add(1);
+    m.gamesCompleted.add(1, stepTags());
     ok();
   } finally {
     m.activeGames.add(0);
@@ -153,16 +153,19 @@ export async function pairSession(pair, { games }) {
     if (created.res.status !== 201) throw Object.assign(new Error('room create ' + created.res.status), { code: errorCode(created.res) });
     const body = created.res.json();
     roomId = body.roomId || (body.room && body.room.roomId);
-    m.roomCreate.add(created.ms);
+    m.roomCreate.add(created.ms, stepTags());
     ok();
 
     const joined = await guest.request('POST', '/api/rooms/' + roomId + '/participants', { role: 'PLAYER' },
       'POST /api/rooms/{id}/participants');
     if (joined.res.status !== 201) throw Object.assign(new Error('room join ' + joined.res.status), { code: errorCode(joined.res) });
-    m.roomJoin.add(joined.ms);
+    m.roomJoin.add(joined.ms, stepTags());
     ok();
 
     roomSubs.push(host.ws.subscribe('/topic/room.' + roomId), guest.ws.subscribe('/topic/room.' + roomId));
+    // The simple broker sends no RECEIPT, and the two sockets are processed independently: without a pause the
+    // guest's first TOGGLE_READY can be broadcast before the host's subscription exists (seen as ready_timeout).
+    await sleepMs(cfg.subscribeSettleMs);
     for (let g = 0; g < games; g++) await playGame(pair, roomId);
   } catch (e) {
     failed = true;

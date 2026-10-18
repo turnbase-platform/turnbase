@@ -1,0 +1,31 @@
+# The `default-limits` scenario's overlay: values-loadtest.yaml minus the `loadtest` profile (so every rate
+# limiter is on, as `values-local` renders it) and minus the Prometheus remote-write receiver. Resources,
+# replicas and heap settings are identical, so the limiters are the only difference between that run and the
+# others. test/check-overlays.sh enforces this; apply with `loadtest/install.sh --default-limits`.
+origins:
+  platform: http://turnbase.localhost
+  gameFrontendTemplate: "http://{gameId}.games.localhost"
+platform:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+  resources:
+    requests: { cpu: "4", memory: 3Gi }
+    limits:   { cpu: "4", memory: 3Gi }
+  extraEnv:
+    - { name: JDK_JAVA_OPTIONS, value: "-XX:MaxRAMPercentage=70" }
+gamehost:
+  replicaCount: 1
+  resources:
+    requests: { cpu: "4", memory: 4Gi }
+    limits:   { cpu: "4", memory: 4Gi }
+  extraEnv:
+    - { name: JDK_JAVA_OPTIONS, value: "-XX:MaxRAMPercentage=70" }
+postgres:
+  resources:
+    requests: { cpu: "2", memory: 1Gi }
+    limits:   { cpu: "2", memory: 1Gi }
+redis:
+  resources:
+    requests: { cpu: "1", memory: 512Mi }
+    limits:   { cpu: "1", memory: 512Mi }

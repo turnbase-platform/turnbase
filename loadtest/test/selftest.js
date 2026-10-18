@@ -3,6 +3,7 @@
 import { check } from 'k6';
 import { parseFrames, encodeFrame } from '../lib/stomp.js';
 import { winner, isOver, pickEmpty } from '../lib/pair.js';
+import { stepper, thresholds } from '../lib/metrics.js';
 
 export const options = { iterations: 1, thresholds: { checks: ['rate==1'] } };
 
@@ -41,4 +42,33 @@ export default function () {
   let bad = 0;
   for (let i = 0; i < 1000; i++) if (board[pickEmpty(board, '')] !== '') bad++;
   check(bad, { 'pickEmpty never returns an occupied cell': (b) => b === 0 });
+
+  // Stepper: the first `settle` seconds of every segment are tagged warmup; the last segment's tag persists.
+  let now = 1000000;
+  stepper.configure([{ tag: '10', seconds: 120 }, { tag: '20', seconds: 120 }], 20, () => now, 1000000);
+  for (const [at, want] of [[5, 'warmup'], [30, '10'], [125, 'warmup'], [150, '20'], [500, '20']]) {
+    now = 1000000 + at * 1000;
+    check(stepper.tags(), { ['stepper at ' + at + ' s is ' + want]: (t) => t.step === want });
+  }
+  stepper.configure([], 0);
+  check(stepper.tags(), { 'an unconfigured stepper tags nothing': (t) => Object.keys(t).length === 0 });
+
+  const th = thresholds({ steps: ['10', '20'], abort: true, scale: 0.001 });
+  const rtt = th['tb_move_rtt{step:10}'];
+  check(rtt, {
+    'move_rtt p95 entry aborts after 30 s': (r) => r && r[0].threshold === 'p(95)<0.2' && r[0].abortOnFail === true && r[0].delayAbortEval === '30s',
+    'move_rtt p99 entry': (r) => r && r[1].threshold === 'p(99)<0.5',
+  });
+  check(th, {
+    'cold:false game start p95': (t) => t['tb_game_start{step:10,cold:false}'][0].threshold === 'p(95)<1',
+    'cold:false game start p99': (t) => t['tb_game_start{step:10,cold:false}'][1].threshold === 'p(99)<2',
+    'error rate': (t) => t['tb_op_failed{step:10}'][0].threshold === 'rate<0.00001',
+    'second step has its own keys': (t) => Boolean(t['tb_move_rtt{step:20}']),
+  });
+  const plain = thresholds({ steps: [null], abort: false, scale: 1 });
+  check(plain, {
+    'untagged keys carry no step': (t) => Array.isArray(t.tb_move_rtt) && t.tb_move_rtt[0] === 'p(95)<200',
+    'abort:false yields plain strings': (t) => typeof t['tb_game_start{cold:false}'][1] === 'string',
+    'extra entries are merged': (t) => thresholds({ steps: [null], extra: { x: ['count==0'] } }).x[0] === 'count==0',
+  });
 }

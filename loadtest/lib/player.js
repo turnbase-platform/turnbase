@@ -1,7 +1,7 @@
 // One user: HTTP half (login, request with cookie jar) and the STOMP socket half (one socket per user).
 import http from 'k6/http';
 import { cfg, userName } from './config.js';
-import { m, ok, fail } from './metrics.js';
+import { m, ok, fail, stepTags } from './metrics.js';
 import { StompClient } from './stomp.js';
 
 // 429 -> RATE_LIMIT_EXCEEDED, 5xx -> http_5xx, body.code, else http_<status>; status 0 is a network error.
@@ -46,7 +46,7 @@ export class Player {
     for (let attempt = 0; ; attempt++) {
       const client = new StompClient(cfg.wsUrl,
         { Host: cfg.host, Origin: cfg.origin, Cookie: this.cookieHeader() },
-        { onUnexpectedClose: () => { m.wsDisconnects.add(1); } });
+        { onUnexpectedClose: () => { m.wsDisconnects.add(1, stepTags()); } });
       try {
         await client.connect(10000);
         client.subscribe('/user/queue/errors');
@@ -68,7 +68,7 @@ export class Player {
     const { res, ms } = await this.request('POST', '/api/auth/login',
       { usernameOrEmail: this.name, password: cfg.password }, 'POST /api/auth/login');
     if (res.status !== 200) { fail(errorCode(res)); return false; }
-    m.login.add(ms);
+    m.login.add(ms, stepTags());
     ok();
     return true;
   }
@@ -76,8 +76,8 @@ export class Player {
 
 // setup(): logs in lt-00000.. in batches and returns the session cookies, so Argon2 stays out of the
 // measured window. Scenarios set setupTimeout: '10m'.
-export function loginAll(userCount) {
-  const batchSize = Number(__ENV.LOGIN_PARALLEL || 8);
+export function loginAll(userCount, defaultParallel = 8) {
+  const batchSize = Number(__ENV.LOGIN_PARALLEL || defaultParallel);
   const cookies = {};
   for (let start = 0; start < userCount; start += batchSize) {
     const names = [];
@@ -92,5 +92,6 @@ export function loginAll(userCount) {
       cookies[names[idx]] = Object.keys(res.cookies).map((k) => ({ name: k, value: res.cookies[k][0].value }));
     });
   }
+  console.log('TB_SETUP_DONE ' + Date.now()); // run.sh reads the first step's start from this line
   return { cookies };
 }

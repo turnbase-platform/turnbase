@@ -213,7 +213,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M15-06 | Game Host runs under the Helm chart | platform (chart), docs | M15-03, M15-04, M15-05 | DONE |
 | IMP-M15-07 | Load-test scaffold: overlay, reset, user provisioning | platform (chart), docs (umbrella) | M15-06 | DONE |
 | IMP-M15-08 | k6 STOMP client and pair game loop | docs (umbrella) | M15-07 | DONE |
-| IMP-M15-09 | Load scenarios, thresholds and report template | docs (umbrella) | M15-08 | WIP (session 210) |
+| IMP-M15-09 | Load scenarios, thresholds and report template | docs (umbrella) | M15-08 | DONE |
 | IMP-M15-10 | `contexts` scenario (droppable) | docs (umbrella) | M15-09 | READY |
 | IMP-M15-11 | Phase A runs — parallelism and ramp-to-break | docs (umbrella) | M15-09 | READY |
 | IMP-M15-12 | Phase A runs — start-rate, default-limits, contexts | docs (umbrella) | M15-10, M15-11 | READY |
@@ -7339,6 +7339,8 @@ generated, not a blocker; a cluster that is down is `BLOCKED`.
 - `loadtest/reports/TEMPLATE.md` has every field `load-testing.md` §8 lists, including the
   single-node-ceiling statement, the `.wslconfig` cap and the coordinated-omission note.
 - `python3 scripts/check-corpus.py` prints `clean`; merged to `master` and pushed.
+
+**Evidence (session 210).** Selftest 31 of 31 checks (stepper and threshold cases). Each scenario at its minimum size exited 0 with `tb_errors` at 0 and ran 49 to 84 s: `parallelism`, two `ramp-to-break` runs, `start-rate`, `soak`, `up-down`; `default-limits` (after `install.sh --default-limits`) exited 0 with 20 `RATE_LIMIT_EXCEEDED`, `expected:false` and `http_5xx` at 0. `THRESHOLD_SCALE=0.001` aborted `ramp-to-break` after 31 s with exit 99. `check-generator-selftest.sh` and `check-overlays.sh` exit 0; `check-report.sh` exits 1 on `TEMPLATE.md`. Harness fixes found live: `install.sh` now removes the application pods before an upgrade (a rolling update needs a second 4-CPU platform pod and hung `Insufficient cpu`); a `ready_timeout` race on the room subscription (`SUBSCRIBE_SETTLE_MS`); `up-down` runs its zero-load hold as a sleeping VU because k6 drops a trailing zero-VU stage; `scenario.epoch` (from the `TB_SETUP_DONE` log line) is the start of step 1, not `start.epoch`.
 
 ### IMP-M15-10 — `contexts` scenario (droppable)
 
