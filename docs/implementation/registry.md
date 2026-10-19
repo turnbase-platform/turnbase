@@ -219,7 +219,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M15-12 | Phase A runs — start-rate, default-limits, contexts | docs (umbrella) | M15-10, M15-11 | DONE |
 | IMP-M15-13 | Phase A runs — soak, up-down and Phase A summary | docs (umbrella) | M15-11, M15-12 | DONE |
 | **M16 — Pre-Phase-B fixes** ||||
-| IMP-M16-01 | Load-test harness and record corrections | docs (umbrella), platform (chart) | — | READY |
+| IMP-M16-01 | Load-test harness and record corrections | docs (umbrella), platform (chart) | — | WIP (session 216) |
 | IMP-M16-02 | Game Host wedge supervision actually restarts the JVM | game-host, platform (chart), docs | — | READY |
 | IMP-M16-03 | First cold boot no longer wedges | game-host, docs (umbrella) | M16-01, M16-02 | READY |
 | IMP-M16-04 | Bounded concurrent guest boots | game-host, docs | M16-03 | READY |
