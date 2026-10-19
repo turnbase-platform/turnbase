@@ -26,6 +26,7 @@ Format: one file per decision, numbered sequentially (`NNNN-slug.md`). Status is
 | [0016](0016-spring-boot-4-migration.md) | Both Spring Boot services move to Spring Boot 4.1 | Accepted |
 | [0017](0017-turnbase-visual-identity.md) | The platform takes a TurnBase visual identity on top of Astryx (amends 0013 §4) | Accepted |
 | [0018](0018-game-start-resilience.md) | Starting a game survives a cold, restarting or wedged Game Host, and says what it is doing | Accepted |
+| [0019](0019-shared-espresso-engine.md) | All guest contexts share one Espresso engine (31% less heap for four contexts; CPU unchanged) | Accepted |
 
 ## Provenance
 
@@ -101,3 +102,6 @@ ADR-0018 was taken on 2026-10-17 after a freshly set-up stack refused every game
 error until the Game Host was restarted by hand. The part worth reading is §2: a sizeable share of cold
 boots stall the whole JVM inside Truffle's native interface, so no code inside it can notice, and a
 separate process has to kill it.
+
+ADR-0019 was taken on 2026-10-19 by a benchmark under the owner's rule (adopt at 25% less CPU or heap). The
+part worth reading is *Observed on the way*: a JVM can create only twelve Espresso contexts in its lifetime.

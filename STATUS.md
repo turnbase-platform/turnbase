@@ -1,10 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-19 (session 219) — **`IMP-M16-04` done: guest boots are capped and creation no longer runs under a map lock.** 175 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-05…15` `READY`.
+**Date:** 2026-10-19 (session 220) — **`IMP-M16-05` done: every guest context runs on one shared Espresso `Engine`.** 176 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-06…15` `READY`.
 
-**What changed.** `BootWatchdog` holds a fair `Semaphore` (`turnbase.gamehost.max-concurrent-boots`, default 2, at least 1); `guard` takes a permit first and starts its timer afterwards, so a queued boot cannot trip the wedge handling. `GameContextManager.getOrCreate` no longer builds inside `computeIfAbsent`: an in-flight `CompletableFuture` per cold key coalesces waiters, a failure reaches them and is not cached, and a slow boot for one key does not block another. `turnbase-game-host` (`3fded62`, CI green) carries it. Specs: `game-host-internals.md` §6.1 and §15, `local-environment.md` §7.8.
+**What changed.** Under the owner's rule (25% less CPU or heap) the benchmark `EngineSharingBenchmarkIT` measured **31% less heap after GC** for four contexts (320 → 220 MB) and **no CPU saving** (−1% to 4%), so the shared engine is adopted for the heap. `EspressoContextFactory` takes an optional `Engine`; `GameContextManagerConfig` builds one `guestEngine` bean, and the warm-up uses it too. `SharedEngineIsolationTest` shows statics, `System.exit` and a runaway-handler interrupt in one context do not touch a sibling on the same engine. `turnbase-game-host` (`1ad8c19`) carries it. Docs: [ADR-0019](docs/decisions/0019-shared-espresso-engine.md), `game-host-internals.md` §4.2, §4.3, §6.1, §18, a pointer in `espresso-spike-results.md`.
 
-**Tests.** `BootWatchdogTest` (timer starts at the permit, never more than the permits run, a throwing boot returns its permit, 0 permits rejected); `GameContextManagerTest` (a blocked creation does not block 100 other keys; a failed creation is rethrown and retried); `ConcurrentBootsIT` boots four distinct real Espresso contexts at once through the manager with two permits and asserts all four ready and no wedge. Its timeout is 3x a measured two-boot time (at least 20 s), not a fixed guess. Not measured on the cluster: the effect on the finding-8 cold-start time (`IMP-M16-14` re-verifies).
+**Found on the way, for the owner.** (1) **A JVM can create only twelve Espresso contexts in its lifetime** — the 13th fails `Cannot load library: eden` even when the earlier ones were closed, with or without a shared engine. Every re-creation after eviction or crash recovery counts, so a long-running Game Host may hit it; recorded as `game-host-internals.md` §18 **`OQ-6`**, not decided and not an M16 item. Surefire now forks one JVM per test class because of it. (2) `allowEnvironmentAccess(NONE)` does not hide the host environment from the guest (container's job; §4.3 row added). (3) A `ResourceLimits` statement limit on an Espresso context did not return in 150 s in a probe.
+
+**Tests.** Unit 83 and `-Pintegration` 19 green on a clean build. Caveat for the next session: `mvnw verify` twice without `clean` leaves a repackaged Boot jar that `GuestBridgeJarIT` rejects — run `clean verify`.
 
 ---
 
@@ -12,7 +14,7 @@
 
 ## Next Priorities
 
-**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → ~~`04`~~ → `05` → `06` → `07` → `08` → `09` → `10` → `11` → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
+**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → ~~`04`~~ → ~~`05`~~ → `06` → `07` → `08` → `09` → `10` → `11` → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
 
 - `01`, `02`, `03` and `10…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
 - `14` and `15` are measurement only: findings that persist become Phase B notes in `load-testing.md` §13, never registry items.

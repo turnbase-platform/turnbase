@@ -313,6 +313,12 @@ Context.newBuilder("java")
    .build();
 ```
 
+**One engine for all contexts (IMP-M16-05, [ADR-0019](../../decisions/0019-shared-espresso-engine.md)).**
+Every context is built with `.engine(sharedEngine)` — one `Engine` per Game Host, created at startup — and
+otherwise exactly as above. The engine shares compiled code and caches, not the guest heap, so the
+Espresso rows of §4 hold per context. An engine requires one host-access configuration for all its contexts,
+which `HostAccess.NONE` on every context already is.
+
 `IOAccess.NONE` / `sandbox.MaxHeapMemory` are **not** relied upon as enforcement —
 the spike proved they do not interpose Espresso's native `java.io`/`java.net`; the
 container provides FS/network/memory (CON-001 correction). Native access is on, so
@@ -333,6 +339,7 @@ changes for this note; it records what the design leans on.
 | No filesystem access (FR-CTX-004) | ❌ **no** — guest read `/etc/passwd` with `IOAccess.NONE` | **Container**: read-only rootfs, non-root user |
 | No network access (FR-CTX-005) | ❌ **no** — guest opened a TCP connection | **Container**: egress `NetworkPolicy` |
 | Memory cap (FR-CTX-007) | ❌ **no** — `sandbox.MaxHeapMemory` is Oracle-GraalVM-only | **Container**: pod cgroup limit (pod-wide, not per context) |
+| Host environment variables hidden from the guest (`allowEnvironmentAccess(NONE)`) | ❌ **no** — a guest `System.getenv("PATH")` returns the host's value (ADR-0019) | **Container**: nothing secret in the Game Host pod's environment |
 | Syscall-level containment of the native `java.io`/`java.net` surface Espresso forces open (`allowNativeAccess(true)`) | ❌ no | **gVisor** (`runsc`), production only (FR-SEC-001; ADR-0001) |
 
 Evidence and the tests behind each row:
@@ -400,6 +407,9 @@ Evidence and the tests behind each row:
   an in-flight `CompletableFuture` per cold key (waiters of the same key join it; a
   failure is rethrown to them and not cached) and builds the context outside any map
   lock.
+- **Engine and context budget (IMP-M16-05).** All contexts run on one shared `Engine`
+  ([ADR-0019](../../decisions/0019-shared-espresso-engine.md), §4.2). A JVM can create only twelve
+  Espresso contexts in its lifetime, closed or not (`OQ-6`).
 - **Reporting (FR-REG-002).** The set of live `ContextKey`s is reported to
   Orchestration for warm-host selection (§11).
 
@@ -993,3 +1003,12 @@ All tunable via env/config, never hard-coded:
   difference shows only for a session that receives no input between the crash and the next turn, and in
   how long a restored session sits with a dead routing entry. Neither reading is chosen here; the owner
   decides which one the spec describes and whether the code changes. Found by `IMP-M15-02` (2026-10-18).
+- **OQ-6 — a JVM can create only twelve Espresso contexts in its lifetime.** Measured by `IMP-M16-05`
+  (2026-10-19): the thirteenth `Context` build fails with `EspressoError: Cannot load library: eden`,
+  although every earlier context was closed (`close()` or `close(true)`), with or without a shared engine.
+  Each creation counts, including the re-creation of a context that idle eviction (§6.3) or memory-pressure
+  eviction closed, and the one a restored session needs after a crash (§9.3). Not established: whether a
+  closed context's native namespace can be released, whether the limit follows the glibc loader's namespace
+  count, and what the Game Host does today at the thirteenth creation (the boot watchdog, §11, may
+  treat it as a wedge). The owner decides whether to size the limit against a day of real use, evict less
+  eagerly, or restart the host on a counter; no item decides it.

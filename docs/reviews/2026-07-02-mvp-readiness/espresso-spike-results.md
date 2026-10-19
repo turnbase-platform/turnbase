@@ -152,3 +152,10 @@ required") and obtain FS/network/memory from the container layer (gVisor in prod
 no-network/read-only-FS + cgroup memory limit locally). Revisit Oracle GraalVM only post-MVP **if**
 a high-density "many game versions per JVM" model makes per-context heap caps worth the departure
 from CE — and note Oracle GraalVM for JDK 21 is free under the GFTC but is not the Community Edition.
+
+## Follow-up (2026-10-19): one shared engine for all contexts
+
+`IMP-M16-05` ([ADR-0019](../../decisions/0019-shared-espresso-engine.md)) put every guest context on one
+`Engine`: 31% less heap for four contexts, CPU unchanged, and the isolation rows above hold with siblings on
+the shared engine. The same work measured two more CE limits: `allowEnvironmentAccess(NONE)` does not hide the
+host environment (like the filesystem), and a JVM can create only twelve Espresso contexts in its lifetime.
