@@ -1,16 +1,18 @@
 ## Last Session Summary
 
-**Date:** 2026-10-19 (session 215) — **Phase A findings reported; M16 (Pre-Phase-B fixes) opened with 15 items.** Docs only; 171 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, all fifteen M16 items `READY`.
+**Date:** 2026-10-19 (session 216) — **`IMP-M16-01` done: the load-test harness and the record corrections.** 172 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-02…15` `READY`.
 
-**What changed.** The orchestrator investigated the 18 findings of `load-testing.md` §13 against the code and the owner delegated every design decision, so M16 states them as settled in each item (the Game Host supervisor probes the liveness group and acts on a marker file; a fair semaphore caps guest boots; the Espresso engine is shared only if it saves 25% CPU or heap; ownership renewal gets its own scheduler and a batched re-check; closed rooms delete their Redis keys; the STOMP `RECEIPT` replaces `SUBSCRIBE_SETTLE_MS`; pools get explicit bounds). The registry has the `M16` table block, a finding-to-item map and a section per item; `INDEX.md` and `CLAUDE.md` carry the new counts. Owner-held and untouched: `game-host-internals.md` §18 `OQ-5`, `platform-operations.md` `OQ-004`, `IMP-M13-08`, Phase B.
+**What changed.** `turnbase-platform` gained `postgres.extraArgs` and `redis.extraArgs` (default `[]`; the default render is byte-identical). The load-test overlays pass `pg_stat_statements` and `log_checkpoints=on` to Postgres. New `loadtest/census.sh` (threads by name prefix for both JVMs, Game Host class histogram, Redis keyspace, memory, `keys`/`scan` stats) and `loadtest/redis-sampler.sh` (`redis.csv`, every 30 s); `snapshot.sh` appends the `pg_stat_statements` top 20 and calls the census; `run.sh start` zeroes the Postgres and Redis counters and sets the Redis latency monitor; `reset.sh` recreates `pg_stat_statements`. `pair.js` caps pairs at `USERS / 2`; `default-limits` defaults its think time to 250 ms (finding 12: harness artefact, product limit unchanged). Finding 6 (the Game Host image does have `jcmd`) is corrected in `load-testing.md` §13 and the `contexts` report.
 
-**Not done.** No M16 item has started. Items `02…09` change the platform and Game Host images and the chart, so every live item after them rebuilds and reinstalls (the milestone's *Rebuild rule*).
+**Live check.** `pg_stat_statements` loaded, `sum(calls)` 349 after the smoke run, Redis latency threshold 100, `redis.csv` written, census sections all present. The cluster is left installed with the new chart, reset and provisioned.
+
+**Not done.** Nothing owed on `01`. The platform images were not rebuilt (no code changed); `02` changes the Game Host image and the chart, so every live item after it rebuilds first (milestone *Rebuild rule*).
 
 ---
 
 ## Next Priorities
 
-**Work M16 in order: `01` → `02` → `03` → `04` → `05` → `06` → `07` → `08` → `09` → `10` → `11` → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
+**Work M16 in order: ~~`01`~~ → `02` → `03` → `04` → `05` → `06` → `07` → `08` → `09` → `10` → `11` → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
 
 - `01`, `02`, `03` and `10…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
 - `14` and `15` are measurement only: findings that persist become Phase B notes in `load-testing.md` §13, never registry items.

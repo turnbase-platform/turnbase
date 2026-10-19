@@ -219,7 +219,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M15-12 | Phase A runs — start-rate, default-limits, contexts | docs (umbrella) | M15-10, M15-11 | DONE |
 | IMP-M15-13 | Phase A runs — soak, up-down and Phase A summary | docs (umbrella) | M15-11, M15-12 | DONE |
 | **M16 — Pre-Phase-B fixes** ||||
-| IMP-M16-01 | Load-test harness and record corrections | docs (umbrella), platform (chart) | — | WIP (session 216) |
+| IMP-M16-01 | Load-test harness and record corrections | docs (umbrella), platform (chart) | — | DONE |
 | IMP-M16-02 | Game Host wedge supervision actually restarts the JVM | game-host, platform (chart), docs | — | READY |
 | IMP-M16-03 | First cold boot no longer wedges | game-host, docs (umbrella) | M16-01, M16-02 | READY |
 | IMP-M16-04 | Bounded concurrent guest boots | game-host, docs | M16-03 | READY |
@@ -7634,6 +7634,8 @@ introduction).
   <that directory>` against the live cluster print every new section; `k6 inspect
   loadtest/scenarios/default-limits.js` succeeds.
 - `python3 scripts/check-corpus.py` prints `clean`; the umbrella branch is merged to `master` and pushed.
+
+**Evidence (session 216).** `helm lint` green; `helm template` of the defaults is byte-identical to before the change, and with the overlay differs by exactly the Postgres `args` (`-c shared_preload_libraries=pg_stat_statements -c log_checkpoints=on`). Live after `install.sh` and `reset.sh`: `shared_preload_libraries` is `pg_stat_statements`; after `run.sh start smoke` (exit 0) `sum(calls)` was 349, Redis `latency-monitor-threshold` 100, `redis.csv` written and its sampler gone with the run; `snapshot.sh` printed both `pg_stat_statements` tables and `census-snapshot.txt` has every section (platform and Game Host threads, class histogram top 30, `DBSIZE`, keyspace, `used_memory`, commandstats). `check-overlays.sh`, `check-generator-selftest.sh`, `k6 run test/selftest.js` pass; `k6 inspect` succeeds on `default-limits`, `parallelism`, `ramp-to-break` and `start-rate` (also with `USERS=3000`). Finding 6 corrected in `load-testing.md` §13 and the `contexts` report; finding 12 annotated.
 
 ### IMP-M16-02 — Game Host wedge supervision actually restarts the JVM
 

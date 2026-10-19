@@ -1,5 +1,6 @@
-# Phase A load-test overlay, applied after values-local (and the secrets file). Every value here is
-# fixed for all Phase A runs (m15-test-definition-plan.md); a run item never edits it.
+# Load-test overlay, applied after values-local (and the secrets file). Every value here is fixed for the
+# runs of a phase (load-testing.md); the M16 items edit it only where their sections say so, and mirror
+# the edit in values-default-limits.yaml (test/check-overlays.sh).
 # requests == limits, so the cgroup caps are the figures reported. If the Docker Desktop VM has
 # fewer than 12 CPUs, halve every cpu below and record it in the report.
 origins:
@@ -26,10 +27,13 @@ postgres:
   resources:
     requests: { cpu: "2", memory: 1Gi }
     limits:   { cpu: "2", memory: 1Gi }
+  # pg_stat_statements for the per-statement counts of snapshot.sh, checkpoint timing for the stall hunt.
+  extraArgs: ["-c", "shared_preload_libraries=pg_stat_statements", "-c", "log_checkpoints=on"]
 redis:
   resources:
     requests: { cpu: "1", memory: 512Mi }
     limits:   { cpu: "1", memory: 512Mi }
+  extraArgs: []
 observability:
   prometheus:
     remoteWriteReceiver: true

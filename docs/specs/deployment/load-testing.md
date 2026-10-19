@@ -432,14 +432,14 @@ what was not checked. An entry is not itself a work item. Milestone M16 (2026-10
 5. **Platform threads grow from 80 to 226 under load** (`parallelism`: 226 at 256 pairs; `ramp-to-break`: 138 at 80 pairs); no pool
    exhaustion (`hikari_pending` max 9 once). Not checked: what the extra threads are.
 6. **The run protocol's `jcmd 1` fails on the Game Host image** (PID 1 is `supervise.sh`; the JVM is PID 7). Report: `2026-10-18-parallelism.md`.
-   `IMP-M15-12` and `13` use `jcmd 7`.
+   `IMP-M15-12` and `13` use `jcmd 7`. **M16:** resolved by IMP-M16-01, record corrected: in the Game Host image `jcmd` exists at `/usr/bin/jcmd` and `kill` only as a shell builtin; PID 1 is `supervise.sh` and the JVM is a child (the process whose `/proc/<pid>/comm` is `java`, PID 7 observed), so `jcmd 1` fails and `jcmd <jvm pid>` works; the platform image has no `jcmd` (its JVM is PID 1), so `census.sh` reads platform threads from `/proc`.
 
 ### From `IMP-M15-12` (reports `2026-10-18-start-rate.md`, `2026-10-18-default-limits.md`, `2026-10-18-contexts.md`)
 
 7. **The Game Host can wedge into health 503 and stay there; the supervisor does not restart it.** Report: `2026-10-18-contexts.md` (attempt 1).
    On the first cold start with four contexts no game started in 357 s: `DEADLINE_EXCEEDED` on `CreateSession` in the platform log, the `BootWatchdog` line in the Game Host log,
    `/actuator/health` answering 503 with the JVM alive, and no restart because `supervise.sh` counts any HTTP answer as alive (ADR-0018 §2). The in-JVM exit with code 70 did not follow.
-   No `kill` binary and no `jcmd` in the pod; `kill -3` produced no dump. The rerun (attempt 2) was clean. Suspected cause: the `HostWedge` path marks health DOWN but the halt is not reached.
+   No `kill` binary in the pod (only the shell builtin) and `jcmd` cannot attach to a wedged JVM; `kill -3` produced no dump (corrected by IMP-M16-01: `jcmd` exists in the image). The rerun (attempt 2) was clean. Suspected cause: the `HostWedge` path marks health DOWN but the halt is not reached.
    Not checked: the exact log lines (lost with the stack reset), whether four contexts started at once make a wedge likelier, a thread dump of the wedged JVM.
 8. **A cold start with four contexts takes 10.2 to 10.3 s, twice the single-context 5 s.** Report: `2026-10-18-contexts.md`. All 50 cold-tagged starts are within 0.1 s of each other; half of the 20 s `BootWatchdog` limit.
    Not checked: whether the contexts are created one after another, and whether more contexts would pass the 20 s limit.
@@ -449,6 +449,7 @@ what was not checked. An entry is not itself a work item. Milestone M16 (2026-10
     (`ws_connecting` max 10.0 s, the harness connect timeout). The machine is idle during them (platform 1.4 of 4 cores) and platform threads step up (123 to 232). Token expiry is ruled out (session TTL 24 h). Not checked: JVM safepoint or GC logs, ingress and frontend nginx access logs, the Tomcat accept queue, whether the interval is exact.
 11. **`start-rate` did not find the rate at which `game_start` degrades.** Report: `2026-10-18-start-rate.md`. Warm `game_start` p95 was 11 to 16 ms (p99 13 to 18) at every rate from 1 to 32 games/s, resources far below their limits; the clean ceiling is 16 games/s only because of the stall in item 10. A rerun with higher rates (64, 128 games/s) would be needed.
 12. **The `default-limits` load trips the WebSocket action bucket in every iteration.** Report: `2026-10-18-default-limits.md`. 320 `RATE_LIMIT_EXCEEDED`, one per iteration in the third game, 961 starts against 641 completions; the HTTP tiers never fired (1,320 requests, 0 429). A client with no think time cannot play more than about two games per burst under the stock limits. Not checked: the server-side frame, a run with think times, the HTTP tiers.
+   **M16:** resolved by IMP-M16-01, harness artefact, product limit unchanged. `default-limits` now defaults `THINK_MIN_MS` and `THINK_MAX_MS` to 250.
 
 ### From `IMP-M15-13` (reports `2026-10-18-soak.md`, `2026-10-19-up-down.md`)
 

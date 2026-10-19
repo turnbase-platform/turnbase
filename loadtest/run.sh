@@ -3,7 +3,7 @@
 # Usage: loadtest/run.sh start <scenario> [VAR=value ...]   prints RUN_DIR=<dir> and returns at once
 #        loadtest/run.sh wait <run-dir> [seconds=280]       exit 0 finished (prints exit-code), 124 still running
 # The run directory loadtest/results/<stamp>-<scenario>/ (git-ignored) holds k6.log, summary.json (k6's
-# --summary-export), samples.csv, pods.csv, params.txt, cluster.txt, start.epoch (launch), scenario.epoch (setup
+# --summary-export), samples.csv, pods.csv, redis.csv, params.txt, cluster.txt, start.epoch (launch), scenario.epoch (setup
 # done = the first step starts), end.epoch and exit-code. There is no per-sample JSON stream: a 30-minute
 # 1,000-pair run would emit hundreds of millions of samples; the percentiles come from summary.json and
 # the series from Prometheus (k6 pushes there through remote write).
@@ -37,9 +37,16 @@ start)
     nohup setsid kubectl port-forward svc/turnbase-prometheus 9090:9090 >/dev/null 2>&1 &
     for _ in $(seq 20); do curl -s -m 2 localhost:9090/-/ready >/dev/null && break; sleep 1; done
   fi
+  # The counters are cumulative: zero them so a delta in this run's report excludes every earlier run.
+  # LATENCY LATEST stays empty unless a threshold is set (the default of 0 disables the monitor).
+  kubectl exec statefulset/turnbase-postgres -- psql -U turnbase_owner -d turnbase -Atc "select pg_stat_statements_reset()" >/dev/null 2>&1 \
+    || echo "pg_stat_statements unavailable: counters not reset" | tee -a "$DIR/cluster.txt" >&2
+  kubectl exec statefulset/turnbase-redis -- sh -c 'redis-cli -a "$TURNBASE_REDIS_PASSWORD" CONFIG RESETSTAT; redis-cli -a "$TURNBASE_REDIS_PASSWORD" CONFIG SET latency-monitor-threshold 100' >/dev/null 2>&1 \
+    || echo "redis counters not reset" | tee -a "$DIR/cluster.txt" >&2
   nohup setsid bash "$0" _exec "$DIR" "$scenario" "$@" >/dev/null 2>&1 &
   date +%s > "$DIR/start.epoch"
   nohup setsid bash loadtest/sample-generator.sh "$DIR" >/dev/null 2>&1 &
+  nohup setsid bash loadtest/redis-sampler.sh "$DIR" >/dev/null 2>&1 &
   echo "RUN_DIR=$DIR"
   ;;
 _exec)

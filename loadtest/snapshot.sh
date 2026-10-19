@@ -4,7 +4,9 @@
 # Needs Prometheus on localhost:9090 (run.sh keeps a port-forward). Writes prom/<name>.json (one query_range
 # each, step 15 s, from scenario.epoch to end.epoch), appends restarts and Redis INFO to cluster.txt, and
 # prints a markdown table of mean / max per segment. segment_seconds defaults to STEP_SECONDS in params.txt,
-# else 120. A series that does not exist prints n/a and is listed under "Missing metrics:".
+# else 120. A series that does not exist prints n/a and is listed under "Missing metrics:". It also appends the
+# Postgres pg_stat_statements top 20 (by calls, by total_exec_time) to cluster.txt and runs census.sh with the
+# label `snapshot` (census-snapshot.txt).
 set -euo pipefail
 DIR="${1:?usage: snapshot.sh <run-dir> [segment_seconds]}"
 SEG="${2:-$(sed -n 's/^STEP_SECONDS=//p' "$DIR/params.txt" | tail -1)}"; SEG="${SEG:-120}"
@@ -72,3 +74,20 @@ curl -s -m 30 --data-urlencode 'query=sum by (code, expected) (k6_tb_errors_tota
     kubectl exec statefulset/turnbase-redis -- sh -c "redis-cli -a \"\$TURNBASE_REDIS_PASSWORD\" INFO $sec" 2>/dev/null | tr -d '\r' | grep -E '^(used_memory_human|connected_clients)' || true
   done
 } | tee -a "$DIR/cluster.txt"
+
+pgss() { # <order by column>
+  kubectl exec statefulset/turnbase-postgres -- psql -U turnbase_owner -d turnbase -c \
+    "select calls, round(total_exec_time::numeric, 1) as total_ms, round(mean_exec_time::numeric, 3) as mean_ms, rows,
+            left(regexp_replace(query, '\s+', ' ', 'g'), 110) as query
+       from pg_stat_statements order by $1 desc limit 20" 2>&1
+}
+{
+  if kubectl exec statefulset/turnbase-postgres -- psql -U turnbase_owner -d turnbase -Atc "select 1 from pg_stat_statements limit 1" >/dev/null 2>&1; then
+    echo "## pg_stat_statements top 20 by calls"; pgss calls
+    echo "## pg_stat_statements top 20 by total_exec_time"; pgss total_exec_time
+  else
+    echo "pg_stat_statements unavailable"
+  fi
+} | tee -a "$DIR/cluster.txt"
+
+bash "$(dirname "$0")/census.sh" "$DIR" snapshot

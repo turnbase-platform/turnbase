@@ -15,7 +15,7 @@ for c in frontend platform gamehost; do
 done
 
 kubectl exec statefulset/turnbase-postgres -- psql -v ON_ERROR_STOP=1 -U turnbase_owner -d turnbase -c \
-  "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT USAGE, CREATE ON SCHEMA public TO turnbase_app; CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS btree_gin;"
+  "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT USAGE, CREATE ON SCHEMA public TO turnbase_app; CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS btree_gin; CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"
 kubectl exec statefulset/turnbase-redis -- sh -c 'redis-cli -a "$TURNBASE_REDIS_PASSWORD" FLUSHALL' 2>/dev/null
 
 # Platform first (it runs Flyway and seeds). The Game Host boot wedges about one time in five and the

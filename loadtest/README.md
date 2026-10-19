@@ -99,7 +99,7 @@ requests equal to limits:
 
 The memory limits sum to 8.5 GiB. The Docker Desktop VM (15.21 GiB on the reference machine) also runs
 k6, the frontend, ingress and the observability stack, so larger limits left pods unschedulable or
-OOM-killed the node. A run item never edits the overlay. If the VM has fewer than 12 CPUs, halve every
+OOM-killed the node. A run item never edits the overlay; the M16 items edit it only where their sections say so, and mirror the edit in `values-default-limits.yaml` (`test/check-overlays.sh`). It also passes `postgres.extraArgs` (`-c shared_preload_libraries=pg_stat_statements -c log_checkpoints=on`); `redis.extraArgs` stays empty. If the VM has fewer than 12 CPUs, halve every
 `cpu` value and record it in the report.
 
 ## Environment variables (`lib/config.js`)
@@ -110,7 +110,7 @@ OOM-killed the node. A run item never edits the overlay. If the VM has fewer tha
 | `HOST_IP` | empty | Maps the host name to an IP when `::1` does not work (see below) |
 | `GAME_ID` | `2cc66e36-52e6-4144-9a10-09d09c982ce4` | The seeded Tic-Tac-Toe |
 | `USER_PREFIX` / `PASSWORD` | `lt-` / `Loadtest-Passw0rd-2026` | Users `lt-00000`… |
-| `THINK_MIN_MS` / `THINK_MAX_MS` | 0 / 0 | Think time before each move |
+| `THINK_MIN_MS` / `THINK_MAX_MS` | 0 / 0 (250 / 250 in `default-limits`) | Think time before each move. `default-limits` defaults both to 250 when the environment does not set them, so that a correct client never trips the WebSocket action bucket (5 per second, burst 10), which stays the product limit |
 | `FRESH_ROOM_EVERY` | 5 | Games per room before the pair leaves and creates a new one |
 | `STEP_SECONDS` / `SETTLE_SECONDS` | 120 / 20 | Length of a stepped scenario's step and the unmeasured settle at its start |
 | `THRESHOLD_SCALE` | 1 | Multiplies every threshold (a smoke check sets 0.001) |
@@ -119,7 +119,7 @@ OOM-killed the node. A run item never edits the overlay. If the VM has fewer tha
 | `ERROR_BACKOFF_MS` | 1000 | Pause after a failed iteration |
 | `LOGIN_PARALLEL` | 8 (2 in `default-limits`) | Batch size of the pre-login in `setup()` |
 | `SUBSCRIBE_SETTLE_MS` | 50 | Pause after the room subscriptions, before the first ready (the simple broker sends no RECEIPT) |
-| `USERS` | 2000 | `provision.js` only |
+| `USERS` | 2000 | Users `provision.js` creates, and the pair cap of every scenario: `lib/pair.js` allows `floor(USERS / 2)` pairs, so a run of more than 1,000 pairs sets the same `USERS` for `provision.js` and for the scenario |
 
 `turnbase.localhost` resolves to `::1` on the WSL host. If k6 cannot connect, set `HOST_IP=127.0.0.1`.
 (It was not needed on the reference machine for HTTP; `provision.js` ran without it.)
@@ -143,22 +143,30 @@ Record the file's content, or "absent (VM defaults)", in every report, together 
 
 | Script | What it does |
 |---|---|
-| `run.sh start <scenario> [VAR=value …]` | Creates `results/<stamp>-<scenario>/`, writes `params.txt`, runs the preflight, captures `cluster.txt` (VM size, nodes, Helm values, image IDs, commits, `.wslconfig`, k6 version), keeps a Prometheus port-forward on `:9090`, then starts k6 in the background pinned with `taskset` to the last 4 CPUs (2 on a VM with fewer than 12) and with the file-descriptor limit raised to the hard limit. Prints `RUN_DIR=…` and returns |
+| `run.sh start <scenario> [VAR=value …]` | Creates `results/<stamp>-<scenario>/`, writes `params.txt`, runs the preflight, captures `cluster.txt` (VM size, nodes, Helm values, image IDs, commits, `.wslconfig`, k6 version), zeroes the cumulative counters (`pg_stat_statements_reset()`, Redis `CONFIG RESETSTAT`) and sets Redis `latency-monitor-threshold` to 100 ms so that `LATENCY LATEST` records, starts the Redis sampler, keeps a Prometheus port-forward on `:9090`, then starts k6 in the background pinned with `taskset` to the last 4 CPUs (2 on a VM with fewer than 12) and with the file-descriptor limit raised to the hard limit. Prints `RUN_DIR=…` and returns |
 | `run.sh wait <run-dir> [seconds=280]` | Polls for `exit-code` every 5 s; exit 0 and the code when done, 124 when the budget ran out. Exit code 99 (a threshold crossed) is a finished run, not a failure |
 | `sample-generator.sh <run-dir>` | Started by `run.sh`. Every 5 s appends `epoch,k6_cpu_pct,vm_cpu_pct,load1` to `samples.csv` (k6 as a share of one core: 4 cores reach 400) and, every third sample, `epoch,pod,cpu_m,mem_mi` rows from `kubectl top pods` to `pods.csv` |
 | `check-generator.sh <samples.csv> <start_epoch> <segment_seconds> <k6_cores> [settle=20]` | One line per segment: `k6 mean X% of Y% -> ok` or `-> generator-bound` (Y is 80% of the pinned cores). Pass `scenario.epoch` as the start |
 | `steps-table.sh <summary.json>` | Writes `steps.csv` (`segment,metric,count,p95,p99,rate,pass`; `rate` is `tb_op_failed` only) from the step-tagged metrics of k6's `--summary-export`; `pass` is false when any threshold of that metric failed |
-| `snapshot.sh <run-dir> [segment_seconds]` | Runs the plan's PromQL list over the run into `prom/`, prints a mean / max table per segment, errors by code, and appends pod restarts, `OOMKilled` and Redis `used_memory_human` / `connected_clients` to `cluster.txt`. A series with no samples prints `n/a` and is listed under `Missing metrics:` (for `http_5xx_per_s` that means no 5xx request ever happened: Micrometer creates the series on first use) |
+| `snapshot.sh <run-dir> [segment_seconds]` | Runs the plan's PromQL list over the run into `prom/`, prints a mean / max table per segment, errors by code, and appends pod restarts, `OOMKilled`, Redis `used_memory_human` / `connected_clients` and the Postgres `pg_stat_statements` top 20 (by `calls`, by `total_exec_time`; `pg_stat_statements unavailable` when the extension is missing) to `cluster.txt`. It then runs `census.sh` with the label `snapshot`. A series with no samples prints `n/a` and is listed under `Missing metrics:` (for `http_5xx_per_s` that means no 5xx request ever happened: Micrometer creates the series on first use) |
+| `census.sh <run-dir> <label>` | Writes `census-<label>.txt`: thread counts by name prefix (digits stripped, with the total) for the platform and for the Game Host JVM, from `/proc/<pid>/task/*/comm`; the Game Host's `jcmd <pid> GC.class_histogram` top 30; Redis `DBSIZE`, `INFO keyspace`, `used_memory` and the `keys` / `scan` lines of `INFO commandstats`. A section that cannot be collected prints `<section> unavailable: <reason>`. `snapshot.sh` calls it with `snapshot`; `IMP-M16-10` and `15` use `before`, `peak` and `after` |
+| `redis-sampler.sh <run-dir>` | Started by `run.sh start`. Every 30 s appends `timestamp,dbsize,used_memory` (UTC) to `redis.csv` until `exit-code` exists |
 | `check-report.sh <report.md>` | Exit 1 while a `FILL` or a required heading is left; `REPORT COMPLETE` otherwise |
 | `reports/TEMPLATE.md` | The report every run fills in (`load-testing.md` §8) |
 | `helm/values-default-limits.yaml` | `values-loadtest.yaml` without the `loadtest` profile and the remote-write receiver; `install.sh --default-limits` applies it |
 | `test/check-generator-selftest.sh`, `test/check-overlays.sh` | Selftests without a cluster: the generator check on a synthetic file, and the overlay equality |
 
-A run directory holds `k6.log`, `summary.json`, `samples.csv`, `pods.csv`, `params.txt`, `cluster.txt`,
+A run directory holds `k6.log`, `summary.json`, `samples.csv`, `pods.csv`, `redis.csv`, `census-*.txt`, `params.txt`, `cluster.txt`,
 `start.epoch` (launch), `scenario.epoch` (setup finished, read from the `TB_SETUP_DONE` log line: the first
 step starts here), `end.epoch`, `exit-code`, `steps.csv` and `prom/`. There is no per-sample JSON stream: a
 30-minute 1,000-pair run emits hundreds of millions of samples, so the raw output is `summary.json` plus the
 Prometheus series k6 pushes by remote write (`k6_tb_*`). The `summary.json` percentiles are authoritative.
+
+**Process ids inside the pods.** The platform JVM is PID 1 and its image has no `jcmd` (only `java`, `jfr`,
+`jrunscript`, `jwebserver`, `keytool`, `rmiregistry`), so platform threads come from `/proc` alone. In the Game
+Host image PID 1 and PID 8 are `supervise.sh` and the JVM is the process whose `/proc/<pid>/comm` is `java`
+(PID 7 observed; `/tmp/jvm.pid` once `IMP-M16-02` writes it). `jcmd` exists there at `/usr/bin/jcmd`, but `kill`
+only as a shell builtin, so `jcmd 1` fails and `jcmd <jvm pid>` works.
 
 ### Scenarios (minimum size: each runs for at most two minutes)
 
@@ -169,7 +177,7 @@ Prometheus series k6 pushes by remote write (`k6_tb_*`). The `summary.json` perc
 | `start-rate` | `ramping-arrival-rate`, 1 … 32 games/s, one game per iteration | `STEP_SECONDS=20 SETTLE_SECONDS=5 RATES=1,2` |
 | `soak` | `ramping-vus` to `PAIRS`, hold, down in half the ramp time; `PAIRS` required | `PAIRS=2 HOLD_MINUTES=1 RAMP_SECONDS=10` |
 | `up-down` | up, hold, down (`RAMP_MINUTES`, `HOLD_MINUTES`), then `IDLE_MINUTES` of nothing (a sleeping VU; k6 drops a trailing zero-VU stage); `PAIRS` required | `PAIRS=2 RAMP_MINUTES=0.25 HOLD_MINUTES=0.25` |
-| `default-limits` | `constant-vus` with every limiter on; `RATE_LIMIT_EXCEEDED` is expected, anything else is not | `VUS=4 DURATION=60s` after `install.sh --default-limits` |
+| `default-limits` | `constant-vus` with every limiter on, think time 250 ms by default; `RATE_LIMIT_EXCEEDED` is expected, anything else is not | `VUS=4 DURATION=60s` after `install.sh --default-limits` |
 | `contexts` | `constant-vus`, `PAIRS` (50) for `DURATION` (5m); pair `i` plays `CONTEXT_IDS[i % n]`, so the Game Host holds one Espresso context per id. Needs the copies below; no thresholds abort | `PAIRS=4 DURATION=60s CONTEXT_IDS=<four ids>` |
 
 `THRESHOLD_SCALE=0.001` makes every threshold impossible: `ramp-to-break` then aborts within about 30 s and

@@ -5,7 +5,8 @@ import { cfg, pairUsers } from './config.js';
 import { m, ok, fail, stepTags } from './metrics.js';
 import { Player, errorCode } from './player.js';
 
-const PAIRS_PROVISIONED = 1000;
+// Two users per pair; provision.js creates USERS of them (default 2000), so the cap follows it.
+const PAIRS_PROVISIONED = Math.floor(Number(__ENV.USERS || 2000) / 2);
 const LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
 const sleepMs = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
