@@ -219,7 +219,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M15-12 | Phase A runs — start-rate, default-limits, contexts | docs (umbrella) | M15-10, M15-11 | DONE |
 | IMP-M15-13 | Phase A runs — soak, up-down and Phase A summary | docs (umbrella) | M15-11, M15-12 | DONE |
 | **M16 — Pre-Phase-B fixes** ||||
-| IMP-M16-01 | Load-test harness and record corrections | docs (umbrella) | — | READY |
+| IMP-M16-01 | Load-test harness and record corrections | docs (umbrella), platform (chart) | — | READY |
 | IMP-M16-02 | Game Host wedge supervision actually restarts the JVM | game-host, platform (chart), docs | — | READY |
 | IMP-M16-03 | First cold boot no longer wedges | game-host, docs | M16-02 | READY |
 | IMP-M16-04 | Bounded concurrent guest boots | game-host, docs | M16-03 | READY |
@@ -7510,15 +7510,32 @@ is `BLOCKED`, naming the command. Runs longer than eight minutes go in the backg
 most every five minutes (`work-item` *Live-environment and measurement items*).
 
 **Rebuild rule for live items.** The cluster runs `turnbase/<component>:dev` images built locally, and
-`master` may have moved since they were built. Before measuring, rebuild every image whose repository
-changed in M16 (`docker build -t turnbase/platform:dev turnbase-platform`, `turnbase/game-host:dev` from
-`turnbase-game-host`, `turnbase/frontend:dev` from `turnbase-frontend`), run `bash loadtest/install.sh`
-when the chart or an overlay changed, then `bash loadtest/reset.sh` (it scales every service to zero and
-back, which starts the new image), then `k6 run loadtest/scenarios/provision.js`. The run's `cluster.txt`
-records the image IDs; a report quotes them.
+`master` may have moved since they were built. The platform and Game Host Dockerfiles `COPY target/*.jar`,
+so a `docker build` over a stale `target/` packages the old code and reports no error. Before measuring,
+for every repository that changed in M16:
+1. In each changed Java submodule (`turnbase-platform`, `turnbase-game-host`) run
+   `./mvnw package -DskipTests`.
+2. `docker build` the image as `loadtest/README.md` *Run procedure* step 1 gives it
+   (`turnbase/platform:dev`, `turnbase/game-host:dev`, `turnbase/frontend:dev`; the frontend has no jar step).
+3. `bash loadtest/install.sh` when the chart or an overlay changed.
+4. `bash loadtest/reset.sh` (it scales every service to zero and back, which starts the new image), then
+   `k6 run loadtest/scenarios/provision.js`.
+
+**Check it happened.** The run's `cluster.txt` lists `turnbase/<component>:dev sha256:…` under `## images`.
+For every image that changed since the previous run, the ID must differ from the previous run's:
+`diff <(sed -n '/^## images/,$p' <previous-run-dir>/cluster.txt) <(sed -n '/^## images/,$p' <this-run-dir>/cluster.txt)`
+prints a changed line for each. An identical ID means the rebuild did not happen: stop and rebuild. A
+report quotes the IDs.
+
+**Overlay mirroring.** `loadtest/helm/values-default-limits.yaml` must equal `values-loadtest.yaml` except
+for the `SPRING_PROFILES_ACTIVE` entry and everything from `^observability:` on; `bash
+loadtest/test/check-overlays.sh` enforces it and fails otherwise. Every item that edits
+`values-loadtest.yaml` (`01`, `12`, `13`) makes the same edit in `values-default-limits.yaml` and runs
+that self-test before it commits.
 
 **Measuring items record, they do not add items.** `10`, `12`, `13`, `14` and `15` measure; they write
-their findings into their report under `loadtest/reports/` and into `load-testing.md` §13, and never
+their findings into their report under `loadtest/reports/` and into `load-testing.md` §13 (report names
+use the run's date, `YYYY-MM-DD-m16-<name>.md`), and never
 add a registry item; a problem that persists becomes a *Phase B note*. A §13 finding is annotated by
 appending one line to its entry: `**M16:** resolved by IMP-M16-NN, <evidence link or number>` or
 `**M16:** persists, <numbers>; Phase B note`.
@@ -7529,7 +7546,7 @@ prompt says otherwise).
 
 ### IMP-M16-01 — Load-test harness and record corrections
 
-**Repo:** `turnbase` (docs, `loadtest/`) · **Depends on:** nothing
+**Repo:** `turnbase` (docs, `loadtest/`), `turnbase-platform` (chart) · **Depends on:** nothing
 
 **Environment:** a live Docker Desktop Kubernetes cluster with the loadtest release (see the milestone
 introduction).
@@ -7542,23 +7559,53 @@ introduction).
 - `docs/specs/deployment/load-testing.md` §13 (findings 6 and 12)
 - `turnbase-game-host/docker/supervise.sh` (PID 1 of the Game Host image; the JVM is its child)
 - `turnbase-platform/src/main/resources/application.yml` (`turnbase.rate-limit.ws.action`: capacity 10, refill 5 per second)
+- `turnbase-platform/deploy/helm/turnbase/templates/postgres-statefulset.yaml`, `.../redis-statefulset.yaml` and `.../values.yaml` (the `postgres` and `redis` keys), `loadtest/reset.sh`
 
 **Satisfies:** none (the owner's instrument for the rest of M16)
 
+**Settled:**
+- **Chart hooks (the only chart edit of this item).** The chart gains the values `postgres.extraArgs` and
+  `redis.extraArgs`: lists of strings, default `[]`. Postgres has no `args` today, so the StatefulSet
+  renders `args:` only when the list is non-empty and the image's entrypoint is otherwise untouched; the
+  Redis StatefulSet appends the list after its existing arguments (`--maxmemory-policy noeviction
+  --appendonly yes --requirepass …`). With the defaults, `helm template` of both StatefulSets is
+  identical to what it was before the change (diff it): production behaviour does not change.
+- **Overlay.** `loadtest/helm/values-loadtest.yaml` sets `postgres.extraArgs: ["-c",
+  "shared_preload_libraries=pg_stat_statements", "-c", "log_checkpoints=on"]`. `redis.extraArgs` stays
+  empty here (`IMP-M16-12` uses it). The same lines go into `values-default-limits.yaml` (overlay
+  mirroring, milestone introduction).
+- **`reset.sh`** recreates `pg_stat_statements` next to `pgcrypto`, `pg_trgm` and `btree_gin`
+  (`DROP SCHEMA public CASCADE` removes the extension's view every time). If `turnbase_owner` is not
+  allowed to create it, run that one statement as the Postgres superuser.
+- **`run.sh start`** zeroes the counters, because they are cumulative and every "per move" or "per join"
+  delta in `13` would otherwise include the previous run: `select pg_stat_statements_reset()`, Redis
+  `CONFIG RESETSTAT`, and `CONFIG SET latency-monitor-threshold 100` (the default of 0 leaves `LATENCY
+  LATEST` empty, which `12` reads).
+- **Process ids.** The platform JVM is PID 1 and its image has no `jcmd` (only `java`, `jfr`, `jrunscript`,
+  `jwebserver`, `keytool`, `rmiregistry`), so platform threads come from `/proc` alone. In the Game Host
+  image PID 1 and PID 8 are `supervise.sh` and the JVM is the process whose `/proc/<pid>/comm` is `java`
+  (PID 7 observed); `/tmp/jvm.pid` is used instead once `IMP-M16-02` writes it. `jcmd` exists there.
+
 **Done when:**
-- **Thread census.** `loadtest/snapshot.sh` appends, for the platform and the Game Host JVM, a table of
-  thread count by name prefix, taken from `/proc/<pid>/task/*/comm` with digits stripped. For the Game
-  Host the JVM pid is found through `/proc/*/comm` (PID 1 is `supervise.sh`), or from `/tmp/jvm.pid` when
-  `IMP-M16-02` has made the supervisor write it.
-- **Statement statistics.** `snapshot.sh` appends the Postgres `pg_stat_statements` top 20 by `calls` and
-  by `total_exec_time`. If the extension is not loaded, the script prints `pg_stat_statements unavailable`
-  and carries on. Enabling it needs `shared_preload_libraries=pg_stat_statements` on the Postgres
-  container and `CREATE EXTENSION`; if that needs a chart change, **do not edit the chart here**: record
-  the exact change in `IMP-M16-02`'s section as an added bullet (it is the first chart edit of the
-  milestone) and let this script degrade.
-- **Redis.** `snapshot.sh` appends `DBSIZE`, `INFO keyspace`, `INFO memory` (`used_memory`) and
-  `INFO commandstats` (the `keys` and `scan` lines).
-- **Class histogram.** `snapshot.sh` appends the Game Host's `jcmd <jvm pid> GC.class_histogram` top 30.
+- **Census script.** `bash loadtest/census.sh <run-dir> <label>` writes `<run-dir>/census-<label>.txt`
+  with: for the platform and for the Game Host JVM, a table of thread count by name prefix (from
+  `/proc/<pid>/task/*/comm`, digits stripped, sorted descending, with the total); the Game Host's
+  `jcmd <jvm pid> GC.class_histogram` top 30; and Redis `DBSIZE`, `INFO keyspace`, `INFO memory`
+  (`used_memory`) and the `keys` and `scan` lines of `INFO commandstats`. A section that cannot be collected prints
+  `<section> unavailable: <reason>` and the script carries on. `loadtest/snapshot.sh` calls it with the
+  label `snapshot`; `IMP-M16-10` and `15` call it with `before`, `peak` and `after`. `loadtest/README.md`
+  documents it in the *Scripts* table.
+- **Statement statistics.** `snapshot.sh` appends the Postgres `pg_stat_statements` top 20 by `calls` and by
+  `total_exec_time`; if the extension is missing it prints `pg_stat_statements unavailable` and carries on.
+- **Chart and overlay.** `helm lint turnbase-platform/deploy/helm/turnbase` and `helm template` of it are
+  green with the defaults (the Postgres and Redis StatefulSets identical to before) and with
+  `-f loadtest/helm/values-loadtest.yaml` (the Postgres container shows the two `-c` arguments). The
+  `turnbase-platform` branch is merged `--ff-only`, pushed and deleted, and its ref is bumped after the CI
+  on its `master` is green.
+- **Live check.** After `bash loadtest/install.sh` and `bash loadtest/reset.sh`: `SHOW
+  shared_preload_libraries` in Postgres includes `pg_stat_statements`, `select count(*) from
+  pg_stat_statements` succeeds, and after `bash loadtest/run.sh start smoke` the first snapshot shows
+  counters near zero (the reset ran).
 - **Redis sampler.** `run.sh start` also launches a Redis keyspace and memory sampler (`DBSIZE`,
   `used_memory`, a UTC timestamp) every 30 s into `<run-dir>/redis.csv` for the run's duration, stopped
   with the run. It replaces the ad-hoc `/tmp` side loop of `IMP-M15-13`. `loadtest/README.md` documents it.
@@ -7569,21 +7616,27 @@ introduction).
   `**M16:** resolved by IMP-M16-01, harness artefact, product limit unchanged`.
 - **Finding 6 correction.** `load-testing.md` §13 finding 6, and any other place in the repository that
   says the Game Host image has no `jcmd` (`grep -rn "jcmd" docs loadtest --include=*.md`), is corrected:
-  `jcmd` exists at `/usr/bin/jcmd`; `kill` exists only as a shell builtin; PID 1 is `supervise.sh` and the
-  JVM is a child, so `jcmd 1` fails and the JVM's pid is found as above.
+  in the Game Host image `jcmd` exists at `/usr/bin/jcmd` and `kill` only as a shell builtin; PID 1 is
+  `supervise.sh` and the JVM is a child, so `jcmd 1` fails and the JVM's pid is found as above; the
+  platform image has no `jcmd` at all (its JVM is PID 1).
 - **Values file comment.** The header of `loadtest/helm/values-loadtest.yaml` no longer names the deleted
   `m15-test-definition-plan.md` nor says "a run item never edits it"; it points to `load-testing.md`
   (the M16 items edit it where they say so).
 - `bash loadtest/test/check-overlays.sh` and the other self-tests (`loadtest/test/check-generator-selftest.sh`)
-  pass; `bash -n` passes on every changed script; `bash loadtest/preflight.sh` prints `PREFLIGHT OK` and
-  `bash loadtest/snapshot.sh <a run directory of a finished smoke run>` against the live cluster prints
-  every new section; `k6 inspect loadtest/scenarios/default-limits.js` succeeds.
-- `python3 scripts/check-corpus.py` prints `clean`; merged to `master` and pushed (umbrella only: no
-  ref to bump).
+  pass; `bash -n` passes on every changed script; `bash loadtest/preflight.sh` prints `PREFLIGHT OK`;
+  `bash loadtest/census.sh <a run directory of a finished smoke run> test` and `bash loadtest/snapshot.sh
+  <that directory>` against the live cluster print every new section; `k6 inspect
+  loadtest/scenarios/default-limits.js` succeeds.
+- `python3 scripts/check-corpus.py` prints `clean`; the umbrella branch is merged to `master` and pushed.
 
 ### IMP-M16-02 — Game Host wedge supervision actually restarts the JVM
 
 **Repo:** `turnbase-game-host`, `turnbase-platform` (chart), `turnbase` (docs) · **Depends on:** nothing
+
+**Environment:** a live Docker Desktop Kubernetes cluster with the loadtest release (milestone
+introduction; apply the rebuild rule for the Game Host image). The primary test runs in the cluster,
+because only the kubelet's restart back-off, which a plain Docker run does not have, can explain the
+roughly 6 minutes of finding 18.
 
 **Covers:** findings 7 and 18.
 
@@ -7597,6 +7650,11 @@ introduction).
 **Satisfies:** none (ADR-0018 §2 as amended)
 
 **Settled:**
+- **Two wedge modes, two mechanisms.** (A) The *whole-JVM deadlock* (ADR-0018 *Context* 1, the real wedge
+  of findings 7 and 18): no Java thread runs, SIGTERM is ignored, `/actuator/health` does not answer. Only
+  the supervisor can act, by **probe silence**. (B) The *BootWatchdog layer*: the JVM is alive, a guest
+  boot thread is stuck, the watchdog fires, `HostWedge` marks the host out of service and the supervisor
+  reacts to the **503 and the marker file**. The tests below say which mode each exercises.
 - **Why it fails today.** The image has no `kill` binary (it is a shell builtin), so `HostWedge`'s
   `ProcessBuilder("kill", "-9", …)` always fails; `supervise.sh` probes `/actuator/health` with `curl -s`
   and so counts the wedge's own 503 as an answer. `jcmd`, `curl` and `timeout` do exist in the image.
@@ -7605,35 +7663,52 @@ introduction).
   `LivenessState.BROKEN`, (2) writes a marker file whose path is the new property
   `turnbase.gamehost.wedge-marker` (default `/tmp/turnbase-wedged`), (3) keeps the `Runtime.halt(70)`
   attempt after the existing 4 s grace.
-- **`docker/supervise.sh`.** It probes `/actuator/health/liveness` (not `/actuator/health`) with
-  `curl -sf`, so a non-2xx answer counts as silent; checks the marker file on every probe and, when it
-  exists, sends `kill -KILL` (the builtin) to the child at once and removes the marker; writes the child's
-  pid to `/tmp/jvm.pid`; prefixes every line it prints with an ISO-8601 UTC timestamp; and logs the
-  child's exit status when it restarts. **A dependency outage (Redis or Postgres down) must not restart the
+- **`docker/supervise.sh` respawns the JVM itself.** It runs the JVM in a loop, so the kubelet's
+  CrashLoopBackOff (it grows to 5 minutes and is the likely cause of finding 18) never applies to a wedge.
+  After a 45 s grace per JVM, four consecutive silent probes SIGKILL the JVM and the loop starts a new one
+  at once (the marker file is removed before the start). The script exits non-zero, so that kubelet
+  restarts the container, only after **5 JVM deaths within 10 minutes**. A TERM or INT is passed to the
+  JVM and the script exits with its status without respawning.
+- **Probing (mode A and B).** It probes `/actuator/health/liveness` (not `/actuator/health`) with `curl -sf
+  -m 3`, so a non-2xx answer counts as silent, and writes the current JVM's pid to `/tmp/jvm.pid`. Mode A
+  is the silence: nothing answers, four probes, kill. Mode B is the **marker file**: it is checked on every
+  probe and, when it exists, the supervisor sends `kill -KILL` (the builtin) to the child at once and
+  removes it. Every line the script prints is prefixed with an ISO-8601 UTC timestamp, and it logs the
+  child's exit status at every respawn. **A dependency outage (Redis or Postgres down) must not restart the
   host**: that is why the probe uses the liveness group, which excludes them.
-- **Chart.** `gamehost-deployment.yaml` keeps its liveness probe on `/actuator/health/liveness` and sets
-  `terminationGracePeriodSeconds: 30` explicitly. If `IMP-M16-01` recorded a Postgres
-  `pg_stat_statements` change here, it is made in the same chart edit.
+- **Chart.** `gamehost-deployment.yaml` already probes `/actuator/health/liveness` (every 10 s, 6
+  failures); check that this is still true and change the chart only if it is not or if the container test
+  shows it fighting the supervisor. `terminationGracePeriodSeconds` is not set (the 30 s default stands).
+  If nothing changes in the chart, `turnbase-platform` is untouched and has no ref to bump.
 - **Spec.** ADR-0018 §2 and its *Consequences* timing sentence, and `game-host-internals.md` §11 where it
-  describes the supervision, are amended to match (liveness probe, `-f`, marker file, timestamps, BROKEN,
-  the dead `kill` fallback removed, measured restart time from the container test).
+  describes the supervision, are amended to match: the respawn loop and the 5-in-10-minutes exit, the
+  liveness probe, `-f`, the marker file, timestamps, BROKEN, the dead `kill` fallback removed, and the
+  measured restart time of the cluster test.
 
 **Done when:**
-- **Supervisor shell test.** A script test (for example `turnbase-game-host/docker/test/supervise-test.sh`,
-  run by `./mvnw verify` through an exec step or by CI) with a fake `java` proves: a 503 on the liveness
-  URL kills the child after `FAILURES` probes; the marker file kills it within 3 s and is removed; a child
-  that ignores TERM is still killed; an overall health `DOWN` with liveness `UP` does not kill it.
-- **Unit test.** `HostWedgeTest` proves a wedge publishes `LivenessState.BROKEN`, writes the marker, and
-  starts no external process.
-- **Container test (finding 18).** A test or script run against the built image forces a wedge (the first
-  boot trips the watchdog through a tiny `turnbase.gamehost.boot-timeout` set by a test-only property) and
-  asserts, from the supervisor's timestamps, that a new JVM is up within 30 s of the wedge log line. If
-  the interval is longer, find and fix the cause (candidates: the supervisor killing late; `Runtime.halt`
-  never returning so PID 1 waits; kubelet restart back-off) before the item is `DONE`, and write the cause
-  into ADR-0018.
+- **Primary test: the real wedge, in the cluster (mode A, findings 7 and 18).** With the rebuilt image
+  running, `kubectl exec deploy/turnbase-gamehost -- sh -c 'kill -STOP <pid>'` where `<pid>` is the process
+  whose `/proc/<pid>/comm` is `java`, **twice in a row** (the second after the new JVM has registered).
+  For each cycle, measure from the STOP to the first log line of the new JVM (the supervisor's timestamps
+  and `kubectl logs --timestamps`). **Every cycle is at most 40 s** (four probes of up to 5 s, then the
+  start; the grace has already elapsed). Both timings and the pod's restart count (0 expected) go into
+  ADR-0018. If a cycle is longer, find the cause before the item is `DONE` and write it into ADR-0018.
+- **Supervisor shell test (mode A and mode B, no cluster).** `bash
+  turnbase-game-host/docker/test/supervise-test.sh` runs the real `supervise.sh` with a fake `java` first
+  on `PATH` and a local stub HTTP server for the liveness URL, and proves: a stopped or silent child is
+  killed after `FAILURES` probes and respawned, with the script still running (mode A); a 503 on the
+  liveness URL counts as silent; the marker file kills the child within 3 s, is removed, and the child is
+  respawned (mode B); a child that ignores TERM is still killed; an overall health `DOWN` with liveness
+  `UP` does not kill it; 5 deaths within 10 minutes make the script exit non-zero (use a small window
+  variable for the test). It is run directly: no Maven lifecycle change. A step `Supervisor test` (`bash
+  docker/test/supervise-test.sh`) is added to `turnbase-game-host/.github/workflows/build.yml` before the
+  Maven build, and the CI on `master` passes with it.
+- **Unit test (mode B).** `HostWedgeTest` proves a wedge publishes `LivenessState.BROKEN`, writes the
+  marker, and starts no external process.
 - `turnbase-game-host`: `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green;
-  `helm lint turnbase-platform/deploy/helm/turnbase` and `helm template` of it are green; both branches
-  merged `--ff-only`, pushed and deleted; the `turnbase-game-host` and `turnbase-platform` refs are bumped.
+  `helm lint turnbase-platform/deploy/helm/turnbase` and `helm template` of it are green; the branches
+  merged `--ff-only`, pushed and deleted; the `turnbase-game-host` ref (and the `turnbase-platform` ref if
+  the chart changed) bumped after CI is green.
 - `python3 scripts/check-corpus.py` prints `clean`.
 
 ### IMP-M16-03 — First cold boot no longer wedges
@@ -7651,10 +7726,20 @@ introduction).
 **Satisfies:** none
 
 **Settled:**
-- **Harness first.** Build and commit a reproduction harness in `turnbase-game-host` (for example
-  `scripts/boot-wedge-repro.sh`, or an `-Pintegration` IT) that cold-starts the built image N=40 times (a
-  fresh container each time), triggers the first game boot each time (the Tic-Tac-Toe bundle through the
-  path the platform uses, or the existing IT fixtures) and counts `Guest boot wedged` lines.
+- **Harness first.** Build and commit `turnbase-game-host/scripts/boot-wedge-repro.sh <N>` (N = 40 unless
+  told otherwise). For each iteration it starts a fresh container of `turnbase/game-host:dev` (Redis in a
+  sidecar container), waits up to 60 s for the warm-up to finish or the host to wedge, sends one
+  `CreateSession` to trigger the first real guest boot (with `grpcurl` and the committed proto of
+  `turnbase-common`; where `grpcurl` is not installed, `docker run fullstorydev/grpcurl`), and counts the
+  `Guest boot wedged` lines and the supervisor's kills. The guest game is the one existing fixture
+  `CountingGame` (`io.turnbase.gamehost.bridge.fixture.CountingGame`,
+  `turnbase-game-host/src/test/java/io/turnbase/gamehost/bridge/fixture/CountingGame.java`), driven as
+  `turnbase-game-host/src/test/java/io/turnbase/gamehost/dispatch/SessionDispatcherIT.java` drives it (same
+  entry-point FQCN, `CreateSession` request shape), packaged by the script as a one-class jar from
+  `target/test-classes`. The Tic-Tac-Toe bundle is not used: no game-host test boots it, and the wedge is
+  in the Espresso boot, not in the game. If the first-real-boot trigger cannot be scripted, the warm-up
+  boot (every JVM start performs one) counts as the trigger and the subsection says the first-real-boot
+  path was not exercised.
 - **Hypothesis to test first.** The throwaway bridge-only warm-up context (`GameHostWarmup`,
   `WarmupLifecycle`, `createBridgeOnly`, closed by try-with-resources) races the first real boot's native
   library loading. Experiment: keep the warm-up context open until the first real context has booted (or
@@ -7665,9 +7750,13 @@ introduction).
   whichever fits) giving N, the count and the rate of the baseline.
 - **If the baseline reproduces (at least 1 of 40):** a fix lands, the rerun of 40 shows 0 of 40, and the
   cause is written down in that subsection.
-- **If the baseline shows 0 of 40:** run 40 more cold starts under CPU contention (`stress-ng`, or four
-  containers started at once). If that is also 0, record "not reproducible outside the cluster; mitigated
-  by IMP-M16-02" with both sets of numbers; the item is then `DONE`.
+- **If the baseline shows 0 of 40:** run 40 more cold starts under CPU contention, defined as 4 containers
+  started at the same moment (10 rounds of 4; no `stress-ng`). If that is also 0, record "not reproducible
+  outside the cluster; mitigated by IMP-M16-02" with both sets of numbers; the item is then `DONE`.
+- **If no experiment helps.** After two experiments (the warm-up hypothesis above and one more chosen from
+  the evidence) without a drop in the wedge rate, record the negative result in the same subsection (both
+  rates and what each experiment changed), keep the `IMP-M16-02` supervisor as the mitigation, and mark
+  the item `DONE`. Do not go on to a third.
 - The harness is committed and documented in the game-host `README.md`.
 - `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green; branch merged
   `--ff-only`, pushed and deleted; the `turnbase-game-host` ref is bumped; `python3 scripts/check-corpus.py`
@@ -7755,16 +7844,20 @@ introduction).
 
 **Read first:**
 - `turnbase-game-host/src/main/java/io/turnbase/gamehost/dispatch/SessionDispatcher.java` (`localSessions`, `locks`, `terminated`) and every other per-session map, set or cache in `turnbase-game-host/src/main/java`
-- `docs/specs/game-host/game-host-internals.md` §6.2, §9.3 (crash recovery, the platform's input retry window)
+- `docs/specs/game-host/game-host-internals.md` §6.2, §9.3 (crash recovery), §15 (retry limit, handler timeout)
+- `docs/specs/deployment/local-environment.md` (the `turnbase.orchestration.dispatch-deadline` row)
 - `docs/specs/deployment/load-testing.md` §13 (finding 16)
 
 **Satisfies:** none
 
 **Settled:** entries of `localSessions`, `locks` and any other per-session structure are removed when the
-session terminates. `terminated` exists to reject late inputs, so it is kept in a bounded, expiring
-structure with an explicit size cap and TTL; the TTL is not less than the platform's input retry window,
-which the agent reads from the spec (§9.3 and `orchestration-gamehost-protocol.md` if §9.3 points there)
-and cites in a comment beside the constant.
+session terminates. `terminated` exists to reject late inputs and to discard an in-flight result, so it is
+kept in a bounded, expiring structure: **TTL 5 minutes, cap 10,000 entries (oldest evicted first)**, both
+named constants. Where the 5 minutes comes from: the spec has no time-based "retry window", only a retry
+count of 3 (`game-host-internals.md` §15), and each attempt can last up to the dispatch deadline of 35 s
+(`turnbase.orchestration.dispatch-deadline`, `turnbase-platform/src/main/resources/application.yml`
+line 107, `local-environment.md`), so the longest a late input or result can still arrive is 3 x 35 s =
+105 s; 5 minutes is about three times that. A comment beside the constant gives this derivation.
 
 **Done when:**
 - A test creates and terminates 1,000 sessions and asserts every per-session map and set returns to its
@@ -7793,7 +7886,14 @@ and cites in a comment beside the constant.
 - **Why the lease lapsed (hypothesis the tests must pin).** `owned` is never pruned, and every 3 s
   `renewAndRecheck` does one Redis `GET` per entry on the shared single-thread scheduler; with tens of
   thousands of rooms one pass approaches the 10 s TTL.
-- **`owned` loses a room** when the room reaches `CLOSED` and when it is released.
+- **`owned` loses a room** when the room reaches `CLOSED` and when it is released. **The close hook is
+  shared with `IMP-M16-08`.** Every close goes through the one update in
+  `turnbase-platform/src/main/java/io/turnbase/platform/room/RoomRepository.java`, method
+  `detachSession` (the `update room set state = :nextState …` statement whose `closed_at = case when
+  :nextState = 'CLOSED'` is at line 2493; verify the line), called from `RoomSessionDetacherImpl`,
+  `RoomService` and the listeners, inside `RoomEventExecutor`'s lock and transaction. The pruning of
+  `owned` is registered there, as a `TransactionSynchronization.afterCommit` that runs only when
+  `nextState` is `CLOSED`, as one small method that `IMP-M16-08` then extends rather than duplicates.
 - **Lease renewal is one Redis command** (`pod:<id>:alive`, TTL 10 s, every 3 s) on a dedicated
   single-thread scheduler named `lease-renewer`. The per-room ownership re-check is a separate task that
   uses batched `MGET` (batches of 500) and cannot delay renewal.
@@ -7838,7 +7938,10 @@ and cites in a comment beside the constant.
 
 **Settled:**
 - When a room's `CLOSED` transition commits, delete `room:<id>:pod` (only if it names this instance: a Lua
-  compare-and-delete) and `room:<id>:epoch`. **Verify first that `CLOSED` is terminal** in the room state
+  compare-and-delete) and `room:<id>:epoch`. This is the **same after-commit hook** `IMP-M16-07` put in
+  `RoomRepository.detachSession` (the `CLOSED` update at about line 2493, `closed_at = case when
+  :nextState = 'CLOSED'`): extend that one method, do not register a second hook, so the two cleanups
+  cannot diverge. **Verify first that `CLOSED` is terminal** in the room state
   machine (`room-lifecycle.md`, `data-model.md`, `room-websocket.md`: "The room cannot be rejoined"); if
   any document lets a closed room reopen, stop under `spec-defect`, because that would be a genuine new
   contradiction.
@@ -7874,8 +7977,9 @@ and cites in a comment beside the constant.
 **Satisfies:** none
 
 **Settled:**
-- Replace the nine `redis.keys` calls with `SCAN` (`COUNT 500`), and the per-session
-  `sessionBelongsToOpenRoom` N+1 with one batched query per page of keys.
+- Replace the nine `redis.keys` calls with **one** `SCAN` pass over the keyspace (`COUNT 500`), classifying
+  each key by its prefix in Java, so a reconcile tick walks the keyspace once, not nine times; and replace
+  the per-session `sessionBelongsToOpenRoom` N+1 with one batched query per page of keys.
 - The gauges `SELECT count(*) FROM room WHERE state <> 'CLOSED'` and `... WHERE active_session_id IS NOT
   NULL` already have partial indexes in the baseline (`room_open_state_idx`, `room_active_session_idx`).
   Run `EXPLAIN` on a Testcontainers Postgres seeded with 100,000 closed rooms and a few hundred open
@@ -7883,8 +7987,9 @@ and cites in a comment beside the constant.
   a Flyway migration (name per `schema-migrations.md`) with the partial index that makes it an index scan.
 
 **Done when:**
-- An integration test with 10,000 stale keys asserts 0 `keys` calls (`INFO commandstats`) and correct
-  cleanup of exactly the stale ones.
+- An integration test with 10,000 stale keys asserts 0 `keys` calls (`INFO commandstats`), exactly one
+  full `SCAN` iteration per tick (the `scan` count in `commandstats` is the number of pages, not nine
+  times that) and correct cleanup of exactly the stale ones.
 - A test asserts the number of SQL statements per reconcile tick does not grow with the number of
   sessions (a datasource statement counter, or `pg_stat_statements`).
 - An `EXPLAIN`-based test (or, if a test is impractical, a note in the commit message and in
@@ -7911,8 +8016,8 @@ rule of the milestone introduction.
 **Settled:**
 - Set `spring.task.scheduling.pool.size: 4` (the ownership lease has its own scheduler since `IMP-M16-07`).
 - Run the `parallelism` scenario at 32 pairs for 3 minutes (`LEVELS=32 STEP_SECONDS=180`) followed by 5
-  minutes idle, taking the thread census of `snapshot.sh` before the run, at the peak and after the idle
-  wait. Identify which pools retain threads.
+  minutes idle, taking `bash loadtest/census.sh <run-dir> before`, `… peak` (about 2 minutes into the
+  step) and `… after` (after the idle wait). Identify which pools retain threads.
 - Every pool that grows under load gets explicit bounds and releases idle threads: the STOMP
   `clientInboundChannel`, `clientOutboundChannel` and `brokerChannel` executors configured in
   `WebSocketConfig` (core = available processors, max = 4 × processors, keep-alive 60 s,
@@ -7924,8 +8029,10 @@ rule of the milestone introduction.
 - Configuration tests assert the pool settings (scheduler size, the three STOMP executors, the Tomcat
   keys, the gRPC executor).
 - After rebuilding the platform image and reinstalling, the same 32-pair run's idle-after thread count is
-  within 10% of idle-before, or within 10 threads, whichever is larger.
-- A short report under `loadtest/reports/` (named `2026-10-NN-m16-threads.md`) holds the three census
+  within 10% of idle-before, or within 10 threads, whichever is larger. **If it is still missed after one
+  fix cycle** (the cause found and fixed, the run repeated once), record the numbers and the remaining
+  cause with evidence as a *Phase B note* in `load-testing.md` §13 and mark the item `DONE`.
+- A short report under `loadtest/reports/` (named `YYYY-MM-DD-m16-threads.md`) holds the three census
   tables (before, peak, after) before and after the change, and `load-testing.md` §13 findings 5 and 17
   each get an `**M16:**` line pointing at it.
 - `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green; branch merged
@@ -7955,8 +8062,11 @@ only); apply the rebuild rule.
   `receipt` header on `SUBSCRIBE`, answered with a `RECEIPT` frame once the subscription is registered.
 - First verify with an integration test whether the platform's simple-broker configuration already returns
   a `RECEIPT` for a `SUBSCRIBE` with a `receipt` header. If not, implement it (for example a channel
-  interceptor whose `afterSendCompletion` on the inbound channel sends the `RECEIPT` after the broker
-  handled the `SUBSCRIBE`) and prove the ordering.
+  interceptor) and prove the ordering. The hook must fire after the broker handler has registered the
+  subscription: on the `clientInboundChannel` (an `ExecutorSubscribableChannel`), `afterSendCompletion`
+  fires when the message has only been handed to the executor, which is too early. Use
+  `ExecutorChannelInterceptor.afterMessageHandled` (it runs when the `SimpleBrokerMessageHandler` has
+  handled the frame) to send the `RECEIPT`.
 - The k6 harness (`stomp.js`, `pair.js`) waits for the `RECEIPT` instead of `SUBSCRIBE_SETTLE_MS`; that
   variable is removed from `config.js` and `README.md`.
 - Check whether the frontend room client sends an action (for example `TOGGLE_READY`) before its
@@ -7969,8 +8079,8 @@ only); apply the rebuild rule.
 - **Smoke.** `k6 run loadtest/scenarios/smoke.js` passes against the live cluster with the receipt-based
   harness (`tb_errors` 0).
 - **Frontend.** If the client changed: a unit test proves it sends nothing before the receipt;
-  `npm run lint`, `npm run build` and `npm test` are green in `turnbase-frontend`. If it did not, the
-  commit message says what was checked.
+  `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run build` and `npm test` are green in
+  `turnbase-frontend`. If it did not, the commit message says what was checked.
 - `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green in
   `turnbase-platform`; branches merged `--ff-only`, pushed and deleted; the `turnbase-platform` ref (and
   the `turnbase-frontend` ref, if it changed) bumped; `python3 scripts/check-corpus.py` prints `clean`.
@@ -7995,27 +8105,36 @@ rule. The runs last 15 minutes or more: background them.
 - Run `start-rate` at a constant 16 games/s for 15 minutes (`RATES=16 STEP_SECONDS=900`), or `parallelism`
   at 32 pairs for 15 minutes, with the `IMP-M16-01` sampling. Extract every `ws_connecting` above 2 s and
   every `room_join` above 300 ms with its timestamp; correlate with `kubectl logs --timestamps` of
-  Postgres (with `log_checkpoints=on`), Redis (`LATENCY LATEST`, `INFO persistence` `aof_delayed_fsync`,
-  RDB saves), the platform (GC and safepoint logs through `-Xlog:gc*,safepoint` set in the loadtest
-  overlay) and the ingress.
+  Postgres (`log_checkpoints=on` is set by `IMP-M16-01`), Redis (`LATENCY LATEST`, which works because
+  `run.sh start` sets `latency-monitor-threshold 100`; `INFO persistence` `aof_delayed_fsync`; RDB saves),
+  the platform (GC and safepoint logs: add `-Xlog:gc*,safepoint` to the platform's `JDK_JAVA_OPTIONS` in
+  `values-loadtest.yaml` and mirror it in `values-default-limits.yaml`, per the overlay-mirroring rule)
+  and the ingress. Reinstall with `bash loadtest/install.sh` after the overlay edit.
 - **If the stall no longer appears** after `07`, `09` and `10`: record that with the numbers; the item is
   `DONE`.
 - **Otherwise** run the experiment with Postgres `checkpoint_timeout=30min` and Redis `save ""` (the AOF
-  stays on) through the loadtest overlay. Whichever change removes the stall is made permanent in the
+  stays on), set through the chart hooks `IMP-M16-01` added: `postgres.extraArgs: ["-c",
+  "shared_preload_libraries=pg_stat_statements", "-c", "log_checkpoints=on", "-c",
+  "checkpoint_timeout=30min"]` (keep the existing entries) and `redis.extraArgs: ["--save", ""]` in the
+  overlay, mirrored in `values-default-limits.yaml`. No chart edit is needed for the experiment. Whichever change removes the stall is made permanent in the
   chart defaults if it is a sane production setting: for Redis, RDB snapshots off with the AOF on is
   acceptable; for Postgres, spread the checkpoints (`checkpoint_completion_target=0.9`, a larger
   `max_wal_size`) rather than disabling them. The cause is recorded. If neither removes it, continue down
   the candidates (the 10 s equals the lease TTL; Hikari `maxLifetime` 30 min; the JWKS refresh; the 60 s
   reconcile tick; the 15-minute `upload-slot-cleanup`; the Tomcat accept queue). If every candidate is
-  ruled out and the cause remains unknown, the item is `PARTIAL` with a `**Remaining:**` line naming what
-  was ruled out.
+  ruled out and the cause remains unknown, record what was ruled out as a *Phase B note* in `load-testing.md`
+  §13 and mark the item `DONE`.
+- **If the number is still missed after one fix cycle** (a cause found and fixed, the 15-minute run
+  repeated once, and `room_join` p99 or a `ws_connecting` above 2 s remains), record the numbers and the
+  evidence as a *Phase B note* in `load-testing.md` §13 and mark the item `DONE`.
 
 **Done when:**
-- A report under `loadtest/reports/` (`2026-10-NN-m16-stall.md`) holds the correlation table (stall
+- A report under `loadtest/reports/` (`YYYY-MM-DD-m16-stall.md`) holds the correlation table (stall
   timestamps against the logs of each component) and the conclusion.
-- A 15-minute rerun shows no `ws_connecting` above 2 s and `room_join` p99 below 300 ms.
+- A 15-minute rerun shows no `ws_connecting` above 2 s and `room_join` p99 below 300 ms (or the escape
+  above applies).
 - A chart change, if any, passes `helm lint` and `helm template` and the `turnbase-platform` ref is bumped
-  after green CI; the rebuilt install reproduces the rerun.
+  after green CI; the rebuilt install reproduces the rerun. `bash loadtest/test/check-overlays.sh` passes.
 - `load-testing.md` §13 findings 3 and 10 carry `**M16:**` lines; `python3 scripts/check-corpus.py`
   prints `clean`; merged to `master` and pushed.
 
@@ -8035,11 +8154,21 @@ rule.
 **Satisfies:** none
 
 **Settled:**
-- Record a JFR profile (`jcmd <pid> JFR.start duration=120s settings=profile filename=…`, copied out with
-  `kubectl cp`) of the platform during `parallelism` at 64 pairs. Capture `pg_stat_statements` and Redis
-  `commandstats` deltas per move and per room join.
+- Record a JFR profile of the platform during `parallelism` at 64 pairs. The platform image has no `jcmd`
+  (only `java`, `jfr`, `jrunscript`, `jwebserver`, `keytool`, `rmiregistry`), so recording starts with the
+  JVM: add `-XX:StartFlightRecording=disk=true,maxage=20m,settings=profile
+  -XX:FlightRecorderOptions=repository=/tmp/jfr` to the platform's `JDK_JAVA_OPTIONS` in
+  `values-loadtest.yaml` (after `-XX:MaxRAMPercentage=70`), mirrored in `values-default-limits.yaml`
+  (overlay-mirroring rule), then `bash loadtest/install.sh` and `bash loadtest/reset.sh`. After the run,
+  copy the chunk files out with `kubectl cp <platform pod>:/tmp/jfr <dir>` (the image has `tar`), combine
+  them with `jfr assemble <dir> platform.jfr`, and analyse with `jfr summary` and `jfr print --events
+  jdk.ExecutionSample --stack-depth 1` (the host JDK's `jfr`, or the pod's through `kubectl exec`). Capture
+  `pg_stat_statements` and Redis `commandstats` deltas per move and per room join (the counters were zeroed
+  by `run.sh start`, so a snapshot at the end of the run is the delta).
 - Write the top-10 CPU hotspots and the per-move and per-join Redis and SQL command counts into a report
-  under `loadtest/reports/` (`2026-10-NN-m16-cpu.md`).
+  under `loadtest/reports/` (`YYYY-MM-DD-m16-cpu.md`).
+- Remove the JFR flags from both overlays in this item's last commit and reinstall, so that `14` and `15`
+  measure without the recorder.
 - Fix every hotspot that takes 10% or more of platform CPU and has a **local** fix (no architecture
   change, no spec change beyond a clarification). Anything needing more is recorded in the report and in
   `load-testing.md` §13 as a *Phase B note*; it does not become a registry item.
@@ -8047,6 +8176,7 @@ rule.
 **Done when:**
 - The report is committed; each fix has a test; a rerun at 64 pairs shows moves per second and platform CPU
   per move before and after, in the report.
+  `bash loadtest/test/check-overlays.sh` passes and the JFR flags are gone from both overlays.
 - `load-testing.md` §13 findings 1 and 2 carry `**M16:**` lines.
 - `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green; branch merged
   `--ff-only`, pushed and deleted; the `turnbase-platform` ref is bumped; `python3 scripts/check-corpus.py`
@@ -8103,7 +8233,8 @@ minutes. Measurement only.
 
 **Settled:**
 - Run `soak` (30 minutes at 70% of the new `ramp-to-break` ceiling, as in Phase A) and `up-down`, with the
-  Redis sampler, the thread census and the Game Host class histogram taken before and after.
+  Redis sampler and `bash loadtest/census.sh <run-dir> before|peak|after` (thread counts, Game Host
+  class histogram, Redis `INFO`) taken before the load, at its peak and after the idle wait.
 - State pass or fail for each, in the reports and in `SUMMARY.md`: no `not owned by this instance` ERROR in
   the platform log; the Redis keyspace returns to its pre-run size within 5 minutes after `up-down` (within
   1%); platform threads idle-after within 10% of idle-before; Game Host heap after GC drifts less than 10%
