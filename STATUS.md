@@ -1,18 +1,18 @@
 ## Last Session Summary
 
-**Date:** 2026-10-19 (session 218) — **`IMP-M16-03` done: the first cold boot no longer wedges as often; warm-up is off by default.** 174 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-04…15` `READY`.
+**Date:** 2026-10-19 (session 219) — **`IMP-M16-04` done: guest boots are capped and creation no longer runs under a map lock.** 175 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-05…15` `READY`.
 
-**What changed.** `loadtest/boot-wedge-repro.sh <cycles> <pairs>` deletes the Game Host pod, runs the smoke scenario (new `PAIRS` variable) and counts both wedge modes (supervisor "killing it", `BootWatchdog` "Guest boot wedged") per cycle. Measured over 40 cycles each: baseline **11/40**; experiment 1 (warm-up context closed before the real boot) 10/40, which falsified the close-race hypothesis; experiment 2 (warm-up skipped) **0/40**; final image with `turnbase.gamehost.warmup-enabled=false` as the default **2/40**. The second Espresso boot in a JVM is the one that wedges. `turnbase-game-host` (`380b58b`, CI green) carries the default; the supervisor stays the mitigation for the 5% residue. Median first start is 6.5 s cold without warm-up. Specs amended: `game-host-internals.md` §11, `local-environment.md` §7.8, `load-testing.md` §13 (findings 7 and 18), ADR-0018 Decision 2.
+**What changed.** `BootWatchdog` holds a fair `Semaphore` (`turnbase.gamehost.max-concurrent-boots`, default 2, at least 1); `guard` takes a permit first and starts its timer afterwards, so a queued boot cannot trip the wedge handling. `GameContextManager.getOrCreate` no longer builds inside `computeIfAbsent`: an in-flight `CompletableFuture` per cold key coalesces waiters, a failure reaches them and is not cached, and a slow boot for one key does not block another. `turnbase-game-host` (`3fded62`, CI green) carries it. Specs: `game-host-internals.md` §6.1 and §15, `local-environment.md` §7.8.
 
-**Gate.** The Done-when clause had no path for "lowered but not to 0". `IMP-GATE-100` was opened and closed in this session: the registry now ends the item at the default change plus the rerun, with no third experiment.
+**Tests.** `BootWatchdogTest` (timer starts at the permit, never more than the permits run, a throwing boot returns its permit, 0 permits rejected); `GameContextManagerTest` (a blocked creation does not block 100 other keys; a failed creation is rethrown and retried); `ConcurrentBootsIT` boots four distinct real Espresso contexts at once through the manager with two permits and asserts all four ready and no wedge. Its timeout is 3x a measured two-boot time (at least 20 s), not a fixed guess. Not measured on the cluster: the effect on the finding-8 cold-start time (`IMP-M16-14` re-verifies).
 
-**Not measured.** Contention (`pairs` 4) and a second game on one host; `IMP-M16-05` should repeat them. The cause inside Truffle's NFI (`nfi-gc` vs `dlsym`) is not found. The cluster runs the final `turnbase/game-host:dev` image and the chart's env; preflight is OK.
+---
 
 ---
 
 ## Next Priorities
 
-**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → `04` → `05` → `06` → `07` → `08` → `09` → `10` → `11` → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
+**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → ~~`04`~~ → `05` → `06` → `07` → `08` → `09` → `10` → `11` → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
 
 - `01`, `02`, `03` and `10…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
 - `14` and `15` are measurement only: findings that persist become Phase B notes in `load-testing.md` §13, never registry items.

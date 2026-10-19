@@ -389,6 +389,17 @@ Evidence and the tests behind each row:
   `CreateSessionRequest` (IMP-GATE-79). Concurrent requests for the same cold
   `ContextKey` are coalesced behind a single creation (one context, not a race of
   many).
+- **Bounded concurrent boots (IMP-M16-04).** Booting Espresso is CPU-bound and
+  concurrent boots slow each other (four at once take twice as long as one:
+  `load-testing.md` §13, finding 8). A fair `Semaphore` in `BootWatchdog` lets at most
+  `turnbase.gamehost.max-concurrent-boots` (default `2`) guest boots run at once; the
+  others queue in arrival order. The boot-timeout timer (§11) starts when a boot
+  **acquires its permit**, not when it is queued, so a queued boot cannot trip it. The
+  wait has no timeout of its own: it ends with the caller's gRPC deadline on
+  `CreateSession`. Creation of one key never blocks another: `GameContextManager` keeps
+  an in-flight `CompletableFuture` per cold key (waiters of the same key join it; a
+  failure is rethrown to them and not cached) and builds the context outside any map
+  lock.
 - **Reporting (FR-REG-002).** The set of live `ContextKey`s is reported to
   Orchestration for warm-host selection (§11).
 
@@ -912,6 +923,7 @@ All tunable via env/config, never hard-coded:
 | retry limit | 3 (FR-FAIL-003) |
 | Artifact Store backend + endpoint | local-FS (dev) |
 | guest `java.JavaHome` | `/opt/graalvm-guest-jdk21` |
+| concurrent guest boots (`turnbase.gamehost.max-concurrent-boots`) | 2 (§6.1) |
 
 ---
 
