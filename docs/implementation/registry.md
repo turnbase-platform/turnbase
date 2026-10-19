@@ -7523,7 +7523,7 @@ for every repository that changed in M16:
 
 **Check it happened.** The run's `cluster.txt` lists `turnbase/<component>:dev sha256:…` under `## images`.
 For every image that changed since the previous run, the ID must differ from the previous run's:
-`diff <(sed -n '/^## images/,$p' <previous-run-dir>/cluster.txt) <(sed -n '/^## images/,$p' <this-run-dir>/cluster.txt)`
+`diff <(sed -n '/^## images/,/^## root commit/p' <previous-run-dir>/cluster.txt) <(sed -n '/^## images/,/^## root commit/p' <this-run-dir>/cluster.txt)`
 prints a changed line for each. An identical ID means the rebuild did not happen: stop and rebuild. A
 report quotes the IDs.
 
@@ -7605,7 +7605,7 @@ introduction).
 - **Live check.** After `bash loadtest/install.sh` and `bash loadtest/reset.sh`: `SHOW
   shared_preload_libraries` in Postgres includes `pg_stat_statements`, `select count(*) from
   pg_stat_statements` succeeds, and after `bash loadtest/run.sh start smoke` the first snapshot shows
-  counters near zero (the reset ran).
+  `select sum(calls) from pg_stat_statements` is under 500 (the reset ran).
 - **Redis sampler.** `run.sh start` also launches a Redis keyspace and memory sampler (`DBSIZE`,
   `used_memory`, a UTC timestamp) every 30 s into `<run-dir>/redis.csv` for the run's duration, stopped
   with the run. It replaces the ad-hoc `/tmp` side loop of `IMP-M15-13`. `loadtest/README.md` documents it.
@@ -7614,6 +7614,12 @@ introduction).
   environment does not set them (the variables exist today and default to 0 elsewhere), so a correct
   client never trips the bucket; `loadtest/README.md` says so. `load-testing.md` §13 finding 12 gains
   `**M16:** resolved by IMP-M16-01, harness artefact, product limit unchanged`.
+- **Pair cap follows `USERS`.** `loadtest/lib/pair.js` hard-codes `PAIRS_PROVISIONED = 1000` (line 8) and
+  `getPair` throws `VU id beyond provisioned users` at `idx >= 1000` (line 42), which would fail a
+  1,500-pair run from VU 1001 on and record the failure as a capacity result. The cap becomes
+  `Math.floor(Number(__ENV.USERS || 2000) / 2)` (`provision.js` already defaults `USERS` to 2000), and
+  `loadtest/README.md` says so. `k6 inspect` on `parallelism.js`, `ramp-to-break.js` and `start-rate.js`
+  succeeds.
 - **Finding 6 correction.** `load-testing.md` §13 finding 6, and any other place in the repository that
   says the Game Host image has no `jcmd` (`grep -rn "jcmd" docs loadtest --include=*.md`), is corrected:
   in the Game Host image `jcmd` exists at `/usr/bin/jcmd` and `kill` only as a shell builtin; PID 1 is
@@ -7688,19 +7694,28 @@ roughly 6 minutes of finding 18.
 **Done when:**
 - **Primary test: the real wedge, in the cluster (mode A, findings 7 and 18).** With the rebuilt image
   running, `kubectl exec deploy/turnbase-gamehost -- sh -c 'kill -STOP <pid>'` where `<pid>` is the process
-  whose `/proc/<pid>/comm` is `java`, **twice in a row** (the second after the new JVM has registered).
+  whose `/proc/<pid>/comm` is `java`, **twice in a row**. Issue the second STOP no earlier than `GRACE` + 5 s (50 s) after the new JVM's first log
+  line: the supervisor's 45 s grace restarts for every new JVM, and a STOP inside it would wait out the rest
+  of the grace and fail the criterion through test timing, not through a defect.
   For each cycle, measure from the STOP to the first log line of the new JVM (the supervisor's timestamps
-  and `kubectl logs --timestamps`). **Every cycle is at most 40 s** (four probes of up to 5 s, then the
-  start; the grace has already elapsed). Both timings and the pod's restart count (0 expected) go into
-  ADR-0018. If a cycle is longer, find the cause before the item is `DONE` and write it into ADR-0018.
+  and `kubectl logs --timestamps`). **Every cycle is at most 40 s.** The arithmetic: four silent probes,
+  each a `curl -m 3` plus a 2 s sleep, are about 18 s; the kill and the start to the first log line add
+  about 3 s; so 25 s is typical and 40 s the limit. Both timings and the pod's restart count (0 expected)
+  go into ADR-0018. If a cycle is longer, find the cause and fix it. **After one fix cycle**, if a cycle is
+  still over 40 s, record both timings and the cause in ADR-0018 and mark the item `DONE`.
 - **Supervisor shell test (mode A and mode B, no cluster).** `bash
   turnbase-game-host/docker/test/supervise-test.sh` runs the real `supervise.sh` with a fake `java` first
   on `PATH` and a local stub HTTP server for the liveness URL, and proves: a stopped or silent child is
   killed after `FAILURES` probes and respawned, with the script still running (mode A); a 503 on the
   liveness URL counts as silent; the marker file kills the child within 3 s, is removed, and the child is
   respawned (mode B); a child that ignores TERM is still killed; an overall health `DOWN` with liveness
-  `UP` does not kill it; 5 deaths within 10 minutes make the script exit non-zero (use a small window
-  variable for the test). It is run directly: no Maven lifecycle change. A step `Supervisor test` (`bash
+  `UP` does not kill it; 5 deaths within 10 minutes make the script exit non-zero. `supervise.sh` is
+  `#!/bin/sh` (dash in the image) and the test runs it with `sh`, not `bash`. The script reads its
+  settings from named environment variables, which the test overrides: `TURNBASE_SUPERVISOR_GRACE`,
+  `TURNBASE_SUPERVISOR_FAILURES`, `MANAGEMENT_SERVER_PORT`, `TURNBASE_SUPERVISOR_PIDFILE` (default
+  `/tmp/jvm.pid`), `TURNBASE_SUPERVISOR_MARKER` (default `/tmp/turnbase-wedged`),
+  `TURNBASE_SUPERVISOR_MAX_DEATHS` (5) and `TURNBASE_SUPERVISOR_WINDOW` (600 seconds). The test script is
+  run directly: no Maven lifecycle change. A step `Supervisor test` (`bash
   docker/test/supervise-test.sh`) is added to `turnbase-game-host/.github/workflows/build.yml` before the
   Maven build, and the CI on `master` passes with it.
 - **Unit test (mode B).** `HostWedgeTest` proves a wedge publishes `LivenessState.BROKEN`, writes the
@@ -7735,17 +7750,23 @@ real game through the platform.
 - **Harness first: `loadtest/boot-wedge-repro.sh <cycles> <pairs> [--dry-run]`** in the umbrella (not in
   game-host). Each cycle: (1) delete the Game Host pod, `kubectl delete pod -l
   app.kubernetes.io/name=gamehost,app.kubernetes.io/instance=turnbase` (the chart's `turnbase.selectorLabels`
-  with the release name `turnbase`; verify with `kubectl get pods --show-labels`); (2) wait for the new pod
-  to be Ready (`kubectl wait --for=condition=Ready`, 180 s); (3) run `bash loadtest/run.sh start smoke
+  with the release name `turnbase`; verify with `kubectl get pods --show-labels`); (2) wait until a pod with a
+  different name from the deleted one exists, then for it to be Ready (`kubectl wait
+  --for=condition=Ready`, 300 s, the same as `reset.sh`'s rollout wait; a mode-A wedge during start costs
+  about 63 s of kill plus the next boot); on a timeout write the row with `smoke_exit=ready_timeout` and go
+  on with the next cycle, so one bad cycle does not abort the 40; (3) run `bash loadtest/run.sh start smoke
   PAIRS=<pairs>` and `bash loadtest/run.sh wait` it, so that the first real guest boot happens through the
-  platform with the Tic-Tac-Toe bundle; (4) save the new pod's `kubectl logs --timestamps` and count, in
-  them, both wedge modes: mode B, the `BootWatchdog` line `Guest boot wedged`, and mode A, the timestamped
+  platform with the Tic-Tac-Toe bundle; (4) save the new pod's `kubectl logs --timestamps` and, when the container restarted (the
+  supervisor exited after 5 deaths), also `kubectl logs --previous`, and count, in them, both wedge modes: mode B, the `BootWatchdog` line `Guest boot wedged`, and mode A, the timestamped
   supervisor lines `killing it` and the respawn from `IMP-M16-02`. It appends one CSV row per cycle to
   `<run-dir>/boot-wedge.csv` (`cycle,pairs,pod,mode_a,mode_b,smoke_exit,seconds_to_first_game`) in a
   run directory `loadtest/results/<stamp>-boot-wedge/` that also holds the logs. `<pairs>` is 1 for the
   baseline and 4 for contention (four pairs started at the same moment, so four contexts boot at once);
-  `smoke.js` gains an env `PAIRS` (default 1) that sets its VUs, iterations and logged-in users
-  (`loginAll(2 * PAIRS)`); check that `getPair` gives each VU its own two users. `--dry-run` prints the
+  `smoke.js` gains an env `PAIRS` (default 1), read with the `e()` helper style of `loadtest/lib/config.js`
+  (an empty string counts as unset): the scenario becomes `per-vu-iterations` with `vus: PAIRS` and
+  `iterations: 1` (`shared-iterations` could let a fast VU take two and leave a pair idle), `setup()` logs
+  in `2 * PAIRS` users, and the threshold `tb_games_completed` becomes `count >= 3 * PAIRS`; check that
+  `getPair` gives each VU its own two users. `--dry-run` prints the
   commands of one cycle and runs none of them. The harness is documented in the `loadtest/README.md`
   *Scripts* table. No `stress-ng`, no `grpcurl`, no fixture jar: the Tic-Tac-Toe bundle is the guest.
 - **Hypothesis to test first.** The throwaway bridge-only warm-up context (`GameHostWarmup`,
@@ -7908,7 +7929,9 @@ line 107, `local-environment.md`), so the longest a late input or result can sti
   :nextState = 'CLOSED'` is at line 2493; verify the line), called from `RoomSessionDetacherImpl`,
   `RoomService` and the listeners, inside `RoomEventExecutor`'s lock and transaction. The pruning of
   `owned` is registered there, as a `TransactionSynchronization.afterCommit` that runs only when
-  `nextState` is `CLOSED`, as one small method that `IMP-M16-08` then extends rather than duplicates.
+  `nextState` is `CLOSED`, as one small method that `IMP-M16-08` then extends rather than duplicates. If
+  `TransactionSynchronizationManager.isSynchronizationActive()` is false (unit tests call `detachSession`
+  without a transaction, and `registerSynchronization` throws then), the callback runs immediately.
 - **Lease renewal is one Redis command** (`pod:<id>:alive`, TTL 10 s, every 3 s) on a dedicated
   single-thread scheduler named `lease-renewer`. The per-room ownership re-check is a separate task that
   uses batched `MGET` (batches of 500) and cannot delay renewal.
@@ -8174,9 +8197,9 @@ rule.
   JVM: add `-XX:StartFlightRecording=disk=true,maxage=20m,settings=profile
   -XX:FlightRecorderOptions=repository=/tmp/jfr` to the platform's `JDK_JAVA_OPTIONS` in
   `values-loadtest.yaml` (after `-XX:MaxRAMPercentage=70`), mirrored in `values-default-limits.yaml`
-  (overlay-mirroring rule), then `bash loadtest/install.sh` and `bash loadtest/reset.sh`. After the run,
-  copy the chunk files out with `kubectl cp <platform pod>:/tmp/jfr <dir>` (the image has `tar`), combine
-  them with `jfr assemble <dir> platform.jfr`, and analyse with `jfr summary` and `jfr print --events
+  (overlay-mirroring rule), then `bash loadtest/install.sh` and `bash loadtest/reset.sh`. After the run's
+  `exit-code` exists (a chunk still being written cannot be copied reliably), copy the chunk files out with `kubectl cp <platform pod>:/tmp/jfr <dir>` (the image has `tar`), combine
+  them with `jfr assemble <dir> platform.jfr` (needs JDK 17 or later; the host's `jfr` is fine if it is 21), and analyse with `jfr summary` and `jfr print --events
   jdk.ExecutionSample --stack-depth 1` (the host JDK's `jfr`, or the pod's through `kubectl exec`). Capture
   `pg_stat_statements` and Redis `commandstats` deltas per move and per room join (the counters were zeroed
   by `run.sh start`, so a snapshot at the end of the run is the delta).
@@ -8214,7 +8237,10 @@ rebuilt and reinstalled (rebuild rule). Measurement only. Each run is long: back
 **Satisfies:** none
 
 **Settled:**
-- Provision 3,000 users first (`USERS=3000`; finding 11). Run `parallelism`, `ramp-to-break`, `contexts` and
+- Provision 3,000 users first (`USERS=3000`; finding 11), and start **every** run with `USERS=3000`
+  (`bash loadtest/run.sh start <scenario> USERS=3000 …`), so that the cap in `pair.js` (`IMP-M16-01`) and
+  `loginAll` use it. `ramp-to-break` and `start-rate` log in `2 * MAX_PAIRS` users in `setup()` (3,000
+  logins for `MAX_PAIRS=1500`; `LOGIN_PARALLEL` applies). Run `parallelism`, `ramp-to-break`, `contexts` and
   `start-rate`, the last with `RATES=1,2,4,8,16,32,64,128 MAX_PAIRS=1500`, following `loadtest/README.md`
   and the run protocol of `load-testing.md`. Reset (`bash loadtest/reset.sh`) and re-provision between
   runs.
@@ -8247,7 +8273,8 @@ minutes. Measurement only.
 **Satisfies:** none
 
 **Settled:**
-- Run `soak` (30 minutes at 70% of the new `ramp-to-break` ceiling, as in Phase A) and `up-down`, with the
+- Run `soak` (30 minutes at 70% of the new `ramp-to-break` ceiling, as in Phase A, started with
+  `USERS=3000` as in `IMP-M16-14`) and `up-down`, with the
   Redis sampler and `bash loadtest/census.sh <run-dir> before|peak|after` (thread counts, Game Host
   class histogram, Redis `INFO`) taken before the load, at its peak and after the idle wait.
 - State pass or fail for each, in the reports and in `SUMMARY.md`: no `not owned by this instance` ERROR in
