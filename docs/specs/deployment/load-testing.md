@@ -409,7 +409,8 @@ registry items.
 
 Findings of the Phase A runs, one entry each, appended by the run items (`IMP-M15-11…13`) and read by the
 owner. An entry names the report it comes from, the symptom with its numbers, the suspected cause and
-what was not checked. It is not a work item and nothing here is scheduled.
+what was not checked. An entry is not itself a work item. Milestone M16 (2026-10-19) schedules the fixes: each entry maps to an item in the
+[registry](../../implementation/registry.md) M16 section, and the M16 items append an `**M16:**` line to the entries they resolve.
 
 ### From `IMP-M15-11` (reports `2026-10-18-parallelism.md`, `2026-10-18-ramp-to-break.md`)
 

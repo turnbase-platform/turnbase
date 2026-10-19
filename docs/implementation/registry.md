@@ -218,8 +218,24 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M15-11 | Phase A runs — parallelism and ramp-to-break | docs (umbrella) | M15-09 | DONE |
 | IMP-M15-12 | Phase A runs — start-rate, default-limits, contexts | docs (umbrella) | M15-10, M15-11 | DONE |
 | IMP-M15-13 | Phase A runs — soak, up-down and Phase A summary | docs (umbrella) | M15-11, M15-12 | DONE |
+| **M16 — Pre-Phase-B fixes** ||||
+| IMP-M16-01 | Load-test harness and record corrections | docs (umbrella) | — | READY |
+| IMP-M16-02 | Game Host wedge supervision actually restarts the JVM | game-host, platform (chart), docs | — | READY |
+| IMP-M16-03 | First cold boot no longer wedges | game-host, docs | M16-02 | READY |
+| IMP-M16-04 | Bounded concurrent guest boots | game-host, docs | M16-03 | READY |
+| IMP-M16-05 | Shared Espresso engine across game contexts | game-host, docs | M16-04 | READY |
+| IMP-M16-06 | Game Host session bookkeeping is released | game-host | M16-05 | READY |
+| IMP-M16-07 | Room ownership: lease renewal is O(1) and loss is recoverable | platform, docs | — | READY |
+| IMP-M16-08 | Closed rooms release their Redis keys | platform, docs | M16-07 | READY |
+| IMP-M16-09 | Reconciliation and metrics stop scanning everything | platform | M16-08 | READY |
+| IMP-M16-10 | Platform threads are bounded and released | platform, docs (umbrella) | M16-01, M16-07 | READY |
+| IMP-M16-11 | Room readiness is not lost to subscribe races | platform, frontend, docs | M16-01 | READY |
+| IMP-M16-12 | The 300-second stall is explained and removed | platform (chart), docs (umbrella) | M16-01, M16-07, M16-09, M16-10 | READY |
+| IMP-M16-13 | Platform CPU per move is profiled and the top hotspots fixed | platform, docs (umbrella) | M16-07, M16-09, M16-10 | READY |
+| IMP-M16-14 | Re-verification runs: capacity | docs (umbrella) | M16-01, M16-02, M16-03, M16-04, M16-05, M16-06, M16-07, M16-08, M16-09, M16-10, M16-11, M16-12, M16-13 | READY |
+| IMP-M16-15 | Re-verification runs: endurance, and the M16 summary | docs (umbrella) | M16-14 | READY |
 
-**172 live items.** `IMP-M15-01…13` were added 2026-10-18 by the load-testing design ([`load-testing.md`](../specs/deployment/load-testing.md)): the spec groundwork and the four fixes the chart and the platform need before anything can be measured (`01…06`), the k6 harness and its scenarios (`07…10`), and the baseline runs, split into three run items so that none outlasts a session (`11…13`); see the M15 section. `IMP-M14-01…03` were added 2026-10-17 by ADR-0018: a game start that survives a cold, restarting or wedged Game Host and shows its progress; see the M14 section. `IMP-M13-01…08` were added 2026-10-12 after the owner reviewed the running M12 build and found it did not match the approved prototype: see the M13 section. `IMP-M12-01…11` were added 2026-10-11 by [ADR-0017](../decisions/0017-turnbase-visual-identity.md): the approved prototype look replaces the stock Astryx theme across every view while the services, reducers and sockets stay as they are (see the M12 section). Before them, 137 live items. `IMP-M11-01…08` were added 2026-10-10 by [ADR-0016](../decisions/0016-spring-boot-4-migration.md), closing `IMP-GATE-97`: both Spring Boot services move to Boot 4.1.1 because two CRITICAL `spring-webmvc` CVEs have no fix on the 3.5 line. **M11 runs before M10** — every `IMP-M10-*` item depends on `IMP-M11-08` — and its items are judged locally with CI not awaited (see the M11 section). `IMP-M10-01…24` were added 2026-10-10 from the
+**187 live items.** `IMP-M16-01…15` were added 2026-10-19 from the 18 findings of Phase A ([`load-testing.md`](../specs/deployment/load-testing.md) §13): the harness and record corrections (`01`), the Game Host wedge and boot fixes (`02…06`), the platform's room ownership, Redis keys, scans and threads (`07…10`), the subscribe race and the 300 s stall (`11`, `12`), the CPU profile (`13`) and the two re-verification runs (`14`, `15`); see the M16 section. `IMP-M15-01…13` were added 2026-10-18 by the load-testing design ([`load-testing.md`](../specs/deployment/load-testing.md)): the spec groundwork and the four fixes the chart and the platform need before anything can be measured (`01…06`), the k6 harness and its scenarios (`07…10`), and the baseline runs, split into three run items so that none outlasts a session (`11…13`); see the M15 section. `IMP-M14-01…03` were added 2026-10-17 by ADR-0018: a game start that survives a cold, restarting or wedged Game Host and shows its progress; see the M14 section. `IMP-M13-01…08` were added 2026-10-12 after the owner reviewed the running M12 build and found it did not match the approved prototype: see the M13 section. `IMP-M12-01…11` were added 2026-10-11 by [ADR-0017](../decisions/0017-turnbase-visual-identity.md): the approved prototype look replaces the stock Astryx theme across every view while the services, reducers and sockets stay as they are (see the M12 section). Before them, 137 live items. `IMP-M11-01…08` were added 2026-10-10 by [ADR-0016](../decisions/0016-spring-boot-4-migration.md), closing `IMP-GATE-97`: both Spring Boot services move to Boot 4.1.1 because two CRITICAL `spring-webmvc` CVEs have no fix on the 3.5 line. **M11 runs before M10** — every `IMP-M10-*` item depends on `IMP-M11-08` — and its items are judged locally with CI not awaited (see the M11 section). `IMP-M10-01…24` were added 2026-10-10 from the
 [E2E & security audit](../reviews/2026-10-10-e2e-security-audit/INDEX.md) (`AUD-01…24`), the first
 black-box run of the full stack after the build plan reached 105: two Critical cross-user breaches
 (`IMP-M10-01` the ownerless-upload hole closed by `IMP-GATE-96`, `IMP-M10-02` the wildcard-subscribe
@@ -7443,6 +7459,665 @@ background it, poll at most every five minutes.
 - `python3 scripts/check-corpus.py` prints `clean`; merged to `master` and pushed.
 
 **Evidence (session 214).** `soak` (49 pairs = 70 x 7 / 10, 30 min hold): every target met, no restart; Redis 3.18 -> 13.75 MB (86,271 keys), platform threads 125 -> 151, Game Host heap after GC 251 -> 371 MB, HTTP p95 10 -> 48 ms with requests per second down 25%, and a loss of ownership of about 35 rooms at 17.5 min after which `rooms_active` stayed doubled. `up-down` (attempt 1 lost to a Game Host wedge on its first cold start, attempt 2 clean): sockets, rooms, sessions and Hikari back to 0 within 30 s; platform threads 57 -> 109 and Redis 1.77 -> 6.91 MB (36,047 keys, two per room) not released. `SUMMARY.md` answers the three questions; neither capacity target was reached (about 55 sessions, 140 sockets at the ceiling). `load-testing.md` §13 items 13 to 18 and *Phase A results* added; the test-definition plan is deleted.
+
+## M16 — Pre-Phase-B fixes
+
+Opened 2026-10-19 from the 18 findings of Phase A ([`load-testing.md`](../specs/deployment/load-testing.md)
+§13). Phase A was measurement only; M16 is the fixing round the owner asked for before Phase B (autoscaling
+and multiple replicas) gets its design. It repairs what Phase A broke, then reruns the heavy scenarios to
+show whether it worked.
+
+**The decisions in an item are the owner's.** The owner delegated every design decision of this milestone
+to the orchestrator; what an item states as settled is settled, and nobody is to be asked. Where an item
+says *amend spec X to say Y* the agent edits that spec as part of the item: that is not a `spec-defect`
+stop. A *new* contradiction the item did not anticipate still goes through the `spec-defect` skill.
+
+**Finding to item map.** A finding is cited as "`load-testing.md` §13 finding N". Every finding has an item.
+
+| Finding | Symptom | Fixed or checked by |
+|---|---|---|
+| 1 | Throughput plateaus at 16 pairs; platform CPU is the limit | `13` (profile, fix), `09`, `10`; rerun `14` |
+| 2 | 200 ms move target fails at 128 pairs | `13`; rerun `14` |
+| 3 | `tb_room_join` tail stops the ramp | `12`; rerun `14` |
+| 4 | `ready_timeout` under load | `11` |
+| 5 | Platform threads grow 80 → 226 under load | `10` |
+| 6 | The run protocol says `jcmd 1` fails; the record says the image has no `jcmd` | `01` (record corrected) |
+| 7 | Game Host wedges and the supervisor does not restart it | `02`, `03` |
+| 8 | A four-context cold start takes 10 s | `04` |
+| 9 | Four contexts cost about three times the CPU | `05` |
+| 10 | A 10 s connect stall about every 300 s | `12` |
+| 11 | `start-rate` never found the rate where `game_start` degrades | `14` |
+| 12 | `default-limits` trips the WebSocket action bucket every game | `01` (harness artefact) |
+| 13 | Two Redis keys per room, never deleted | `08` |
+| 14 | Room ownership lost, gauges never recover | `07` (and `09`: it removes the scan load that starves the lease) |
+| 15 | Latency rises and throughput falls across a 30-minute soak | `09`, `13`; rerun `15` |
+| 16 | Game Host heap after GC grows 251 → 371 MB | `06`; rerun `15` |
+| 17 | Platform keeps its threads after the load is gone | `10`; rerun `15` |
+| 18 | The Game Host restart took about 6 minutes | `02` |
+
+**Out of scope (owner-held; nothing in M16 decides them).** `game-host-internals.md` §18 `OQ-5` (eager or
+lazy reassignment after a Game Host dies); `platform-operations.md` `OQ-004` (`NFR-AVAIL-001` at 99% or
+99.9%); `IMP-M13-08`; horizontal scaling and autoscaling (Phase B).
+
+**Sequencing.** `01` → `02` → `03` → `04` → `05` → `06` → `07` → `08` → `09` → `10` → `11` → `12` → `13` →
+`14` → `15`. Depends-on enforces it. `01` and `10…15` need the cluster; `02…09` do not, but they change
+images and the chart, so every live item that follows must rebuild before it measures (below).
+
+**Live items (an `**Environment:**` line).** They need Docker Desktop Kubernetes running with the
+`turnbase` Helm release installed through `loadtest/install.sh`. Each starts with `bash loadtest/preflight.sh`
+and must print `PREFLIGHT OK`; a cluster that stays down after the failed command is run once more live
+is `BLOCKED`, naming the command. Runs longer than eight minutes go in the background and are polled at
+most every five minutes (`work-item` *Live-environment and measurement items*).
+
+**Rebuild rule for live items.** The cluster runs `turnbase/<component>:dev` images built locally, and
+`master` may have moved since they were built. Before measuring, rebuild every image whose repository
+changed in M16 (`docker build -t turnbase/platform:dev turnbase-platform`, `turnbase/game-host:dev` from
+`turnbase-game-host`, `turnbase/frontend:dev` from `turnbase-frontend`), run `bash loadtest/install.sh`
+when the chart or an overlay changed, then `bash loadtest/reset.sh` (it scales every service to zero and
+back, which starts the new image), then `k6 run loadtest/scenarios/provision.js`. The run's `cluster.txt`
+records the image IDs; a report quotes them.
+
+**Measuring items record, they do not add items.** `10`, `12`, `13`, `14` and `15` measure; they write
+their findings into their report under `loadtest/reports/` and into `load-testing.md` §13, and never
+add a registry item; a problem that persists becomes a *Phase B note*. A §13 finding is annotated by
+appending one line to its entry: `**M16:** resolved by IMP-M16-NN, <evidence link or number>` or
+`**M16:** persists, <numbers>; Phase B note`.
+
+**Submodules.** An item that changes a submodule bumps its ref in this repository only after the pipeline
+on that repository's `master` is green (the CI wait applies to M16 as to any code item unless the loop's
+prompt says otherwise).
+
+### IMP-M16-01 — Load-test harness and record corrections
+
+**Repo:** `turnbase` (docs, `loadtest/`) · **Depends on:** nothing
+
+**Environment:** a live Docker Desktop Kubernetes cluster with the loadtest release (see the milestone
+introduction).
+
+**Covers:** findings 6 and 12, and the harness prerequisites of `10…15`.
+
+**Read first:**
+- `loadtest/README.md` and `loadtest/snapshot.sh`, `loadtest/run.sh`, `loadtest/lib/config.js`, `loadtest/lib/pair.js` (`think()`), `loadtest/scenarios/default-limits.js`
+- `loadtest/helm/values-loadtest.yaml` (its header comment) and `loadtest/test/check-overlays.sh`
+- `docs/specs/deployment/load-testing.md` §13 (findings 6 and 12)
+- `turnbase-game-host/docker/supervise.sh` (PID 1 of the Game Host image; the JVM is its child)
+- `turnbase-platform/src/main/resources/application.yml` (`turnbase.rate-limit.ws.action`: capacity 10, refill 5 per second)
+
+**Satisfies:** none (the owner's instrument for the rest of M16)
+
+**Done when:**
+- **Thread census.** `loadtest/snapshot.sh` appends, for the platform and the Game Host JVM, a table of
+  thread count by name prefix, taken from `/proc/<pid>/task/*/comm` with digits stripped. For the Game
+  Host the JVM pid is found through `/proc/*/comm` (PID 1 is `supervise.sh`), or from `/tmp/jvm.pid` when
+  `IMP-M16-02` has made the supervisor write it.
+- **Statement statistics.** `snapshot.sh` appends the Postgres `pg_stat_statements` top 20 by `calls` and
+  by `total_exec_time`. If the extension is not loaded, the script prints `pg_stat_statements unavailable`
+  and carries on. Enabling it needs `shared_preload_libraries=pg_stat_statements` on the Postgres
+  container and `CREATE EXTENSION`; if that needs a chart change, **do not edit the chart here**: record
+  the exact change in `IMP-M16-02`'s section as an added bullet (it is the first chart edit of the
+  milestone) and let this script degrade.
+- **Redis.** `snapshot.sh` appends `DBSIZE`, `INFO keyspace`, `INFO memory` (`used_memory`) and
+  `INFO commandstats` (the `keys` and `scan` lines).
+- **Class histogram.** `snapshot.sh` appends the Game Host's `jcmd <jvm pid> GC.class_histogram` top 30.
+- **Redis sampler.** `run.sh start` also launches a Redis keyspace and memory sampler (`DBSIZE`,
+  `used_memory`, a UTC timestamp) every 30 s into `<run-dir>/redis.csv` for the run's duration, stopped
+  with the run. It replaces the ad-hoc `/tmp` side loop of `IMP-M15-13`. `loadtest/README.md` documents it.
+- **F12 decision (settled).** The WebSocket action bucket (5 per second, burst 10) **stays the product
+  limit**. The `default-limits` scenario defaults `THINK_MIN_MS` and `THINK_MAX_MS` to 250 when the
+  environment does not set them (the variables exist today and default to 0 elsewhere), so a correct
+  client never trips the bucket; `loadtest/README.md` says so. `load-testing.md` §13 finding 12 gains
+  `**M16:** resolved by IMP-M16-01, harness artefact, product limit unchanged`.
+- **Finding 6 correction.** `load-testing.md` §13 finding 6, and any other place in the repository that
+  says the Game Host image has no `jcmd` (`grep -rn "jcmd" docs loadtest --include=*.md`), is corrected:
+  `jcmd` exists at `/usr/bin/jcmd`; `kill` exists only as a shell builtin; PID 1 is `supervise.sh` and the
+  JVM is a child, so `jcmd 1` fails and the JVM's pid is found as above.
+- **Values file comment.** The header of `loadtest/helm/values-loadtest.yaml` no longer names the deleted
+  `m15-test-definition-plan.md` nor says "a run item never edits it"; it points to `load-testing.md`
+  (the M16 items edit it where they say so).
+- `bash loadtest/test/check-overlays.sh` and the other self-tests (`loadtest/test/check-generator-selftest.sh`)
+  pass; `bash -n` passes on every changed script; `bash loadtest/preflight.sh` prints `PREFLIGHT OK` and
+  `bash loadtest/snapshot.sh <a run directory of a finished smoke run>` against the live cluster prints
+  every new section; `k6 inspect loadtest/scenarios/default-limits.js` succeeds.
+- `python3 scripts/check-corpus.py` prints `clean`; merged to `master` and pushed (umbrella only: no
+  ref to bump).
+
+### IMP-M16-02 — Game Host wedge supervision actually restarts the JVM
+
+**Repo:** `turnbase-game-host`, `turnbase-platform` (chart), `turnbase` (docs) · **Depends on:** nothing
+
+**Covers:** findings 7 and 18.
+
+**Read first:**
+- `docs/decisions/0018-game-start-resilience.md` (*Decision* 2, *Consequences*) and `docs/specs/game-host/game-host-internals.md` §11 (the paragraph beginning "A wedged guest boot")
+- `turnbase-game-host/docker/supervise.sh`, `turnbase-game-host/Dockerfile`
+- `turnbase-game-host/src/main/java/io/turnbase/gamehost/espresso/BootWatchdog.java`, `.../registration/HostWedge.java`, `.../registration/RegistrationHealthIndicator.java`, `.../GameHostProperties.java`
+- `turnbase-platform/deploy/helm/turnbase/templates/gamehost-deployment.yaml`
+- `docs/specs/deployment/load-testing.md` §13 (findings 7 and 18)
+
+**Satisfies:** none (ADR-0018 §2 as amended)
+
+**Settled:**
+- **Why it fails today.** The image has no `kill` binary (it is a shell builtin), so `HostWedge`'s
+  `ProcessBuilder("kill", "-9", …)` always fails; `supervise.sh` probes `/actuator/health` with `curl -s`
+  and so counts the wedge's own 503 as an answer. `jcmd`, `curl` and `timeout` do exist in the image.
+- **`HostWedge`.** It no longer starts any external process; the `ProcessBuilder("kill"…)` path and the
+  `wedge-kill` thread are removed. On a wedge it (1) publishes an `AvailabilityChangeEvent` with
+  `LivenessState.BROKEN`, (2) writes a marker file whose path is the new property
+  `turnbase.gamehost.wedge-marker` (default `/tmp/turnbase-wedged`), (3) keeps the `Runtime.halt(70)`
+  attempt after the existing 4 s grace.
+- **`docker/supervise.sh`.** It probes `/actuator/health/liveness` (not `/actuator/health`) with
+  `curl -sf`, so a non-2xx answer counts as silent; checks the marker file on every probe and, when it
+  exists, sends `kill -KILL` (the builtin) to the child at once and removes the marker; writes the child's
+  pid to `/tmp/jvm.pid`; prefixes every line it prints with an ISO-8601 UTC timestamp; and logs the
+  child's exit status when it restarts. **A dependency outage (Redis or Postgres down) must not restart the
+  host**: that is why the probe uses the liveness group, which excludes them.
+- **Chart.** `gamehost-deployment.yaml` keeps its liveness probe on `/actuator/health/liveness` and sets
+  `terminationGracePeriodSeconds: 30` explicitly. If `IMP-M16-01` recorded a Postgres
+  `pg_stat_statements` change here, it is made in the same chart edit.
+- **Spec.** ADR-0018 §2 and its *Consequences* timing sentence, and `game-host-internals.md` §11 where it
+  describes the supervision, are amended to match (liveness probe, `-f`, marker file, timestamps, BROKEN,
+  the dead `kill` fallback removed, measured restart time from the container test).
+
+**Done when:**
+- **Supervisor shell test.** A script test (for example `turnbase-game-host/docker/test/supervise-test.sh`,
+  run by `./mvnw verify` through an exec step or by CI) with a fake `java` proves: a 503 on the liveness
+  URL kills the child after `FAILURES` probes; the marker file kills it within 3 s and is removed; a child
+  that ignores TERM is still killed; an overall health `DOWN` with liveness `UP` does not kill it.
+- **Unit test.** `HostWedgeTest` proves a wedge publishes `LivenessState.BROKEN`, writes the marker, and
+  starts no external process.
+- **Container test (finding 18).** A test or script run against the built image forces a wedge (the first
+  boot trips the watchdog through a tiny `turnbase.gamehost.boot-timeout` set by a test-only property) and
+  asserts, from the supervisor's timestamps, that a new JVM is up within 30 s of the wedge log line. If
+  the interval is longer, find and fix the cause (candidates: the supervisor killing late; `Runtime.halt`
+  never returning so PID 1 waits; kubelet restart back-off) before the item is `DONE`, and write the cause
+  into ADR-0018.
+- `turnbase-game-host`: `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green;
+  `helm lint turnbase-platform/deploy/helm/turnbase` and `helm template` of it are green; both branches
+  merged `--ff-only`, pushed and deleted; the `turnbase-game-host` and `turnbase-platform` refs are bumped.
+- `python3 scripts/check-corpus.py` prints `clean`.
+
+### IMP-M16-03 — First cold boot no longer wedges
+
+**Repo:** `turnbase-game-host`, `turnbase` (docs) · **Depends on:** IMP-M16-02
+
+**Covers:** the cause behind findings 7 and 18 (ADR-0018 records 5 of 23 restarts wedging).
+
+**Read first:**
+- `docs/specs/game-host/game-host-internals.md` §11 (the paragraph beginning "A wedged guest boot": it already names a suspected cause, the `nfi-gc` thread against the boot thread's `dlsym` in glibc 2.34)
+- `docs/decisions/0018-game-start-resilience.md` (*Context*)
+- `turnbase-game-host/src/main/java/io/turnbase/gamehost/warmup/GameHostWarmup.java`, `.../warmup/WarmupLifecycle.java`, `.../espresso/EspressoContextFactory.java`, `.../espresso/BootWatchdog.java`
+- `turnbase-game-host/docker/supervise.sh` (as changed by `IMP-M16-02`)
+
+**Satisfies:** none
+
+**Settled:**
+- **Harness first.** Build and commit a reproduction harness in `turnbase-game-host` (for example
+  `scripts/boot-wedge-repro.sh`, or an `-Pintegration` IT) that cold-starts the built image N=40 times (a
+  fresh container each time), triggers the first game boot each time (the Tic-Tac-Toe bundle through the
+  path the platform uses, or the existing IT fixtures) and counts `Guest boot wedged` lines.
+- **Hypothesis to test first.** The throwaway bridge-only warm-up context (`GameHostWarmup`,
+  `WarmupLifecycle`, `createBridgeOnly`, closed by try-with-resources) races the first real boot's native
+  library loading. Experiment: keep the warm-up context open until the first real context has booted (or
+  close it on a background thread after that) and measure again.
+
+**Done when:**
+- **Baseline recorded.** `game-host-internals.md` has a short new subsection on boot wedges (in §11 or §6.1,
+  whichever fits) giving N, the count and the rate of the baseline.
+- **If the baseline reproduces (at least 1 of 40):** a fix lands, the rerun of 40 shows 0 of 40, and the
+  cause is written down in that subsection.
+- **If the baseline shows 0 of 40:** run 40 more cold starts under CPU contention (`stress-ng`, or four
+  containers started at once). If that is also 0, record "not reproducible outside the cluster; mitigated
+  by IMP-M16-02" with both sets of numbers; the item is then `DONE`.
+- The harness is committed and documented in the game-host `README.md`.
+- `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green; branch merged
+  `--ff-only`, pushed and deleted; the `turnbase-game-host` ref is bumped; `python3 scripts/check-corpus.py`
+  prints `clean`.
+
+### IMP-M16-04 — Bounded concurrent guest boots
+
+**Repo:** `turnbase-game-host`, `turnbase` (docs) · **Depends on:** IMP-M16-03
+
+**Covers:** finding 8.
+
+**Read first:**
+- `docs/specs/game-host/game-host-internals.md` §6.1, §6.3, §12, §15
+- `turnbase-game-host/src/main/java/io/turnbase/gamehost/espresso/GameContextManager.java`, `.../espresso/ManagedContext.java` (`bridgeClient()` is `synchronized` and runs under `watchdog.guard`), `.../espresso/BootWatchdog.java`, `.../GameHostProperties.java`
+- `docs/specs/deployment/load-testing.md` §13 (finding 8)
+
+**Satisfies:** none
+
+**Settled:**
+- A fair `Semaphore` caps concurrent guest boots: `turnbase.gamehost.max-concurrent-boots`, default `2`.
+  The `BootWatchdog` timer for a context starts when its boot **acquires a permit**, not when it is
+  queued, so a queued boot waits without tripping it. The wait is bounded by the caller's gRPC deadline on
+  `CreateSession`; no new timeout is added.
+- `GameContextManager` uses `ConcurrentHashMap.computeIfAbsent`, which holds the bin lock while the
+  mapping function runs. Check whether the boot runs inside it. If it does, change to a per-key holder
+  (the map stores a `CompletableFuture` or equivalent, created inside `computeIfAbsent` and completed
+  outside it), so that a slow boot for key A never blocks `get` for key B.
+- `game-host-internals.md` §6.1 documents the cap, the property (add it to §15), and when the watchdog
+  starts.
+
+**Done when:**
+- An integration test boots four distinct contexts concurrently with a `boot-timeout` small enough that
+  four parallel boots would exceed it and two do not (or with a fake slow boot) and asserts no wedge and
+  all four ready.
+- A unit test proves a queued boot's watchdog has not started before its permit is acquired.
+- A unit test proves a slow boot for key A does not block `get` for key B.
+- `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green; branch merged
+  `--ff-only`, pushed and deleted; the `turnbase-game-host` ref is bumped; `python3 scripts/check-corpus.py`
+  prints `clean`.
+
+### IMP-M16-05 — Shared Espresso engine across game contexts
+
+**Repo:** `turnbase-game-host`, `turnbase` (docs) · **Depends on:** IMP-M16-04
+
+**Covers:** finding 9 (four contexts cost about three times the CPU and twice the heap).
+
+**Read first:**
+- `docs/decisions/0005-game-sandbox-espresso-spike.md` and `docs/reviews/2026-07-02-mvp-readiness/espresso-spike-results.md`
+- `docs/specs/game-host/game-host-internals.md` §4 (isolation), §4.2 (context-builder configuration, spike-locked)
+- `turnbase-game-host/src/main/java/io/turnbase/gamehost/espresso/EspressoContextFactory.java`, `.../espresso/GameContextManager.java`
+- `docs/decisions/INDEX.md` (to register the new ADR)
+- `docs/specs/deployment/load-testing.md` §13 (finding 9)
+
+**Satisfies:** none
+
+**Settled:**
+- `EspressoContextFactory` builds every context without a shared `Engine`. Spike one shared
+  `org.graalvm.polyglot.Engine` for all contexts. Contexts stay separate; the sandbox and isolation
+  options of each context are unchanged.
+- **Acceptance rule (the owner's).** Adopt the shared engine if all game-host tests (unit and
+  `-Pintegration`) pass **and** a new committed benchmark shows at least 25% lower CPU time **or** at
+  least 25% lower heap after GC than per-context engines. The benchmark boots four contexts of distinct
+  `gameId:version` and plays K moves in each (for example an `-Pintegration` test that measures
+  `ThreadMXBean` CPU time and post-`System.gc()` heap, in both modes). Otherwise keep per-context engines
+  and record the measured numbers and the reason (for example Espresso rejecting a shared engine for these
+  options).
+- **Record either way** in a new `docs/decisions/0019-<slug>.md` registered in `docs/decisions/INDEX.md`,
+  and in a short pointer in `espresso-spike-results.md`. The ADR states the security reasoning: a shared
+  engine shares compiled code and caches, not guest heap, and a context's resource limits and sandbox
+  options are still honoured.
+
+**Done when:**
+- The benchmark is committed and its numbers are in the ADR; the decision is implemented per the rule.
+- If adopted: a test proves a per-context resource limit or sandbox option is still enforced with a shared
+  engine (for example a context with a tight statement or memory limit is stopped while a sibling is not).
+- `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green; branch merged
+  `--ff-only`, pushed and deleted; the `turnbase-game-host` ref is bumped; `python3 scripts/check-corpus.py`
+  prints `clean`.
+
+### IMP-M16-06 — Game Host session bookkeeping is released
+
+**Repo:** `turnbase-game-host` · **Depends on:** IMP-M16-05
+
+**Covers:** finding 16 (heap after GC 251 → 371 MB over the soak).
+
+**Read first:**
+- `turnbase-game-host/src/main/java/io/turnbase/gamehost/dispatch/SessionDispatcher.java` (`localSessions`, `locks`, `terminated`) and every other per-session map, set or cache in `turnbase-game-host/src/main/java`
+- `docs/specs/game-host/game-host-internals.md` §6.2, §9.3 (crash recovery, the platform's input retry window)
+- `docs/specs/deployment/load-testing.md` §13 (finding 16)
+
+**Satisfies:** none
+
+**Settled:** entries of `localSessions`, `locks` and any other per-session structure are removed when the
+session terminates. `terminated` exists to reject late inputs, so it is kept in a bounded, expiring
+structure with an explicit size cap and TTL; the TTL is not less than the platform's input retry window,
+which the agent reads from the spec (§9.3 and `orchestration-gamehost-protocol.md` if §9.3 points there)
+and cites in a comment beside the constant.
+
+**Done when:**
+- A test creates and terminates 1,000 sessions and asserts every per-session map and set returns to its
+  pre-test size (or to at most the stated bound for `terminated`).
+- A test proves a late input for a terminated session inside the TTL is still rejected.
+- `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green; branch merged
+  `--ff-only`, pushed and deleted; the `turnbase-game-host` ref is bumped. The heap-histogram check on the
+  live Game Host is left to `IMP-M16-15`.
+
+### IMP-M16-07 — Room ownership: lease renewal is O(1) and loss is recoverable
+
+**Repo:** `turnbase-platform`, `turnbase` (docs) · **Depends on:** nothing
+
+**Covers:** finding 14.
+
+**Read first:**
+- `docs/specs/platform/room-lifecycle.md` §1.1, §1.3, §1.4, §1.5 (layer 3), §1.6, §5.2
+- `turnbase-platform/src/main/java/io/turnbase/platform/room/RoomOwnershipService.java` (`renewAndRecheck`, `selfEvictInstance`, the claim script and its `ALREADY_MINE` branch, `nextVersion`), `.../room/RoomOwnershipSchedulingConfig.java`, `.../room/RoomEventExecutor.java` (`epochOf` then `nextVersion`), `.../room/ReconciliationJob.java` (`adoptUnownedRooms`)
+- `turnbase-platform/src/main/resources/application.yml` (`turnbase.room` ownership keys: lease TTL 10 s, renew 3 s, self-evict-after 6 s)
+- `turnbase-platform/src/test/java/io/turnbase/platform/room/RoomOwnershipServiceIT.java`
+- `docs/specs/deployment/load-testing.md` §13 (findings 14 and 15)
+
+**Satisfies:** none
+
+**Settled:**
+- **Why the lease lapsed (hypothesis the tests must pin).** `owned` is never pruned, and every 3 s
+  `renewAndRecheck` does one Redis `GET` per entry on the shared single-thread scheduler; with tens of
+  thousands of rooms one pass approaches the 10 s TTL.
+- **`owned` loses a room** when the room reaches `CLOSED` and when it is released.
+- **Lease renewal is one Redis command** (`pod:<id>:alive`, TTL 10 s, every 3 s) on a dedicated
+  single-thread scheduler named `lease-renewer`. The per-room ownership re-check is a separate task that
+  uses batched `MGET` (batches of 500) and cannot delay renewal.
+- **`ALREADY_MINE` re-registers.** When the claim script answers `ALREADY_MINE` and the room is missing
+  from `owned`, the room is registered in `owned` with its current epoch. (`podId` is per incarnation,
+  `room-lifecycle.md` §1.1, so this branch is reached by the same process after a self-eviction. A
+  restarted container has a new `podId` and adopts its rooms through §1.4.)
+- **Self-eviction stays "unconditionally fatal"** (§1.5 layer 3), realised as: it publishes
+  `LivenessState.BROKEN` so Kubernetes restarts the platform container; the new incarnation adopts the
+  rooms through the claim path. Amend `room-lifecycle.md` §1.3, §1.5 and §1.6 accordingly (release also
+  on close; the renewal and re-check split; the BROKEN publication).
+- **The race** in `RoomEventExecutor.execute` (`epochOf` passes, an eviction runs, `nextVersion` throws
+  `IllegalStateException`) surfaces as `RoomUnavailableRetryException`, never as an
+  `IllegalStateException` or an HTTP 500.
+
+**Done when** (tests under `turnbase-platform/src/test/java/io/turnbase/platform/room/`, extending
+`RoomOwnershipServiceIT`):
+- A room that reaches `CLOSED` leaves `owned`.
+- Lease renewal still happens on time while the re-check task is blocked (a latch or a slow Redis).
+- 20,000 owned rooms: one re-check pass completes within 2 s against Testcontainers Redis.
+- `ALREADY_MINE` repopulates `owned`, and a mutation then succeeds.
+- A self-eviction publishes `LivenessState.BROKEN`.
+- The `epochOf`/`nextVersion` race maps to `RoomUnavailableRetryException`.
+- `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green (this includes
+  `ModularityTest`); branch merged `--ff-only`, pushed and deleted; the `turnbase-platform` ref is bumped;
+  `python3 scripts/check-corpus.py` prints `clean`.
+
+### IMP-M16-08 — Closed rooms release their Redis keys
+
+**Repo:** `turnbase-platform`, `turnbase` (docs) · **Depends on:** IMP-M16-07
+
+**Covers:** finding 13.
+
+**Read first:**
+- `docs/specs/platform/room-lifecycle.md` §1.1 (key table), §1.2, §1.3, §4 (`detachSession`, the transition to `CLOSED`), §5.2
+- `docs/specs/platform/data-model.md` (the `room.state` column and `closed_reason`)
+- `turnbase-platform/src/main/java/io/turnbase/platform/room/RoomOwnershipService.java` (`CLAIM_SCRIPT`, `RELEASE_SCRIPT`), `.../room/ReconciliationJob.java`, `.../room/RoomSessionDetacherImpl.java`
+- `turnbase-platform/src/test/java/io/turnbase/platform/room/ReconciliationJobIT.java`
+- `docs/specs/deployment/load-testing.md` §13 (finding 13)
+
+**Satisfies:** none
+
+**Settled:**
+- When a room's `CLOSED` transition commits, delete `room:<id>:pod` (only if it names this instance: a Lua
+  compare-and-delete) and `room:<id>:epoch`. **Verify first that `CLOSED` is terminal** in the room state
+  machine (`room-lifecycle.md`, `data-model.md`, `room-websocket.md`: "The room cannot be rejoined"); if
+  any document lets a closed room reopen, stop under `spec-defect`, because that would be a genuine new
+  contradiction.
+- The reconciliation job (`room-lifecycle.md` §5.2) gains a sweep that `SCAN`s `room:*:pod` and
+  `room:*:epoch` in batches, checks the rooms' state in Postgres with one query per batch, and deletes the
+  keys of `CLOSED` or nonexistent rooms. That cleans crash leftovers and the existing leak. It never uses
+  `KEYS`.
+- Amend `room-lifecycle.md` §1.1 (the *TTL* column: the keys now live until the room closes) and the §5.2
+  duty table.
+
+**Done when:**
+- An integration test closes a room and asserts `EXISTS` is `0` for both keys.
+- An integration test seeds 5,000 orphan keys for closed rooms: one sweep removes them and leaves the
+  keys of open rooms untouched.
+- Redis `INFO commandstats` shows 0 `keys` calls across those tests.
+- `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green; branch merged
+  `--ff-only`, pushed and deleted; the `turnbase-platform` ref is bumped; `python3 scripts/check-corpus.py`
+  prints `clean`.
+
+### IMP-M16-09 — Reconciliation and metrics stop scanning everything
+
+**Repo:** `turnbase-platform` · **Depends on:** IMP-M16-08
+
+**Covers:** finding 15 and the platform-CPU share of findings 1 and 2.
+
+**Read first:**
+- `turnbase-platform/src/main/java/io/turnbase/platform/room/ReconciliationJob.java` (`reconcileOrphanedSessionArtifacts`: nine `redis.keys(prefix + "*")` calls, then `sessionBelongsToOpenRoom` once per session)
+- `turnbase-platform/src/main/java/io/turnbase/platform/common/BusinessMetricsConfig.java` (the two `count(*)` gauges, refreshed every 30 s)
+- `docs/specs/platform/data-model.md` (`room_open_state_idx`, `room_active_session_idx`), `docs/specs/deployment/schema-migrations.md` (migration naming)
+- `docs/specs/platform/room-lifecycle.md` §5.2
+- `docs/specs/deployment/load-testing.md` §13 (finding 15)
+
+**Satisfies:** none
+
+**Settled:**
+- Replace the nine `redis.keys` calls with `SCAN` (`COUNT 500`), and the per-session
+  `sessionBelongsToOpenRoom` N+1 with one batched query per page of keys.
+- The gauges `SELECT count(*) FROM room WHERE state <> 'CLOSED'` and `... WHERE active_session_id IS NOT
+  NULL` already have partial indexes in the baseline (`room_open_state_idx`, `room_active_session_idx`).
+  Run `EXPLAIN` on a Testcontainers Postgres seeded with 100,000 closed rooms and a few hundred open
+  ones. If neither is a sequential scan, record the plans and add nothing. If either is, find why and add
+  a Flyway migration (name per `schema-migrations.md`) with the partial index that makes it an index scan.
+
+**Done when:**
+- An integration test with 10,000 stale keys asserts 0 `keys` calls (`INFO commandstats`) and correct
+  cleanup of exactly the stale ones.
+- A test asserts the number of SQL statements per reconcile tick does not grow with the number of
+  sessions (a datasource statement counter, or `pg_stat_statements`).
+- An `EXPLAIN`-based test (or, if a test is impractical, a note in the commit message and in
+  `load-testing.md` §13 finding 15) shows both gauge queries use an index.
+- `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green; branch merged
+  `--ff-only`, pushed and deleted; the `turnbase-platform` ref is bumped.
+
+### IMP-M16-10 — Platform threads are bounded and released
+
+**Repo:** `turnbase-platform`, `turnbase` (docs, `loadtest/reports/`) · **Depends on:** IMP-M16-01, IMP-M16-07
+
+**Environment:** a live Docker Desktop Kubernetes cluster with the loadtest release; apply the rebuild
+rule of the milestone introduction.
+
+**Covers:** findings 5 and 17.
+
+**Read first:**
+- `docs/specs/deployment/load-testing.md` §13 (findings 5 and 17), `loadtest/README.md` (run protocol, `snapshot.sh`)
+- `turnbase-platform/src/main/java/io/turnbase/platform/websocket/WebSocketConfig.java` (`configureClientInboundChannel` and the heartbeat scheduler), `.../game/GameHostChannels.java`, `.../upload/UploadAsyncConfig.java` (a bounded pool to copy)
+- `turnbase-platform/src/main/resources/application.yml` (`server.tomcat`, `spring.task`)
+
+**Satisfies:** none
+
+**Settled:**
+- Set `spring.task.scheduling.pool.size: 4` (the ownership lease has its own scheduler since `IMP-M16-07`).
+- Run the `parallelism` scenario at 32 pairs for 3 minutes (`LEVELS=32 STEP_SECONDS=180`) followed by 5
+  minutes idle, taking the thread census of `snapshot.sh` before the run, at the peak and after the idle
+  wait. Identify which pools retain threads.
+- Every pool that grows under load gets explicit bounds and releases idle threads: the STOMP
+  `clientInboundChannel`, `clientOutboundChannel` and `brokerChannel` executors configured in
+  `WebSocketConfig` (core = available processors, max = 4 × processors, keep-alive 60 s,
+  `allowCoreThreadTimeOut` true, a bounded queue with caller-runs rejection); `server.tomcat.threads.max`
+  and `min-spare` set explicitly; the gRPC client executors bounded; and any other retaining pool the
+  census names gets the same treatment.
+
+**Done when:**
+- Configuration tests assert the pool settings (scheduler size, the three STOMP executors, the Tomcat
+  keys, the gRPC executor).
+- After rebuilding the platform image and reinstalling, the same 32-pair run's idle-after thread count is
+  within 10% of idle-before, or within 10 threads, whichever is larger.
+- A short report under `loadtest/reports/` (named `2026-10-NN-m16-threads.md`) holds the three census
+  tables (before, peak, after) before and after the change, and `load-testing.md` §13 findings 5 and 17
+  each get an `**M16:**` line pointing at it.
+- `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green; branch merged
+  `--ff-only`, pushed and deleted; the `turnbase-platform` ref is bumped; `python3 scripts/check-corpus.py`
+  prints `clean`.
+
+### IMP-M16-11 — Room readiness is not lost to subscribe races
+
+**Repo:** `turnbase-platform`, `turnbase-frontend`, `turnbase` (docs, `loadtest/`) · **Depends on:** IMP-M16-01
+
+**Environment:** a live Docker Desktop Kubernetes cluster with the loadtest release (for the k6 smoke
+only); apply the rebuild rule.
+
+**Covers:** finding 4.
+
+**Read first:**
+- `docs/specs/api-design/room-websocket.md` (*Destinations*, *Readiness*, *Snapshot Delivery*, *Error Handling*) and `docs/specs/api-design/websocket.md`
+- `turnbase-platform/src/main/java/io/turnbase/platform/websocket/WebSocketConfig.java`, `.../websocket/WebSocketChannelInterceptor.java`, `turnbase-platform/src/test/java/io/turnbase/platform/websocket/WebSocketIT.java`
+- `loadtest/lib/stomp.js`, `loadtest/lib/pair.js` (`SUBSCRIBE_SETTLE_MS` near the subscriptions), `loadtest/lib/config.js`, `loadtest/README.md`
+- `turnbase-frontend/src/features/rooms/roomSocket.ts`, `turnbase-frontend/src/features/rooms/RoomLobby.tsx`
+- `docs/specs/deployment/load-testing.md` §13 (finding 4)
+
+**Satisfies:** none
+
+**Settled:**
+- Clients must not act on a room until their room-topic `SUBSCRIBE` is confirmed. Mechanism: the STOMP
+  `receipt` header on `SUBSCRIBE`, answered with a `RECEIPT` frame once the subscription is registered.
+- First verify with an integration test whether the platform's simple-broker configuration already returns
+  a `RECEIPT` for a `SUBSCRIBE` with a `receipt` header. If not, implement it (for example a channel
+  interceptor whose `afterSendCompletion` on the inbound channel sends the `RECEIPT` after the broker
+  handled the `SUBSCRIBE`) and prove the ordering.
+- The k6 harness (`stomp.js`, `pair.js`) waits for the `RECEIPT` instead of `SUBSCRIBE_SETTLE_MS`; that
+  variable is removed from `config.js` and `README.md`.
+- Check whether the frontend room client sends an action (for example `TOGGLE_READY`) before its
+  subscription is confirmed. If yes, it waits for the receipt first.
+- `room-websocket.md` is amended to require the receipt before a client acts.
+
+**Done when:**
+- **Platform integration test.** Subscribe with a receipt, then a broadcast sent immediately after the
+  receipt is always received: 1,000 iterations, 0 misses.
+- **Smoke.** `k6 run loadtest/scenarios/smoke.js` passes against the live cluster with the receipt-based
+  harness (`tb_errors` 0).
+- **Frontend.** If the client changed: a unit test proves it sends nothing before the receipt;
+  `npm run lint`, `npm run build` and `npm test` are green in `turnbase-frontend`. If it did not, the
+  commit message says what was checked.
+- `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green in
+  `turnbase-platform`; branches merged `--ff-only`, pushed and deleted; the `turnbase-platform` ref (and
+  the `turnbase-frontend` ref, if it changed) bumped; `python3 scripts/check-corpus.py` prints `clean`.
+
+### IMP-M16-12 — The 300-second stall is explained and removed
+
+**Repo:** `turnbase-platform` (chart, if a default changes), `turnbase` (docs, `loadtest/reports/`) · **Depends on:** IMP-M16-01, IMP-M16-07, IMP-M16-09, IMP-M16-10
+
+**Environment:** a live Docker Desktop Kubernetes cluster with the loadtest release; apply the rebuild
+rule. The runs last 15 minutes or more: background them.
+
+**Covers:** findings 3 and 10.
+
+**Read first:**
+- `docs/specs/deployment/load-testing.md` §5, §13 (findings 3 and 10), `loadtest/README.md`, `loadtest/reports/2026-10-18-start-rate.md`
+- `loadtest/helm/values-loadtest.yaml`, `turnbase-platform/deploy/helm/turnbase/` (Postgres and Redis templates and values)
+- `docs/specs/deployment/local-environment.md` (the Redis and Postgres settings)
+
+**Satisfies:** none
+
+**Settled:**
+- Run `start-rate` at a constant 16 games/s for 15 minutes (`RATES=16 STEP_SECONDS=900`), or `parallelism`
+  at 32 pairs for 15 minutes, with the `IMP-M16-01` sampling. Extract every `ws_connecting` above 2 s and
+  every `room_join` above 300 ms with its timestamp; correlate with `kubectl logs --timestamps` of
+  Postgres (with `log_checkpoints=on`), Redis (`LATENCY LATEST`, `INFO persistence` `aof_delayed_fsync`,
+  RDB saves), the platform (GC and safepoint logs through `-Xlog:gc*,safepoint` set in the loadtest
+  overlay) and the ingress.
+- **If the stall no longer appears** after `07`, `09` and `10`: record that with the numbers; the item is
+  `DONE`.
+- **Otherwise** run the experiment with Postgres `checkpoint_timeout=30min` and Redis `save ""` (the AOF
+  stays on) through the loadtest overlay. Whichever change removes the stall is made permanent in the
+  chart defaults if it is a sane production setting: for Redis, RDB snapshots off with the AOF on is
+  acceptable; for Postgres, spread the checkpoints (`checkpoint_completion_target=0.9`, a larger
+  `max_wal_size`) rather than disabling them. The cause is recorded. If neither removes it, continue down
+  the candidates (the 10 s equals the lease TTL; Hikari `maxLifetime` 30 min; the JWKS refresh; the 60 s
+  reconcile tick; the 15-minute `upload-slot-cleanup`; the Tomcat accept queue). If every candidate is
+  ruled out and the cause remains unknown, the item is `PARTIAL` with a `**Remaining:**` line naming what
+  was ruled out.
+
+**Done when:**
+- A report under `loadtest/reports/` (`2026-10-NN-m16-stall.md`) holds the correlation table (stall
+  timestamps against the logs of each component) and the conclusion.
+- A 15-minute rerun shows no `ws_connecting` above 2 s and `room_join` p99 below 300 ms.
+- A chart change, if any, passes `helm lint` and `helm template` and the `turnbase-platform` ref is bumped
+  after green CI; the rebuilt install reproduces the rerun.
+- `load-testing.md` §13 findings 3 and 10 carry `**M16:**` lines; `python3 scripts/check-corpus.py`
+  prints `clean`; merged to `master` and pushed.
+
+### IMP-M16-13 — Platform CPU per move is profiled and the top hotspots fixed
+
+**Repo:** `turnbase-platform`, `turnbase` (docs, `loadtest/reports/`) · **Depends on:** IMP-M16-07, IMP-M16-09, IMP-M16-10
+
+**Environment:** a live Docker Desktop Kubernetes cluster with the loadtest release; apply the rebuild
+rule.
+
+**Covers:** findings 1 and 2.
+
+**Read first:**
+- `docs/specs/deployment/load-testing.md` §13 (findings 1, 2 and 15), `loadtest/README.md`, `loadtest/reports/2026-10-18-parallelism.md`
+- `turnbase-platform/src/main/java/io/turnbase/platform/game/GameInputService.java` (the per-move path), `.../room/RoomEventExecutor.java` (the room mutation path: room lock, epoch read, version CAS)
+
+**Satisfies:** none
+
+**Settled:**
+- Record a JFR profile (`jcmd <pid> JFR.start duration=120s settings=profile filename=…`, copied out with
+  `kubectl cp`) of the platform during `parallelism` at 64 pairs. Capture `pg_stat_statements` and Redis
+  `commandstats` deltas per move and per room join.
+- Write the top-10 CPU hotspots and the per-move and per-join Redis and SQL command counts into a report
+  under `loadtest/reports/` (`2026-10-NN-m16-cpu.md`).
+- Fix every hotspot that takes 10% or more of platform CPU and has a **local** fix (no architecture
+  change, no spec change beyond a clarification). Anything needing more is recorded in the report and in
+  `load-testing.md` §13 as a *Phase B note*; it does not become a registry item.
+
+**Done when:**
+- The report is committed; each fix has a test; a rerun at 64 pairs shows moves per second and platform CPU
+  per move before and after, in the report.
+- `load-testing.md` §13 findings 1 and 2 carry `**M16:**` lines.
+- `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green; branch merged
+  `--ff-only`, pushed and deleted; the `turnbase-platform` ref is bumped; `python3 scripts/check-corpus.py`
+  prints `clean`.
+
+### IMP-M16-14 — Re-verification runs: capacity
+
+**Repo:** `turnbase` (umbrella; nothing to bump) · **Depends on:** IMP-M16-01, IMP-M16-02, IMP-M16-03, IMP-M16-04, IMP-M16-05, IMP-M16-06, IMP-M16-07, IMP-M16-08, IMP-M16-09, IMP-M16-10, IMP-M16-11, IMP-M16-12, IMP-M16-13
+
+**Environment:** a live Docker Desktop Kubernetes cluster with the loadtest release, every M16 image
+rebuilt and reinstalled (rebuild rule). Measurement only. Each run is long: background it and poll.
+
+**Covers:** the capacity half of the re-verification; finding 11.
+
+**Read first:**
+- `loadtest/README.md` (run protocol), `loadtest/reports/TEMPLATE.md`, `loadtest/reports/SUMMARY.md`
+- `docs/specs/deployment/load-testing.md` §5, §6, §8, §13
+- the Phase A reports of the same scenarios in `loadtest/reports/` (`2026-10-18-parallelism.md`, `…-ramp-to-break.md`, `…-start-rate.md`, `…-contexts.md`)
+
+**Satisfies:** none
+
+**Settled:**
+- Provision 3,000 users first (`USERS=3000`; finding 11). Run `parallelism`, `ramp-to-break`, `contexts` and
+  `start-rate`, the last with `RATES=1,2,4,8,16,32,64,128 MAX_PAIRS=1500`, following `loadtest/README.md`
+  and the run protocol of `load-testing.md`. Reset (`bash loadtest/reset.sh`) and re-provision between
+  runs.
+- One report per run from `TEMPLATE.md`, checked with `bash loadtest/check-report.sh` until
+  `REPORT COMPLETE`, each with a *Phase A vs M16* comparison table against the Phase A report of the same
+  scenario. A segment where `check-generator.sh` says `generator-bound` is flagged and not counted.
+- No code, chart or overlay change; a bad number is a result.
+
+**Done when:**
+- `ls loadtest/reports/*-m16-parallelism.md loadtest/reports/*-m16-ramp-to-break.md loadtest/reports/*-m16-contexts.md loadtest/reports/*-m16-start-rate.md`
+  lists four reports (the date prefix is the run's), each `REPORT COMPLETE`.
+- `load-testing.md` §13 findings 1 to 4 and 8 to 11 each carry an `**M16:**` line, resolved or persists,
+  with the new numbers.
+- `python3 scripts/check-corpus.py` prints `clean`; merged to `master` and pushed.
+
+### IMP-M16-15 — Re-verification runs: endurance, and the M16 summary
+
+**Repo:** `turnbase` (umbrella; nothing to bump) · **Depends on:** IMP-M16-14
+
+**Environment:** as `IMP-M16-14`. The soak holds 30 minutes: background it, poll at most every five
+minutes. Measurement only.
+
+**Covers:** the endurance half of the re-verification; findings 5, 13 to 17.
+
+**Read first:**
+- `loadtest/README.md`, `loadtest/reports/TEMPLATE.md`, `loadtest/reports/SUMMARY.md`
+- `docs/specs/deployment/load-testing.md` §5 (`soak`, `up-down`), §8, §13
+- the `IMP-M16-14` `ramp-to-break` report (its ceiling sets the soak load) and the Phase A `soak` and `up-down` reports
+
+**Satisfies:** none
+
+**Settled:**
+- Run `soak` (30 minutes at 70% of the new `ramp-to-break` ceiling, as in Phase A) and `up-down`, with the
+  Redis sampler, the thread census and the Game Host class histogram taken before and after.
+- State pass or fail for each, in the reports and in `SUMMARY.md`: no `not owned by this instance` ERROR in
+  the platform log; the Redis keyspace returns to its pre-run size within 5 minutes after `up-down` (within
+  1%); platform threads idle-after within 10% of idle-before; Game Host heap after GC drifts less than 10%
+  over the soak; HTTP p99 drifts less than 25% over the soak; no Game Host restart other than a
+  deliberately induced one.
+- A problem that persists is a *Phase B note*, never a registry item.
+
+**Done when:**
+- `ls loadtest/reports/*-m16-soak.md loadtest/reports/*-m16-up-down.md` lists two reports, each
+  `REPORT COMPLETE` by `bash loadtest/check-report.sh`.
+- `loadtest/reports/SUMMARY.md` has an *M16* section with the pass or fail of every criterion above and
+  links to the reports; `load-testing.md` §13 is annotated for **every** finding 1 to 18 with an `**M16:**`
+  line and the evidence link.
+- `python3 scripts/check-corpus.py` prints `clean`; merged to `master` and pushed.
 
 ---
 

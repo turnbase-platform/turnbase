@@ -160,6 +160,9 @@ defaults above where it speaks, and nowhere else.
 - **Owner-reserved decisions.** When a section says to *record* a conflict rather than resolve it,
   write the open question where the section says (an `OQ-*` entry in the owning document's *Open
   questions*). That is not a `Gate:` line and the row does not become `BLOCKED`. Do not choose a side.
+- **Decisions an item states are the owner's.** Where a section says *amend spec X to say Y* (M16 does),
+  edit that spec as part of the item and carry on; that is not a `spec-defect` stop, and nobody is
+  asked. A contradiction the section did not anticipate still goes through `spec-defect`.
 
 ## When the documents fail you
 
