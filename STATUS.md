@@ -1,18 +1,18 @@
 ## Last Session Summary
 
-**Date:** 2026-10-19 (session 216) — **`IMP-M16-01` done: the load-test harness and the record corrections.** 172 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-02…15` `READY`.
+**Date:** 2026-10-19 (session 217) — **`IMP-M16-02` done: Game Host wedge supervision actually restarts the JVM.** 173 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-03…15` `READY`.
 
-**What changed.** `turnbase-platform` gained `postgres.extraArgs` and `redis.extraArgs` (default `[]`; the default render is byte-identical). The load-test overlays pass `pg_stat_statements` and `log_checkpoints=on` to Postgres. New `loadtest/census.sh` (threads by name prefix for both JVMs, Game Host class histogram, Redis keyspace, memory, `keys`/`scan` stats) and `loadtest/redis-sampler.sh` (`redis.csv`, every 30 s); `snapshot.sh` appends the `pg_stat_statements` top 20 and calls the census; `run.sh start` zeroes the Postgres and Redis counters and sets the Redis latency monitor; `reset.sh` recreates `pg_stat_statements`. `pair.js` caps pairs at `USERS / 2`; `default-limits` defaults its think time to 250 ms (finding 12: harness artefact, product limit unchanged). Finding 6 (the Game Host image does have `jcmd`) is corrected in `load-testing.md` §13 and the `contexts` report.
+**What changed.** `turnbase-game-host`: `docker/supervise.sh` now runs the JVM in a loop. It probes `/actuator/health/liveness` with `curl -sf` (a 503 is silent; dependency outages never restart the host), SIGKILLs after four silent probes past a 45 s grace, and respawns at once. It also kills on the marker file `HostWedge` writes (`turnbase.gamehost.wedge-marker`, checked every second), writes `/tmp/jvm.pid`, timestamps every line, and exits non-zero only after 5 JVM deaths in 10 minutes. `HostWedge` no longer spawns the nonexistent `kill`: it publishes `LivenessState.BROKEN`, writes the marker and keeps `halt(70)`. New `docker/test/supervise-test.sh` (fake `java`, stub HTTP server; a CI step before the Maven build). The chart needed no change (it already probes liveness), so `turnbase-platform` has no new ref. ADR-0018 §2 and *Consequences*, `game-host-internals.md` §11 and `local-environment.md` §7.8 are amended; findings 7 and 18 are annotated.
 
-**Live check.** `pg_stat_statements` loaded, `sum(calls)` 349 after the smoke run, Redis latency threshold 100, `redis.csv` written, census sections all present. The cluster is left installed with the new chart, reset and provisioned.
+**Live check.** In the cluster, `kill -STOP` of the JVM twice in a row: **17.2 s and 16.0 s** to the new JVM's first log line, pod restart count 0. The marker also works live. The `turnbase/game-host:dev` image and deployment on the cluster now carry the new supervisor.
 
-**Not done.** Nothing owed on `01`. The platform images were not rebuilt (no code changed); `02` changes the Game Host image and the chart, so every live item after it rebuilds first (milestone *Rebuild rule*).
+**Not done.** Nothing owed on `02`. The CrashLoopBackOff explanation of finding 18's six minutes is the likely cause and was not reproduced on the old image.
 
 ---
 
 ## Next Priorities
 
-**Work M16 in order: ~~`01`~~ → `02` → `03` → `04` → `05` → `06` → `07` → `08` → `09` → `10` → `11` → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
+**Work M16 in order: ~~`01`~~ → ~~`02`~~ → `03` → `04` → `05` → `06` → `07` → `08` → `09` → `10` → `11` → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
 
 - `01`, `02`, `03` and `10…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
 - `14` and `15` are measurement only: findings that persist become Phase B notes in `load-testing.md` §13, never registry items.

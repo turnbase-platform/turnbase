@@ -40,15 +40,24 @@ offered no way out. Four independent defects produced it:
    `onInit` failure, is `SESSION_CREATION_FAILED` and is **not** retried: the game, not the host, is
    at fault.
 2. **A process outside the JVM kills a wedged Game Host.** The image's entrypoint is
-   `docker/supervise.sh`, which runs the JVM as a child and probes `/actuator/health` on the management
-   port. After a 45 s start-up grace, four consecutive silent probes (any HTTP answer counts, a 503
-   included) SIGKILL the JVM and exit non-zero; the restart policy (`restart: unless-stopped` under
-   Compose, the pod's under Kubernetes) boots a fresh one. It has to be a separate process because
-   nothing inside a stalled JVM runs — this was found the hard way: an in-JVM watchdog logged the
-   wedge and then never reached its own `halt`. That in-JVM `BootWatchdog` is kept for the case where
-   only the guest thread is stuck: it guards every guest boot with `turnbase.gamehost.boot-timeout`
-   (20 s), and on expiry `HostWedge` marks health DOWN, deregisters, halts with exit code 70 and
-   SIGKILLs itself as a fallback. It is best-effort; the supervisor is the guarantee.
+   `docker/supervise.sh`, which runs the JVM as a child **in a loop** and probes
+   `/actuator/health/liveness` on the management port with `curl -sf`, so only a 2xx is an answer (a
+   503 is silent; the liveness group excludes Redis and Postgres, so a dependency outage never restarts
+   the host). After a 45 s start-up grace per JVM, four consecutive silent probes SIGKILL the JVM
+   (`kill` is a shell builtin; the image has no `kill` binary) and the loop starts a new one at once,
+   so a wedge never reaches the kubelet's restart back-off. Only after 5 JVM deaths within 10 minutes
+   does the script exit non-zero and leave the rest to the restart policy (`restart: unless-stopped`
+   under Compose, the pod's under Kubernetes). A TERM or INT is passed to the JVM and the script exits
+   with its status. The current JVM's pid is in `/tmp/jvm.pid` and every line the script prints
+   carries an ISO-8601 UTC timestamp. It has to be a separate process because nothing inside a stalled
+   JVM runs — this was found the hard way: an in-JVM watchdog logged the wedge and then never reached
+   its own `halt`. That in-JVM `BootWatchdog` is kept for the case where only the guest thread is
+   stuck: it guards every guest boot with `turnbase.gamehost.boot-timeout` (20 s), and on expiry
+   `HostWedge` publishes `LivenessState.BROKEN`, writes the marker file `turnbase.gamehost.wedge-marker`
+   (default `/tmp/turnbase-wedged`), deregisters and tries `Runtime.halt(70)` after 4 s. The supervisor
+   checks the marker every second (grace or not), SIGKILLs the JVM at once and removes the file. The
+   former `kill -9` fallback from inside the JVM is gone: it always failed, there being no `kill`
+   binary. The in-JVM path is best-effort; the supervisor is the guarantee.
 3. **Failures name their cause.** `START_GAME` failures carry `reason` ∈ `NO_HOST_AVAILABLE`,
    `HOST_UNRESPONSIVE`, `SESSION_CREATION_FAILED`, each with a message that says what to do ("try
    again in a minute"). The exception's own message is still never forwarded (unchanged).
@@ -71,8 +80,10 @@ offered no way out. Four independent defects produced it:
 
 ## Consequences
 
-- A wedge costs the supervisor's detection (about 20 s after its grace) plus a restart (about 15 s)
-  instead of a permanent outage; a player who starts during it waits, with feedback, and normally
+- A wedge costs the supervisor's detection plus a restart instead of a permanent outage. Measured in
+  the cluster (IMP-M16-02, `kill -STOP` of the JVM, twice in a row on one pod): **17.2 s and 16.0 s**
+  from the STOP to the new JVM's first log line, the pod's restart count 0. Before the respawn loop
+  the same event took about 6 minutes (the kubelet's CrashLoopBackOff, load-testing finding 18); a player who starts during it waits, with feedback, and normally
   succeeds on the retry. The wedge is common enough here (about one start in four) that two attempts left roughly one start in eleven failing; the third attempt is the measured answer. Worst case for a start is about 3 × 35 s of timeouts plus the waits between them before it gives up.
 - Every Game Host image now runs a shell wrapper as PID 1; `docker stop` still reaches the JVM because
   the wrapper forwards SIGTERM.

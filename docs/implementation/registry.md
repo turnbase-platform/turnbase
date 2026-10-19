@@ -220,7 +220,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M15-13 | Phase A runs — soak, up-down and Phase A summary | docs (umbrella) | M15-11, M15-12 | DONE |
 | **M16 — Pre-Phase-B fixes** ||||
 | IMP-M16-01 | Load-test harness and record corrections | docs (umbrella), platform (chart) | — | DONE |
-| IMP-M16-02 | Game Host wedge supervision actually restarts the JVM | game-host, platform (chart), docs | — | WIP (session 217) |
+| IMP-M16-02 | Game Host wedge supervision actually restarts the JVM | game-host, platform (chart), docs | — | DONE |
 | IMP-M16-03 | First cold boot no longer wedges | game-host, docs (umbrella) | M16-01, M16-02 | READY |
 | IMP-M16-04 | Bounded concurrent guest boots | game-host, docs | M16-03 | READY |
 | IMP-M16-05 | Shared Espresso engine across game contexts | game-host, docs | M16-04 | READY |
@@ -7654,6 +7654,7 @@ roughly 6 minutes of finding 18.
 - `turnbase-game-host/src/main/java/io/turnbase/gamehost/espresso/BootWatchdog.java`, `.../registration/HostWedge.java`, `.../registration/RegistrationHealthIndicator.java`, `.../GameHostProperties.java`
 - `turnbase-platform/deploy/helm/turnbase/templates/gamehost-deployment.yaml`
 - `docs/specs/deployment/load-testing.md` §13 (findings 7 and 18)
+- `docs/specs/deployment/local-environment.md` §7.8 (the Game Host property table, where `wedge-marker` is added)
 
 **Satisfies:** none (ADR-0018 §2 as amended)
 
@@ -7727,6 +7728,8 @@ roughly 6 minutes of finding 18.
   merged `--ff-only`, pushed and deleted; the `turnbase-game-host` ref (and the `turnbase-platform` ref if
   the chart changed) bumped after CI is green.
 - `python3 scripts/check-corpus.py` prints `clean`.
+
+**Evidence (session 217).** Primary test in the cluster, image `turnbase/game-host:dev` `sha256:7094bc20…`: `kill -STOP` of the JVM (pid 8, then 255), the second STOP 58 s after the new JVM's first log line. STOP to the new JVM's first log line: **17.2 s and 16.0 s**, restart count 0, supervisor lines `has not answered 4 liveness probes in a row; killing it`, `exited with status 137 (death 1 of 5 within 600 s)`, `started JVM 255`. Mode B live: `touch /tmp/turnbase-wedged` killed JVM 476 within the second, started 618. `docker/test/supervise-test.sh` passes (mode A silent, stopped, 503, TERM-ignoring child, health DOWN with liveness UP, marker, SIGTERM, 5 deaths, window); `HostWedgeTest` covers BROKEN, marker and no process. `./mvnw verify -Pintegration` green; the chart needed no change (`helm lint` green; it already probes `/actuator/health/liveness`), so `turnbase-platform` is untouched. CI on `turnbase-game-host` `master` (`b6b1469`) green including the new `Supervisor test` step.
 
 ### IMP-M16-03 — First cold boot no longer wedges
 
