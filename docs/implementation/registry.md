@@ -221,7 +221,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M16 — Pre-Phase-B fixes** ||||
 | IMP-M16-01 | Load-test harness and record corrections | docs (umbrella), platform (chart) | — | DONE |
 | IMP-M16-02 | Game Host wedge supervision actually restarts the JVM | game-host, platform (chart), docs | — | DONE |
-| IMP-M16-03 | First cold boot no longer wedges | game-host, docs (umbrella) | M16-01, M16-02 | READY |
+| IMP-M16-03 | First cold boot no longer wedges | game-host, docs (umbrella) | M16-01, M16-02 | WIP (session 218) |
 | IMP-M16-04 | Bounded concurrent guest boots | game-host, docs | M16-03 | READY |
 | IMP-M16-05 | Shared Espresso engine across game contexts | game-host, docs | M16-04 | READY |
 | IMP-M16-06 | Game Host session bookkeeping is released | game-host | M16-05 | READY |
