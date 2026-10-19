@@ -1,18 +1,18 @@
 ## Last Session Summary
 
-**Date:** 2026-10-19 (session 217) — **`IMP-M16-02` done: Game Host wedge supervision actually restarts the JVM.** 173 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-03…15` `READY`.
+**Date:** 2026-10-19 (session 218) — **`IMP-M16-03` done: the first cold boot no longer wedges as often; warm-up is off by default.** 174 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-04…15` `READY`.
 
-**What changed.** `turnbase-game-host`: `docker/supervise.sh` now runs the JVM in a loop. It probes `/actuator/health/liveness` with `curl -sf` (a 503 is silent; dependency outages never restart the host), SIGKILLs after four silent probes past a 45 s grace, and respawns at once. It also kills on the marker file `HostWedge` writes (`turnbase.gamehost.wedge-marker`, checked every second), writes `/tmp/jvm.pid`, timestamps every line, and exits non-zero only after 5 JVM deaths in 10 minutes. `HostWedge` no longer spawns the nonexistent `kill`: it publishes `LivenessState.BROKEN`, writes the marker and keeps `halt(70)`. New `docker/test/supervise-test.sh` (fake `java`, stub HTTP server; a CI step before the Maven build). The chart needed no change (it already probes liveness), so `turnbase-platform` has no new ref. ADR-0018 §2 and *Consequences*, `game-host-internals.md` §11 and `local-environment.md` §7.8 are amended; findings 7 and 18 are annotated.
+**What changed.** `loadtest/boot-wedge-repro.sh <cycles> <pairs>` deletes the Game Host pod, runs the smoke scenario (new `PAIRS` variable) and counts both wedge modes (supervisor "killing it", `BootWatchdog` "Guest boot wedged") per cycle. Measured over 40 cycles each: baseline **11/40**; experiment 1 (warm-up context closed before the real boot) 10/40, which falsified the close-race hypothesis; experiment 2 (warm-up skipped) **0/40**; final image with `turnbase.gamehost.warmup-enabled=false` as the default **2/40**. The second Espresso boot in a JVM is the one that wedges. `turnbase-game-host` (`380b58b`, CI green) carries the default; the supervisor stays the mitigation for the 5% residue. Median first start is 6.5 s cold without warm-up. Specs amended: `game-host-internals.md` §11, `local-environment.md` §7.8, `load-testing.md` §13 (findings 7 and 18), ADR-0018 Decision 2.
 
-**Live check.** In the cluster, `kill -STOP` of the JVM twice in a row: **17.2 s and 16.0 s** to the new JVM's first log line, pod restart count 0. The marker also works live. The `turnbase/game-host:dev` image and deployment on the cluster now carry the new supervisor.
+**Gate.** The Done-when clause had no path for "lowered but not to 0". `IMP-GATE-100` was opened and closed in this session: the registry now ends the item at the default change plus the rerun, with no third experiment.
 
-**Not done.** Nothing owed on `02`. The CrashLoopBackOff explanation of finding 18's six minutes is the likely cause and was not reproduced on the old image.
+**Not measured.** Contention (`pairs` 4) and a second game on one host; `IMP-M16-05` should repeat them. The cause inside Truffle's NFI (`nfi-gc` vs `dlsym`) is not found. The cluster runs the final `turnbase/game-host:dev` image and the chart's env; preflight is OK.
 
 ---
 
 ## Next Priorities
 
-**Work M16 in order: ~~`01`~~ → ~~`02`~~ → `03` → `04` → `05` → `06` → `07` → `08` → `09` → `10` → `11` → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
+**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → `04` → `05` → `06` → `07` → `08` → `09` → `10` → `11` → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
 
 - `01`, `02`, `03` and `10…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
 - `14` and `15` are measurement only: findings that persist become Phase B notes in `load-testing.md` §13, never registry items.

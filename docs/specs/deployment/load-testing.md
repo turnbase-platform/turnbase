@@ -441,6 +441,7 @@ what was not checked. An entry is not itself a work item. Milestone M16 (2026-10
    `/actuator/health` answering 503 with the JVM alive, and no restart because `supervise.sh` counts any HTTP answer as alive (ADR-0018 §2). The in-JVM exit with code 70 did not follow.
    **M16:** resolved by IMP-M16-02, the supervisor probes the liveness URL with `curl -sf` and acts on the wedge marker file; `HostWedge` no longer calls the missing `kill` (ADR-0018 §2, restart measured at 17.2 s and 16.0 s).
    No `kill` binary in the pod (only the shell builtin) and `jcmd` cannot attach to a wedged JVM; `kill -3` produced no dump (corrected by IMP-M16-01: `jcmd` exists in the image). The rerun (attempt 2) was clean. Suspected cause: the `HostWedge` path marks health DOWN but the halt is not reached.
+   **M16:** the cause is narrowed by IMP-M16-03: a wedge needs a first real guest boot, and the Game Host's throwaway warm-up context made it about ten times likelier (11 of 40 cold starts wedged, 2 of 40 with the warm-up off by default); the residual 5 % is covered by the supervisor. Details in `game-host-internals.md` §11 *Boot-wedge measurement*.
    Not checked: the exact log lines (lost with the stack reset), whether four contexts started at once make a wedge likelier, a thread dump of the wedged JVM.
 8. **A cold start with four contexts takes 10.2 to 10.3 s, twice the single-context 5 s.** Report: `2026-10-18-contexts.md`. All 50 cold-tagged starts are within 0.1 s of each other; half of the 20 s `BootWatchdog` limit.
    Not checked: whether the contexts are created one after another, and whether more contexts would pass the 20 s limit.
@@ -471,7 +472,7 @@ what was not checked. An entry is not itself a work item. Milestone M16 (2026-10
 18. **The Game Host wedges on its first cold start with the default single context too, and the restart took about 6 minutes.** Report: `2026-10-19-up-down.md` (attempt 1, run directory `20261018-234603-up-down-attempt1`). Context created 21:46:24Z, `BootWatchdog` "Guest boot wedged ... after 20000 ms" at 21:46:44Z,
     "supervisor: the JVM has not answered 4 probes in a row; killing it", next JVM log line 21:52:39Z. No game ran in the meantime (platform CPU 0.10 cores for the first 300 s, one `tb_game_start` of 59 s, 278 errors).
     Extends item 7 (seen with four contexts, and there the supervisor did not act). Attempt 2, on a reset stack, did not wedge. Not checked: the frequency, why the kill took about 6 minutes, whether it needs a freshly started pod.
-    **M16:** resolved by IMP-M16-02, the six minutes are most likely the kubelet's CrashLoopBackOff after the supervisor's non-zero exit (not reproduced on the old image); the supervisor now respawns the JVM itself and a `kill -STOP` restart measured 17.2 s and 16.0 s with the pod's restart count 0 (ADR-0018 *Consequences*).
+    **M16:** frequency measured by IMP-M16-03: 11 of 40 cold starts wedged on the first real boot with the warm-up on, 2 of 40 with it off (the new default); see item 7. **M16:** resolved by IMP-M16-02, the six minutes are most likely the kubelet's CrashLoopBackOff after the supervisor's non-zero exit (not reproduced on the old image); the supervisor now respawns the JVM itself and a `kill -STOP` restart measured 17.2 s and 16.0 s with the pod's restart count 0 (ADR-0018 *Consequences*).
 
 ### Phase A results
 

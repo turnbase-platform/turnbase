@@ -58,6 +58,9 @@ offered no way out. Four independent defects produced it:
    checks the marker every second (grace or not), SIGKILLs the JVM at once and removes the file. The
    former `kill -9` fallback from inside the JVM is gone: it always failed, there being no `kill`
    binary. The in-JVM path is best-effort; the supervisor is the guarantee.
+   *Amended 2026-10-19 (IMP-M16-03):* the start-up warm-up context made the wedge about ten times
+   likelier (11 of 40 cold starts against 2 of 40), so it is off by default
+   (`turnbase.gamehost.warmup-enabled`); `game-host-internals.md` §11 holds the measurement.
 3. **Failures name their cause.** `START_GAME` failures carry `reason` ∈ `NO_HOST_AVAILABLE`,
    `HOST_UNRESPONSIVE`, `SESSION_CREATION_FAILED`, each with a message that says what to do ("try
    again in a minute"). The exception's own message is still never forwarded (unchanged).

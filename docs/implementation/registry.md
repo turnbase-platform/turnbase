@@ -221,7 +221,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M16 — Pre-Phase-B fixes** ||||
 | IMP-M16-01 | Load-test harness and record corrections | docs (umbrella), platform (chart) | — | DONE |
 | IMP-M16-02 | Game Host wedge supervision actually restarts the JVM | game-host, platform (chart), docs | — | DONE |
-| IMP-M16-03 | First cold boot no longer wedges | game-host, docs (umbrella) | M16-01, M16-02 | WIP (session 218) |
+| IMP-M16-03 | First cold boot no longer wedges | game-host, docs (umbrella) | M16-01, M16-02 | DONE |
 | IMP-M16-04 | Bounded concurrent guest boots | game-host, docs | M16-03 | READY |
 | IMP-M16-05 | Shared Espresso engine across game contexts | game-host, docs | M16-04 | READY |
 | IMP-M16-06 | Game Host session bookkeeping is released | game-host | M16-05 | READY |
@@ -7797,11 +7797,21 @@ real game through the platform.
   the evidence) without a drop in the wedge rate, record the negative result in the same subsection (both
   rates and what each experiment changed), keep the `IMP-M16-02` supervisor as the mitigation, and mark
   the item `DONE`. Do not go on to a third.
+- **If an experiment lowers the rate but not to 0** (added by `IMP-GATE-100`): the change that lowered it
+  lands in `turnbase-game-host` as the default, its rerun of 40 cycles is recorded with its rate and
+  the baseline's in the same subsection, and the supervisor stays as the mitigation for the residue. That
+  is the end of the item (`DONE`); no third experiment is run to chase the residue.
 - The harness is committed in the umbrella and documented in `loadtest/README.md`; the umbrella branch is
   merged to `master` and pushed.
 - If a fix landed: `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green in
   `turnbase-game-host`; branch merged `--ff-only`, pushed and deleted; the `turnbase-game-host` ref is
   bumped after CI on its `master` is green. `python3 scripts/check-corpus.py` prints `clean`.
+
+**Closed:** IMP-GATE-100 (opened and closed 2026-10-19, session 218) — the *Done when* clause covered a
+baseline that reproduces and is fixed to 0 of 40, and experiments that do not help, but not the outcome that
+happened: the warm-up experiment cut the rate from 11 of 40 to 2 of 40 and never reached 0. A fourth branch
+was added above (rate lowered, residue left to the supervisor, item `DONE`), consistent with the existing
+stop-after-two-experiments rule. Fixed in this section only.
 
 ### IMP-M16-04 — Bounded concurrent guest boots
 

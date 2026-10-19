@@ -769,12 +769,37 @@ shipped in the guest bridge jar) through a **throwaway** guest context: `createS
 `ReportContexts`, so it cannot appear in history, statistics, `contexts:{instanceId}` or the active-session load
 signal. A failure is logged at WARN and startup continues cold. What it removes is the one-time process-level
 cost (native library load, Truffle/Espresso first-use); the per-context Espresso boot remains, because contexts
-share no code (a shared `Engine` was measured and did not help).
+share no code (a shared `Engine` was measured and did not help). **It is off by default**
+(`turnbase.gamehost.warmup-enabled`, `local-environment.md` §7.8): it is an extra Espresso boot in the JVM, and the
+boot-wedge measurement below found that this extra boot makes the next, real boot wedge about ten times as often (21 of 80 cold starts against 2 of 80).
+With it off the first game start boots cold: a median of 6.5 s (3.6 to 7.7) in the measurement runs, against 3.4 to 3.9 s after a warm-up.
 
 **Healthy only once registered (IMP-M10-08).** Registration runs on a background thread so a monolith that is not up never blocks process start, which left a window where the host was ready but unknown to the registry and a first `START_GAME` found `NO_HOST_AVAILABLE`. A `registration` health contributor is `DOWN` until the first `Register` is acknowledged, then `UP` for good (a later re-register is not an outage), so `/actuator/health` — the Compose healthcheck — stays unhealthy until the orchestrator can route here.
 
 **A wedged guest boot takes the host out of service ([ADR-0018](../../decisions/0018-game-start-resilience.md)).** Between one cold boot in ten and one in five deadlocks in Truffle's native interface (glibc 2.34: the `nfi-gc` thread against the boot thread's `dlsym`) and stalls the *whole* JVM at a safepoint: no Java thread runs, `jcmd` cannot attach, SIGTERM is ignored, `/actuator/health` does not answer, and until its lease lapses the host stays registered while every `CreateSession` times out. Nothing inside the JVM can act on that, so the image's entrypoint is `docker/supervise.sh`: it runs the JVM as a child in a loop, and after a 45 s grace per JVM SIGKILLs it and starts the next one at once when four consecutive probes of `/actuator/health/liveness` (`curl -sf`: only a 2xx is an answer; the liveness group excludes Redis and Postgres) get none, so a wedge never meets the kubelet's restart back-off. The script exits non-zero, and the restart policy (`restart: unless-stopped` under Compose, the pod's under Kubernetes) takes over, only after 5 JVM deaths within 10 minutes. It writes the JVM's pid to `/tmp/jvm.pid` and timestamps every line. As a second layer for a stuck guest thread in an otherwise live JVM, every guest boot — warm-up and each new context — runs under a `BootWatchdog` (`turnbase.gamehost.boot-timeout`, default 20 s): on expiry `HostWedge` publishes `LivenessState.BROKEN`, writes the marker file `turnbase.gamehost.wedge-marker` (default `/tmp/turnbase-wedged`), deregisters (4 s grace) and tries to halt the JVM with **exit code 70**; the supervisor checks the marker every second, grace or not, SIGKILLs the JVM at once and removes the file. The host starts no external process (the image has no `kill` binary). Both are mitigations for a runtime defect: revisit them on every GraalVM bump.
 
+**Boot-wedge measurement (IMP-M16-03).** `loadtest/boot-wedge-repro.sh <cycles> <pairs>` deletes the Game Host pod, waits for the new
+one to be Ready, runs the smoke scenario so that the first real guest boot happens through the platform with the Tic-Tac-Toe bundle,
+and counts both wedge modes in the pod's logs: mode A (the supervisor's `killing it`: the whole-JVM stall) and mode B (the
+`BootWatchdog` line `Guest boot wedged`). One cycle is one container cold start; the table is a rate of cold starts that wedged.
+
+| Run (`loadtest/results/<dir>`) | Cycles, pairs | Wedged cycles (A / B) | Rate |
+|---|---|---|---|
+| Baseline, warm-up on (`20261019-192247-boot-wedge`) | 40, 1 | 11 (11 / 1) | 27.5 % |
+| Experiment 1: warm-up context kept open until the first real boot has finished (`20261019-201630-boot-wedge`) | 40, 1 | 10 (10 / 0) | 25 % |
+| Experiment 2: warm-up skipped (`20261019-210357-boot-wedge`) | 40, 1 | 0 (0 / 0) | 0 % |
+| Rerun of the landed fix, warm-up off by default (`20261019-213729-boot-wedge`) | 40, 1 | 2 (2 / 0) | 5 % |
+
+What the logs show. Every wedge, in every run, happens in the first real game boot, after `Game context created`; the warm-up's own boot never
+wedged in the 80 cold starts that ran one. Hypothesis tested first: the throwaway warm-up context,
+closed at once, races the real boot's native-library loading. Experiment 1 kept that context open and the rate did not move (25 against
+27.5 %), so the race is not between the warm-up context's *close* and the real boot. Experiment 2, chosen from the evidence (the wedge
+needs an earlier Espresso boot in the same JVM), dropped the warm-up: 2 wedges in 80 cold starts against 21 in 80 with it. The cause
+inside Truffle's native interface is not found and not fixable here (ADR-0018 *Context*); the second boot is what raises the odds, not
+what the deadlock needs, since 2 of 80 still wedged without it. The residual rate is covered by the supervisor above (about 50 s to a
+working game in a wedged cycle, `seconds_to_first_game` 47 to 53 s in the CSVs). Not measured: contention (`<pairs>` 4), because the
+baseline reproduced; a second game on one host (its second context is the same extra boot, `IMP-M16-05` should repeat the 40 cycles
+with two games).
 For the single-instance MVP these are implemented but trivially satisfied
 (host selection always resolves to the one instance); the machinery exists so
 scale-out is a config change, not a redesign (ADR-0001).

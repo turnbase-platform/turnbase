@@ -17,6 +17,7 @@ export const cfg = {
   coldWindowMs: n('COLD_WINDOW_MS', 30000),
   startTimeoutMs: n('START_TIMEOUT_MS', 120000), stepTimeoutMs: n('STEP_TIMEOUT_MS', 10000),
   errorBackoffMs: n('ERROR_BACKOFF_MS', 1000),
+  pairs: n('PAIRS', 1), // smoke.js: concurrent pairs, each its own two users
   subscribeSettleMs: n('SUBSCRIBE_SETTLE_MS', 50), // pause after the room subscriptions, before the first ready
 };
 export const userName = (i) => cfg.userPrefix + String(i).padStart(5, '0');
