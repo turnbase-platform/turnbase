@@ -12,7 +12,7 @@
 
 **Work M16 in order: `01` → `02` → `03` → `04` → `05` → `06` → `07` → `08` → `09` → `10` → `11` → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
 
-- `01` and `10…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `02…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
+- `01`, `02`, `03` and `10…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
 - `14` and `15` are measurement only: findings that persist become Phase B notes in `load-testing.md` §13, never registry items.
 - **Phase B has its own design round** (autoscaling, multiple replicas; `load-testing.md` §9 is only an outline) and starts after M16.
 - **`IMP-M13-08` stays `WIP` and is owner-held.** It is a visual comparison against the approved

@@ -221,7 +221,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M16 — Pre-Phase-B fixes** ||||
 | IMP-M16-01 | Load-test harness and record corrections | docs (umbrella), platform (chart) | — | READY |
 | IMP-M16-02 | Game Host wedge supervision actually restarts the JVM | game-host, platform (chart), docs | — | READY |
-| IMP-M16-03 | First cold boot no longer wedges | game-host, docs | M16-02 | READY |
+| IMP-M16-03 | First cold boot no longer wedges | game-host, docs (umbrella) | M16-01, M16-02 | READY |
 | IMP-M16-04 | Bounded concurrent guest boots | game-host, docs | M16-03 | READY |
 | IMP-M16-05 | Shared Espresso engine across game contexts | game-host, docs | M16-04 | READY |
 | IMP-M16-06 | Game Host session bookkeeping is released | game-host | M16-05 | READY |
@@ -7500,7 +7500,7 @@ lazy reassignment after a Game Host dies); `platform-operations.md` `OQ-004` (`N
 99.9%); `IMP-M13-08`; horizontal scaling and autoscaling (Phase B).
 
 **Sequencing.** `01` → `02` → `03` → `04` → `05` → `06` → `07` → `08` → `09` → `10` → `11` → `12` → `13` →
-`14` → `15`. Depends-on enforces it. `01` and `10…15` need the cluster; `02…09` do not, but they change
+`14` → `15`. Depends-on enforces it. `01`, `02`, `03` and `10…15` need the cluster; `04…09` do not, but they change
 images and the chart, so every live item that follows must rebuild before it measures (below).
 
 **Live items (an `**Environment:**` line).** They need Docker Desktop Kubernetes running with the
@@ -7713,7 +7713,12 @@ roughly 6 minutes of finding 18.
 
 ### IMP-M16-03 — First cold boot no longer wedges
 
-**Repo:** `turnbase-game-host`, `turnbase` (docs) · **Depends on:** IMP-M16-02
+**Repo:** `turnbase-game-host`, `turnbase` (docs, `loadtest/`) · **Depends on:** IMP-M16-01, IMP-M16-02
+
+**Environment:** a live Docker Desktop Kubernetes cluster with the loadtest release; apply the rebuild
+rule (the Game Host image carries the `IMP-M16-02` supervisor). The wedge occurs on a container cold
+start, which an in-JVM test does not reproduce, so the harness restarts the real Game Host pod and boots a
+real game through the platform.
 
 **Covers:** the cause behind findings 7 and 18 (ADR-0018 records 5 of 23 restarts wedging).
 
@@ -7722,45 +7727,55 @@ roughly 6 minutes of finding 18.
 - `docs/decisions/0018-game-start-resilience.md` (*Context*)
 - `turnbase-game-host/src/main/java/io/turnbase/gamehost/warmup/GameHostWarmup.java`, `.../warmup/WarmupLifecycle.java`, `.../espresso/EspressoContextFactory.java`, `.../espresso/BootWatchdog.java`
 - `turnbase-game-host/docker/supervise.sh` (as changed by `IMP-M16-02`)
+- `loadtest/run.sh`, `loadtest/README.md`, `loadtest/scenarios/smoke.js`, `loadtest/lib/pair.js` (`getPair`), `turnbase-platform/deploy/helm/turnbase/templates/gamehost-deployment.yaml`
 
 **Satisfies:** none
 
 **Settled:**
-- **Harness first.** Build and commit `turnbase-game-host/scripts/boot-wedge-repro.sh <N>` (N = 40 unless
-  told otherwise). For each iteration it starts a fresh container of `turnbase/game-host:dev` (Redis in a
-  sidecar container), waits up to 60 s for the warm-up to finish or the host to wedge, sends one
-  `CreateSession` to trigger the first real guest boot (with `grpcurl` and the committed proto of
-  `turnbase-common`; where `grpcurl` is not installed, `docker run fullstorydev/grpcurl`), and counts the
-  `Guest boot wedged` lines and the supervisor's kills. The guest game is the one existing fixture
-  `CountingGame` (`io.turnbase.gamehost.bridge.fixture.CountingGame`,
-  `turnbase-game-host/src/test/java/io/turnbase/gamehost/bridge/fixture/CountingGame.java`), driven as
-  `turnbase-game-host/src/test/java/io/turnbase/gamehost/dispatch/SessionDispatcherIT.java` drives it (same
-  entry-point FQCN, `CreateSession` request shape), packaged by the script as a one-class jar from
-  `target/test-classes`. The Tic-Tac-Toe bundle is not used: no game-host test boots it, and the wedge is
-  in the Espresso boot, not in the game. If the first-real-boot trigger cannot be scripted, the warm-up
-  boot (every JVM start performs one) counts as the trigger and the subsection says the first-real-boot
-  path was not exercised.
+- **Harness first: `loadtest/boot-wedge-repro.sh <cycles> <pairs> [--dry-run]`** in the umbrella (not in
+  game-host). Each cycle: (1) delete the Game Host pod, `kubectl delete pod -l
+  app.kubernetes.io/name=gamehost,app.kubernetes.io/instance=turnbase` (the chart's `turnbase.selectorLabels`
+  with the release name `turnbase`; verify with `kubectl get pods --show-labels`); (2) wait for the new pod
+  to be Ready (`kubectl wait --for=condition=Ready`, 180 s); (3) run `bash loadtest/run.sh start smoke
+  PAIRS=<pairs>` and `bash loadtest/run.sh wait` it, so that the first real guest boot happens through the
+  platform with the Tic-Tac-Toe bundle; (4) save the new pod's `kubectl logs --timestamps` and count, in
+  them, both wedge modes: mode B, the `BootWatchdog` line `Guest boot wedged`, and mode A, the timestamped
+  supervisor lines `killing it` and the respawn from `IMP-M16-02`. It appends one CSV row per cycle to
+  `<run-dir>/boot-wedge.csv` (`cycle,pairs,pod,mode_a,mode_b,smoke_exit,seconds_to_first_game`) in a
+  run directory `loadtest/results/<stamp>-boot-wedge/` that also holds the logs. `<pairs>` is 1 for the
+  baseline and 4 for contention (four pairs started at the same moment, so four contexts boot at once);
+  `smoke.js` gains an env `PAIRS` (default 1) that sets its VUs, iterations and logged-in users
+  (`loginAll(2 * PAIRS)`); check that `getPair` gives each VU its own two users. `--dry-run` prints the
+  commands of one cycle and runs none of them. The harness is documented in the `loadtest/README.md`
+  *Scripts* table. No `stress-ng`, no `grpcurl`, no fixture jar: the Tic-Tac-Toe bundle is the guest.
 - **Hypothesis to test first.** The throwaway bridge-only warm-up context (`GameHostWarmup`,
   `WarmupLifecycle`, `createBridgeOnly`, closed by try-with-resources) races the first real boot's native
   library loading. Experiment: keep the warm-up context open until the first real context has booted (or
   close it on a background thread after that) and measure again.
 
 **Done when:**
-- **Baseline recorded.** `game-host-internals.md` has a short new subsection on boot wedges (in §11 or §6.1,
-  whichever fits) giving N, the count and the rate of the baseline.
-- **If the baseline reproduces (at least 1 of 40):** a fix lands, the rerun of 40 shows 0 of 40, and the
-  cause is written down in that subsection.
-- **If the baseline shows 0 of 40:** run 40 more cold starts under CPU contention, defined as 4 containers
-  started at the same moment (10 rounds of 4; no `stress-ng`). If that is also 0, record "not reproducible
-  outside the cluster; mitigated by IMP-M16-02" with both sets of numbers; the item is then `DONE`.
+- **Harness checks.** `bash -n loadtest/boot-wedge-repro.sh` passes and `bash loadtest/boot-wedge-repro.sh 1
+  1 --dry-run` prints one cycle's commands without running them; `k6 inspect loadtest/scenarios/smoke.js`
+  succeeds and `bash loadtest/run.sh start smoke` (PAIRS unset) behaves as before.
+- **Baseline recorded.** `bash loadtest/boot-wedge-repro.sh 40 1` is run (in the background, polled at most
+  every five minutes). `game-host-internals.md` has a short new subsection on boot wedges (in §11 or §6.1,
+  whichever fits) giving the cycles, the mode A and mode B counts and the rate of the baseline, with the
+  CSV's run directory.
+- **If the baseline reproduces (at least 1 of 40, either mode):** a fix lands in `turnbase-game-host`, the
+  image is rebuilt and the rerun of 40 cycles shows 0 of 40, and the cause is written down in that
+  subsection.
+- **If the baseline shows 0 of 40:** run `bash loadtest/boot-wedge-repro.sh 40 4` (contention: four pairs
+  started at once). If that is also 0, record "not reproducible outside the cluster; mitigated by
+  IMP-M16-02" with both sets of numbers; the item is then `DONE`.
 - **If no experiment helps.** After two experiments (the warm-up hypothesis above and one more chosen from
   the evidence) without a drop in the wedge rate, record the negative result in the same subsection (both
   rates and what each experiment changed), keep the `IMP-M16-02` supervisor as the mitigation, and mark
   the item `DONE`. Do not go on to a third.
-- The harness is committed and documented in the game-host `README.md`.
-- `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green; branch merged
-  `--ff-only`, pushed and deleted; the `turnbase-game-host` ref is bumped; `python3 scripts/check-corpus.py`
-  prints `clean`.
+- The harness is committed in the umbrella and documented in `loadtest/README.md`; the umbrella branch is
+  merged to `master` and pushed.
+- If a fix landed: `./mvnw spotless:apply`, `./mvnw verify` and `./mvnw verify -Pintegration` are green in
+  `turnbase-game-host`; branch merged `--ff-only`, pushed and deleted; the `turnbase-game-host` ref is
+  bumped after CI on its `master` is green. `python3 scripts/check-corpus.py` prints `clean`.
 
 ### IMP-M16-04 — Bounded concurrent guest boots
 
