@@ -102,8 +102,16 @@ return 0
 ```
 
 Compare-and-delete: an instance that has already lost ownership cannot release someone else's claim.
-Release happens **only** on graceful shutdown (§1.6). A crash leaves the key, and it becomes
-claimable once the liveness lease expires.
+Release happens on graceful shutdown (§1.6) and when the room reaches `CLOSED`. A crash leaves the
+key, and it becomes claimable once the liveness lease expires.
+
+**A closed room also leaves the instance's in-memory set of owned rooms** (`IMP-M16-07`). Every
+closure goes through the one update in `detachSession` (§4), and the removal runs as a
+`TransactionSynchronization.afterCommit` registered there (immediately, when no transaction is
+active), so a rolled-back closure leaves the room owned. The set is what the re-check of §1.5 layer 3
+walks, and a room that is never produced for again would otherwise stay in it for the life of the
+process: after tens of thousands of games the walk was longer than the lease. The same hook is where
+the closed room's Redis keys are deleted (`IMP-M16-08`).
 
 **A successful release also writes the Postgres mirror**, guarded on the releasing instance's own
 epoch so a superseded instance cannot blank a live owner's row:
@@ -169,12 +177,26 @@ Four layers, of which only the last is a correctness bound:
    recreate the key**. Those closes are instance-initiated in the sense of §1.6 and are suppressed
    identically: self-eviction is the ungraceful sibling of a drain — the instance has lost its lease
    and is severing sockets it may no longer serve, not observing players leaving.
+   "Fatal" is realised as a restart: the instance publishes Spring's `LivenessState.BROKEN`, the
+   liveness probe fails, and Kubernetes restarts the container. The new incarnation has a new `podId`
+   (§1.1) and adopts the rooms through the claim path (§1.4); a process that stayed up would own
+   nothing and have no way to claim again.
    Triggering on "N consecutive renewal failures" instead would miss the
    dangerous case entirely: an instance that stalls for longer than the TTL (a stop-the-world pause)
    loses its lease, is taken over, then resumes and its *next* renewal succeeds — resurrecting a
-   valid-looking lease having never observed a single failure. On the same tick the instance also
-   re-verifies `room:{roomId}:pod == self` for each owned room and evicts per-room on mismatch, which
-   bounds detection in the cases where the key changed but the lease did not (§5.4, flush).
+   valid-looking lease having never observed a single failure.
+
+   **Two tasks, on two threads.** The renewal is one Redis command whatever the number of rooms, and
+   runs alone on a dedicated single-thread scheduler (`lease-renewer`) every `renew-interval`. The
+   ownership re-check is a separate task on its own scheduler (`ownership-recheck`), same interval:
+   it re-verifies `room:{roomId}:pod == self` for every owned room, in batches of 500 keys per
+   `MGET`, and evicts per room on mismatch, which bounds detection in the cases where the key changed
+   but the lease did not (§5.4, flush). Run as one task, the per-room `GET`s of a large owned set
+   took longer than the lease TTL, delayed the renewal, and let the lease lapse under load
+   (`load-testing.md` §13 finding 14); split, a slow re-check cannot delay the renewal.
+   A claim that answers *already mine* for a room missing from the owned set (this incarnation
+   dropped it after a failed CAS) registers it again with the Redis epoch and the database version
+   (§1.4 step 2) — except after a whole-instance self-eviction, when nothing is registered.
 4. **Owner-epoch fence.** Every room mutation commits
    `UPDATE room SET version = :new, ... WHERE room_id = :id AND version = :expected AND owner_epoch = :myEpoch`.
    A stale owner's epoch is strictly behind the incumbent's and is never reissued, so its update
@@ -257,6 +279,9 @@ does permit.
    wait out disconnect detection.
 5. Release each owned room (§1.3); delete `pod:{podId}:alive`.
 6. Exit. The container termination grace period must exceed steps 3–5.
+
+Step 5 releases only rooms still in the owned set, which is pruned on close (§1.3), so a drain's
+cost follows the live rooms and not every room the process ever produced for.
 
 Because ownership is *released*, the next claimant takes the free branch with **no lease wait**:
 reconnection is sub-second, and the whole event is normally absorbed inside the migration window with
