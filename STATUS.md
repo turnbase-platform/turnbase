@@ -1,12 +1,10 @@
 ## Last Session Summary
 
-**Date:** 2026-10-19 (session 220) — **`IMP-M16-05` done: every guest context runs on one shared Espresso `Engine`.** 176 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-06…15` `READY`.
+**Date:** 2026-10-20 (session 221) — **`IMP-M16-06` done: the Game Host releases per-session bookkeeping.** 177 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-07…15` `READY`.
 
-**What changed.** Under the owner's rule (25% less CPU or heap) the benchmark `EngineSharingBenchmarkIT` measured **31% less heap after GC** for four contexts (320 → 220 MB) and **no CPU saving** (−1% to 4%), so the shared engine is adopted for the heap. `EspressoContextFactory` takes an optional `Engine`; `GameContextManagerConfig` builds one `guestEngine` bean, and the warm-up uses it too. `SharedEngineIsolationTest` shows statics, `System.exit` and a runaway-handler interrupt in one context do not touch a sibling on the same engine. `turnbase-game-host` (`1ad8c19`) carries it. Docs: [ADR-0019](docs/decisions/0019-shared-espresso-engine.md), `game-host-internals.md` §4.2, §4.3, §6.1, §18, a pointer in `espresso-spike-results.md`.
+**What changed (`turnbase-game-host` `b121989`, CI green).** The likely cause of finding 16 was not in the three maps the item named: `TerminateSession` never called the guest's `disposeSession`, so every session's game instance stayed in the guest `GameEntrypoint.sessions` map for the life of the context (spec §9.1 says it is disposed). Now `SessionDispatcher` disposes it at terminate, or, when a handler holds the session lock, when that handler releases it (terminate still never waits). Per-session locks are refcounted and exist only while held or awaited. `terminated` became `TerminatedSessions`: TTL 5 min, cap 10,000, oldest first, with the 3 × 35 s derivation beside the constant; a late input inside the TTL is rejected up front. `GameContextManager.find`, `GameEntrypoint`/`GameBridgeClient.liveSessionCount` added for tests. `game-host-internals.md` §9.1 states what the host remembers after terminate.
 
-**Found on the way, for the owner.** (1) **A JVM can create only twelve Espresso contexts in its lifetime** — the 13th fails `Cannot load library: eden` even when the earlier ones were closed, with or without a shared engine. Every re-creation after eviction or crash recovery counts, so a long-running Game Host may hit it; recorded as `game-host-internals.md` §18 **`OQ-6`**, not decided and not an M16 item. Surefire now forks one JVM per test class because of it. (2) `allowEnvironmentAccess(NONE)` does not hide the host environment from the guest (container's job; §4.3 row added). (3) A `ResourceLimits` statement limit on an Espresso context did not return in 150 s in a probe.
-
-**Tests.** Unit 83 and `-Pintegration` 19 green on a clean build. Caveat for the next session: `mvnw verify` twice without `clean` leaves a repackaged Boot jar that `GuestBridgeJarIT` rejects — run `clean verify`.
+**Tests.** Unit 88 and `-Pintegration` 22 green (new: 1,000 create/terminate cycles leave every structure at its starting size; late input rejected inside the TTL and accepted after; terminate during an in-flight handler disposes afterwards; `TerminatedSessionsTest`). Plain `./mvnw verify` fails the 70% JaCoCo gate (0.51) because the gate is over merged unit + integration data — run `-Pintegration`. The heap-histogram check on the live Game Host is left to `IMP-M16-15`.
 
 ---
 
@@ -14,7 +12,7 @@
 
 ## Next Priorities
 
-**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → ~~`04`~~ → ~~`05`~~ → `06` → `07` → `08` → `09` → `10` → `11` → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
+**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → ~~`04`~~ → ~~`05`~~ → ~~`06`~~ → `07` → `08` → `09` → `10` → `11` → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
 
 - `01`, `02`, `03` and `10…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
 - `14` and `15` are measurement only: findings that persist become Phase B notes in `load-testing.md` §13, never registry items.

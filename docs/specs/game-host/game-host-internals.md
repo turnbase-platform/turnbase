@@ -612,6 +612,8 @@ instance is disposed once any in-flight handler releases the lock, and that hand
 result is discarded. Terminate must **not** use `Context.interrupt` — that is
 context-scoped and would reach sibling sessions sharing the context (§12).
 
+**What the host remembers afterwards.** The host's per-session structures (the session→context binding, the lock, the guest instance) are released at terminate, or when the in-flight handler releases the lock. The one thing kept is the set of terminated session ids, which rejects a late input and discards an in-flight result. It expires after **5 minutes** and holds at most **10,000** ids, oldest first (3 retries × 35 s dispatch deadline = 105 s is the longest a late input can arrive). Without that bound the set, and the guest instances nobody disposed, grew for the life of the process (load-test finding 16).
+
 **Key cleanup.** `TerminateSession` deletes `session:{id}`. The Orchestration-owned
 keys for that session — `routing:`, `queue:`, `seq:`, `delivered:`, `failcount:` — are
 deleted by the caller as part of the same teardown routine. Historically only the
