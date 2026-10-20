@@ -226,7 +226,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M16-05 | Shared Espresso engine across game contexts | game-host, docs | M16-04 | DONE |
 | IMP-M16-06 | Game Host session bookkeeping is released | game-host | M16-05 | DONE |
 | IMP-M16-07 | Room ownership: lease renewal is O(1) and loss is recoverable | platform, docs | — | DONE |
-| IMP-M16-08 | Closed rooms release their Redis keys | platform, docs | M16-07 | WIP (session 223) |
+| IMP-M16-08 | Closed rooms release their Redis keys | platform, docs | M16-07 | DONE |
 | IMP-M16-09 | Reconciliation and metrics stop scanning everything | platform | M16-08 | READY |
 | IMP-M16-10 | Platform threads are bounded and released | platform, docs (umbrella) | M16-01, M16-07 | READY |
 | IMP-M16-11 | Room readiness is not lost to subscribe races | platform, frontend, docs | M16-01 | READY |

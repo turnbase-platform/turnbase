@@ -36,8 +36,8 @@ execution and Game Host recovery (`../game-host/game-host-internals.md`).
 | Key | Store | TTL | Written by |
 |---|---|---|---|
 | `pod:{podId}:alive` | Redis | 10s, renewed every 3s | each instance, for itself |
-| `room:{roomId}:pod` | Redis | none | the claim and release scripts only |
-| `room:{roomId}:epoch` | Redis | none | `INCR` by the claim script on every successful claim |
+| `room:{roomId}:pod` | Redis | none — lives until the room closes (§1.3) | the claim and release scripts; deleted at closure and by the §5.2 sweep |
+| `room:{roomId}:epoch` | Redis | none — lives until the room closes (§1.3) | `INCR` by the claim script on every successful claim; deleted at closure and by the §5.2 sweep |
 | `room.owner_instance_id`, `room.owner_epoch`, `room.ownerless_since` | Postgres | — | claim / release / sweep |
 | `room.version` | Postgres | — | the owning instance, under the room lock |
 
@@ -111,7 +111,11 @@ closure goes through the one update in `detachSession` (§4), and the removal ru
 active), so a rolled-back closure leaves the room owned. The set is what the re-check of §1.5 layer 3
 walks, and a room that is never produced for again would otherwise stay in it for the life of the
 process: after tens of thousands of games the walk was longer than the lease. The same hook is where
-the closed room's Redis keys are deleted (`IMP-M16-08`).
+the closed room's Redis keys are deleted (`IMP-M16-08`): `room:{roomId}:pod`, only if it still names
+this instance (or is already gone), and `room:{roomId}:epoch` with it, in one script. `CLOSED` is
+terminal, so nothing ever needs the epoch again, and without the deletion both keys accumulate
+forever (two per game played). A failure of that deletion never fails the close, which has already
+committed: the keys are left for the sweep of §5.2.
 
 **A successful release also writes the Postgres mirror**, guarded on the releasing instance's own
 epoch so a superseded instance cannot blank a live owner's row:
@@ -724,8 +728,9 @@ moment it does not, the optimization has acquired logic it was never allowed to 
 | In Progress, no session | `state = IN_PROGRESS`, session record absent, **flagged on a previous run** | fail back to **Lobby** via FR-FAIL-005: clean keys, reset readiness, notify participants (`GAME_ENDED`, `readinessReset: true`). No history entry |
 | Idle Lobby | `state = LOBBY`, zero connected participants, `last_activity_at` older than the idle window | close with `IDLE_TIMEOUT` |
 | Unowned room | `owner_instance_id` naming an instance with no live lease, or null with `ownerless_since` set | claim (§1.2) and adopt (§1.4), so deadlines can be enforced |
+| Closed-room keys (`IMP-M16-08`) | `room:*:pod` or `room:*:epoch` whose room is `CLOSED` or has no row | delete the key. `SCAN` in batches of 500 (never `KEYS`), one Postgres existence query per batch. No two-strike rule: `CLOSED` is terminal and the row is committed before anything can claim its id. Collects what a crash, a Redis outage at closure, or a claim of an already closed room left behind |
 
-Rows are taken `FOR UPDATE SKIP LOCKED` in batches.
+Rows are taken `FOR UPDATE SKIP LOCKED` in batches (the closed-room keys duty reads rows only).
 
 **Failing back to Lobby rather than closing** is deliberate: closing destroys a room people may still
 be sitting in, while Lobby is recoverable and reuses a path that already exists and already has a
