@@ -732,6 +732,8 @@ moment it does not, the optimization has acquired logic it was never allowed to 
 
 Rows are taken `FOR UPDATE SKIP LOCKED` in batches (the closed-room keys duty reads rows only).
 
+**No duty walks the keyspace or the room table per session** (`IMP-M16-09`). Orphaned artifacts is one `SCAN` pass (`COUNT 500`, no `MATCH`) over the whole keyspace, each key classified by its prefix in the job, then one `room`, one `orphaned_session_flag` and at most one insert and one delete per 500 sessions, and one `DEL` for the keys of every family that is repaired. *In Progress, no session* checks the session records of a page of 500 rooms with one pipelined `EXISTS` and clears the flags of the healthy ones with one `UPDATE ... WHERE reconcile_flagged_at IS NOT NULL`. A tick on healthy state therefore issues a number of statements that depends on the number of 500-session pages, not on the number of sessions or rooms.
+
 **Failing back to Lobby rather than closing** is deliberate: closing destroys a room people may still
 be sitting in, while Lobby is recoverable and reuses a path that already exists and already has a
 client story. If the room really is abandoned, the idle duty collects it later. **This duty has no
