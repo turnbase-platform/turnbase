@@ -1,12 +1,18 @@
 ## Last Session Summary
 
-**Date:** 2026-10-20 (session 224) — **`IMP-M16-09` done: reconciliation and the gauges stop scanning everything.** 180 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-10…15` `READY`.
+**Date:** 2026-10-20 (session 225) — **`IMP-M16-10` done: platform threads are bounded and released.** 181 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-11…15` `READY`.
 
-**What changed (`turnbase-platform` `4d3e05c`, CI green).** `ReconciliationJob` duty (b) is one `SCAN` pass (`COUNT 500`, no `MATCH`) over the keyspace with the prefix classified in Java, then per page of 500 sessions one room query, one flag query, at most one multi-row insert and one delete, and one `DEL` for every repaired family (was nine `KEYS` and three statements per session). Duty (c) checks the session records of a page of rooms with one pipelined `EXISTS` and clears healthy flags with one `UPDATE ... WHERE reconcile_flagged_at IS NOT NULL` (was an `UPDATE` per In Progress room per tick, which the Done-when "statements per tick do not grow with sessions" needed). The two gauge queries needed **no migration**: with 100,000 closed rooms both are index-only scans, `rooms_active` through `room_open_game_idx` (the planner prefers it to `room_open_state_idx`; both exclude `CLOSED`) and `game_sessions_active` through `room_active_session_idx`; `BusinessMetricsQueryPlanIT` asserts it and prints the plans. `room-lifecycle.md` §5.2 and `load-testing.md` §13 finding 15 (**M16** note) amended.
+**What changed (`turnbase-platform` `4a42e0d`).** The census named four retainers. (1) Tomcat workers: not a leak, the Game Host's ~0.5 requests/s trickle is served by each waiting worker in turn, so none idles the 60 s keep-alive; `TomcatWorkerIdleTimeout` sets 10 s, `server.tomcat.threads.max: 200` and `min-spare: 10` explicit. (2) Boot's WebSocket configurer (order 0) hands both STOMP channels the one shared `AsyncTaskExecutor`; `WebSocketConfig` now sets a bounded executor per channel with `executor(...)`, which wins because it runs later. (3) gRPC: one shared two-thread event loop and a bounded call executor in `GameHostChannels`. (4) `spring.task.scheduling.pool.size` was inert, because the broker's `messageBrokerTaskScheduler` makes Boot's `taskScheduler` back off; `SchedulingPoolConfig` defines it, so 4 now applies.
 
-**A test-helper defect found on the way.** `RoomOwnershipServiceIT.redisCommandCalls` parsed `INFO commandstats` with a greedy regex that returned `failed_calls`, so it always answered 0 and the "zero `keys` calls" assertions of `IMP-M16-08` could not fail. Fixed (`^calls=(\d+),`); those assertions hold with the real value.
+**Measured, 32 pairs, 5 min idle (report `loadtest/reports/2026-10-20-m16-threads.md`).** Threads before/peak/after: 76/120/101 before the change, 77/156/81 after (difference 4, limit 10), so no Phase B note for threads. A first fix with a 1,000-frame queue capped the blocking inbound handlers at four and cost throughput (move round trip p50 25 to 43 ms); a hand-off with caller-runs (queue 0, `SynchronousQueue` for gRPC) fixed that (p50 14 ms, 125 requests/s against 95). The peak is higher because the channel pools grow to 16 each and then release.
 
-**Tests.** `ReconciliationJobIT` 11 (two new: 5,100 sessions with 10,000 stale keys, zero `keys`, `scan` calls within 2 of a plain full walk, exactly the stale families deleted after two ticks; a datasource-level statement counter shows a full `run()` issues the same number of statements for 20+20 and 200+200 sessions), `BusinessMetricsQueryPlanIT` 1. Local full `-Pintegration`: 353 run, the same 7 `GameAssetControllerIT`/`SeedDataIT` errors (`*.games.localhost` on this WSL machine), one MinIO start timeout in `SingleListenerOriginRoutingIT` and one `RoomPurgeJobIT` failure (the manual `run()` skipped, most likely the ShedLock race with the startup tick); both pass alone, `RoomPurgeJobIT` three of three. CI on `4d3e05c` is green.
+**Deviation from the settled text.** No `brokerChannel` executor: with the simple broker it has no pool, so the three STOMP executors are two (recorded in `load-testing.md` §13 item 17). The existing `AuthControllerIT` scheduler test (`exactlyOne…`) asserted one autowire candidate; it now asserts `taskScheduler` and `messageBrokerTaskScheduler`, the name settling the resolution.
+
+**Open observation.** Run C had 17 `ready_timeout` errors in 21,332 pairs (runs A and B none); cause not established, the platform log was not kept. Re-measure in `IMP-M16-14`.
+
+**Local build.** Unit tests green. Integration: `GameAssetControllerIT` and `SeedDataIT` fail on `*.games.localhost` on this WSL machine, and fail identically on untouched master; `AuthMethodControllerIT` and `RoomSessionDetacherImplIT` hit container start-up timeouts in the full run and pass alone.
+
+---
 
 ---
 
@@ -14,9 +20,9 @@
 
 ## Next Priorities
 
-**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → ~~`04`~~ → ~~`05`~~ → ~~`06`~~ → ~~`07`~~ → ~~`08`~~ → ~~`09`~~ → `10` → `11` → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
+**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → ~~`04`~~ → ~~`05`~~ → ~~`06`~~ → ~~`07`~~ → ~~`08`~~ → ~~`09`~~ → ~~`10`~~ → `11` → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
 
-- `01`, `02`, `03` and `10…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
+- `01`, `02`, `03` and `11…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
 - `14` and `15` are measurement only: findings that persist become Phase B notes in `load-testing.md` §13, never registry items.
 - **Phase B has its own design round** (autoscaling, multiple replicas; `load-testing.md` §9 is only an outline) and starts after M16.
 - **`IMP-M13-08` stays `WIP` and is owner-held.** It is a visual comparison against the approved
