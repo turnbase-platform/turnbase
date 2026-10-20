@@ -1,16 +1,14 @@
 ## Last Session Summary
 
-**Date:** 2026-10-20 (session 225) — **`IMP-M16-10` done: platform threads are bounded and released.** 181 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-11…15` `READY`.
+**Date:** 2026-10-20 (session 226) — **`IMP-M16-11` done: a room client acts only after its subscriptions are confirmed.** 182 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-12…15` `READY`.
 
-**What changed (`turnbase-platform` `4a42e0d`).** The census named four retainers. (1) Tomcat workers: not a leak, the Game Host's ~0.5 requests/s trickle is served by each waiting worker in turn, so none idles the 60 s keep-alive; `TomcatWorkerIdleTimeout` sets 10 s, `server.tomcat.threads.max: 200` and `min-spare: 10` explicit. (2) Boot's WebSocket configurer (order 0) hands both STOMP channels the one shared `AsyncTaskExecutor`; `WebSocketConfig` now sets a bounded executor per channel with `executor(...)`, which wins because it runs later. (3) gRPC: one shared two-thread event loop and a bounded call executor in `GameHostChannels`. (4) `spring.task.scheduling.pool.size` was inert, because the broker's `messageBrokerTaskScheduler` makes Boot's `taskScheduler` back off; `SchedulingPoolConfig` defines it, so 4 now applies.
+**What changed.** Spring's simple broker sends no `RECEIPT` (the new test timed out before the fix). `turnbase-platform` `5efdefd`: `SubscribeReceiptInterceptor`, an `ExecutorChannelInterceptor` on the inbound channel, sends the `RECEIPT` from `afterMessageHandled` of the handler that registers the subscription (`SimpleBrokerMessageHandler` for `/topic` and `/queue`, `UserDestinationMessageHandler` for `/user/…`). A dropped or rejected `SUBSCRIBE` gets none. `turnbase-frontend` `9b480fe`: `roomSocket.ts` subscribes the four base destinations with a `receipt` header and sends `REQUEST_ROOM_STATE` only when all four are confirmed (the snapshot reply goes to `/user/queue/room-state`, which could otherwise be unregistered); the attach watchdog still recovers a dropped one. The k6 harness (`stomp.js` `subscribeConfirmed`, `pair.js`) waits for the receipt and `SUBSCRIBE_SETTLE_MS` is gone from `config.js` and the README. `room-websocket.md` § Snapshot Delivery requires the receipt; `load-testing.md` §13 finding 4 has the M16 note.
 
-**Measured, 32 pairs, 5 min idle (report `loadtest/reports/2026-10-20-m16-threads.md`).** Threads before/peak/after: 76/120/101 before the change, 77/156/81 after (difference 4, limit 10), so no Phase B note for threads. A first fix with a 1,000-frame queue capped the blocking inbound handlers at four and cost throughput (move round trip p50 25 to 43 ms); a hand-off with caller-runs (queue 0, `SynchronousQueue` for gRPC) fixed that (p50 14 ms, 125 requests/s against 95). The peak is higher because the channel pools grow to 16 each and then release.
+**Evidence.** `WebSocketIT.aBroadcastSentRightAfterTheReceiptIsNeverMissed`: 1,000 subscribe-receipt-broadcast iterations, 0 misses. Live cluster, rebuilt platform image: `smoke.js` exit 0, `tb_errors` 0, 3 games; 8 pairs, 24 games, 0 errors. Frontend: typecheck, lint, format:check, build and 922 tests green, with two new `roomSocket` tests (no snapshot request before all receipts; none for a replaced connection).
 
-**Deviation from the settled text.** No `brokerChannel` executor: with the simple broker it has no pool, so the three STOMP executors are two (recorded in `load-testing.md` §13 item 17). The existing `AuthControllerIT` scheduler test (`exactlyOne…`) asserted one autowire candidate; it now asserts `taskScheduler` and `messageBrokerTaskScheduler`, the name settling the resolution.
+**Local build.** `./mvnw verify` green. Integration: `GameAssetControllerIT` and `SeedDataIT` fail on `*.games.localhost` on this WSL machine, as before; `CatalogRepositoryIT` (container refused) and `RateLimitInterceptorIT` (GOAWAY) failed in the full run and pass alone. Frontend CI: `App.test.tsx` "That username is taken" timed out once on the runner, unrelated, green on rerun.
 
-**Open observation.** Run C had 17 `ready_timeout` errors in 21,332 pairs (runs A and B none); cause not established, the platform log was not kept. Re-measure in `IMP-M16-14`.
-
-**Local build.** Unit tests green. Integration: `GameAssetControllerIT` and `SeedDataIT` fail on `*.games.localhost` on this WSL machine, and fail identically on untouched master; `AuthMethodControllerIT` and `RoomSessionDetacherImplIT` hit container start-up timeouts in the full run and pass alone.
+**Not changed.** The game subscriptions in `syncGameSubscriptions` still send `REQUEST_GAME_SYNC` right after subscribing; the item covers the room topic only. Worth a look if `IMP-M16-14` shows `sync_timeout` errors.
 
 ---
 
@@ -20,7 +18,7 @@
 
 ## Next Priorities
 
-**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → ~~`04`~~ → ~~`05`~~ → ~~`06`~~ → ~~`07`~~ → ~~`08`~~ → ~~`09`~~ → ~~`10`~~ → `11` → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
+**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → ~~`04`~~ → ~~`05`~~ → ~~`06`~~ → ~~`07`~~ → ~~`08`~~ → ~~`09`~~ → ~~`10`~~ → ~~`11`~~ → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
 
 - `01`, `02`, `03` and `11…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
 - `14` and `15` are measurement only: findings that persist become Phase B notes in `load-testing.md` §13, never registry items.

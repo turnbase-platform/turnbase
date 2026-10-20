@@ -163,10 +163,10 @@ export async function pairSession(pair, { games, gameId = cfg.gameId }) {
     m.roomJoin.add(joined.ms, stepTags());
     ok();
 
-    roomSubs.push(host.ws.subscribe('/topic/room.' + roomId), guest.ws.subscribe('/topic/room.' + roomId));
-    // The simple broker sends no RECEIPT, and the two sockets are processed independently: without a pause the
-    // guest's first TOGGLE_READY can be broadcast before the host's subscription exists (seen as ready_timeout).
-    await sleepMs(cfg.subscribeSettleMs);
+    // Nobody acts on the room before both room subscriptions are confirmed by a RECEIPT: the two sockets are
+    // processed independently, so the guest's first TOGGLE_READY could otherwise be broadcast before the host's
+    // subscription exists (seen as ready_timeout).
+    roomSubs.push(...await Promise.all([host, guest].map((p) => p.ws.subscribeConfirmed('/topic/room.' + roomId, cfg.stepTimeoutMs))));
     for (let g = 0; g < games; g++) await playGame(pair, roomId);
   } catch (e) {
     failed = true;

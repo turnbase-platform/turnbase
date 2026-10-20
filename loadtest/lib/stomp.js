@@ -120,6 +120,18 @@ export class StompClient {
     return id;
   }
 
+  // Resolves with the subscription id once the server's RECEIPT says the subscription is registered (a frame
+  // sent or broadcast before that can miss it). The waiter exists before the frame is sent, so the RECEIPT
+  // cannot be missed. Rejects with `subscribe_timeout`.
+  subscribeConfirmed(destination, timeoutMs) {
+    const id = 'sub-' + (this.nextSub++);
+    const receipt = 'rcpt-' + id;
+    const confirmed = this.waitFor((f) => f.command === 'RECEIPT' && f.headers['receipt-id'] === receipt,
+      timeoutMs, 'subscribe_timeout');
+    this.ws.send(encodeFrame('SUBSCRIBE', { id, destination, receipt }, ''));
+    return confirmed.then(() => id);
+  }
+
   unsubscribe(id) {
     if (this.open && !this.closing) this.ws.send(encodeFrame('UNSUBSCRIBE', { id }, ''));
   }

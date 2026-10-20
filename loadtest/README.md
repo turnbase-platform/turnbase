@@ -73,10 +73,11 @@ Differences from the plan, found against the live stack:
 - `tb_game_start` is tagged `cold=true` only for a pair's first game within `COLD_WINDOW_MS` of the
   scenario start. A rerun against a warm Game Host still tags it `cold:true`, because the tag is the
   harness's, not the Game Host's; the first start after `reset.sh` is the really cold one.
-- **The room subscriptions need a pause.** The simple broker sends no `RECEIPT` for a `SUBSCRIBE` (a receipt
-  header times out) and the two sockets are processed independently, so the guest's first `TOGGLE_READY` could
-  be broadcast before the host's subscription existed: one `ready_timeout` in about 3,000 games at 6 pairs.
-  `SUBSCRIBE_SETTLE_MS` (50) pauses after subscribing; two `ramp-to-break` minimum runs of about 3,000 games each had 0 errors after it.
+- **The room subscriptions are confirmed before anyone acts.** `SUBSCRIBE` carries a `receipt` header and the
+  platform answers with a `RECEIPT` once the broker has registered it (`room-websocket.md` § Snapshot
+  Delivery); `stomp.js` `subscribeConfirmed` waits for it. Without it the guest's first `TOGGLE_READY` could be
+  broadcast before the host's subscription existed (`ready_timeout`, finding 4). A missing receipt is a
+  `subscribe_timeout`.
 - **Clean-room check.** The participants table is `room_participant` (`user_id`, `left_at`) and the user
   table is `app_user` (key `user_id`):
   `SELECT count(*) FROM room_participant rp JOIN app_user u ON u.user_id = rp.user_id WHERE u.username LIKE 'lt-%' AND rp.left_at IS NULL`
@@ -119,7 +120,6 @@ OOM-killed the node. A run item never edits the overlay; the M16 items edit it o
 | `START_TIMEOUT_MS` / `STEP_TIMEOUT_MS` | 120000 / 10000 | Waits for `GAME_STARTED` and for one move's echo |
 | `ERROR_BACKOFF_MS` | 1000 | Pause after a failed iteration |
 | `LOGIN_PARALLEL` | 8 (2 in `default-limits`) | Batch size of the pre-login in `setup()` |
-| `SUBSCRIBE_SETTLE_MS` | 50 | Pause after the room subscriptions, before the first ready (the simple broker sends no RECEIPT) |
 | `USERS` | 2000 | Users `provision.js` creates, and the pair cap of every scenario: `lib/pair.js` allows `floor(USERS / 2)` pairs, so a run of more than 1,000 pairs sets the same `USERS` for `provision.js` and for the scenario |
 
 `turnbase.localhost` resolves to `::1` on the WSL host. If k6 cannot connect, set `HOST_IP=127.0.0.1`.
