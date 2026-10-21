@@ -231,7 +231,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M16-10 | Platform threads are bounded and released | platform, docs (umbrella) | M16-01, M16-07 | DONE |
 | IMP-M16-11 | Room readiness is not lost to subscribe races | platform, frontend, docs | M16-01 | DONE |
 | IMP-M16-12 | The 300-second stall is explained and removed | platform (chart), docs (umbrella) | M16-01, M16-07, M16-09, M16-10 | DONE |
-| IMP-M16-13 | Platform CPU per move is profiled and the top hotspots fixed | platform, docs (umbrella) | M16-07, M16-09, M16-10 | WIP (session 228) |
+| IMP-M16-13 | Platform CPU per move is profiled and the top hotspots fixed | platform, docs (umbrella) | M16-07, M16-09, M16-10 | DONE |
 | IMP-M16-14 | Re-verification runs: capacity | docs (umbrella) | M16-01, M16-02, M16-03, M16-04, M16-05, M16-06, M16-07, M16-08, M16-09, M16-10, M16-11, M16-12, M16-13 | READY |
 | IMP-M16-15 | Re-verification runs: endurance, and the M16 summary | docs (umbrella) | M16-14 | READY |
 

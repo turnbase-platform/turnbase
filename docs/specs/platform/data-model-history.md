@@ -223,6 +223,13 @@ UPDATE game SET completed_session_count = completed_session_count + 1 WHERE game
 FR-STATS-004 forbids decrementing it and FR-ACCT-008 confirms account deletion must not touch it, so
 there is no other writer anywhere in the platform.
 
+**The increment is the last statement of the recording transaction.** It updates the one `game` row
+every completion of that game updates, so its row lock is held from the statement to the commit;
+writing it after the entries of §1 keeps the history writes out of that lock. The order inside the
+transaction is not otherwise observable, and a transaction that rolls back loses the increment with
+the rows (measured at 64 pairs, `loadtest/reports/2026-10-21-m16-cpu.md`: no change in throughput, the
+lock wait was not the limit; it removes a serialisation point rather than a cost).
+
 **The counter is denormalized but not unverifiable.** `SELECT count(*) FROM game_session_completion
 WHERE game_id = :g` is the same number, served by `game_session_completion_game_idx`, so a drift can
 be detected and repaired rather than merely suspected. The drift is one-directional: `game_id` has no

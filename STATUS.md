@@ -1,14 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-21 (session 227) — **`IMP-M16-12` done: the 300-second stall is explained and removed.** 183 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-13…15` `READY`.
+**Date:** 2026-10-21 (session 228) — **`IMP-M16-13` done: the platform's CPU per move is profiled; there is no hotspot with a local fix.** 184 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-14` and `15` `READY`.
 
-**What it was.** A harness artefact, not a product stall. The WSL resolver never answers the IPv4 query for `turnbase.localhost`, so a lookup takes about 10 s; k6 repeats it every 5 minutes (`dns.ttl`) on the first dial after expiry and every VU waits (period 306 s, the ingress receives nothing meanwhile). Ruled out with logs and probes: Postgres checkpoints, Redis RDB/AOF (`LATENCY LATEST` empty), platform GC and safepoints (longest 52 ms), the host-to-ingress path, k6's remote-write output. Report: `loadtest/reports/2026-10-21-m16-stall.md` (runs, correlation table, minimal k6 reproduction).
+**What it found.** A JFR profile at 64 pairs (`loadtest/reports/2026-10-21-m16-cpu.md`): 1,258 moves/s, platform 3.28 of 4 cores, **2.60 ms CPU per move**, and no leaf method above 4.1%. The cost is spread: the OpenTelemetry agent 19 to 20%, Spring JDBC 19% (3.8 statements per move), STOMP channels 13%, Lettuce 10% (about 10 commands per move), gRPC 7.5%. Hikari is saturated (10 connections, pending max 68); Postgres is the co-limit.
 
-**What changed.** `loadtest/lib/config.js` exports `dnsOption = { ttl: 'inf' }`; `baseOptions`, `smoke.js` and `provision.js` set it. The platform overlay gets `-Xlog:gc*,safepoint:stdout:utctime,uptime` (mirrored; `check-overlays.sh` OK). No chart or platform change. `load-testing.md` §13 findings 3 and 10 and `loadtest/README.md` carry the note.
+**What changed.** `turnbase-platform` `65d9d74`: the completed-session increment is now the last statement of the recording transaction (the `game` row lock no longer spans the history writes; `data-model-history.md` §3), and `RoomSubscriptionAuthorizer` keeps a session-to-rooms index so a disconnect is no longer a scan of every room ever served, which also stops empty sets leaking (2.3% of CPU to 0.0%). 7 new tests. `loadtest/cpu-per-move.sh` prints moves/s and platform CPU per move; the JFR flags are out of both overlays again.
 
-**Evidence.** 15-minute `start-rate` at 16 games/s on the rebuilt stack (platform image `41845dff…`): before the fix two stalls (`ws_connecting` max 10.0 s, `room_join` p99 394 to 622 ms); after it `ws_connecting` max 13 ms, `room_join` p99 30.7 ms, 0 errors, 0 dropped iterations, exit 0.
+**Evidence.** Rerun at 64 pairs on the new image: 1,212 moves/s, 3.16 cores, **2.604 ms per move** (2.604 before): no change in CPU per move or throughput (one run each); Hikari pending mean 26.3 to 13.2. `load-testing.md` §13 findings 1 and 2 carry `**M16:**` lines. The OTel share, the per-move reads (participant lookup three times, five Redis keys) and the pool are **Phase B notes**; an `OTEL_JAVAAGENT_ENABLED=false` experiment was not run.
 
-**For `IMP-M16-14`.** Phase A numbers that contain a stall (the `start-rate` 32 games/s step, the `contexts` 10 s connect, the `ramp-to-break` ceiling of 70 pairs) are affected; the rerun uses the fixed harness. A cold run's first ~29 s still drop iterations (JIT warm-up, not periodic); run `reset.sh` then a short warm-up before a measured step.
+**Local `verify -Pintegration`:** 7 errors, `GameAssetControllerIT` (6, fails the same way on `master` without the change) and `SeedDataIT` (1, same `*.localhost` I/O error), the resolver problem of `IMP-M16-12`; the `build` workflow on `65d9d74` is green.
+
+**For `IMP-M16-14`.** The stack is installed without the recorder; `reset.sh` and provision before the first run.
 
 ---
 
@@ -18,7 +20,7 @@
 
 ## Next Priorities
 
-**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → ~~`04`~~ → ~~`05`~~ → ~~`06`~~ → ~~`07`~~ → ~~`08`~~ → ~~`09`~~ → ~~`10`~~ → ~~`11`~~ → ~~`12`~~ → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
+**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → ~~`04`~~ → ~~`05`~~ → ~~`06`~~ → ~~`07`~~ → ~~`08`~~ → ~~`09`~~ → ~~`10`~~ → ~~`11`~~ → ~~`12`~~ → ~~`13`~~ → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
 
 - `01`, `02`, `03` and `11…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
 - `14` and `15` are measurement only: findings that persist become Phase B notes in `load-testing.md` §13, never registry items.
