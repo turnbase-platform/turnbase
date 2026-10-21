@@ -1,26 +1,21 @@
 ## Last Session Summary
 
-**Date:** 2026-10-21 (session 229) — **`IMP-M16-14` done: the capacity half of the re-verification is measured (four reports).** 185 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-15` `READY`.
+**Date:** 2026-10-22 (session 230) — **`IMP-M16-15` done: the endurance half of the re-verification is measured and M16 is closed.** 186 of 187 items done, `IMP-M13-08` still `WIP` and owner-held.
 
-**What it found** (`loadtest/reports/2026-10-21-m16-{parallelism,ramp-to-break,contexts,start-rate}.md`, each `REPORT COMPLETE`; 0 errors in all four, no stall, no restart):
-- `parallelism`: peak 1,055 moves/s at 32 pairs (909 in Phase A), ceiling still 64 pairs, 40% decline at 256. **First to break: the DB pool** (10 of 10 connections busy from 16 pairs, `hikari_pending` up to 207, Postgres at its 2-core limit); the Game Host stays under 1.2 of 4 cores.
-- `ramp-to-break`: ceiling 80 pairs (Phase A 70), aborted at 90 on `tb_room_join` p95 200 ms (311 ms in Phase A); 80 sessions and 160 sockets at the ceiling, far from 500 and 5,000. First to break: the DB pool.
-- `start-rate`: clean to 32 games/s (Phase A 16, which was the stall); at 64 the moves and room operations fail (p95 0.8 to 1.1 s), at 128 warm `game_start` p95 is 2.1 s and 7,123 iterations are dropped. **Finding 11 answered**; DB pool again. Completed games per second run 4% to 29% above the nominal rate, unexplained.
-- `contexts`: four contexts still cost about 3 Game Host cores (0.93 for one), finding 9 persists; the **cold start is worse, 21.3 s mean and 27.8 s max** (10.2 s in Phase A), likely because the warm-up is off since `IMP-M16-03`; not isolated.
+**What it found** (`loadtest/reports/2026-10-21-m16-{soak,up-down}.md`, each `REPORT COMPLETE`; summary in the *M16* section of `loadtest/reports/SUMMARY.md`):
+- `soak` (56 pairs, 30 min): every latency target met, 0 errors in 213,175 games, **no `not owned by this instance`**, Game Host heap after GC +1.1% (Phase A +48%), no restart. **HTTP p99 drifts +122% (77 -> 172 ms)** and requests per second fall 26.5%, so that criterion fails. The cause is visible in Postgres: `Seq Scan on room_participant` (occupancy subquery and `user_id` lookup), linear in a table that keeps every closed room's participants; the Hikari pool is 10 of 10 busy with about 50 pending. Phase B note, finding 15.
+- `up-down`: everything released within 60 s; platform threads 76 before, 82 after (+7.9%, pass). Redis `DBSIZE` 5 before and 6 five minutes after the load (one unidentified TTL key; 5 again a few minutes later), `used_memory` -2.8%, no room-key leak. That is a strict miss of "within 1%"; whether it counts is the owner's reading.
+- The first soak attempt ran on a database still holding 22,842 rooms of the previous `start-rate` run (stack not reset); it is kept as `-attempt1` and agrees (p99 +90%).
 
-**What changed.** Only documentation: the four reports, `load-testing.md` §13 (an `**M16:**` line on findings 1 to 4 and 8 to 11), the registry row, and the `clean package` rule in `loadtest/README.md` and the registry's rebuild rule (a second non-clean `package` empties the guest-bridge jar; the first parallelism run was lost to it and is not reported).
+**What changed.** Only documentation: the two reports, `SUMMARY.md` (*M16* section: criteria, report links, findings 1 to 18), `load-testing.md` §13 (ten `**M16:**` lines from this item; every finding 1 to 18 now has one), the registry row.
 
-**For `IMP-M16-15`.** The stack is installed and reset; the four `contexts` copies are removed from the seed directory. `SUMMARY.md` and the soak/`up-down` reruns are its job; `ramp-to-break` ceiling 80 pairs sets the soak load.
-
----
-
----
+**For Phase B.** Persisting entries: 1 to 3 and 15 (the database pool and the `room_participant` scans), 8 and 9 (several Espresso contexts: cold start 21.3 s, about 3 cores). Reset the stack (`loadtest/reset.sh`) before every run.
 
 ---
 
 ## Next Priorities
 
-**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → ~~`04`~~ → ~~`05`~~ → ~~`06`~~ → ~~`07`~~ → ~~`08`~~ → ~~`09`~~ → ~~`10`~~ → ~~`11`~~ → ~~`12`~~ → ~~`13`~~ → ~~`14`~~ → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
+**M16 is closed (`01` to `15` done).** Next is the owner's call: Phase B ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*, holds the finding-to-item map).
 
 - `01`, `02`, `03` and `11…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
 - `14` and `15` are measurement only: findings that persist become Phase B notes in `load-testing.md` §13, never registry items.

@@ -54,7 +54,7 @@ Every degradation is an entry in [`load-testing.md` §13](../../docs/specs/deplo
 |---|---|---|
 | 1 | Throughput plateaus at 16 pairs and declines past 32; the Game Host is not the limit | [parallelism](2026-10-18-parallelism.md) |
 | 2 | The 200 ms move target fails at 128 pairs | [parallelism](2026-10-18-parallelism.md) |
-| 3 | The ramp stops at 80 pairs on a `tb_room_join` tail | [ramp-to-break](2026-10-18-ramp-to-break.md) |
+| 3 | The ramp stops at 80 pairs on a `tb_room_join` tail (Phase A) | [ramp-to-break](2026-10-18-ramp-to-break.md) |
 | 4 | `ready_timeout` errors under load | [parallelism](2026-10-18-parallelism.md), [ramp-to-break](2026-10-18-ramp-to-break.md) |
 | 5 | Platform threads grow from 80 to 226 under load | [parallelism](2026-10-18-parallelism.md), [ramp-to-break](2026-10-18-ramp-to-break.md) |
 | 6 | The run protocol's `jcmd 1` fails on the Game Host image | [parallelism](2026-10-18-parallelism.md) |
@@ -70,3 +70,65 @@ Every degradation is an entry in [`load-testing.md` §13](../../docs/specs/deplo
 | 16 | Game Host heap after GC grows 251 -> 371 MB over the soak | [soak](2026-10-18-soak.md) |
 | 17 | The platform keeps its threads after the load is gone | [up-down](2026-10-19-up-down.md), [soak](2026-10-18-soak.md) |
 | 18 | The Game Host wedges on its first cold start with a single context too | [up-down](2026-10-19-up-down.md) |
+
+## M16 re-verification, 2026-10-21
+
+After the fixes of `IMP-M16-01` to `13` the same scenarios ran again on the same single node (16 CPUs, 15.2 GiB, load generator in the VM), at the commits of `turnbase-platform` `65d9d74` and `turnbase-game-host` `b121989`, with the harness now resolving the host name once. It is a single-node, laptop result like Phase A's. Nothing was fixed by the runs themselves; what persists is a Phase B note in [`load-testing.md` §13](../../docs/specs/deployment/load-testing.md#13-follow-ups), where every finding 1 to 18 carries an `**M16:**` line.
+
+### Reports
+
+| Scenario | Report | Result in one line |
+|---|---|---|
+| `parallelism` | [2026-10-21-m16-parallelism.md](2026-10-21-m16-parallelism.md) | Peak 1,055 moves/s at 32 pairs (909 in Phase A); ceiling still 64 pairs; 0 errors in 97,015 games; first to break the DB pool |
+| `ramp-to-break` | [2026-10-21-m16-ramp-to-break.md](2026-10-21-m16-ramp-to-break.md) | Ceiling 80 pairs (Phase A 70), aborted at 90 on a `tb_room_join` p95 of 200 ms; first to break the DB pool |
+| `start-rate` | [2026-10-21-m16-start-rate.md](2026-10-21-m16-start-rate.md) | Clean to 32 games/s (Phase A 16); degrades between 32 and 64; no stall |
+| `contexts` | [2026-10-21-m16-contexts.md](2026-10-21-m16-contexts.md) | Four contexts still cost about 3 Game Host cores; cold start 21.3 s mean (10.2 s in Phase A) |
+| `soak` | [2026-10-21-m16-soak.md](2026-10-21-m16-soak.md) | 56 pairs for 30 minutes: all latency targets met, 0 errors, leaks gone; HTTP p99 drift +122% |
+| `up-down` | [2026-10-21-m16-up-down.md](2026-10-21-m16-up-down.md) | Everything released within 60 s; platform threads 82 against 76 before; Redis 6 keys against 5 |
+| stall | [2026-10-21-m16-stall.md](2026-10-21-m16-stall.md) | The 300 s stall was k6's DNS re-resolve, not the product |
+| CPU per move | [2026-10-21-m16-cpu.md](2026-10-21-m16-cpu.md) | 2.60 ms of platform CPU per move, no local hotspot of 10% |
+| threads | [2026-10-20-m16-threads.md](2026-10-20-m16-threads.md) | Platform threads 81 after the load against 77 before (25 kept before the fix) |
+
+### Endurance criteria (`IMP-M16-15`)
+
+| Criterion | Run | Result |
+|---|---|---|
+| No `not owned by this instance` ERROR in the platform log | `soak` | **pass**: 0 in 32 minutes (and 0 in the discarded first attempt) |
+| Redis keyspace back to its pre-run size within 5 minutes after `up-down` (within 1%) | `up-down` | **fail by one key, no leak**: `DBSIZE` 5 before, 6 five minutes after (one extra key with a TTL, not a room key; 5 again a few minutes later), `used_memory` -2.8%; Phase A left 36,047 keys. Whether the one key counts is the owner's reading of "within 1%" |
+| Platform threads idle-after within 10% of idle-before | `up-down` | **pass**: 82 against 76 (+7.9%, `/proc`); the JVM gauge 67 against 61 (+9.8%) |
+| Game Host heap after GC drifts < 10% over the soak | `soak` | **pass**: +1.1% (175.1 -> 177.0 MB) |
+| HTTP p99 drifts < 25% over the soak | `soak` | **fail**: +122% (77 -> 172 ms), p95 +103%, requests per second -26.5%. Cause visible in Postgres: `Seq Scan on room_participant` in the room occupancy subquery and in the lookup by `user_id`, linear in a table that keeps every closed room's participants. Phase B note |
+| No Game Host restart | `soak`, `up-down` | **pass**: 0 pod restarts in both, 0 errors |
+
+The first soak attempt ran on a database that still held 22,842 rooms of an earlier run (the stack had not been reset) and is kept as `20261021-225609-soak-attempt1`; it agrees with the result on every criterion (p99 drift +90%, `tb_room_join` p95 214 ms over its target).
+
+### The owner's three questions, after M16
+
+**(a) Worst-case load.** The `ramp-to-break` ceiling rose from 70 to 80 pairs (160 sockets, at most 62 concurrent sessions); `parallelism` still gives 64; the clean `start-rate` ceiling doubled to 32 games/s. 500 sessions and 5,000 WebSockets are still not reached.
+**(b) Rising and falling load.** Held for 30 minutes at 56 pairs everything stays inside its target and the Phase A drifts in Redis, threads, Game Host heap and the room and session gauges are gone, but HTTP latency still rises at constant load (p99 77 -> 172 ms). After the load every resource is released within 60 s.
+**(c) Where it breaks.** At the database: the 10-connection Hikari pool is 10 of 10 busy from about 16 to 30 pairs on, with up to 207 requests waiting, and Postgres sits at about its 2-core limit, while the Game Host uses 0.4 to 1.2 of 4 cores. The statements that dominate are scans of `room_participant`.
+
+### Findings after M16
+
+| # | Entry | Status | Evidence |
+|---|---|---|---|
+| 1 | Throughput plateaus at 16 pairs and declines past 32; the Game Host is not the limit | persists, smaller (peak 1,055 moves/s); DB pool | [parallelism](2026-10-21-m16-parallelism.md), [cpu](2026-10-21-m16-cpu.md) |
+| 2 | The 200 ms move target fails at 128 pairs | persists (128 pairs); DB pool | [parallelism](2026-10-21-m16-parallelism.md) |
+| 3 | The ramp stops at 80 pairs on a `tb_room_join` tail (Phase A) | persists, with a higher ceiling: aborts at 90 pairs (Phase A 80) | [ramp-to-break](2026-10-21-m16-ramp-to-break.md) |
+| 4 | `ready_timeout` errors under load | resolved: 0 errors in every M16 run | [soak](2026-10-21-m16-soak.md), [up-down](2026-10-21-m16-up-down.md) |
+| 5 | Platform threads grow from 80 to 226 under load | resolved: flat at 154 to 159 in the soak | [threads](2026-10-20-m16-threads.md), [soak](2026-10-21-m16-soak.md) |
+| 6 | The run protocol's `jcmd 1` fails on the Game Host image | resolved by the record correction | [up-down](2026-10-21-m16-up-down.md) |
+| 7 | The Game Host can wedge into health 503 and the supervisor does not restart it | resolved by `IMP-M16-02`; no wedge in two cold starts | [up-down](2026-10-21-m16-up-down.md) |
+| 8 | A cold start with four contexts takes 10.2 to 10.3 s, twice the single-context 5 s | persists, worse (21.3 s mean) | [contexts](2026-10-21-m16-contexts.md) |
+| 9 | Four contexts cost about three times the Game Host CPU for the same throughput | persists (about 3.0 cores) | [contexts](2026-10-21-m16-contexts.md) |
+| 10 | A 10 s WebSocket connect stall recurs about every 300 s | resolved: k6's DNS re-resolve | [stall](2026-10-21-m16-stall.md) |
+| 11 | `start-rate` did not find the rate at which `game_start` degrades | resolved: between 32 and 64 games/s | [start-rate](2026-10-21-m16-start-rate.md) |
+| 12 | The `default-limits` load trips the WebSocket action bucket in every iteration | resolved: harness artefact | this file |
+| 13 | Redis keeps two keys per room and never removes them | resolved (one TTL key after 5 minutes, see above) | [up-down](2026-10-21-m16-up-down.md), [soak](2026-10-21-m16-soak.md) |
+| 14 | The platform lost the ownership of about 35 rooms at once; the gauges never recovered | resolved: 0 occurrences | [soak](2026-10-21-m16-soak.md) |
+| 15 | Latency rises and throughput falls across a 30-minute hold at constant load | persists, smaller; Postgres scans | [soak](2026-10-21-m16-soak.md) |
+| 16 | Game Host heap after GC grows 251 -> 371 MB over the soak | resolved: +1.1% | [soak](2026-10-21-m16-soak.md) |
+| 17 | The platform keeps its threads after the load is gone | resolved: +7.9% | [up-down](2026-10-21-m16-up-down.md) |
+| 18 | The Game Host wedges on its first cold start with a single context too | resolved by `IMP-M16-02`/`03`; two clean cold starts | [up-down](2026-10-21-m16-up-down.md), [soak](2026-10-21-m16-soak.md) |
+
+Phase B starts from the persisting entries: 1 to 3 and 15 (the database pool and the `room_participant` scans), 8 and 9 (the cost of several Espresso contexts).
