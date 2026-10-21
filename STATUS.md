@@ -1,14 +1,14 @@
 ## Last Session Summary
 
-**Date:** 2026-10-20 (session 226) — **`IMP-M16-11` done: a room client acts only after its subscriptions are confirmed.** 182 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-12…15` `READY`.
+**Date:** 2026-10-21 (session 227) — **`IMP-M16-12` done: the 300-second stall is explained and removed.** 183 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-13…15` `READY`.
 
-**What changed.** Spring's simple broker sends no `RECEIPT` (the new test timed out before the fix). `turnbase-platform` `5efdefd`: `SubscribeReceiptInterceptor`, an `ExecutorChannelInterceptor` on the inbound channel, sends the `RECEIPT` from `afterMessageHandled` of the handler that registers the subscription (`SimpleBrokerMessageHandler` for `/topic` and `/queue`, `UserDestinationMessageHandler` for `/user/…`). A dropped or rejected `SUBSCRIBE` gets none. `turnbase-frontend` `9b480fe`: `roomSocket.ts` subscribes the four base destinations with a `receipt` header and sends `REQUEST_ROOM_STATE` only when all four are confirmed (the snapshot reply goes to `/user/queue/room-state`, which could otherwise be unregistered); the attach watchdog still recovers a dropped one. The k6 harness (`stomp.js` `subscribeConfirmed`, `pair.js`) waits for the receipt and `SUBSCRIBE_SETTLE_MS` is gone from `config.js` and the README. `room-websocket.md` § Snapshot Delivery requires the receipt; `load-testing.md` §13 finding 4 has the M16 note.
+**What it was.** A harness artefact, not a product stall. The WSL resolver never answers the IPv4 query for `turnbase.localhost`, so a lookup takes about 10 s; k6 repeats it every 5 minutes (`dns.ttl`) on the first dial after expiry and every VU waits (period 306 s, the ingress receives nothing meanwhile). Ruled out with logs and probes: Postgres checkpoints, Redis RDB/AOF (`LATENCY LATEST` empty), platform GC and safepoints (longest 52 ms), the host-to-ingress path, k6's remote-write output. Report: `loadtest/reports/2026-10-21-m16-stall.md` (runs, correlation table, minimal k6 reproduction).
 
-**Evidence.** `WebSocketIT.aBroadcastSentRightAfterTheReceiptIsNeverMissed`: 1,000 subscribe-receipt-broadcast iterations, 0 misses. Live cluster, rebuilt platform image: `smoke.js` exit 0, `tb_errors` 0, 3 games; 8 pairs, 24 games, 0 errors. Frontend: typecheck, lint, format:check, build and 922 tests green, with two new `roomSocket` tests (no snapshot request before all receipts; none for a replaced connection).
+**What changed.** `loadtest/lib/config.js` exports `dnsOption = { ttl: 'inf' }`; `baseOptions`, `smoke.js` and `provision.js` set it. The platform overlay gets `-Xlog:gc*,safepoint:stdout:utctime,uptime` (mirrored; `check-overlays.sh` OK). No chart or platform change. `load-testing.md` §13 findings 3 and 10 and `loadtest/README.md` carry the note.
 
-**Local build.** `./mvnw verify` green. Integration: `GameAssetControllerIT` and `SeedDataIT` fail on `*.games.localhost` on this WSL machine, as before; `CatalogRepositoryIT` (container refused) and `RateLimitInterceptorIT` (GOAWAY) failed in the full run and pass alone. Frontend CI: `App.test.tsx` "That username is taken" timed out once on the runner, unrelated, green on rerun.
+**Evidence.** 15-minute `start-rate` at 16 games/s on the rebuilt stack (platform image `41845dff…`): before the fix two stalls (`ws_connecting` max 10.0 s, `room_join` p99 394 to 622 ms); after it `ws_connecting` max 13 ms, `room_join` p99 30.7 ms, 0 errors, 0 dropped iterations, exit 0.
 
-**Not changed.** The game subscriptions in `syncGameSubscriptions` still send `REQUEST_GAME_SYNC` right after subscribing; the item covers the room topic only. Worth a look if `IMP-M16-14` shows `sync_timeout` errors.
+**For `IMP-M16-14`.** Phase A numbers that contain a stall (the `start-rate` 32 games/s step, the `contexts` 10 s connect, the `ramp-to-break` ceiling of 70 pairs) are affected; the rerun uses the fixed harness. A cold run's first ~29 s still drop iterations (JIT warm-up, not periodic); run `reset.sh` then a short warm-up before a measured step.
 
 ---
 
@@ -18,7 +18,7 @@
 
 ## Next Priorities
 
-**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → ~~`04`~~ → ~~`05`~~ → ~~`06`~~ → ~~`07`~~ → ~~`08`~~ → ~~`09`~~ → ~~`10`~~ → ~~`11`~~ → `12` → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
+**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → ~~`04`~~ → ~~`05`~~ → ~~`06`~~ → ~~`07`~~ → ~~`08`~~ → ~~`09`~~ → ~~`10`~~ → ~~`11`~~ → ~~`12`~~ → `13` → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
 
 - `01`, `02`, `03` and `11…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
 - `14` and `15` are measurement only: findings that persist become Phase B notes in `load-testing.md` §13, never registry items.

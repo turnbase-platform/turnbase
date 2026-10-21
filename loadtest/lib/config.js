@@ -22,3 +22,6 @@ export const cfg = {
 export const userName = (i) => cfg.userPrefix + String(i).padStart(5, '0');
 export const pairUsers = (p) => [userName(2 * p), userName(2 * p + 1)]; // VU id v -> pair v-1
 export const hostsOption = () => (cfg.hostIp ? { [cfg.host.split(':')[0]]: cfg.hostIp } : {});
+// k6 re-resolves the host name every 5 minutes (its default `dns.ttl`). On the reference machine the IPv4 lookup of
+// `turnbase.localhost` hangs for about 10 s, so every VU stalled at each expiry (IMP-M16-12): resolve once, in setup.
+export const dnsOption = { ttl: 'inf' };

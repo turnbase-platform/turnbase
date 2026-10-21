@@ -100,7 +100,8 @@ requests equal to limits:
 
 The memory limits sum to 8.5 GiB. The Docker Desktop VM (15.21 GiB on the reference machine) also runs
 k6, the frontend, ingress and the observability stack, so larger limits left pods unschedulable or
-OOM-killed the node. A run item never edits the overlay; the M16 items edit it only where their sections say so, and mirror the edit in `values-default-limits.yaml` (`test/check-overlays.sh`). It also passes `postgres.extraArgs` (`-c shared_preload_libraries=pg_stat_statements -c log_checkpoints=on`); `redis.extraArgs` stays empty. If the VM has fewer than 12 CPUs, halve every
+OOM-killed the node. A run item never edits the overlay; the M16 items edit it only where their sections say so, and mirror the edit in `values-default-limits.yaml` (`test/check-overlays.sh`). It also passes `postgres.extraArgs` (`-c shared_preload_libraries=pg_stat_statements -c log_checkpoints=on`); `redis.extraArgs` stays empty.
+The platform JVM also logs GC and safepoints to stdout (`JDK_JAVA_OPTIONS` `-Xlog:gc*,safepoint:stdout:utctime,uptime`, `IMP-M16-12`), so `kubectl logs deploy/turnbase-platform` holds every pause with its time. If the VM has fewer than 12 CPUs, halve every
 `cpu` value and record it in the report.
 
 ## Environment variables (`lib/config.js`)
@@ -123,6 +124,7 @@ OOM-killed the node. A run item never edits the overlay; the M16 items edit it o
 | `USERS` | 2000 | Users `provision.js` creates, and the pair cap of every scenario: `lib/pair.js` allows `floor(USERS / 2)` pairs, so a run of more than 1,000 pairs sets the same `USERS` for `provision.js` and for the scenario |
 
 `turnbase.localhost` resolves to `::1` on the WSL host. If k6 cannot connect, set `HOST_IP=127.0.0.1`.
+The WSL resolver does not answer the IPv4 query for `turnbase.localhost`, so a k6 lookup takes about 10 s. The scenarios therefore set `dns.ttl` to `inf` (`lib/config.js` `dnsOption`): k6's default of 5 minutes stalled every VU for 10 s at each expiry (`IMP-M16-12`, `reports/2026-10-21-m16-stall.md`). A new script must use `baseOptions` or set `dns: dnsOption`.
 (It was not needed on the reference machine for HTTP; `provision.js` ran without it.)
 
 ## Generator and VM limits

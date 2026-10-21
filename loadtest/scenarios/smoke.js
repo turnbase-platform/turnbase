@@ -1,11 +1,12 @@
 // Each pair plays three games: two in one room (the second is the rematch), then one in a fresh room.
 // Usage: k6 run loadtest/scenarios/smoke.js          (env: see lib/config.js; PAIRS, default 1, starts that many pairs at once)
-import { cfg, hostsOption } from '../lib/config.js';
+import { cfg, hostsOption, dnsOption } from '../lib/config.js';
 import { loginAll } from '../lib/player.js';
 import { getPair, pairSession } from '../lib/pair.js';
 
 export const options = {
   hosts: hostsOption(),
+  dns: dnsOption,
   setupTimeout: '10m',
   scenarios: {
     smoke: { executor: 'per-vu-iterations', vus: cfg.pairs, iterations: 1, maxDuration: '3m' },

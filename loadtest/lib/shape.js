@@ -1,5 +1,5 @@
 // Shared scenario plumbing: environment parsing, stage lists and the options every scenario repeats.
-import { cfg, hostsOption } from './config.js';
+import { cfg, hostsOption, dnsOption } from './config.js';
 import { loginAll } from './player.js';
 import { getPair, pairSession } from './pair.js';
 
@@ -22,7 +22,7 @@ export function levelStages(levels) {
 export const levelSegments = (levels) => levels.map((p) => ({ tag: String(p), seconds: cfg.stepSeconds }));
 
 export function baseOptions(scenarios, thresholds) {
-  return { hosts: hostsOption(), setupTimeout: '10m', scenarios, thresholds,
+  return { hosts: hostsOption(), dns: dnsOption, setupTimeout: '10m', scenarios, thresholds,
     summaryTrendStats: ['avg', 'p(50)', 'p(95)', 'p(99)', 'max', 'count'] };
 }
 

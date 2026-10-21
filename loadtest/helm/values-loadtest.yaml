@@ -15,7 +15,7 @@ platform:
     limits:   { cpu: "4", memory: 3Gi }
   extraEnv:
     - { name: SPRING_PROFILES_ACTIVE, value: "local,loadtest" }
-    - { name: JDK_JAVA_OPTIONS, value: "-XX:MaxRAMPercentage=70" }
+    - { name: JDK_JAVA_OPTIONS, value: "-XX:MaxRAMPercentage=70 -Xlog:gc*,safepoint:stdout:utctime,uptime" }
 gamehost:
   replicaCount: 1
   resources:

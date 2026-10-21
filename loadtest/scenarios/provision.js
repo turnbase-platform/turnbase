@@ -3,12 +3,13 @@
 // Needs the `loadtest` profile (registration limiting off), otherwise it fails with RATE_LIMIT_EXCEEDED
 // after 3 users: that is the profile not being active, not a script bug.
 import exec from 'k6/execution';
-import { cfg, userName, hostsOption } from '../lib/config.js';
+import { cfg, userName, hostsOption, dnsOption } from '../lib/config.js';
 import { provisionCreated, provisionExisting, fail } from '../lib/metrics.js';
 import { Player, errorCode } from '../lib/player.js';
 
 export const options = {
   hosts: hostsOption(),
+  dns: dnsOption,
   scenarios: {
     provision: {
       executor: 'shared-iterations',
