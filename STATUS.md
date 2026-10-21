@@ -1,16 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-21 (session 228) — **`IMP-M16-13` done: the platform's CPU per move is profiled; there is no hotspot with a local fix.** 184 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-14` and `15` `READY`.
+**Date:** 2026-10-21 (session 229) — **`IMP-M16-14` done: the capacity half of the re-verification is measured (four reports).** 185 of 187 items done, `IMP-M13-08` still `WIP` and owner-held, `IMP-M16-15` `READY`.
 
-**What it found.** A JFR profile at 64 pairs (`loadtest/reports/2026-10-21-m16-cpu.md`): 1,258 moves/s, platform 3.28 of 4 cores, **2.60 ms CPU per move**, and no leaf method above 4.1%. The cost is spread: the OpenTelemetry agent 19 to 20%, Spring JDBC 19% (3.8 statements per move), STOMP channels 13%, Lettuce 10% (about 10 commands per move), gRPC 7.5%. Hikari is saturated (10 connections, pending max 68); Postgres is the co-limit.
+**What it found** (`loadtest/reports/2026-10-21-m16-{parallelism,ramp-to-break,contexts,start-rate}.md`, each `REPORT COMPLETE`; 0 errors in all four, no stall, no restart):
+- `parallelism`: peak 1,055 moves/s at 32 pairs (909 in Phase A), ceiling still 64 pairs, 40% decline at 256. **First to break: the DB pool** (10 of 10 connections busy from 16 pairs, `hikari_pending` up to 207, Postgres at its 2-core limit); the Game Host stays under 1.2 of 4 cores.
+- `ramp-to-break`: ceiling 80 pairs (Phase A 70), aborted at 90 on `tb_room_join` p95 200 ms (311 ms in Phase A); 80 sessions and 160 sockets at the ceiling, far from 500 and 5,000. First to break: the DB pool.
+- `start-rate`: clean to 32 games/s (Phase A 16, which was the stall); at 64 the moves and room operations fail (p95 0.8 to 1.1 s), at 128 warm `game_start` p95 is 2.1 s and 7,123 iterations are dropped. **Finding 11 answered**; DB pool again. Completed games per second run 4% to 29% above the nominal rate, unexplained.
+- `contexts`: four contexts still cost about 3 Game Host cores (0.93 for one), finding 9 persists; the **cold start is worse, 21.3 s mean and 27.8 s max** (10.2 s in Phase A), likely because the warm-up is off since `IMP-M16-03`; not isolated.
 
-**What changed.** `turnbase-platform` `65d9d74`: the completed-session increment is now the last statement of the recording transaction (the `game` row lock no longer spans the history writes; `data-model-history.md` §3), and `RoomSubscriptionAuthorizer` keeps a session-to-rooms index so a disconnect is no longer a scan of every room ever served, which also stops empty sets leaking (2.3% of CPU to 0.0%). 7 new tests. `loadtest/cpu-per-move.sh` prints moves/s and platform CPU per move; the JFR flags are out of both overlays again.
+**What changed.** Only documentation: the four reports, `load-testing.md` §13 (an `**M16:**` line on findings 1 to 4 and 8 to 11), the registry row, and the `clean package` rule in `loadtest/README.md` and the registry's rebuild rule (a second non-clean `package` empties the guest-bridge jar; the first parallelism run was lost to it and is not reported).
 
-**Evidence.** Rerun at 64 pairs on the new image: 1,212 moves/s, 3.16 cores, **2.604 ms per move** (2.604 before): no change in CPU per move or throughput (one run each); Hikari pending mean 26.3 to 13.2. `load-testing.md` §13 findings 1 and 2 carry `**M16:**` lines. The OTel share, the per-move reads (participant lookup three times, five Redis keys) and the pool are **Phase B notes**; an `OTEL_JAVAAGENT_ENABLED=false` experiment was not run.
-
-**Local `verify -Pintegration`:** 7 errors, `GameAssetControllerIT` (6, fails the same way on `master` without the change) and `SeedDataIT` (1, same `*.localhost` I/O error), the resolver problem of `IMP-M16-12`; the `build` workflow on `65d9d74` is green.
-
-**For `IMP-M16-14`.** The stack is installed without the recorder; `reset.sh` and provision before the first run.
+**For `IMP-M16-15`.** The stack is installed and reset; the four `contexts` copies are removed from the seed directory. `SUMMARY.md` and the soak/`up-down` reruns are its job; `ramp-to-break` ceiling 80 pairs sets the soak load.
 
 ---
 
@@ -20,7 +20,7 @@
 
 ## Next Priorities
 
-**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → ~~`04`~~ → ~~`05`~~ → ~~`06`~~ → ~~`07`~~ → ~~`08`~~ → ~~`09`~~ → ~~`10`~~ → ~~`11`~~ → ~~`12`~~ → ~~`13`~~ → `14` → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
+**Work M16 in order: ~~`01`~~ → ~~`02`~~ → ~~`03`~~ → ~~`04`~~ → ~~`05`~~ → ~~`06`~~ → ~~`07`~~ → ~~`08`~~ → ~~`09`~~ → ~~`10`~~ → ~~`11`~~ → ~~`12`~~ → ~~`13`~~ → ~~`14`~~ → `15`** ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*; its first paragraphs hold the finding-to-item map and the rules). *Depends on* enforces the order.
 
 - `01`, `02`, `03` and `11…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
 - `14` and `15` are measurement only: findings that persist become Phase B notes in `load-testing.md` §13, never registry items.

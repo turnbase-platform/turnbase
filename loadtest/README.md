@@ -15,8 +15,9 @@ frontend}:dev` built locally, and the Tic-Tac-Toe seed bundle in `turnbase-game-
 ## Run procedure
 
 1. Build the images (`docker build -t turnbase/platform:dev turnbase-platform`, likewise
-   `turnbase/game-host:dev` and `turnbase/frontend:dev`; `./mvnw package -DskipTests` first when
-   `target/` is stale).
+   `turnbase/game-host:dev` and `turnbase/frontend:dev`; `./mvnw clean package -DskipTests` first when
+   `target/` is stale; always `clean`: a second `package` over an already repackaged jar shades the Boot jar
+   and leaves the guest-bridge jar without its classes, and every game start then fails).
 2. `bash loadtest/preflight.sh --cluster-only`, then `bash loadtest/install.sh`.
 3. `bash loadtest/preflight.sh` (must print `PREFLIGHT OK`).
 4. Provision the users: `k6 run loadtest/scenarios/provision.js`. A second run reports 0 created.
