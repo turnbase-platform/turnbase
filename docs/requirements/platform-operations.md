@@ -139,6 +139,22 @@ For the MVP the platform runs as a single local instance (ADR-0001), so affinity
 
 ---
 
+### Database Query Efficiency and Connection Pool
+
+Added 2026-10-22 from the M16 re-verification (`../../loadtest/reports/SUMMARY.md`, *M16*), in which the
+database connection pool and PostgreSQL were the first thing to break in every capacity scenario. Built
+by milestone M17.
+
+| ID | Title | Description | Priority |
+|----|-------|-------------|----------|
+| FR-DBQ-001 | Query cost independent of retained history | Every statement run on the game path (room create, room join, the open-room listing, lobby and ready commands, game start, game action) and by every duty of the deadline sweep (FR-JOB-006; the reconciliation sweep of FR-JOB-007 is not included) must cost time bounded by the room or user it concerns, not by the number of closed rooms, departed participants or retained history rows. Verified on a database seeded with at least 100,000 retained closed-room participants: no such statement's plan is a sequential scan of `room`, `room_team` or `room_participant`, and the rows each statement examines in those tables (actual rows plus rows removed by a filter) exceed those on an empty-history database by no more than 10. | Must |
+| FR-DBQ-002 | Room-scoped team occupancy | The number of active players per team is computed only from the participants of the room in question. | Must |
+| FR-DBQ-003 | Live participation lookup by user | Finding a user's live room participation reads only that user's participant rows that have not been left, not other users' rows nor that user's departed history. | Must |
+| FR-DBQ-004 | Sweep duties make progress | A sweep duty (FR-JOB-006) that selects a room must, within the same run, either complete its action on that room or stop selecting it until the room's state changes. A room the instance cannot mutate (a closed room, no ownership, a lock timeout) must not be selected and re-read on every interval without end; the exclusion is made in the selecting statement, not by discarding rows after the select. The first suspected case is the elapsed migration window (OQ-005). | Must |
+| FR-DBQ-005 | Explicit connection-pool size | The Platform Monolith's database connection-pool maximum size is set explicitly in configuration, never left to the library default, and is overridable per deployment environment without a code change. | Must |
+| FR-DBQ-006 | Pool size grounded in measurement | The default pool size is chosen from load-test runs on the reference node (`../specs/deployment/load-testing.md`), on the build that already satisfies FR-DBQ-001…004. The runs start from the conventional rule (PostgreSQL cores × 2 + 1) and try at least two larger values. The candidate with the highest ceiling (the last step meeting every NFR-LOAD-001…004 threshold, as `load-testing.md` defines it) wins; among candidates with that ceiling, any whose peak moves/s is within 5% of the best counts as tied, and the smallest tied value is chosen. The candidates, their results and the reason for the choice are recorded in `../specs/deployment/local-environment.md` §7.9. | Must |
+| FR-DBQ-007 | PostgreSQL server tuning (conditional) | If NFR-DBQ-001 still fails with PostgreSQL as the first thing to break once FR-DBQ-001…006 hold, the chart's PostgreSQL server settings (memory and connection limits) are tuned and the values recorded with their rationale in `../specs/deployment/local-environment.md`. | Could |
+
 ### Scheduled Jobs
 
 | ID | Title | Description | Priority |
@@ -198,6 +214,10 @@ For the MVP the platform runs as a single local instance (ADR-0001), so affinity
 | NFR-LOAD-004 | Performance | Lobby event delivery, the command to the broadcast received by a participant, under load (`load-testing.md` §7). | p99 < 600 ms | Should |
 | NFR-JOB-001 | Correctness | Grace expiry and deferred closure take effect no later than their persisted deadline plus one sweep interval (FR-JOB-006), **for a room that has a live owner**. FR-JOB-006 is partitioned by ownership, so a room whose owner was lost is not swept at all until it is adopted; that case is bounded by NFR-JOB-002 instead, and the two bounds add. Mirrors `reconnection-flow.md` NFR-PERF-003. | deadline + 5s p99 | Must |
 | NFR-JOB-002 | Recoverability | A room whose owning instance is lost becomes owned again — by a returning client (immediately, on the claim its rejoin performs) or by reconciliation (FR-JOB-007) — within this bound, after which its deadlines are enforced normally. The bound is set by FR-JOB-007's interval, since a room nobody returns to has no other path to an owner: it must therefore exceed one full interval, and the adopt duty (FR-JOB-007e) is **exempt from the two-observation rule of FR-JOB-008(b)** — an absent liveness lease is not a divergence to be corroborated, and requiring a second run would double this bound. | < 90s (one FR-JOB-007 interval + margin) | Must |
+| NFR-DBQ-001 | Scalability | In the `parallelism`, `ramp-to-break` and `soak` scenarios on the reference single node (`../specs/deployment/load-testing.md`), each run on a freshly reset stack, the database is not the first thing to break. (M16 broke on the DB pool in `parallelism` and `ramp-to-break`; `soak` reported `none` and must stay so.) | The *First to break* line of each of the three reports names neither `DB pool` nor `PostgreSQL` (the vocabulary of `load-testing.md` §8) | Must |
+| NFR-DBQ-002 | Performance | HTTP latency stays stable at constant load across the `soak` hold (`load-testing.md` §13 finding 15). | HTTP p99 drift < 25% over the 30-minute hold | Must |
+| NFR-DBQ-003 | Performance | No regression against the M16 re-verification (`../../loadtest/reports/SUMMARY.md`, *M16*). | `ramp-to-break` ceiling ≥ 80 pairs; `parallelism` ceiling ≥ 64 pairs and peak moves/s no more than 5% below 1,055 | Must |
+| NFR-DBQ-004 | Performance | Game-path statement time does not grow with retained history (FR-DBQ-001). | Mean execution time of each FR-DBQ-001 statement with ≥ 100,000 retained closed-room participants is within 25% (or 0.5 ms, whichever is larger) of the same statement on an empty-history database | Should |
 
 ---
 
@@ -217,6 +237,10 @@ For the MVP the platform runs as a single local instance (ADR-0001), so affinity
 | CON-010 | E2E tests use Docker Compose to spin up the full stack locally within the CI runner. Integration tests use Testcontainers to start real service dependencies (PostgreSQL, Redis, MinIO) per test run, never a stack started separately (FR-CICD-004). |
 | CON-011 | For the MVP, infrastructure runs on **local Docker Desktop Kubernetes** (WSL2), with docker-compose as a supported quick-start profile (ADR-0001). Cloud Kubernetes is a post-MVP aspiration; provider not selected. |
 | CON-012 | Schema migrations use **Flyway** with plain SQL migrations, run at application startup ([ADR-0011](../decisions/0011-schema-migrations.md)). Migration files live in the `turnbase-platform` submodule and are authoritative over the schema documents in `docs/specs/platform/`. The Game Host has no relational database and therefore no migrations. |
+| CON-013 | One Platform Monolith instance (NFR-SCALE-001 unchanged). FR-DBQ-* and NFR-DBQ-* are measured on the `load-testing.md` reference node with its pinned PostgreSQL resources (2 CPU, 1 GiB). |
+| CON-014 | Behaviour when the connection pool is exhausted is unchanged: a request waits for a connection as it does today. Fail-fast or `503` shedding is not introduced by FR-DBQ-*. |
+| CON-015 | Schema changes made for FR-DBQ-* (indexes and similar) follow FR-DB-001…004: forward-only, backward-compatible with the previous application version, and bounded; an index on an existing table is built per `../specs/deployment/schema-migrations.md` § `CREATE INDEX CONCURRENTLY`. |
+| CON-016 | Retention is unchanged: FR-RET-006 keeps closed rooms for 7 days. FR-DBQ-001 makes that retention free for the game path rather than shortening it. |
 
 ---
 
@@ -230,6 +254,11 @@ For the MVP the platform runs as a single local instance (ADR-0001), so affinity
 - Admin tooling and moderation (separate gap — not yet specified)
 - Multi-region deployment and geo-redundancy
 - Cost monitoring and resource budgeting — **the MVP's infrastructure cost is zero.** Everything runs on hardware the developer already owns (ADR-0001), so there is nothing to monitor and no budget to enforce. The two costs that do exist are a domain registration and, when a cloud phase begins, a second registrable domain for game frontends (ADR-0007). This entry is kept rather than deleted because "cost monitoring is out of scope" reads as an omission, and it is a consequence of the deployment decision
+- **Write batching for the database.** The M16 `pg_stat_statements` recon found no hot write path: a game action writes nothing to PostgreSQL, and a room join or a game completion writes about five rows per *game*. Batching them would not move the ceiling FR-DBQ-* addresses.
+- Fail-fast or `503` load shedding on connection-pool exhaustion (CON-014).
+- A separate connection pool for background jobs; revisited only if a run after FR-DBQ-004 shows jobs competing with requests for connections.
+- A connection budget across replicas, a connection proxy (PgBouncer) and multi-instance deployment (Phase B, `../specs/deployment/load-testing.md` §9).
+- Query-result caching (a per-room cache is a Phase B design topic).
 
 ---
 
@@ -245,3 +274,4 @@ For the MVP the platform runs as a single local instance (ADR-0001), so affinity
   the gating shape is otherwise unchanged.)
 - **OQ-003** — **Resolved:** The full Grafana stack (Prometheus, Loki, Tempo, Grafana) is included in the local Docker Compose setup. This is a primary learning goal of the project. Exact Docker Compose configuration is deferred to the deployment setup documentation.
 - **OQ-004** — `NFR-AVAIL-001` states two targets. This document sets 99% for the MVP (99.9% as an aspiration), with the reasoning that a single-node cluster with non-HA PostgreSQL and Redis cannot deliver more. `platform-architecture.md` lists the same ID at 99.9% for Game Host availability for the primary runtime type. The two rows are not changed here: the owner decides which number is the requirement and whether the second row is a different requirement that needs its own ID. Found by `IMP-M15-02` (2026-10-18).
+- **OQ-005** — Does the elapsed-migration-window sweep re-process rooms without end? The M16 CPU profile (`../../loadtest/reports/2026-10-21-m16-cpu.md` §3) counted three statements at about 1.26 calls per game action (`select host_user_id from room`, `select connection_count > 0 from room_participant`, `select user_id from room_participant … connection_count > 0`), but the game-action path issues none of them. Their only caller on that schedule is `GraceDeadlineSweepJob.closeMigrationWindow` (FR-JOB-006, every 5 s), which reads them before clearing the window *inside* `RoomEventExecutor.execute` and swallows `RoomUnavailableRetryException`; a room this instance cannot mutate would keep its window and be re-read every interval. The likeliest such room is a **closed** one: `RoomOwnershipService.onRoomClosed` drops the in-memory epoch but leaves `owner_instance_id` and `migration_window_expires_at` set, and closure (`detachSession`) does not clear the window, so a room that closes inside its window would be selected every 5 s until its purge (FR-RET-006, 7 days). Its host has no live connection, which fits the three statements' equal counts. `RoomOwnershipService.release` dropping `owned` without clearing the owner is a second candidate. Unconfirmed: to be reproduced, counting calls per tick against the rooms with `migration_window_expires_at <= now()`, closed rooms included. FR-DBQ-004 stands either way. Found 2026-10-22.

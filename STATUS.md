@@ -1,21 +1,20 @@
 ## Last Session Summary
 
-**Date:** 2026-10-22 (session 230) — **`IMP-M16-15` done: the endurance half of the re-verification is measured and M16 is closed.** 186 of 187 items done, `IMP-M13-08` still `WIP` and owner-held.
+**Date:** 2026-10-22 (session 231) — **M17 — Database capacity opened (5 items, `IMP-M17-01…05`), from a requirements session with the owner.** 186 of 192 items done, `IMP-M13-08` still `WIP` and owner-held.
 
-**What it found** (`loadtest/reports/2026-10-21-m16-{soak,up-down}.md`, each `REPORT COMPLETE`; summary in the *M16* section of `loadtest/reports/SUMMARY.md`):
-- `soak` (56 pairs, 30 min): every latency target met, 0 errors in 213,175 games, **no `not owned by this instance`**, Game Host heap after GC +1.1% (Phase A +48%), no restart. **HTTP p99 drifts +122% (77 -> 172 ms)** and requests per second fall 26.5%, so that criterion fails. The cause is visible in Postgres: `Seq Scan on room_participant` (occupancy subquery and `user_id` lookup), linear in a table that keeps every closed room's participants; the Hikari pool is 10 of 10 busy with about 50 pending. Phase B note, finding 15.
-- `up-down`: everything released within 60 s; platform threads 76 before, 82 after (+7.9%, pass). Redis `DBSIZE` 5 before and 6 five minutes after the load (one unidentified TTL key; 5 again a few minutes later), `used_memory` -2.8%, no room-key leak. That is a strict miss of "within 1%"; whether it counts is the owner's reading.
-- The first soak attempt ran on a database still holding 22,842 rooms of the previous `start-rate` run (stack not reset); it is kept as `-attempt1` and agrees (p99 +90%).
+**Why.** The M16 re-verification showed the platform, not the Game Host, is the limit, and inside it the database: the 10-connection Hikari pool broke first in `parallelism` and `ramp-to-break`, PostgreSQL sat at its 2-core limit, and `room_participant` scans grow with retained history (finding 15). The 2026-10-10 E2E & security audit was re-checked first: every finding is closed in the registry (M10).
 
-**What changed.** Only documentation: the two reports, `SUMMARY.md` (*M16* section: criteria, report links, findings 1 to 18), `load-testing.md` §13 (ten `**M16:**` lines from this item; every finding 1 to 18 now has one), the registry row.
+**Owner decisions.** Goal: the database is not the first thing to break. Minimal scope: query fixes, the suspected sweep bug, an explicit pool size chosen by stress tests. Pool exhaustion keeps queueing (no `503`). Out of scope: write batching (recon found no hot write path), a separate job pool, PgBouncer, a cross-replica budget, multi-instance (Phase B), caching. PostgreSQL tuning only as a last resort.
 
-**For Phase B.** Persisting entries: 1 to 3 and 15 (the database pool and the `room_participant` scans), 8 and 9 (several Espresso contexts: cold start 21.3 s, about 3 cores). Reset the stack (`loadtest/reset.sh`) before every run.
-
----
+**What changed (documentation only).**
+- `platform-operations.md`: FR-DBQ-001…007, NFR-DBQ-001…004, CON-013…016, Out of Scope entries, OQ-005 (the migration-window sweep re-reading closed rooms every 5 s, unconfirmed); prefixes registered in `docs/requirements/INDEX.md`.
+- `load-testing.md` §8 and `loadtest/reports/TEMPLATE.md`: *First to break* gains `PostgreSQL`, told apart from `DB pool` by PostgreSQL CPU ≥ 1.9 of 2 cores.
+- Registry: the M17 section and rows; `docs/implementation/INDEX.md` milestone map; counts 187 → 192 in `CLAUDE.md`.
+- An independent Opus review found 12 issues (one blocker: the report vocabulary had no `PostgreSQL`); all fixed. It also surfaced that `local-environment.md` §7.9 documents a pool size of 20 while the build runs Hikari's default 10; `IMP-M17-03` reconciles it.
 
 ## Next Priorities
 
-**M16 is closed (`01` to `15` done).** Next is the owner's call: Phase B ([registry](docs/implementation/registry.md), section *M16 — Pre-Phase-B fixes*, holds the finding-to-item map).
+**M17 — Database capacity is next** ([registry](docs/implementation/registry.md), section *M17*). `01` (sweep re-read), `02` (history-independent queries) and `03` (explicit pool size) are independent code items in `turnbase-platform`; `04` (pool size by measurement) needs all three and `05` (re-verification) needs `04`; both are live and follow the M16 live-item and rebuild rules. Phase B (autoscaling, replicas) follows M17.
 
 - `01`, `02`, `03` and `11…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
 - `14` and `15` are measurement only: findings that persist become Phase B notes in `load-testing.md` §13, never registry items.

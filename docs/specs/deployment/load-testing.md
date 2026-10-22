@@ -326,8 +326,10 @@ The four IDs are defined in [`platform-operations.md`](../../requirements/platfo
   - commit SHAs of every submodule and the chart values used;
   - Docker Desktop VM CPU and RAM, and the k6 host's load;
   - the threshold table;
-  - the breaking point and **what broke first** — Game Host CPU, Espresso contention, DB pool, Redis,
-    platform threads, or k6 itself;
+  - the breaking point and **what broke first** — Game Host CPU, Espresso contention, DB pool, PostgreSQL,
+    Redis, platform threads, or k6 itself. `PostgreSQL` when connections wait (`hikari_pending` > 0) and
+    PostgreSQL is at or above 1.9 of its 2 cores at the failing step; `DB pool` when they wait with
+    PostgreSQL below that (added for M17, `platform-operations.md` NFR-DBQ-001; M16 reports predate it);
   - server-side observations from Prometheus and Grafana.
 - Every report states that the result is a single-node, laptop ceiling, records the `.wslconfig` VM cap, flags generator-bound steps, and notes the coordinated-omission limitation.
 

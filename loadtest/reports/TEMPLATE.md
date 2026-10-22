@@ -82,8 +82,9 @@ Evidence: FILL
 
 `Ceiling (pairs)` is one integer: the last step all of whose thresholds passed and that is not
 generator-bound, or `<n> (not reached)` when no step failed. `First to break` is exactly one of:
-`Game Host CPU`, `Espresso contention`, `DB pool`, `Redis`, `platform threads`, `ingress / frontend nginx`,
-`k6 itself`, `memory (OOM)`, `none`. A report for `start-rate` writes `Ceiling (games/s): <n>` instead.
+`Game Host CPU`, `Espresso contention`, `DB pool`, `PostgreSQL`, `Redis`, `platform threads`, `ingress / frontend nginx`,
+`k6 itself`, `memory (OOM)`, `none`. `PostgreSQL` when `hikari_pending` > 0 with PostgreSQL at or
+above 1.9 of 2 cores at the failing step, `DB pool` when it is below (`load-testing.md` §8). A report for `start-rate` writes `Ceiling (games/s): <n>` instead.
 
 ## 6. Server side
 
