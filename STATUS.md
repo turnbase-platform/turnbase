@@ -1,20 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-22 (session 231) — **M17 — Database capacity opened (5 items, `IMP-M17-01…05`), from a requirements session with the owner.** 186 of 192 items done, `IMP-M13-08` still `WIP` and owner-held.
+**Date:** 2026-10-22 (session 232) — **`IMP-M17-01` done: the deadline sweep no longer selects closed rooms.** 187 of 192 items done, `IMP-M13-08` still `WIP` and owner-held.
 
-**Why.** The M16 re-verification showed the platform, not the Game Host, is the limit, and inside it the database: the 10-connection Hikari pool broke first in `parallelism` and `ramp-to-break`, PostgreSQL sat at its 2-core limit, and `room_participant` scans grow with retained history (finding 15). The 2026-10-10 E2E & security audit was re-checked first: every finding is closed in the registry (M10).
+**OQ-005 confirmed.** A new integration test (`SweepSelectsOnlyRoomsItCanChangeIT`, statements counted at the datasource) closes a room through the real close path inside its migration window: before the fix every sweep tick issued the three `closeMigrationWindow` lookups for it (3 per tick, 9 over three ticks) until the purge. Duties 1 (`dueGraceReservations`) and 2 (`deferredTails`) had the same flaw. The released-room candidate is not a cause (`release` clears `owner_instance_id`).
 
-**Owner decisions.** Goal: the database is not the first thing to break. Minimal scope: query fixes, the suspected sweep bug, an explicit pool size chosen by stress tests. Pool exhaustion keeps queueing (no `503`). Out of scope: write batching (recon found no hot write path), a separate job pool, PgBouncer, a cross-replica budget, multi-instance (Phase B), caching. PostgreSQL tuning only as a last resort.
+**Fix.** `turnbase-platform` `RoomRepository`: the three selecting statements carry `state <> 'CLOSED'` (SQL, not a Java filter). No index and no migration: `elapsedMigrationWindowRoomIds` is left to `IMP-M17-02`, as its section says. Docs: OQ-005 resolved (`platform-operations.md`), `room-lifecycle.md` §5.1 states the rule, `load-testing.md` §13 finding 1 has an `**M17:**` line (the three "participant lookups per move" were this sweep, not the move path). CI on `turnbase-platform` `master` green (`build` and `e2e`); ref bumped.
 
-**What changed (documentation only).**
-- `platform-operations.md`: FR-DBQ-001…007, NFR-DBQ-001…004, CON-013…016, Out of Scope entries, OQ-005 (the migration-window sweep re-reading closed rooms every 5 s, unconfirmed); prefixes registered in `docs/requirements/INDEX.md`.
-- `load-testing.md` §8 and `loadtest/reports/TEMPLATE.md`: *First to break* gains `PostgreSQL`, told apart from `DB pool` by PostgreSQL CPU ≥ 1.9 of 2 cores.
-- Registry: the M17 section and rows; `docs/implementation/INDEX.md` milestone map; counts 187 → 192 in `CLAUDE.md`.
-- An independent Opus review found 12 issues (one blocker: the report vocabulary had no `PostgreSQL`); all fixed. It also surfaced that `local-environment.md` §7.9 documents a pool size of 20 while the build runs Hikari's default 10; `IMP-M17-03` reconciles it.
+**Environment notes (not caused by this item, same on clean `master`).** In this WSL, 7 integration tests (`GameAssetControllerIT` 6, `SeedDataIT` 1) error because `*.localhost` games origins do not connect; they pass in CI. `ReconciliationJobIT` is intermittently red locally (a different test each run, also on clean `master`). A test counter class that is `@TestConfiguration` gets component-scanned into every manual-boot IT; keep such classes unannotated and pass them to `SpringApplication` as sources (as `ReconciliationJobIT` does).
 
 ## Next Priorities
 
-**M17 — Database capacity is next** ([registry](docs/implementation/registry.md), section *M17*). `01` (sweep re-read), `02` (history-independent queries) and `03` (explicit pool size) are independent code items in `turnbase-platform`; `04` (pool size by measurement) needs all three and `05` (re-verification) needs `04`; both are live and follow the M16 live-item and rebuild rules. Phase B (autoscaling, replicas) follows M17.
+**M17 — Database capacity is next** ([registry](docs/implementation/registry.md), section *M17*). `01` (sweep re-read) is **done**; `02` (history-independent queries) and `03` (explicit pool size) are independent code items in `turnbase-platform`; `04` (pool size by measurement) needs all three and `05` (re-verification) needs `04`; both are live and follow the M16 live-item and rebuild rules. Phase B (autoscaling, replicas) follows M17.
 
 - `01`, `02`, `03` and `11…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
 - `14` and `15` are measurement only: findings that persist become Phase B notes in `load-testing.md` §13, never registry items.

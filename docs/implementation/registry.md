@@ -234,7 +234,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M16-14 | Re-verification runs: capacity | docs (umbrella) | M16-01, M16-02, M16-03, M16-04, M16-05, M16-06, M16-07, M16-08, M16-09, M16-10, M16-11, M16-12, M16-13 | DONE |
 | IMP-M16-15 | Re-verification runs: endurance, and the M16 summary | docs (umbrella) | M16-14 | DONE |
 | **M17 — Database capacity** ||||
-| IMP-M17-01 | The migration-window sweep stops re-reading rooms it cannot change | platform | — | WIP (session 232) |
+| IMP-M17-01 | The migration-window sweep stops re-reading rooms it cannot change | platform | — | DONE |
 | IMP-M17-02 | Game-path queries cost the same whatever the retained history | platform | — | READY |
 | IMP-M17-03 | The connection-pool size is explicit and configurable | platform, docs | — | READY |
 | IMP-M17-04 | The pool size is chosen by measurement | docs (umbrella), platform | M17-01, M17-02, M17-03 | READY |

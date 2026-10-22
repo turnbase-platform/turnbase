@@ -700,6 +700,16 @@ The tick runs four duties, **in this order**:
    `data-model.md` makes the column nullable to avoid.
 4. **Outbox drain** — see below.
 
+**Duties 1 to 3 select no closed room (FR-DBQ-004).** Closure drops the room's in-memory epoch
+(`RoomOwnershipService.onRoomClosed`) but leaves `owner_instance_id`, any open reservation and any open
+migration window in place, so a duty that selected such a room could never act on it — the executor refuses
+it as not owned — and would select it again every 5 s until the purge (FR-RET-006). Each of the three
+selecting statements therefore carries `r.state <> 'CLOSED'`; the exclusion is in the SQL, never a filter
+after the select. A closed room needs none of the three: a reservation or a departure on it has no
+audience, and its closure is already done. A room released by `RoomOwnershipService.release` leaves the
+selection on its own (`owner_instance_id` is cleared), and a live room without a local epoch is a transient
+state that the next claim ends.
+
 Ordering matters between 2 and 4: a closure in duty 2 discards that session's undelivered rows (§4
 step 5), so draining first would dispatch a `player_left` for a session about to be terminated,
 possibly drawing effects or a `game_over` that then race the teardown. Closing first is the cheaper
