@@ -190,9 +190,13 @@ CREATE TABLE room_participant (
   PRIMARY KEY (room_id, user_id)
 );
 
-CREATE INDEX room_participant_grace_due_idx
-  ON room_participant (grace_expires_at)
+CREATE INDEX room_participant_grace_room_idx
+  ON room_participant (room_id, grace_expires_at)
   WHERE grace_expires_at IS NOT NULL AND left_at IS NULL;
+
+CREATE INDEX room_participant_live_user_idx
+  ON room_participant (user_id)
+  WHERE left_at IS NULL;
 
 CREATE INDEX room_participant_unannounced_idx
   ON room_participant (room_id)
@@ -428,13 +432,18 @@ have a matching row.
 Every index above is partial where the working set is small, because these tables are dominated by
 rows in a terminal state:
 
-- `room_participant_grace_due_idx` spans only players *currently in grace*, not the participant
-  table. At any plausible scale this is tens of rows, so the 5-second deadline sweep is an index-only
-  scan of a nearly empty index rather than a table scan.
+- `room_participant_grace_room_idx` spans only players *currently in grace*, not the participant
+  table, and is keyed on the room first (`FR-DBQ-001`, `IMP-M17-02`): closing a room does not clear its
+  reservations, so an index on the deadline alone would hold the closed rooms' too and the sweep would
+  read them all. Duty 1 selects this instance's open rooms and looks each up here, so it costs what
+  those rooms hold. It replaced `room_participant_grace_due_idx (grace_expires_at)`.
+- `room_participant_live_user_idx` spans the seats not yet left and serves the lookup of a user's live
+  participation (`FR-DBQ-003`, `IMP-M17-02`). Closing a room does not set `left_at`, so a user keeps at
+  most one stale seat in it (a closed room, until their next join releases it), which is bounded.
 - `room_participant_unannounced_idx` spans only released participants whose departure has not been
   announced — the deferred tails of `room-lifecycle.md` §5.1 duty 2. Its steady-state size is zero,
   because the sweep's success is what removes a row from it. It is partial on the *opposite*
-  predicate to `room_participant_grace_due_idx`, and both are needed: the 5-second sweep runs two
+  predicate to `room_participant_grace_room_idx`, and both are needed: the 5-second sweep runs two
   queries per tick and neither would otherwise have an index.
 - `room_open_state_idx` and `room_idle_lobby_idx` exclude closed rooms, which accumulate for 7 days
   (FR-RET-006) and are never of interest to the sweeps.

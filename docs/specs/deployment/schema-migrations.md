@@ -116,10 +116,14 @@ deploys, which is the price of the rollback FR-CICD-008 advertises.
 
 Required whenever an index is added to a table that already holds production data, because the
 non-concurrent form takes a lock that blocks writes for the duration of the build. It cannot run
-inside a transaction, so the migration must opt out:
+inside a transaction, so the migration must opt out. The opt-out is a file next to the script,
+`V<version>__<name>.sql.conf`, containing `executeInTransaction=false` (a comment directive in the
+script is not read, and Flyway then refuses the script as mixing transactional and non-transactional
+statements). The platform also sets `spring.flyway.postgresql.transactional-lock: false`: Flyway's
+default advisory lock is transactional, so its own connection stays idle in a transaction for the whole
+run and the concurrent build waits on it for ever (`IMP-M17-02`).
 
 ```sql
--- flyway:executeInTransaction=false
 DROP INDEX IF EXISTS notification_undelivered_idx;
 CREATE INDEX CONCURRENTLY notification_undelivered_idx ON notification (user_id, event_seq)
   WHERE delivered_at IS NULL;

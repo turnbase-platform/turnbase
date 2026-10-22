@@ -45,7 +45,7 @@ present. This is what makes a 60-second network blip invisible to game logic.
 ## B. Sweep enforcement
 
 The deadline sweep runs every 5 seconds (`FR-JOB-006`) over
-`room_participant_grace_due_idx` — partial on `grace_expires_at IS NOT NULL AND left_at IS NULL`, so
+`room_participant_grace_room_idx` — partial on `grace_expires_at IS NOT NULL AND left_at IS NULL`, so
 it scans an index that holds only players *currently in grace*, typically tens of rows.
 
 **This sweep is the primary mechanism, not a backstop.** Two mechanisms enforcing one deadline would
