@@ -80,6 +80,7 @@ After the fixes of `IMP-M16-01` to `13` the same scenarios ran again on the same
 | Scenario | Report | Result in one line |
 |---|---|---|
 | `parallelism` | [2026-10-21-m16-parallelism.md](2026-10-21-m16-parallelism.md) | Peak 1,055 moves/s at 32 pairs (909 in Phase A); ceiling still 64 pairs; 0 errors in 97,015 games; first to break the DB pool |
+| `parallelism` (M17 pool sizing) | [2026-10-23-m17-pool-sizing.md](2026-10-23-m17-pool-sizing.md) | Pools 5, 10, 20: ceiling 64 pairs each; peak 1,452, 1,755, 1,714 moves/s; pool 10 confirmed (`FR-DBQ-006`)
 | `ramp-to-break` | [2026-10-21-m16-ramp-to-break.md](2026-10-21-m16-ramp-to-break.md) | Ceiling 80 pairs (Phase A 70), aborted at 90 on a `tb_room_join` p95 of 200 ms; first to break the DB pool |
 | `start-rate` | [2026-10-21-m16-start-rate.md](2026-10-21-m16-start-rate.md) | Clean to 32 games/s (Phase A 16); degrades between 32 and 64; no stall |
 | `contexts` | [2026-10-21-m16-contexts.md](2026-10-21-m16-contexts.md) | Four contexts still cost about 3 Game Host cores; cold start 21.3 s mean (10.2 s in Phase A) |

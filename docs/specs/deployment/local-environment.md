@@ -745,7 +745,7 @@ the Game Host does not read them.
 |---|---|---|
 | `spring.datasource.url` | `jdbc:postgresql://postgres:5432/turnbase` | `SPRING_DATASOURCE_URL` |
 | `spring.datasource.username` | `turnbase_app` | `SPRING_DATASOURCE_USERNAME` |
-| `spring.datasource.hikari.maximum-pool-size` | `10` — explicit in `application.yml`, never Hikari's library default; `FR-DBQ-006` governs the value (`IMP-M17-04` chooses it by measurement); chart value `platform.db.poolMaxSize` | `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE` |
+| `spring.datasource.hikari.maximum-pool-size` | `10` — explicit in `application.yml`, never Hikari's library default; `FR-DBQ-006` governs the value; chosen by measurement (`IMP-M17-04`, [report](../../../loadtest/reports/2026-10-23-m17-pool-sizing.md)): `parallelism` at 5, 10 and 20 connections, ceiling 64 pairs for all three, peak 1,452, 1,755 and 1,714 moves/s, so 20 ties 10 within 5% and the smallest tied pool, 10, stays; chart value `platform.db.poolMaxSize` | `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE` |
 | `spring.data.redis.host` | `redis` | `SPRING_DATA_REDIS_HOST` |
 | `spring.data.redis.port` | `6379` | `SPRING_DATA_REDIS_PORT` |
 | `spring.data.redis.password` | **no default** — secret, `secrets-and-configuration.md` § Redis (`TURNBASE_REDIS_PASSWORD`) | `SPRING_DATA_REDIS_PASSWORD` |

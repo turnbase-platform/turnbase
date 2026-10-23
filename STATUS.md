@@ -1,14 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-23 (session 234) — **`IMP-M17-03` done: the connection-pool size is explicit and configurable.** 189 of 192 items done, `IMP-M13-08` still `WIP` and owner-held.
+**Date:** 2026-10-23 (session 235) — **`IMP-M17-04` done: the pool size is chosen by measurement, and 10 stays.** 190 of 192 items done, `IMP-M13-08` still `WIP` and owner-held.
 
-`turnbase-platform`: `application.yml` sets `spring.datasource.hikari.maximum-pool-size` to 10 (`SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE`), the value Hikari's default already gave, so no behaviour changes; `minimum-idle` stays unset (fixed-size pool). The chart exposes `platform.db.poolMaxSize` through the platform ConfigMap (`helm template` with 7 renders `"7"`). `ConnectionPoolSizeTest` asserts the default and an override. `local-environment.md` §7.9 now says 10, names FR-DBQ-006 as governing, and the FR-ALERT-004 arithmetic is 8 checkouts. The load-test overlays were not changed (`check-overlays.sh` passes). CI green.
-
-**Environment notes.** Locally `verify -Pintegration` again had the known MinIO-dependent errors (`GameAssetControllerIT`, `SeedDataIT`); one run also lost its Postgres container mid-way (`ProfileControllerIT`, `AccountDeletionControllerIT`, `BusinessMetricsConfigIT`), all three green on rerun.
+`parallelism` ran once at pool 5, 10 and 20 (`platform.db.poolMaxSize` in both overlays, platform image rebuilt from `e52c1f4`). Ceiling 64 pairs for all three; peak 1,452, 1,755 and 1,714 moves/s, so 20 ties 10 within 5% and `FR-DBQ-006` picks the smallest tied pool, 10. Pool 5 queues from 8 pairs; at 20 Postgres (2.2 of 2 cores) is the limit, not the connections. Against the M16 run (peak 1,055) M17-01…03 lifted the peak by 66%; the platform now sits at 3.5 of 4 cores. Report `loadtest/reports/2026-10-23-m17-pool-sizing.md` (`REPORT COMPLETE`), `local-environment.md` §7.9 records the evidence, both overlays carry `poolMaxSize: 10`. No platform change, no ref bump. **The 256-pair step ended early in all three runs (about 95 s short, cause not found); it is excluded from the choice and noted in the report.** Umbrella-only, no CI.
 
 ## Next Priorities
 
-**M17 — Database capacity is next** ([registry](docs/implementation/registry.md), section *M17*). `01`, `02` and `03` are **done**; `04` (pool size by measurement) is next and is live; `05` (re-verification) needs `04`; both follow the M16 live-item and rebuild rules. Phase B (autoscaling, replicas) follows M17.
+**M17 — Database capacity: `IMP-M17-05` (re-verification runs and the M17 summary) is the last item.** It follows the M16 live-item and rebuild rules. Phase B follows M17. The early-ending 256-pair step (report finding 3) is worth a look before its runs.
 
 - `01`, `02`, `03` and `11…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
 - `14` and `15` are measurement only: findings that persist become Phase B notes in `load-testing.md` §13, never registry items.

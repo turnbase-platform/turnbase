@@ -8,6 +8,8 @@ origins:
   gameFrontendTemplate: "http://{gameId}.games.localhost"
 platform:
   replicaCount: 1
+  db:
+    poolMaxSize: 10
   autoscaling:
     enabled: false
   resources:
