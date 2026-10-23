@@ -745,7 +745,7 @@ the Game Host does not read them.
 |---|---|---|
 | `spring.datasource.url` | `jdbc:postgresql://postgres:5432/turnbase` | `SPRING_DATASOURCE_URL` |
 | `spring.datasource.username` | `turnbase_app` | `SPRING_DATASOURCE_USERNAME` |
-| `spring.datasource.hikari.maximum-pool-size` | `20` | `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE` |
+| `spring.datasource.hikari.maximum-pool-size` | `10` — explicit in `application.yml`, never Hikari's library default; `FR-DBQ-006` governs the value (`IMP-M17-04` chooses it by measurement); chart value `platform.db.poolMaxSize` | `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE` |
 | `spring.data.redis.host` | `redis` | `SPRING_DATA_REDIS_HOST` |
 | `spring.data.redis.port` | `6379` | `SPRING_DATA_REDIS_PORT` |
 | `spring.data.redis.password` | **no default** — secret, `secrets-and-configuration.md` § Redis (`TURNBASE_REDIS_PASSWORD`) | `SPRING_DATA_REDIS_PASSWORD` |
@@ -767,7 +767,7 @@ sets `url`. (Integration tests may pass `--spring.data.redis.url` for a password
 instance; that is the one legitimate use.) The datasource pair is different — `spring.datasource.url`
 is JDBC and carries no credential, so it and `spring.datasource.password` compose.
 
-Pool size 20 against FR-ALERT-004's 80 % saturation alert means the alert fires at 16 concurrent
+Pool size 10 against FR-ALERT-004's 80 % saturation alert means the alert fires at 8 concurrent
 checkouts. The deadline sweep runs every 5 seconds and the reconcile sweep every 60; neither holds a
 connection between rows.
 
