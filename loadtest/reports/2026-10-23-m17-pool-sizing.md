@@ -95,7 +95,7 @@ Generator check (`check-generator.sh`): every segment of every run `-> ok` (k6 m
 ## 5. Result
 
 Ceiling (pairs): 64
-First to break: DB pool
+First to break: PostgreSQL
 Evidence: the ceiling is 64 pairs for each candidate (the last step meeting every threshold), so `FR-DBQ-006` goes to the second rule. Peak moves/s: 1,452 at 5 (32 pairs), 1,755 at 10 (64 pairs) and 1,714 at 20 (64 pairs). Pool 5 is 17% below the best and out. Pool 20 is 2.3% below pool 10, inside the 5% tie, and the smallest tied pool is **10**. Pool 5 queues from 8 pairs (`hikari_pending` 22 at 16, 206 at 128); pool 10 from 32 pairs (23, then 179 at 128); pool 20 from 64 pairs (30, then 153 at 128). Postgres sits at 1.8 of 2 cores at pool 5 and at 2.07 to 2.23 at pools 10 and 20, so a larger pool moves the saturation from the connections to the Postgres CPU without raising the peak. The first threshold to fail is `tb_room_join` at 128 pairs (and `tb_room_create`, `tb_move_rtt` at smaller pools); `tb_room_join` p95 at 128 is 333, 260 and 214 ms. The Game Host stays at about 1.1 to 1.3 of 4 cores, no restart, no 5xx, no generator-bound step.
 
 `Ceiling (pairs)` is one integer: the last step all of whose thresholds passed and that is not

@@ -771,6 +771,17 @@ Pool size 10 against FR-ALERT-004's 80 % saturation alert means the alert fires 
 checkouts. The deadline sweep runs every 5 seconds and the reconcile sweep every 60; neither holds a
 connection between rows.
 
+**PostgreSQL server settings (`FR-DBQ-007`).** The chart's `postgres.settings` renders `-c name=value`
+arguments for the pinned 2 CPU / 1 GiB: `shared_buffers=256MB` (25% of the memory limit),
+`effective_cache_size=512MB`, `max_connections=50` (the pool is 10, the migrations and an operator need a few
+more; the image default of 100 reserves memory for connections nobody opens), `max_wal_size=2GB` and
+`checkpoint_completion_target=0.9` (fewer, smoother checkpoints under a write-heavy game path),
+`random_page_cost=1.1` (the volume is an SSD). `synchronous_commit` stays on: the game path does not trade
+durability for speed. Applied after `IMP-M17-05`'s `parallelism` and `ramp-to-break` runs named `PostgreSQL` as
+the first to break ([reports](../../../loadtest/reports/2026-10-24-m17-ramp-to-break.md)): `parallelism`
+did not move (ceiling 64 pairs, 2.2 of 2 cores), `ramp-to-break` ceiling 170 -> 190 pairs. The limit is the
+2-core CPU, which settings do not add; the values stay because they match the pinned size.
+
 Credentials are **not** in this table. They are in
 [`secrets-and-configuration.md`](secrets-and-configuration.md).
 

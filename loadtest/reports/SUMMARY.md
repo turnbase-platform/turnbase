@@ -133,3 +133,42 @@ The first soak attempt ran on a database that still held 22,842 rooms of an earl
 | 18 | The Game Host wedges on its first cold start with a single context too | resolved by `IMP-M16-02`/`03`; two clean cold starts | [up-down](2026-10-21-m16-up-down.md), [soak](2026-10-21-m16-soak.md) |
 
 Phase B starts from the persisting entries: 1 to 3 and 15 (the database pool and the `room_participant` scans), 8 and 9 (the cost of several Espresso contexts).
+
+## M17 re-verification, 2026-10-24
+
+After `IMP-M17-01` to `04` (the game-path statements that scanned `room`, `room_team` and `room_participant`, the explicit pool of 10) the three failing scenarios ran again on the same single node, at `turnbase-platform` `e52c1f4`. Two of the three named `PostgreSQL` as the first to break, so `FR-DBQ-007` applied: the chart gained `postgres.settings` ([`local-environment.md`](../../docs/specs/deployment/local-environment.md) §7.9) and `parallelism` and `ramp-to-break` were rerun on it (two runs each in their reports, `A` before and `B` after). It is a single-node, laptop result.
+
+### Reports
+
+| Scenario | Report | Result in one line |
+|---|---|---|
+| `parallelism` | [2026-10-24-m17-parallelism.md](2026-10-24-m17-parallelism.md) | Ceiling 64 pairs; peak 1,779 moves/s (M16 1,055); the move target now passes at 128 pairs; first to break `PostgreSQL`; the settings did not move it |
+| `ramp-to-break` | [2026-10-24-m17-ramp-to-break.md](2026-10-24-m17-ramp-to-break.md) | Ceiling 170 pairs (M16 80), 190 with the settings (380 sockets, 150 sessions); first to break `PostgreSQL` |
+| `soak` | [2026-10-24-m17-soak.md](2026-10-24-m17-soak.md) | 56 pairs for 30 minutes: 0 errors, HTTP p99 drift -7.2% (M16 +122%); first to break `none` |
+
+### Database criteria (`platform-operations.md` NFR-DBQ-001 to 003)
+
+| Criterion | Result |
+|---|---|
+| NFR-DBQ-001: the database is not the first thing to break in `parallelism`, `ramp-to-break` and `soak` | **fail**: `parallelism` and `ramp-to-break` name `PostgreSQL` (2.0 to 2.2 of 2 cores with 150 to 206 requests waiting for a connection); `soak` names `none` |
+| NFR-DBQ-002: HTTP p99 drift < 25% over the soak hold | **pass**: -7.2% (36.3 -> 33.6 ms), throughput +11.6% |
+| NFR-DBQ-003: `ramp-to-break` ceiling >= 80 pairs; `parallelism` ceiling >= 64 pairs and peak >= 1,002 moves/s | **pass**: 170 (190 tuned) pairs; 64 pairs and 1,779 moves/s |
+
+`FR-DBQ-007` was applied and did not change the verdict: Postgres is CPU-bound on its 2-core pin and memory or connection settings do not add CPU. The ceilings moved from the statement work removed by `IMP-M17-01` and `02` (platform CPU is now the next limit, 3.5 to 3.7 of 4 cores).
+
+### The owner's three questions, after M17
+
+**(a) Worst-case load.** `ramp-to-break` ceiling 170 pairs (190 tuned), 340 to 380 sockets and at most 150 sessions; 500 sessions and 5,000 WebSockets are still not reached.
+**(b) Rising and falling load.** The Phase A and M16 drift is gone: 30 minutes at 56 pairs, p99 -7.2%, throughput +11.6%.
+**(c) Where it breaks.** At Postgres CPU (2 cores) behind the 10-connection pool, on `tb_room_join` and `tb_room_create`; the Game Host is at 1.2 of 4 cores.
+
+### Findings after M17
+
+| # | Entry | Status | Evidence |
+|---|---|---|---|
+| 1 | Throughput plateaus at 16 pairs and declines past 32 | resolved as a decline (1,779 peak, no drop to 128); the plateau and the 64-pair ceiling persist; `PostgreSQL` | [parallelism](2026-10-24-m17-parallelism.md) |
+| 2 | The 200 ms move target fails at 128 pairs | resolved: 150 ms | [parallelism](2026-10-24-m17-parallelism.md) |
+| 3 | The ramp stops on a `tb_room_join` tail | persists at a higher ceiling: 170 (190 tuned) pairs; `PostgreSQL` | [ramp-to-break](2026-10-24-m17-ramp-to-break.md) |
+| 15 | Latency rises across a 30-minute hold | resolved: -7.2% | [soak](2026-10-24-m17-soak.md) |
+
+Phase B starts from findings 1 and 3: Postgres CPU (more cores, read offload or fewer statements per room join and create), then 8 and 9 (the cost of several Espresso contexts).
