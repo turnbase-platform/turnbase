@@ -123,6 +123,15 @@ class VerifyTest(unittest.TestCase):
                          ["turnbase: branch 'feat/new' still exists on origin",
                           "turnbase: local branch 'feat/new' still exists"])
 
+    def test_ignored_branches_are_never_flagged(self):
+        self.repo.git("branch", "feat/mine")
+        self.repo.git("branch", "feat/theirs")
+        self.repo.git("push", "-q", "origin", "feat/theirs")
+        self.finish_properly()
+        report = verify(self.repo.path, start_head=None, label="", known_branches=set(),
+                        ignore=("feat/the*",))
+        self.assertEqual(report.problems, ["turnbase: local branch 'feat/mine' still exists"])
+
     def test_unreachable_origin_is_a_warning_not_a_problem(self):
         self.finish_properly()
         self.repo.git("remote", "set-url", "origin", str(self.repo.origin) + "-gone")

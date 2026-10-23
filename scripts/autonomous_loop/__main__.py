@@ -137,6 +137,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--skip-ci-wait", action="store_true",
                    help="do not block on CI; verify locally (items may override, see registry)")
     p.add_argument("--no-verify", action="store_true", help="skip the post-session checks")
+    p.add_argument("--ignore-branch", action="append", default=[], metavar="PATTERN",
+                   help="branch (fnmatch pattern) the post-session checks never flag; repeatable")
     return p.parse_args(argv)
 
 
@@ -147,7 +149,8 @@ def main(argv: list[str] | None = None) -> int:
     cfg = Config(repo_dir=repo, log_dir=log_dir, max_iterations=args.max, model=args.model,
                  sleep_seconds=args.sleep, stop_file=args.stop_file, state_file=args.state_file,
                  resume=not args.no_resume, once=args.once, stall_minutes=args.stall_minutes,
-                 verify=not args.no_verify, skip_ci_wait=args.skip_ci_wait)
+                 verify=not args.no_verify, skip_ci_wait=args.skip_ci_wait,
+                 ignore_branches=tuple(args.ignore_branch))
 
     if shutil.which(cfg.claude_bin) is None:
         print("claude CLI not found on PATH", file=sys.stderr)

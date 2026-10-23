@@ -54,6 +54,7 @@ class Config:
     quota_fallback_seconds: float = 900
     skip_ci_wait: bool = False  # --skip-ci-wait: local verification instead of blocking on CI
     verify: bool = True  # post-session checks after DONE (see checks.py)
+    ignore_branches: tuple[str, ...] = ()  # fnmatch patterns the branch check never flags
 
     def __post_init__(self) -> None:
         self.repo_dir, self.log_dir = Path(self.repo_dir), Path(self.log_dir)
@@ -225,7 +226,7 @@ class _Loop:
         if not self.cfg.verify:
             return {}
         facts: dict = {"start_head": self._git("rev-parse", "HEAD")}
-        known, complete = checks.branches(self.cfg.repo_dir)
+        known, complete = checks.branches(self.cfg.repo_dir, ignore=self.cfg.ignore_branches)
         if complete:  # a partial snapshot would make old remote branches look new
             facts["known_branches"] = sorted(known)
         return facts
@@ -376,9 +377,10 @@ class _Loop:
             # No snapshot (an older session, or origin was unreachable when it started):
             # every branch that exists now counts as pre-existing, so none is flagged.
             self._say("  branch check skipped: no complete snapshot from the session's start", DIM)
-            known, _ = checks.branches(self.cfg.repo_dir)
+            known, _ = checks.branches(self.cfg.repo_dir, ignore=self.cfg.ignore_branches)
         report = checks.verify(self.cfg.repo_dir, start_head=self.session_facts.get("start_head"),
-                               label=label, known_branches=set(known), partial=partial)
+                               label=label, known_branches=set(known), partial=partial,
+                               ignore=self.cfg.ignore_branches)
         for warning in report.warnings:
             self._say(f"  check skipped: {warning}", DIM)
         if not report.problems:

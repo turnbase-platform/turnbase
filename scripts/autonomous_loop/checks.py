@@ -7,6 +7,7 @@ agent's word. `verify` returns problems (the session must fix them) and warnings
 
 from __future__ import annotations
 
+import fnmatch
 import re
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
@@ -36,28 +37,30 @@ class Report:
     warnings: list[str] = field(default_factory=list)
 
 
-def branches(repo: Path, git: Git = run_git) -> tuple[set[str], bool]:
+def branches(repo: Path, git: Git = run_git,
+             ignore: tuple[str, ...] = ()) -> tuple[set[str], bool]:
     """Every non-master branch in the repo and its submodules, locally and on origin,
     as "<repo>: local branch 'x'" / "<repo>: branch 'x' still exists on origin".
 
     Taken when a fresh session starts, so a session is only held to the branches it
     created itself. Repos are queried in parallel: ls-remote costs seconds each. The flag
-    is False when some repo's origin could not be listed, so the snapshot is partial."""
+    is False when some repo's origin could not be listed, so the snapshot is partial.
+    `ignore`: fnmatch patterns of branches that belong to someone else and are never listed."""
     report = Report()
     with ThreadPoolExecutor(max_workers=8) as pool:
-        for part in pool.map(lambda r: _branches(*r, git), _repos(repo, git)):
+        for part in pool.map(lambda r: _branches(*r, git, ignore), _repos(repo, git)):
             report.problems += part.problems
             report.warnings += part.warnings
     return set(report.problems), not report.warnings
 
 
 def verify(repo: Path, *, start_head: str | None, label: str, known_branches: set[str],
-           partial: bool = False, git: Git = run_git) -> Report:
+           partial: bool = False, git: Git = run_git, ignore: tuple[str, ...] = ()) -> Report:
     """`partial`: the session reported PARTIAL, so the item's row must say PARTIAL and its
     section carry a Remaining: line, instead of saying DONE."""
     report = Report()
     with ThreadPoolExecutor(max_workers=8) as pool:
-        for part in pool.map(lambda r: _branches(*r, git), _repos(repo, git)):
+        for part in pool.map(lambda r: _branches(*r, git, ignore), _repos(repo, git)):
             report.problems += [p for p in part.problems if p not in known_branches]
             report.warnings += part.warnings
     _submodule_refs(repo, git, report)
@@ -77,11 +80,15 @@ def _repos(repo: Path, git: Git) -> list[tuple[str, Path]]:
     return repos
 
 
-def _branches(name: str, path: Path, git: Git) -> Report:
+def _branches(name: str, path: Path, git: Git, ignore: tuple[str, ...] = ()) -> Report:
     report = Report()
+
+    def mine(branch: str) -> bool:
+        return branch != "master" and not any(fnmatch.fnmatchcase(branch, g) for g in ignore)
+
     code, out = git(path, "for-each-ref", "--format=%(refname:short)", "refs/heads")
     for branch in out.splitlines() if code == 0 else []:
-        if branch != "master":
+        if mine(branch):
             report.problems.append(f"{name}: local branch '{branch}' still exists")
 
     code, remotes = git(path, "remote")
@@ -93,7 +100,7 @@ def _branches(name: str, path: Path, git: Git) -> Report:
     else:
         for line in out.splitlines():
             ref = line.split("\t")[-1].removeprefix("refs/heads/")
-            if ref and ref != "master":
+            if ref and mine(ref):
                 report.problems.append(f"{name}: branch '{ref}' still exists on origin")
 
     code, ahead = git(path, "rev-list", "--count", "origin/master..master")
