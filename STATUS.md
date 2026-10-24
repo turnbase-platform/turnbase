@@ -1,17 +1,14 @@
 ## Last Session Summary
 
-**Date:** 2026-10-24 (session 243) — **`IMP-M18-06` is `PARTIAL`: the OpenTelemetry agent is measured; the owner's choice is owed.** 197 of 209 items done. No code or submodule change.
+**Date:** 2026-10-24 (session 244) — **`IMP-M18-06` is `DONE`: the owner chose configuration 1, the agent as specified.** 198 of 209 items done. Umbrella-only; no code, chart or submodule change.
 
-- Platform image rebuilt from `9eb9738` (IMP-M18-05), then `parallelism` under three configurations (agent as specified; JDBC and Lettuce modules off; agent off): a one-level 64-pair run each for CPU per move, and ladders for the ceiling. Report: `loadtest/reports/2026-10-24-m18-otel.md` (`REPORT COMPLETE`), row added to `SUMMARY.md`.
-- Platform CPU per move: **2.201 / 1.994 / 1.813 ms** (-9% and -18%). Ceiling: **192 / 224 / 256 pairs**, first to break `DB pool` in all three. Peak moves/s is 2.06 to 2.21 k in all three (the Game Host at its 2-core cap and the 10-connection pool bound it). Platform CPU per move was 2.60 ms in M16, so IMP-M18-03 to 05 cut 15%.
-- Overlays were edited per configuration and restored; the cluster is back on configuration 1. Nothing about the agent is changed in the spec or the chart.
-- **Owner action:** choose configuration 1, 2 or 3 from the report's section 5. If not 1, the next session amends FR-TRACE-001, `observability.md` §4 and the chart default (the item's `**Remaining:**`).
+- The choice is recorded in `loadtest/reports/2026-10-24-m18-otel.md` section 5. FR-TRACE-001, `observability.md` §4 and the chart default are unchanged. The `**Remaining:**` line is gone.
+- Measured in session 243: platform CPU per move 2.201 / 1.994 / 1.813 ms and ceiling 192 / 224 / 256 pairs for configurations 1 / 2 / 3; `DB pool` first to break in all three.
 
 ## Next Priorities
 
-**M18: `IMP-M18-01`…`05` are done. Next, Track 1 (`06`, `07`; `06` needs only `02`); Tracks 2 (`08…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
+**M18: `IMP-M18-01`…`06` are done. Next, Track 1 (`07`); Tracks 2 (`08…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
 
-- `IMP-M18-06` (PARTIAL) waits for the owner's choice on the OpenTelemetry agent (report section 5). With no choice recorded, the next session should skip it (`IMP-M18-07` depends on it) and take `08`, `09`, `11` or `12`.
 - The proposed `NFR-ASC` targets are the orchestrator's; the owner may adjust them before `01` writes them down.
 - Still owner-held: `game-host-internals.md` §18 `OQ-6` (twelve Espresso contexts per JVM lifetime), not reached by Phase B's single-title scenarios.
 

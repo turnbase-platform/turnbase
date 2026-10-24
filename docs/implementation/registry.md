@@ -245,7 +245,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M18-03 | Fewer statements per room create and join | platform | M18-02 | DONE |
 | IMP-M18-04 | A per-room participant cache on the move path | platform | M18-02 | DONE |
 | IMP-M18-05 | One Redis round trip per move | platform | M18-02 | DONE |
-| IMP-M18-06 | The OpenTelemetry agent's cost is measured and decided | docs (umbrella), platform (chart) | M18-02 | PARTIAL |
+| IMP-M18-06 | The OpenTelemetry agent's cost is measured and decided | docs (umbrella), platform (chart) | M18-02 | DONE |
 | IMP-M18-07 | Single-instance re-verification | docs (umbrella) | M18-03, M18-04, M18-05, M18-06 | READY |
 | IMP-M18-08 | Platform state is correct across instances | platform, docs | M18-01 | READY |
 | IMP-M18-09 | WebSocket upgrades reach the room's instance | frontend, platform (chart), docs | M18-01 | READY |
@@ -8721,7 +8721,6 @@ watermark rules are unchanged.
 **Settled:** three `parallelism` runs, configurations 1 to 3 of §3.5, set through `platform.extraEnv` in the
 load-test overlays. **The agent stops and asks the owner** with the report's table; it does not choose.
 
-**Remaining:** the report `loadtest/reports/2026-10-24-m18-otel.md` exists and is `REPORT COMPLETE` (CPU per move 2.201 / 1.994 / 1.813 ms for configurations 1 to 3; ceilings 192 / 224 / 256 pairs). Owed: the owner's choice among configurations 1, 2 and 3, recorded in the report's section 5 (*Owner's choice*). If it is not configuration 1: amend `platform-operations.md` FR-TRACE-001, `observability.md` §4 and the chart default (`turnbase-platform`, pipeline green, ref bumped). The agent must not choose; with no recorded choice, report `BLOCKED` on the owner.
 
 **Done when:**
 - `YYYY-MM-DD-m18-otel.md` exists, `REPORT COMPLETE`, with CPU per move (`cpu-per-move.sh`), peak moves/s and
