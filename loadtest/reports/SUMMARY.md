@@ -184,3 +184,9 @@ Phase B starts from findings 1 and 3: Postgres CPU (more cores, read offload or 
 | `parallelism`, `ramp-to-break` | [2026-10-24-m18-baseline.md](2026-10-24-m18-baseline.md) | `parallelism` ceiling 128 pairs (M17: 64), first to break `none`, peak 1,690 moves/s; `ramp-to-break` ceiling 220 pairs (M17: 170, 190 tuned), first to break `DB pool` (Postgres 2.4 of 4 cores, `hikari_pending` up to 183, platform 3.76 of 4) |
 
 The baseline for every later M18 item is this report: Postgres is no longer the first thing to break, the 10-connection pool and the platform's CPU are next.
+
+### OpenTelemetry agent cost (`IMP-M18-06`)
+
+| Scenario | Report | Result in one line |
+|---|---|---|
+| `parallelism` x 3 agent configurations | [2026-10-24-m18-otel.md](2026-10-24-m18-otel.md) | Platform CPU per move 2.201 ms (agent as specified), 1.994 ms (JDBC and Lettuce off, -9%), 1.813 ms (agent off, -18%); ceiling 192, 224 and 256 pairs; first to break `DB pool` in all three. The owner's choice is pending |

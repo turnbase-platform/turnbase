@@ -1,17 +1,17 @@
 ## Last Session Summary
 
-**Date:** 2026-10-24 (session 242) — **`IMP-M18-05` done: one Redis round trip for the post-result writes of a move.** 197 of 209 items done. `turnbase-platform` ref bumped (`9eb9738`; CI not waited on, per the run policy).
+**Date:** 2026-10-24 (session 243) — **`IMP-M18-06` is `PARTIAL`: the OpenTelemetry agent is measured; the owner's choice is owed.** 197 of 209 items done. No code or submodule change.
 
-- `game.MoveCommit` is one Lua script after the fan-out: `failcount:` reset, `gamelog:` append, `delivered:` watermark. A move is `GET routing:`, `GET delivered:`, `INCR seq:` and the script (four commands, was about nine). The watermark is in the script, so it cannot move before the fan-out.
-- `EffectDelivery.deliver` now returns the `log` entries it published; `MoveCommit` stores them (`CreateSession`'s initial effects still append directly). Cost, recorded in `load-testing-phase-b.md` §3.4 *As built*: a `GAME_SYNC` read in the instant between a `GAME_LOG` frame and the script can lack that one entry.
-- Tests in `GameInputServiceIT`: a Lettuce command listener shows the one script and no other write; the watermark is still the old value during fan-out; a replay neither fans out nor logs; a failing fan-out resets the counter and leaves watermark and log. `EffectFanOutTest` updated.
-- Local `verify` green (287 unit); `verify -Pintegration`: 369 run, 7 errors = the known WSL `*.games.localhost` ones. `check-corpus.py` clean.
+- Platform image rebuilt from `9eb9738` (IMP-M18-05), then `parallelism` under three configurations (agent as specified; JDBC and Lettuce modules off; agent off): a one-level 64-pair run each for CPU per move, and ladders for the ceiling. Report: `loadtest/reports/2026-10-24-m18-otel.md` (`REPORT COMPLETE`), row added to `SUMMARY.md`.
+- Platform CPU per move: **2.201 / 1.994 / 1.813 ms** (-9% and -18%). Ceiling: **192 / 224 / 256 pairs**, first to break `DB pool` in all three. Peak moves/s is 2.06 to 2.21 k in all three (the Game Host at its 2-core cap and the 10-connection pool bound it). Platform CPU per move was 2.60 ms in M16, so IMP-M18-03 to 05 cut 15%.
+- Overlays were edited per configuration and restored; the cluster is back on configuration 1. Nothing about the agent is changed in the spec or the chart.
+- **Owner action:** choose configuration 1, 2 or 3 from the report's section 5. If not 1, the next session amends FR-TRACE-001, `observability.md` §4 and the chart default (the item's `**Remaining:**`).
 
 ## Next Priorities
 
 **M18: `IMP-M18-01`…`05` are done. Next, Track 1 (`06`, `07`; `06` needs only `02`); Tracks 2 (`08…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
 
-- `IMP-M18-06` stops for the owner's choice on the OpenTelemetry agent after its report.
+- `IMP-M18-06` (PARTIAL) waits for the owner's choice on the OpenTelemetry agent (report section 5). With no choice recorded, the next session should skip it (`IMP-M18-07` depends on it) and take `08`, `09`, `11` or `12`.
 - The proposed `NFR-ASC` targets are the orchestrator's; the owner may adjust them before `01` writes them down.
 - Still owner-held: `game-host-internals.md` §18 `OQ-6` (twelve Espresso contexts per JVM lifetime), not reached by Phase B's single-title scenarios.
 
