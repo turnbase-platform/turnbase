@@ -389,7 +389,7 @@ Filed and handled by `IMP-M15-02` (2026-10-18):
 - **Recorded for the owner.** `game-host-internals.md` §9.3 describes eager reassignment on lease expiry
   while the code reassigns lazily on the next input: `game-host-internals.md` §18 `OQ-5`.
 - **Recorded for the owner.** `NFR-AVAIL-001` is 99% in `platform-operations.md` and 99.9% in
-  `platform-architecture.md`: `OQ-004` in both documents' *Open Questions*.
+  `platform-architecture.md`: `OQ-004` in both documents' *Open Questions*. **Resolved** (owner, 2026-10-24): 99%.
 
 ## 12. Phase A outcome
 

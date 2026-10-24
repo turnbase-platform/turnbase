@@ -199,7 +199,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M13-05 | Catalog cards and game detail | frontend | M13-02 | DONE |
 | IMP-M13-06 | Rooms list and the room | frontend | M13-02 | DONE |
 | IMP-M13-07 | Profile, friends and settings | frontend | M13-02 | DONE |
-| IMP-M13-08 | Side-by-side acceptance and the suites | frontend, docs | M13-03…07 | WIP (session 199) |
+| IMP-M13-08 | Side-by-side acceptance and the suites | frontend, docs | M13-03…07 | DONE |
 | IMP-M14-01 | Game start waits, retries, quarantines and publishes progress | platform, docs | — | DONE |
 | IMP-M14-02 | Game Host boot watchdog and restart supervision | game-host, platform | — | DONE |
 | IMP-M14-03 | Game start progress in the lobby | frontend | M14-01 | DONE |
