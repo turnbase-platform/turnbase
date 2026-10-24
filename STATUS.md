@@ -1,16 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-24 (session 240) — **`IMP-M18-03` done: fewer statements per room create and join.** 195 of 209 items done. `turnbase-platform` ref bumped (pipeline green, `893e1b8`).
+**Date:** 2026-10-24 (session 241) — **`IMP-M18-04` done: a per-room participant cache on the move path.** 196 of 209 items done. `turnbase-platform` ref bumped (`5e51803`; CI not waited on, per the run policy).
 
-- Create inserts all initial teams in one multi-row `room_team` statement; join computes `join_order` inside the participant insert (`returning`) and reads the joiner's username in the locked `room` select. Join 10 → 8 statements, create 5 → 4; transactions, room lock and version-before-publish untouched.
-- Before/after `pg_stat_statements` table (two `start-rate` runs, 86 creates and joins each) is the `**M18:**` line under `load-testing.md` §13 finding 3. Time saved is small (the removed statements cost 0.01-0.02 ms); the team-slot query stays (cannot merge without moving the capacity check out of the locked read).
-- `GamePathQueryCostIT` asserts neither removed statement appears and one `room_team` insert text. Local `verify -Pintegration` had 9 errors in `GameAssetControllerIT`/`SeedDataIT` (`*.games.localhost` not resolvable under WSL; `GameAssetControllerIT` fails the same on unchanged master); CI is green.
-- The remote feature branch `feat/m18-03-fewer-statements` could not be deleted (the harness denied `git push --delete`); it is merged at `893e1b8` and should be removed by hand.
+- `room.ParticipantCache` keeps one view (room state plus current participants) per active session, owner-local. It answers both the acting-participant check and the fan-out roster, so a cached move issues no Postgres statement. `RoomEventExecutor.execute` brackets every mutation; nothing is served or stored while one runs, and a fill that began before a mutation is refused. A hit also needs the ownership epoch unchanged and the entry under 30 s old (account erasure is the one writer outside the executor; it revokes the user's sessions).
+- Finding: the "3.8 statements per move" in the M16 report were mostly the deadline sweep's (fixed by `IMP-M17-01`); the move path was one joined lookup plus the roster query. `load-testing-phase-b.md` §3.3 records this under *As built*.
+- Tests: `ParticipantCacheTest` (300 random interleavings, cached == uncached), `MoveParticipantCacheIT` (zero statements on a cached move and roster; a mutation or lost ownership sends the next move to Postgres); `GamePathQueryCostIT` picks up the new statement through its flow.
+- Local `verify` green (287 unit); `verify -Pintegration`: 355 run, 8 errors = the 7 known WSL `*.games.localhost` ones plus `GameInputServiceIT` (Redis container start flake; passes alone, 11/11).
 - `check-corpus.py` clean.
 
 ## Next Priorities
 
-**M18: `IMP-M18-01`, `02` and `03` are done. Next, Track 1 (`04…07`; `04`, `05`, `06` each need only `02`); Tracks 2 (`08…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
+**M18: `IMP-M18-01`…`04` are done. Next, Track 1 (`05…07`; `05` and `06` each need only `02`); Tracks 2 (`08…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
 
 - `IMP-M18-06` stops for the owner's choice on the OpenTelemetry agent after its report.
 - The proposed `NFR-ASC` targets are the orchestrator's; the owner may adjust them before `01` writes them down.

@@ -133,6 +133,13 @@ a live room?* (the host lookup and the two `room_participant` lookups, `2026-10-
 - Where the invalidation hooks into the room code is the **builder's call**. The test that matters is a
   property-style one: an interleaving of mutations and moves never authorises a move that today's code
   would reject.
+- **As built (`IMP-M18-04`).** `room.ParticipantCache` holds one `room`-plus-participants view per active
+  session. `RoomEventExecutor.execute` brackets every mutation, and nothing is served or stored for the room
+  while one runs, so the cache never answers differently from Postgres. A hit also needs the room's ownership
+  epoch unchanged and the entry under 30 s old; the age bound covers account erasure, the one writer of
+  `room_participant` outside the executor, whose sessions are revoked in the same step. The view also serves
+  the fan-out roster, which was the second per-move statement (the three statements named above had been
+  the deadline sweep's, fixed by `IMP-M17-01`, not the move path's).
 
 ### 3.4 One Redis round trip per move
 
