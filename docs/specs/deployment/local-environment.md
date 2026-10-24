@@ -251,9 +251,11 @@ pod runs its migrations while the old pod is still serving against the old code.
 
 **Routing by the affinity hint (ADR-0020, from `IMP-M18-09`).** REST is plain round-robin: any instance
 serves a call and returns the owner's hint. `/ws` is routed by the `instance` query parameter: the frontend
-proxy forwards to the named pod through the platform's headless Service and falls back to the regular Service
-when that pod is not ready or the parameter is absent (FR-DEPLOY-002; the hint stays advisory). Until
-`IMP-M18-09` lands the proxy is still round-robin, which is exact at one steady-state replica.
+proxy forwards to the named pod through the platform's headless Service (`{release}-platform-pods`; the hint
+carries the pod's dashed address, which the Service resolves) and falls back to the regular Service when that
+pod is not ready, the hint is malformed or the parameter is absent (FR-DEPLOY-002; the hint stays advisory).
+Compose has no headless Service, so there the hint never resolves and every upgrade goes to the one instance.
+`loadtest/check-ws-affinity.mjs` checks it on the cluster.
 
 ---
 

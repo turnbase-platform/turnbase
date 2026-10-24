@@ -215,14 +215,21 @@ alert to a user with no stream is dropped; the notification row is the durable r
 
 The frontend nginx routes `/ws` by the `instance` query parameter:
 
-- a **headless Service** for the platform pods gives each pod a resolvable DNS name;
-- with `?instance=` present, nginx proxies to that pod through its headless-Service name; when the name
-  does not resolve or the connection is refused, it falls back to the regular Service (the hint is
-  advisory, FR-DEPLOY-002, `room-lifecycle.md` §1.7);
+- a **headless Service** for the platform pods gives each *ready* pod a resolvable DNS name. A Deployment's
+  pod name is not one (a pod's name resolves only when the pod sets `hostname`, which a pod template cannot do
+  per pod), but the address is: the endpoint `10.1.6.38` resolves as
+  `10-1-6-38.{release}-platform-pods.{namespace}.svc.cluster.local`. So the **instance name carries the pod's
+  address**: `{pod name}@{a-b-c-d}` plus the per-incarnation UUID (`room-lifecycle.md` §1.1; the chart supplies
+  `POD_IP` through the downward API);
+- with `?instance=` present, nginx takes the dashed address out of the hint and proxies to that name; when
+  the hint is not shaped like one, the name does not resolve (a pod that is not ready, or gone) or the
+  connection is refused, it falls back to the regular Service (the hint is advisory, FR-DEPLOY-002,
+  `room-lifecycle.md` §1.7). Only the dashed address is taken from the parameter, so the proxy can reach
+  nothing but an endpoint of that Service;
 - without the parameter, it proxies to the regular Service as today.
 
-The exact nginx mechanism (a `resolver` plus a variable `proxy_pass` and an `error_page` fallback, or an
-equivalent) is the **builder's call**. ADR-0008 rejected consistent hashing at the ingress, so **the pod
+The nginx mechanism, as built (`IMP-M18-09`): a `resolver` plus a variable `proxy_pass` and an `error_page`
+fallback to a named location. ADR-0008 rejected consistent hashing at the ingress, so **the pod
 named by the hint is the target, not a hash of the room.** The REST path stays round-robin: any instance
 can serve a REST call and returns the owner's hint. The k6 harness already builds the `/ws` URL from the hint
 the same way (`IMP-M18-14` checks this and fixes it if not).

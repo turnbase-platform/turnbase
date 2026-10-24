@@ -50,7 +50,9 @@ knowledge that a room exists.
 stable name would let a *restarted* instance match the "already mine" branch of the claim script,
 skip adoption entirely, and then produce versions from a freshly-zeroed in-memory counter: the
 divergence of §2.1, self-inflicted. This bites hardest in the single-replica MVP, where restart is
-the path that actually runs.
+the path that actually runs. On Kubernetes the instance name is `{pod name}@{a-b-c-d}`, the pod's address
+with dashes, so that the frontend proxy can route `/ws?instance=` to the pod through the platform's headless
+Service (`load-testing-phase-b.md` §4.3, `IMP-M18-09`); without `POD_IP` it is the host name alone.
 
 **`room:{roomId}:epoch` is the fencing token, and the room version is not.** The version is
 *room*-scoped and both producers advance it through the same dense sequence, so a stale owner's

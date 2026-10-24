@@ -1,16 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-25 (session 246) — **`IMP-M18-08` is `DONE`: Platform state is correct across instances.** 200 of 209 items done. `turnbase-platform` `6fb36d6`.
+**Date:** 2026-10-25 (session 247) — **`IMP-M18-09` is `DONE`: WebSocket upgrades reach the room's instance.** 201 of 209 items done. `turnbase-frontend` `772d8ac`, `turnbase-platform` `975c1d3`.
 
-- New `UserPushBus` (Redis pub/sub, publisher delivers locally then publishes, ignores its own message). Channels `alert`, `notification` (claim-then-push by the instance holding the stream), `session-revoked` (`SessionRevocationRelay` re-publishes a `remote` `SessionRevokedEvent`).
-- `ConnectionCapLedger`: per-user WebSocket cap of 4 counted cluster-wide in a Redis sorted set with 90s leases renewed every 30s; falls back to the local count if Redis is down.
-- Audit table of every in-memory map: `docs/specs/platform/multi-instance-state.md` (registered in the INDEX); `sse-notifications.md` and `rate-limiting.md` point to it.
-- `TwoInstanceIT` (two contexts, one Postgres, one Redis): alert, live notification, revocation closing WS and SSE, the fifth socket refused across both, shared API bucket, ShedLock exclusion. All 6 pass.
-- Local gate: 287 unit tests green; integration 351 of 354 green. The 3 failing classes (`GameAssetControllerIT`, `SeedDataIT`, and a transient Redis container start for `GraceDeadlineSweepJobIT`, which passed on rerun) are environmental: `*.games.localhost` resolves only to `::1` in this WSL, and `GameAssetControllerIT` fails identically on unmodified master. The merged JaCoCo gate was therefore not evaluated end to end in this session.
+- **Spec premise corrected (not a stop):** `load-testing-phase-b.md` §4.3 assumed a headless Service resolves Deployment pods by pod name. It does not (only pods with `spec.hostname` get that record). A ready endpoint does resolve by its dashed address, so the instance name is now `{pod}@{a-b-c-d}:{uuid}` (`PodIdentity`, `POD_IP` from the downward API); §4.3, `room-lifecycle.md` §1.1 and `local-environment.md` §3 say so.
+- nginx `/ws`: `map` takes only the dashed address from `instance` (raw or `%40`/`%3A` encoded), variable `proxy_pass` to `{a-b-c-d}.{release}-platform-pods.{ns}.svc.cluster.local`, `error_page 418 502 504` falls back to the Service. Resolver comes from `/etc/resolv.conf`. Chart: `platform-pods` headless Service, `TURNBASE_PLATFORM_PODS_DOMAIN`.
+- `loadtest/check-ws-affinity.mjs` on the cluster with two replicas: 100 of 100 upgrades per pod land on the named pod, none elsewhere; deleted-pod, malformed and absent hints are all accepted by a live pod.
+- Gate: frontend lint, tsc, 925 unit tests; `make e2e` 61 of 62 (the one failure, `resilience.spec.ts:105`, a rate-limiter timing test, passes alone); platform `verify -Pintegration` 368 of 375, the 7 errors being the known `*.games.localhost` ones (`GameAssetControllerIT`, `SeedDataIT`).
+- The cluster release was left at the overlay's one replica; both images rebuilt.
 
 ## Next Priorities
 
-**M18: `IMP-M18-01`…`08` are done (Track 1 is complete). Next, Tracks 2 (`09…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
+**M18: `IMP-M18-01`…`09` are done (Track 1 is complete; `09` is first of Track 2). Next, Tracks 2 (`10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
 
 - The proposed `NFR-ASC` targets are the orchestrator's; the owner may adjust them before `01` writes them down.
 - Still owner-held: `game-host-internals.md` §18 `OQ-6` (twelve Espresso contexts per JVM lifetime), not reached by Phase B's single-title scenarios.
