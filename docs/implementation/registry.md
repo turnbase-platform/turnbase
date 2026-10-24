@@ -245,7 +245,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M18-03 | Fewer statements per room create and join | platform | M18-02 | DONE |
 | IMP-M18-04 | A per-room participant cache on the move path | platform | M18-02 | DONE |
 | IMP-M18-05 | One Redis round trip per move | platform | M18-02 | DONE |
-| IMP-M18-06 | The OpenTelemetry agent's cost is measured and decided | docs (umbrella), platform (chart) | M18-02 | READY |
+| IMP-M18-06 | The OpenTelemetry agent's cost is measured and decided | docs (umbrella), platform (chart) | M18-02 | WIP (session 243) |
 | IMP-M18-07 | Single-instance re-verification | docs (umbrella) | M18-03, M18-04, M18-05, M18-06 | READY |
 | IMP-M18-08 | Platform state is correct across instances | platform, docs | M18-01 | READY |
 | IMP-M18-09 | WebSocket upgrades reach the room's instance | frontend, platform (chart), docs | M18-01 | READY |
