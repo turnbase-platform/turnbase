@@ -16,6 +16,7 @@ every table the Platform Monolith owns, across all domains.
 | File | Topic |
 |------|-------|
 | [room-lifecycle.md](room-lifecycle.md) | Room ownership claim/adoption/drain, the owner-epoch fence and event versioning, grace-deadline enforcement, session detach, the three reconciliation sweeps, observability |
+| [multi-instance-state.md](multi-instance-state.md) | The audit of every in-memory map in the Platform for more than one replica (correct per instance, or fixed), the Redis pub/sub channels for user-scoped pushes, and the cluster-wide WebSocket connection cap |
 | [data-model.md](data-model.md) | **Schema conventions** (types, naming, the database clock), and the schema for rooms, participants, teams, room ownership, and the two durable-work tables (session teardown, game-input outbox) |
 | [data-model-accounts.md](data-model-accounts.md) | Users (registered and guest), authentication methods, sessions, profile privacy settings, and what account deletion actually writes |
 | [data-model-social.md](data-model-social.md) | Friendships and pending friend requests, the guest-exclusion foreign key, and the friend-request/notification lifecycle coupling |

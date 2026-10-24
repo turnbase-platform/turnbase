@@ -103,3 +103,5 @@ A periodic comment (`:\n\n`) is sent every 30 seconds to prevent proxy and load 
 Spring MVC `SseEmitter` (or reactive `Flux<ServerSentEvent>` if the notification path uses Spring WebFlux). An in-memory `NotificationEmitterRegistry` stores active emitters keyed by user ID. The notification dispatch service looks up the emitter and writes to it on event creation. When no emitter is registered for a user (offline), the notification is persisted only.
 
 Connection cleanup: when a client disconnects, the emitter's `onCompletion` and `onTimeout` callbacks remove it from the registry.
+
+**More than one Platform instance** ([`../platform/multi-instance-state.md`](../platform/multi-instance-state.md) §2): the registry is per instance, because a stream is a socket on one instance. An alert, the live push of a persisted notification, and a session revocation are relayed to the other instances over Redis pub/sub, so they reach the user's streams wherever they are open. Delivery stays best-effort.

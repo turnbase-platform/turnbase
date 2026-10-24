@@ -247,7 +247,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M18-05 | One Redis round trip per move | platform | M18-02 | DONE |
 | IMP-M18-06 | The OpenTelemetry agent's cost is measured and decided | docs (umbrella), platform (chart) | M18-02 | DONE |
 | IMP-M18-07 | Single-instance re-verification | docs (umbrella) | M18-03, M18-04, M18-05, M18-06 | DONE |
-| IMP-M18-08 | Platform state is correct across instances | platform, docs | M18-01 | WIP (session 246) |
+| IMP-M18-08 | Platform state is correct across instances | platform, docs | M18-01 | DONE |
 | IMP-M18-09 | WebSocket upgrades reach the room's instance | frontend, platform (chart), docs | M18-01 | READY |
 | IMP-M18-10 | Platform autoscaling, two-replica minimum and release on scale-in | platform, docs (umbrella) | M18-08, M18-09 | READY |
 | IMP-M18-11 | Host selection spreads sessions under a per-host cap | platform, docs | M18-01 | READY |

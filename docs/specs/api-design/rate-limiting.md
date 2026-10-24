@@ -251,6 +251,9 @@ persistent abusers from live games without a separate mechanism.
 `ERROR` (`code: TOO_MANY_CONNECTIONS`). Two or three tabs is ordinary; forty is an attempt to
 multiply a per-principal budget by opening more sockets.
 
+The count is **cluster-wide**: with several Platform instances the four are counted across all of them in
+Redis, with a lease that lapses if an instance dies ([`../platform/multi-instance-state.md`](../platform/multi-instance-state.md) §3).
+
 ### Pod-local budgets, and what they do not cover
 
 Under room affinity a user's frames for a given room all land on that room's pod, so the pod-local

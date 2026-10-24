@@ -1,15 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-24 (session 245) — **`IMP-M18-07` is `DONE`: the single-instance re-verification.** 199 of 209 items done. Umbrella-only; no code, chart or submodule change.
+**Date:** 2026-10-25 (session 246) — **`IMP-M18-08` is `DONE`: Platform state is correct across instances.** 200 of 209 items done. `turnbase-platform` `6fb36d6`.
 
-- Three reports on the M18 build (`turnbase-platform` `9eb9738`, Phase B cores): `2026-10-24-m18-parallelism.md`, `…-ramp-to-break.md`, `…-soak.md`, each `REPORT COMPLETE`; `SUMMARY.md` *M18* and `load-testing.md` §13 findings 1 to 3 and 15 carry the results.
-- `parallelism`: ceiling 128, peak 2,068 moves/s (baseline 1,690), platform CPU per move -12%; the 256-pair step ran in full and fails on join/create; `DB pool`. `ramp-to-break`: ceiling **220 pairs** (same as the baseline; this is the single-instance figure `NFR-ASC-006` is judged against), `DB pool`, Postgres at 2.0 of 4 cores. `soak`: 0 errors, p99 +21.8% (warm-up, flat from minute 10), `none`.
-- NFR-DBQ-001 fails (`DB pool` in two scenarios; PostgreSQL itself no longer first), NFR-DBQ-002 and 003 pass. Per the item, Track 2 proceeds regardless.
-- A `ramp-to-break` straight after `reset.sh` aborts at step 10 on a cold-JVM sample; warm up with three `smoke.js PAIRS=40` runs first (noted in the ramp report; `IMP-M18-14`/`15` should do the same).
+- New `UserPushBus` (Redis pub/sub, publisher delivers locally then publishes, ignores its own message). Channels `alert`, `notification` (claim-then-push by the instance holding the stream), `session-revoked` (`SessionRevocationRelay` re-publishes a `remote` `SessionRevokedEvent`).
+- `ConnectionCapLedger`: per-user WebSocket cap of 4 counted cluster-wide in a Redis sorted set with 90s leases renewed every 30s; falls back to the local count if Redis is down.
+- Audit table of every in-memory map: `docs/specs/platform/multi-instance-state.md` (registered in the INDEX); `sse-notifications.md` and `rate-limiting.md` point to it.
+- `TwoInstanceIT` (two contexts, one Postgres, one Redis): alert, live notification, revocation closing WS and SSE, the fifth socket refused across both, shared API bucket, ShedLock exclusion. All 6 pass.
+- Local gate: 287 unit tests green; integration 351 of 354 green. The 3 failing classes (`GameAssetControllerIT`, `SeedDataIT`, and a transient Redis container start for `GraceDeadlineSweepJobIT`, which passed on rerun) are environmental: `*.games.localhost` resolves only to `::1` in this WSL, and `GameAssetControllerIT` fails identically on unmodified master. The merged JaCoCo gate was therefore not evaluated end to end in this session.
 
 ## Next Priorities
 
-**M18: `IMP-M18-01`…`07` are done (Track 1 is complete). Next, Tracks 2 (`08…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
+**M18: `IMP-M18-01`…`08` are done (Track 1 is complete). Next, Tracks 2 (`09…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
 
 - The proposed `NFR-ASC` targets are the orchestrator's; the owner may adjust them before `01` writes them down.
 - Still owner-held: `game-host-internals.md` §18 `OQ-6` (twelve Espresso contexts per JVM lifetime), not reached by Phase B's single-title scenarios.
