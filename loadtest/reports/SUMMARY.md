@@ -172,3 +172,15 @@ After `IMP-M17-01` to `04` (the game-path statements that scanned `room`, `room_
 | 15 | Latency rises across a 30-minute hold | resolved: -7.2% | [soak](2026-10-24-m17-soak.md) |
 
 Phase B starts from findings 1 and 3: Postgres CPU (more cores, read offload or fewer statements per room join and create), then 8 and 9 (the cost of several Espresso contexts).
+
+## M18 Phase B, 2026-10-24
+
+`IMP-M18-02`: PostgreSQL moved to 4 CPU / 2 GiB and the Game Host to 2 CPU (`load-testing-phase-b.md` §3.1), `postgres.settings` rescaled, and `parallelism` and `ramp-to-break` run again on the unchanged `e52c1f4` platform build. Figures are not comparable with M17 without saying the cores differ.
+
+### Reports
+
+| Scenario | Report | Result in one line |
+|---|---|---|
+| `parallelism`, `ramp-to-break` | [2026-10-24-m18-baseline.md](2026-10-24-m18-baseline.md) | `parallelism` ceiling 128 pairs (M17: 64), first to break `none`, peak 1,690 moves/s; `ramp-to-break` ceiling 220 pairs (M17: 170, 190 tuned), first to break `DB pool` (Postgres 2.4 of 4 cores, `hikari_pending` up to 183, platform 3.76 of 4) |
+
+The baseline for every later M18 item is this report: Postgres is no longer the first thing to break, the 10-connection pool and the platform's CPU are next.

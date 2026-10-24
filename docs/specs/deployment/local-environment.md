@@ -747,8 +747,9 @@ the Game Host does not read them.
 load-test overlays PostgreSQL moves to 4 CPU / 2 GiB and the Game Host to 2 CPU in total (two replicas of 1 CPU
 at the minimum). At the replica maxima, all at `requests == limits`: PostgreSQL 4 + Redis 1 + Game Host 3 × 1 +
 Platform 3 × 1.5 = 12.5 CPU, plus k6 pinned to 3 cores = 15.5 of the node's 16. PostgreSQL's `max_connections`
-covers `platform.maxReplicas × poolMaxSize` (3 × 10) plus migrations and operators. The figures below this
-paragraph describe the M17 sizing until `IMP-M18-02` rescales them; `IMP-M18-02` records the new values here.
+covers `platform.maxReplicas × poolMaxSize` (3 × 10) plus migrations and operators. `IMP-M18-02` applied the
+PostgreSQL and Game Host figures (one Game Host replica of 2 CPU until `IMP-M18-13`) and rescaled
+`postgres.settings` below.
 
 | Property | Default | Env |
 |---|---|---|
@@ -781,15 +782,23 @@ checkouts. The deadline sweep runs every 5 seconds and the reconcile sweep every
 connection between rows.
 
 **PostgreSQL server settings (`FR-DBQ-007`).** The chart's `postgres.settings` renders `-c name=value`
-arguments for the pinned 2 CPU / 1 GiB: `shared_buffers=256MB` (25% of the memory limit),
-`effective_cache_size=512MB`, `max_connections=50` (the pool is 10, the migrations and an operator need a few
-more; the image default of 100 reserves memory for connections nobody opens), `max_wal_size=2GB` and
-`checkpoint_completion_target=0.9` (fewer, smoother checkpoints under a write-heavy game path),
-`random_page_cost=1.1` (the volume is an SSD). `synchronous_commit` stays on: the game path does not trade
-durability for speed. Applied after `IMP-M17-05`'s `parallelism` and `ramp-to-break` runs named `PostgreSQL` as
-the first to break ([reports](../../../loadtest/reports/2026-10-24-m17-ramp-to-break.md)): `parallelism`
-did not move (ceiling 64 pairs, 2.2 of 2 cores), `ramp-to-break` ceiling 170 -> 190 pairs. The limit is the
-2-core CPU, which settings do not add; the values stay because they match the pinned size.
+arguments for the Phase B 4 CPU / 2 GiB (`IMP-M18-02`; the 2 CPU / 1 GiB values of M17 are in the git history):
+
+| Setting | Value | Reason |
+|---|---|---|
+| `shared_buffers` | `512MB` | 25% of the memory limit |
+| `effective_cache_size` | `1GB` | half of the memory limit |
+| `max_connections` | `50` | `platform.maxReplicas × poolMaxSize` (3 × 10) plus migrations and operators; the image default of 100 reserves memory for connections nobody opens |
+| `max_wal_size` / `checkpoint_completion_target` | `2GB` / `0.9` | fewer, smoother checkpoints under a write-heavy game path |
+| `random_page_cost` | `1.1` | the volume is an SSD |
+| `max_worker_processes`, `max_parallel_workers` | `4`, `4` | the core count |
+| `max_parallel_workers_per_gather`, `max_parallel_maintenance_workers` | `2`, `2` | half the cores, so one query cannot take them all |
+
+`synchronous_commit` stays on: the game path does not trade durability for speed. M17 history: the settings were
+applied after `IMP-M17-05`'s `parallelism` and `ramp-to-break` runs named `PostgreSQL` as the first to break
+([reports](../../../loadtest/reports/2026-10-24-m17-ramp-to-break.md)); the limit then was the 2-core CPU, which
+settings do not add. With the 4 cores of `IMP-M18-02` the baseline ([report](../../../loadtest/reports/2026-10-24-m18-baseline.md))
+reaches 128 pairs in `parallelism` and 220 in `ramp-to-break`, with PostgreSQL at 2.1 to 2.4 of 4 cores.
 
 Credentials are **not** in this table. They are in
 [`secrets-and-configuration.md`](secrets-and-configuration.md).

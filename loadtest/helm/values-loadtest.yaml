@@ -21,14 +21,14 @@ platform:
 gamehost:
   replicaCount: 1
   resources:
-    requests: { cpu: "4", memory: 4Gi }
-    limits:   { cpu: "4", memory: 4Gi }
+    requests: { cpu: "2", memory: 4Gi }
+    limits:   { cpu: "2", memory: 4Gi }
   extraEnv:
     - { name: JDK_JAVA_OPTIONS, value: "-XX:MaxRAMPercentage=70" }
 postgres:
   resources:
-    requests: { cpu: "2", memory: 1Gi }
-    limits:   { cpu: "2", memory: 1Gi }
+    requests: { cpu: "4", memory: 2Gi }
+    limits:   { cpu: "4", memory: 2Gi }
   # pg_stat_statements for the per-statement counts of snapshot.sh, checkpoint timing for the stall hunt.
   extraArgs: ["-c", "shared_preload_libraries=pg_stat_statements", "-c", "log_checkpoints=on"]
 redis:

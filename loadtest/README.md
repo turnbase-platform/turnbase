@@ -95,11 +95,11 @@ requests equal to limits:
 | Component | CPU | Memory |
 |---|---|---|
 | Platform | 4 | 3 GiB |
-| Game Host | 4 | 4 GiB |
-| Postgres | 2 | 1 GiB |
+| Game Host | 2 (one replica; 4 before Phase B) | 4 GiB |
+| Postgres | 4 (2 before Phase B) | 2 GiB |
 | Redis | 1 | 512 MiB |
 
-The memory limits sum to 8.5 GiB. The Docker Desktop VM (15.21 GiB on the reference machine) also runs
+The memory limits sum to 9.5 GiB. The Docker Desktop VM (15.21 GiB on the reference machine) also runs
 k6, the frontend, ingress and the observability stack, so larger limits left pods unschedulable or
 OOM-killed the node. A run item never edits the overlay; the M16 items edit it only where their sections say so, and mirror the edit in `values-default-limits.yaml` (`test/check-overlays.sh`). It also passes `postgres.extraArgs` (`-c shared_preload_libraries=pg_stat_statements -c log_checkpoints=on`); `redis.extraArgs` stays empty.
 The platform JVM also logs GC and safepoints to stdout (`JDK_JAVA_OPTIONS` `-Xlog:gc*,safepoint:stdout:utctime,uptime`, `IMP-M16-12`), so `kubectl logs deploy/turnbase-platform` holds every pause with its time. If the VM has fewer than 12 CPUs, halve every

@@ -1,15 +1,15 @@
 ## Last Session Summary
 
-**Date:** 2026-10-24 (session 238) — **`IMP-M18-01` done: Phase B spec groundwork.** 193 of 209 items done. Docs only; no submodule changed.
+**Date:** 2026-10-24 (session 239) — **`IMP-M18-02` done: cores reallocated to PostgreSQL, and the Phase B baseline.** 194 of 209 items done. `turnbase-platform` ref bumped (chart `postgres.settings`, pipeline green).
 
-- **ADR-0020** (Platform horizontal scaling; two replicas of each stateless tier; affinity by hint; Redis pub/sub for user-scoped pushes only; KEDA for the Game Host) registered in `decisions/INDEX.md`; ADR-0002 and ADR-0008 carry *Amended by* lines.
-- **`platform-operations.md`**: `FR-ASC-001…005` and `NFR-ASC-001…007` added, NFR-SCALE-001 and CON-013 amended; requirements `INDEX.md` lists `FR-ASC`/`NFR-ASC`.
-- **`platform-architecture.md`**: FR-SCALE-006 amended, `OQ-003` resolved (drain, then migrate). **`game-host-internals.md` §11**: the per-host cap and cold-fallback rule. **`local-environment.md`** §3 (routing by hint) and §7.9 (Phase B budget); **`load-testing.md`** §8 (PostgreSQL threshold relative to the CPU limit).
+- Both overlays: PostgreSQL 4 CPU / 2 GiB, Game Host 2 CPU (one replica); `check-overlays.sh` OK. `postgres.settings` rescaled (shared_buffers 512MB, effective_cache_size 1GB, `max_connections` 50, worker settings at 4/4/2/2), recorded in `local-environment.md` §7.9; `loadtest/README.md` table updated.
+- Baseline report `loadtest/reports/2026-10-24-m18-baseline.md` (`REPORT COMPLETE`), on the unchanged `e52c1f4` image: `parallelism` ceiling **128** pairs (M17: 64), first to break `none`, peak 1,690 moves/s, 256-pair step cut short again; `ramp-to-break` ceiling **220** (M17: 170/190), aborted at 230 on `tb_room_join` p95 218 ms, first to break **`DB pool`** (Postgres 2.4 of 4 cores, `hikari_pending` up to 183, platform 3.76 of 4). `SUMMARY.md` has an *M18* section.
+- Peak moves/s did not rise: the platform CPU per move is unchanged, which is what `IMP-M18-03…05` target.
 - `check-corpus.py` clean.
 
 ## Next Priorities
 
-**M18: `IMP-M18-01` is done. Next, Track 1 (`02…07`), which needs the cluster from `02`; Tracks 2 (`08…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
+**M18: `IMP-M18-01` and `02` are done. Next, Track 1 (`03…07`; `03`, `04`, `05`, `06` each need only `02`); Tracks 2 (`08…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
 
 - `IMP-M18-06` stops for the owner's choice on the OpenTelemetry agent after its report.
 - The proposed `NFR-ASC` targets are the orchestrator's; the owner may adjust them before `01` writes them down.
