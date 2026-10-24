@@ -27,6 +27,7 @@ Format: one file per decision, numbered sequentially (`NNNN-slug.md`). Status is
 | [0017](0017-turnbase-visual-identity.md) | The platform takes a TurnBase visual identity on top of Astryx (amends 0013 §4) | Accepted |
 | [0018](0018-game-start-resilience.md) | Starting a game survives a cold, restarting or wedged Game Host, and says what it is doing | Accepted |
 | [0019](0019-shared-espresso-engine.md) | All guest contexts share one Espresso engine (31% less heap for four contexts; CPU unchanged) | Accepted |
+| [0020](0020-platform-horizontal-scaling.md) | The Platform scales horizontally; at least two replicas of each stateless tier | Accepted |
 
 ## Provenance
 

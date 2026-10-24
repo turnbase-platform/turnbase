@@ -1,15 +1,15 @@
 ## Last Session Summary
 
-**Date:** 2026-10-24 (session 237) — **M17 findings reported; `IMP-M13-08` closed and `OQ-004` resolved by the owner; Phase B designed and registered as M18 (17 items).** 192 of 209 items done.
+**Date:** 2026-10-24 (session 238) — **`IMP-M18-01` done: Phase B spec groundwork.** 193 of 209 items done. Docs only; no submodule changed.
 
-- **M13 closed.** The owner accepted `IMP-M13-08`; the register, `CLAUDE.md` and `turnbase-frontend/CLAUDE.md` say so (frontend ref bumped).
-- **`OQ-004` resolved: `NFR-AVAIL-001` is 99%.** `platform-architecture.md`'s row now says 99% and points to `platform-operations.md`; both *Open Questions* entries are marked resolved.
-- **Phase B design** (`docs/specs/deployment/load-testing-phase-b.md`, replacing `load-testing.md` §9's outline), with the owner: the Game Host drops to 2 cores and PostgreSQL gets them (4); single-node capacity work first (statements per room create and join, a per-room participant cache, one Redis round trip per move, the OpenTelemetry agent's cost measured for the owner to decide); then the Platform autoscales (HPA, `/ws` routed by the instance hint the browser already sends, cross-instance SSE alerts, revocation and connection cap), the Game Host spreads sessions, autoscales with KEDA and drains; **at least two replicas of each for redundancy**; `OQ-5` decided by one correctness suite run against both reassignment modes; new scenarios `spike`, `sustained-high`, `diurnal`, `failover`; proposed `FR-ASC`/`NFR-ASC` requirements. The owner's priority: **redundancy and correctness over a higher ceiling.**
-- Recon facts the design rests on: multi-instance Platform was deferred post-MVP (`NFR-SCALE-001`, CON-013; lifted by the coming ADR-0020); the frontend nginx `/ws` proxy ignores `?instance=`; `NotificationEmitterRegistry` and the per-user socket cap are per instance; metrics-server is present on the node; the `draining` flag already exists in `HostRegistry`.
+- **ADR-0020** (Platform horizontal scaling; two replicas of each stateless tier; affinity by hint; Redis pub/sub for user-scoped pushes only; KEDA for the Game Host) registered in `decisions/INDEX.md`; ADR-0002 and ADR-0008 carry *Amended by* lines.
+- **`platform-operations.md`**: `FR-ASC-001…005` and `NFR-ASC-001…007` added, NFR-SCALE-001 and CON-013 amended; requirements `INDEX.md` lists `FR-ASC`/`NFR-ASC`.
+- **`platform-architecture.md`**: FR-SCALE-006 amended, `OQ-003` resolved (drain, then migrate). **`game-host-internals.md` §11**: the per-host cap and cold-fallback rule. **`local-environment.md`** §3 (routing by hint) and §7.9 (Phase B budget); **`load-testing.md`** §8 (PostgreSQL threshold relative to the CPU limit).
+- `check-corpus.py` clean.
 
 ## Next Priorities
 
-**M18 is open: start with `IMP-M18-01`** (ADR-0020, `FR-ASC`/`NFR-ASC`, the amended rows; docs only, blocks everything). Then Track 1 (`02…07`), which needs the cluster from `02`; Tracks 2 (`08…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
+**M18: `IMP-M18-01` is done. Next, Track 1 (`02…07`), which needs the cluster from `02`; Tracks 2 (`08…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
 
 - `IMP-M18-06` stops for the owner's choice on the OpenTelemetry agent after its report.
 - The proposed `NFR-ASC` targets are the orchestrator's; the owner may adjust them before `01` writes them down.

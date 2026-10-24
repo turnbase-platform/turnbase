@@ -1,6 +1,7 @@
 # ADR-0002: WebSocket scaling via room affinity
 
 - **Status:** Accepted
+- **Amended by:** [ADR-0020](0020-platform-horizontal-scaling.md) (multi-instance Platform; user-scoped pushes only use Redis pub/sub, room fan-out still does not)
 - **Date:** 2026-07-10
 - **Deciders:** Project owner
 - **Source:** MVP Readiness Review 2026-07-02 — blocker API-3, strategic decision #3

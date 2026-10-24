@@ -1,6 +1,7 @@
 # ADR-0008: Room ownership is a lease-gated claim, not a lifetime assignment
 
 - **Status:** Accepted
+- **Amended by:** [ADR-0020](0020-platform-horizontal-scaling.md) (affinity routing by instance hint, release on scale-in; no consistent hashing)
 - **Date:** 2026-08-09
 - **Deciders:** Project owner
 - **Source:** GRMP lesson F3 ("define pod-crash semantics"); self-contradiction found in

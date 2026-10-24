@@ -768,11 +768,13 @@ The Game Host is the **client** of `GameHostRegistryService`:
 
 **Host selection (FR-ORCH-001/004).** The keys are in §13. To place a new session, any Orchestration
 replica takes the members of `hosts` and keeps those that (1) have a live `hostlease:{instanceId}`,
-(2) are not `draining`, and (3) list `jvm` in `runtimeTypes`. Among them it prefers instances whose
-`contexts:{instanceId}` contains `{gameId}:{gameVersion}` (warm); ties — and the no-warm-host case,
-where any candidate will create the context on demand — break on lowest `activeSessions`, then on
+(2) are not `draining`, and (3) list `jvm` in `runtimeTypes`, and (4) are below their per-host session
+cap (FR-SCALE-005, `load-testing-phase-b.md` §5.1). Among them it prefers instances whose
+`contexts:{instanceId}` contains `{gameId}:{gameVersion}` (warm); **if every warm candidate is at its cap, a
+cold one is chosen**, so a new replica takes load while the warm one still has no room. Ties — and the
+no-warm-host case, where any candidate will create the context on demand — break on lowest `activeSessions`, then on
 `instanceId` in lexical order, so the choice is deterministic for a given Redis state. No candidate
-left is a transport-level `UNAVAILABLE` for the caller (session creation fails; nothing is written to
+(every host at its cap included) is a transport-level `UNAVAILABLE` for the caller (session creation fails; nothing is written to
 the room). The chosen `instanceId` is written to `routing:{sessionId}`; the dial address is always
 re-read from `host:{instanceId}`, never copied into the routing key, so a host that re-registers at a
 new address needs no routing rewrite. `Register` sets the `hosts` member, the `host:` hash and the

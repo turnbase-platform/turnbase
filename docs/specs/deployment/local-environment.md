@@ -249,9 +249,11 @@ successor is live while the incumbent drains, which is the situation the design 
 It also makes ADR-0011's backward-compatibility rule load-bearing rather than theoretical: the new
 pod runs its migrations while the old pod is still serving against the old code.
 
-**The local ingress does no room affinity.** It is plain round-robin, which is correct: FR-DEPLOY-002
-already declares the affinity hint advisory, and the receiving instance resolves ownership itself. At
-one steady-state replica, round-robin is exact.
+**Routing by the affinity hint (ADR-0020, from `IMP-M18-09`).** REST is plain round-robin: any instance
+serves a call and returns the owner's hint. `/ws` is routed by the `instance` query parameter: the frontend
+proxy forwards to the named pod through the platform's headless Service and falls back to the regular Service
+when that pod is not ready or the parameter is absent (FR-DEPLOY-002; the hint stays advisory). Until
+`IMP-M18-09` lands the proxy is still round-robin, which is exact at one steady-state replica.
 
 ---
 
@@ -740,6 +742,13 @@ the Game Host does not read them.
 (`orchestration-gamehost-protocol.md` *Processing semantics*), because it executes no game code.
 
 ### 7.9 Infrastructure
+
+**Phase B budget (ADR-0020, `load-testing-phase-b.md` §3.1, §4.4; applied by `IMP-M18-02` onwards).** In the
+load-test overlays PostgreSQL moves to 4 CPU / 2 GiB and the Game Host to 2 CPU in total (two replicas of 1 CPU
+at the minimum). At the replica maxima, all at `requests == limits`: PostgreSQL 4 + Redis 1 + Game Host 3 × 1 +
+Platform 3 × 1.5 = 12.5 CPU, plus k6 pinned to 3 cores = 15.5 of the node's 16. PostgreSQL's `max_connections`
+covers `platform.maxReplicas × poolMaxSize` (3 × 10) plus migrations and operators. The figures below this
+paragraph describe the M17 sizing until `IMP-M18-02` rescales them; `IMP-M18-02` records the new values here.
 
 | Property | Default | Env |
 |---|---|---|

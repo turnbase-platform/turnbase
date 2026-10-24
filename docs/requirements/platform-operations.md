@@ -155,6 +155,21 @@ by milestone M17.
 | FR-DBQ-006 | Pool size grounded in measurement | The default pool size is chosen from load-test runs on the reference node (`../specs/deployment/load-testing.md`), on the build that already satisfies FR-DBQ-001…004. The runs start from the conventional rule (PostgreSQL cores × 2 + 1) and try at least two larger values. The candidate with the highest ceiling (the last step meeting every NFR-LOAD-001…004 threshold, as `load-testing.md` defines it) wins; among candidates with that ceiling, any whose peak moves/s is within 5% of the best counts as tied, and the smallest tied value is chosen. The candidates, their results and the reason for the choice are recorded in `../specs/deployment/local-environment.md` §7.9. | Must |
 | FR-DBQ-007 | PostgreSQL server tuning (conditional) | If NFR-DBQ-001 still fails with PostgreSQL as the first thing to break once FR-DBQ-001…006 hold, the chart's PostgreSQL server settings (memory and connection limits) are tuned and the values recorded with their rationale in `../specs/deployment/local-environment.md`. | Could |
 
+### Autoscaling and Redundancy
+
+Added 2026-10-24 by the Phase B design (`../specs/deployment/load-testing-phase-b.md`, ADR-0020). Values are the
+orchestrator's proposal; the owner may adjust them. All are judged on the reference node. Built by milestone M18.
+
+| ID | Title | Description | Priority |
+|----|-------|-------------|----------|
+| FR-ASC-001 | Platform horizontal autoscaling | The Platform Monolith scales horizontally under an autoscaler between configured minimum and maximum replicas, on CPU. Minimum 2. | Must |
+| FR-ASC-002 | Affinity hint reaches the named instance | WebSocket upgrades carrying an instance hint reach the named ready instance; otherwise any ready instance (FR-DEPLOY-002). | Must |
+| FR-ASC-003 | User-scoped state holds across instances | User-scoped pushes (alerts, session revocation) and the per-user WebSocket connection cap hold across instances (`load-testing-phase-b.md` §4.1). | Must |
+| FR-ASC-004 | Release on removal | A Platform instance being removed releases its rooms and closes its connections before it exits (FR-DEPLOY-001; `load-testing-phase-b.md` §4.6). | Must |
+| FR-ASC-005 | Two replicas at all times | At least two Platform and two Game Host replicas run at all times in the scaled deployment. | Must |
+
+---
+
 ### Scheduled Jobs
 
 | ID | Title | Description | Priority |
@@ -206,7 +221,7 @@ by milestone M17.
 | NFR-PERF-001 | Performance | HTTP API p95 response latency for non-game-session endpoints (user, catalog, rooms, social) | < 200ms p95 | Should |
 | NFR-PERF-002 | Performance | WebSocket effect delivery latency from Orchestration logic to client (Platform Monolith internal path, excluding Game Host processing) | < 50ms p95 | Should |
 | NFR-PERF-003 | Performance | Platform Monolith must support concurrent WebSocket connections without degrading HTTP API latency | 5,000 concurrent connections | Should |
-| NFR-SCALE-001 | Scalability | The Platform Monolith is designed to scale horizontally behind a load balancer using WebSocket **room affinity** (route by `roomId`; ADR-0002) rather than cross-instance pub/sub. Multi-instance horizontal scaling, HPA, connection draining, and cold-start budgets (`FR-SCALE-*`) are **deferred to post-MVP** (ADR-0001); the MVP runs a single local instance. | ≥2 instances without data races | Post-MVP |
+| NFR-SCALE-001 | Scalability | The Platform Monolith scales horizontally behind a load balancer using WebSocket **room affinity** (route by the instance hint; ADR-0002, ADR-0020) rather than cross-instance pub/sub for room traffic; only user-scoped pushes use Redis pub/sub (ADR-0020). Multi-instance operation and an HPA are **in scope on the reference node** since 2026-10-24 (ADR-0020, `FR-ASC-*`, `NFR-ASC-*`). Cold-start budgets (`FR-SCALE-007`) and scale-to-zero stay deferred (ADR-0001). | ≥2 instances without data races | Must (reference node) |
 | NFR-OBS-001 | Observability | All production incidents must be diagnosable using logs, metrics, and traces without requiring access to the live production environment. | Full post-incident observability | Must |
 | NFR-LOAD-001 | Performance | Warm game start, `START_GAME` to `GAME_STARTED`, measured under load (`load-testing.md` §7). A cold start (first start after a Game Host boot) is recorded, not gated. | p95 < 1 s, p99 < 2 s | Should |
 | NFR-LOAD-002 | Performance | Game action round trip (`move_rtt`: an action sent to the resulting state update received), measured under load (`load-testing.md` §7). | p99 < 500 ms | Should |
@@ -218,6 +233,13 @@ by milestone M17.
 | NFR-DBQ-002 | Performance | HTTP latency stays stable at constant load across the `soak` hold (`load-testing.md` §13 finding 15). | HTTP p99 drift < 25% over the 30-minute hold | Must |
 | NFR-DBQ-003 | Performance | No regression against the M16 re-verification (`../../loadtest/reports/SUMMARY.md`, *M16*). | `ramp-to-break` ceiling ≥ 80 pairs; `parallelism` ceiling ≥ 64 pairs and peak moves/s no more than 5% below 1,055 | Must |
 | NFR-DBQ-004 | Performance | Game-path statement time does not grow with retained history (FR-DBQ-001). | Mean execution time of each FR-DBQ-001 statement with ≥ 100,000 retained closed-room participants is within 25% (or 0.5 ms, whichever is larger) of the same statement on an empty-history database | Should |
+| NFR-ASC-001 | Scalability | Scale-out reaction: from the step that crosses the target to the new replica serving (Ready and receiving traffic). | ≤ 3 min, Platform and Game Host | Should |
+| NFR-ASC-002 | Correctness | Correctness through scaling: no lost, duplicated or reordered game input, no game aborted by a scale event, error rate below 1%. | Every Phase B scenario | Must |
+| NFR-ASC-003 | Scalability | Scale-in: after load ends, replicas return to minimum, and threads, rooms, sessions and Redis keys return to within 10% of the pre-run level. | ≤ 10 min (`up-down`) | Should |
+| NFR-ASC-004 | Performance | Spike: the `load-testing.md` §6 thresholds recover after the step. | ≤ 3 min (`spike`) | Should |
+| NFR-ASC-005 | Performance | Sustained high load: HTTP p99 drift over the hold, and scale events after the first 10 minutes. | < 25%; ≤ 1 per 10 min (`sustained-high`) | Should |
+| NFR-ASC-006 | Scalability | The scaled `ramp-to-break` ceiling is at least the single-instance ceiling measured by `IMP-M18-07`. | ≥ that ceiling | Should |
+| NFR-ASC-007 | Availability | Failover: after an unannounced kill of one Platform or one Game Host replica, every game in progress continues (NFR-ASC-002 holds) and every affected player is back in their room. | ≤ 30 s (NFR-REL-002; `failover`) | Must |
 
 ---
 
@@ -237,7 +259,7 @@ by milestone M17.
 | CON-010 | E2E tests use Docker Compose to spin up the full stack locally within the CI runner. Integration tests use Testcontainers to start real service dependencies (PostgreSQL, Redis, MinIO) per test run, never a stack started separately (FR-CICD-004). |
 | CON-011 | For the MVP, infrastructure runs on **local Docker Desktop Kubernetes** (WSL2), with docker-compose as a supported quick-start profile (ADR-0001). Cloud Kubernetes is a post-MVP aspiration; provider not selected. |
 | CON-012 | Schema migrations use **Flyway** with plain SQL migrations, run at application startup ([ADR-0011](../decisions/0011-schema-migrations.md)). Migration files live in the `turnbase-platform` submodule and are authoritative over the schema documents in `docs/specs/platform/`. The Game Host has no relational database and therefore no migrations. |
-| CON-013 | One Platform Monolith instance (NFR-SCALE-001 unchanged). FR-DBQ-* and NFR-DBQ-* are measured on the `load-testing.md` reference node with its pinned PostgreSQL resources (2 CPU, 1 GiB). |
+| CON-013 | Phase A and M16/M17 measured one Platform instance; from M18 the Platform runs between two and three replicas (ADR-0020, FR-ASC-001). FR-DBQ-* and NFR-DBQ-* were measured on the `load-testing.md` reference node with PostgreSQL pinned at 2 CPU, 1 GiB; from `IMP-M18-02` PostgreSQL is pinned at 4 CPU, 2 GiB (`load-testing-phase-b.md` §3.1), and a figure from either side is not compared with the other without saying so. |
 | CON-014 | Behaviour when the connection pool is exhausted is unchanged: a request waits for a connection as it does today. Fail-fast or `503` shedding is not introduced by FR-DBQ-*. |
 | CON-015 | Schema changes made for FR-DBQ-* (indexes and similar) follow FR-DB-001…004: forward-only, backward-compatible with the previous application version, and bounded; an index on an existing table is built per `../specs/deployment/schema-migrations.md` § `CREATE INDEX CONCURRENTLY`. |
 | CON-016 | Retention is unchanged: FR-RET-006 keeps closed rooms for 7 days. FR-DBQ-001 makes that retention free for the game path rather than shortening it. |

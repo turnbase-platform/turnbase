@@ -240,7 +240,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M17-04 | The pool size is chosen by measurement | docs (umbrella), platform | M17-01, M17-02, M17-03 | DONE |
 | IMP-M17-05 | Re-verification runs, and the M17 summary | docs (umbrella) | M17-04 | DONE |
 | **M18 — Load testing Phase B: capacity and autoscaling** ||||
-| IMP-M18-01 | Phase B spec groundwork: ADR-0020, FR-ASC/NFR-ASC, the amended rows | docs | — | READY |
+| IMP-M18-01 | Phase B spec groundwork: ADR-0020, FR-ASC/NFR-ASC, the amended rows | docs | — | DONE |
 | IMP-M18-02 | Cores reallocated to PostgreSQL, and the Phase B baseline | docs (umbrella), platform (chart) | M18-01 | READY |
 | IMP-M18-03 | Fewer statements per room create and join | platform | M18-02 | READY |
 | IMP-M18-04 | A per-room participant cache on the move path | platform | M18-02 | READY |
