@@ -1,16 +1,15 @@
 ## Last Session Summary
 
-**Date:** 2026-10-24 (session 241) — **`IMP-M18-04` done: a per-room participant cache on the move path.** 196 of 209 items done. `turnbase-platform` ref bumped (`5e51803`; CI not waited on, per the run policy).
+**Date:** 2026-10-24 (session 242) — **`IMP-M18-05` done: one Redis round trip for the post-result writes of a move.** 197 of 209 items done. `turnbase-platform` ref bumped (`9eb9738`; CI not waited on, per the run policy).
 
-- `room.ParticipantCache` keeps one view (room state plus current participants) per active session, owner-local. It answers both the acting-participant check and the fan-out roster, so a cached move issues no Postgres statement. `RoomEventExecutor.execute` brackets every mutation; nothing is served or stored while one runs, and a fill that began before a mutation is refused. A hit also needs the ownership epoch unchanged and the entry under 30 s old (account erasure is the one writer outside the executor; it revokes the user's sessions).
-- Finding: the "3.8 statements per move" in the M16 report were mostly the deadline sweep's (fixed by `IMP-M17-01`); the move path was one joined lookup plus the roster query. `load-testing-phase-b.md` §3.3 records this under *As built*.
-- Tests: `ParticipantCacheTest` (300 random interleavings, cached == uncached), `MoveParticipantCacheIT` (zero statements on a cached move and roster; a mutation or lost ownership sends the next move to Postgres); `GamePathQueryCostIT` picks up the new statement through its flow.
-- Local `verify` green (287 unit); `verify -Pintegration`: 355 run, 8 errors = the 7 known WSL `*.games.localhost` ones plus `GameInputServiceIT` (Redis container start flake; passes alone, 11/11).
-- `check-corpus.py` clean.
+- `game.MoveCommit` is one Lua script after the fan-out: `failcount:` reset, `gamelog:` append, `delivered:` watermark. A move is `GET routing:`, `GET delivered:`, `INCR seq:` and the script (four commands, was about nine). The watermark is in the script, so it cannot move before the fan-out.
+- `EffectDelivery.deliver` now returns the `log` entries it published; `MoveCommit` stores them (`CreateSession`'s initial effects still append directly). Cost, recorded in `load-testing-phase-b.md` §3.4 *As built*: a `GAME_SYNC` read in the instant between a `GAME_LOG` frame and the script can lack that one entry.
+- Tests in `GameInputServiceIT`: a Lettuce command listener shows the one script and no other write; the watermark is still the old value during fan-out; a replay neither fans out nor logs; a failing fan-out resets the counter and leaves watermark and log. `EffectFanOutTest` updated.
+- Local `verify` green (287 unit); `verify -Pintegration`: 369 run, 7 errors = the known WSL `*.games.localhost` ones. `check-corpus.py` clean.
 
 ## Next Priorities
 
-**M18: `IMP-M18-01`…`04` are done. Next, Track 1 (`05…07`; `05` and `06` each need only `02`); Tracks 2 (`08…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
+**M18: `IMP-M18-01`…`05` are done. Next, Track 1 (`06`, `07`; `06` needs only `02`); Tracks 2 (`08…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
 
 - `IMP-M18-06` stops for the owner's choice on the OpenTelemetry agent after its report.
 - The proposed `NFR-ASC` targets are the orchestrator's; the owner may adjust them before `01` writes them down.

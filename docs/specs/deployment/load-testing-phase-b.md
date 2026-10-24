@@ -150,6 +150,18 @@ where they are if merging them would change the order relative to the gRPC call.
 `game-host-internals.md` §9.2 (the delivery watermark) are not changed. A test shows the watermark is never
 advanced before the effects are fanned out.
 
+- **As built (`IMP-M18-05`).** One Lua script, `game.MoveCommit`, after the fan-out: the `failcount:` reset,
+  the `gamelog:` append and the `delivered:` watermark. A move is now `GET routing:`, `GET delivered:`, the
+  `INCR seq:` and that one script: four commands where there were about nine, and one round trip for the
+  writes. The watermark is in the script, so the script runs after the fan-out and the watermark cannot move
+  first; for that reason `EffectDelivery.deliver` returns the `log` entries it published and `MoveCommit`
+  stores them, instead of `EffectFanOut` appending each as it publishes. A replay (`sequence <= delivered`)
+  skips the fan-out and passes no entry and no watermark, so the script only resets the counter. If the
+  fan-out throws, the counter is still reset, the watermark and the log are left, and the replay does both.
+  The cost: a `GAME_SYNC` read in the instant between a `GAME_LOG` frame going out and the script landing can
+  lack that one entry in its `log` (the client already has it live if it was subscribed). `CreateSession`'s
+  initial effects still append as they publish.
+
 ### 3.5 The OpenTelemetry agent's cost
 
 `platform-operations.md` FR-TRACE-001 (Must) requires the OpenTelemetry Java agent on all outbound calls.
