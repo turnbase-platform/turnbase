@@ -345,16 +345,12 @@ see the defensive cleanup in A3.
 reached, with the limiting factor (orchestrator's call). If the laptop cannot generate the load, the
 report says so rather than extrapolating.
 
-## 9. Phase B (outline only; gets its own design round)
+## 9. Phase B
 
-1. Change the host-selection spec so load spreads: implement the `platform-architecture.md` FR-SCALE-005
-   per-host session cap and/or least-loaded among warm hosts.
-2. Game Host HPA on `activeSessions` (a custom-metric adapter or KEDA) or on CPU.
-3. Scale-in drain: sessions stay on a draining host; termination grace period versus migration.
-4. Rerun `up-down`.
-
-The boot wedge ([ADR-0018](../../decisions/0018-game-start-resilience.md)) will hit every scale-out;
-measure it.
+Designed 2026-10-24 in [`load-testing-phase-b.md`](load-testing-phase-b.md): capacity on one node first, then
+Platform autoscaling with room affinity, Game Host scale-out and drain, `OQ-5` decided by measurement, and the
+scenarios that prove it. The outline that stood here (host spreading, a Game Host autoscaler, scale-in drain,
+`up-down` rerun) is part of that design.
 
 ## 10. Left to the builder
 

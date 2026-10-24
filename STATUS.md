@@ -1,19 +1,19 @@
 ## Last Session Summary
 
-**Date:** 2026-10-24 (session 236) — **`IMP-M17-05` done: M17 is re-verified; `NFR-DBQ-002` and `003` hold, `NFR-DBQ-001` does not.** 191 of 192 items done, only `IMP-M13-08` (`WIP`, owner-held) left.
+**Date:** 2026-10-24 (session 237) — **M17 findings reported; `IMP-M13-08` closed and `OQ-004` resolved by the owner; Phase B designed and registered as M18 (17 items).** 192 of 209 items done.
 
-`parallelism`, `ramp-to-break` and `soak` ran on the `IMP-M17-04` build (`e52c1f4`, pool 10). `parallelism`: ceiling 64 pairs, peak 1,779 moves/s (M16 1,055), move target now passes at 128 pairs. `ramp-to-break`: ceiling 170 pairs (M16 80). `soak`: HTTP p99 drift -7.2% (M16 +122%), 0 errors, first to break `none`. The first two name `PostgreSQL` as first to break (2.0 to 2.2 of 2 cores, pool queue 150 to 206; `load-testing.md` §8 rule), so `FR-DBQ-007` applied: `turnbase-platform` gained `postgres.settings` in the chart (shared_buffers 256MB, max_connections 50 and so on; pipeline green, ref bumped) and both scenarios were rerun: `parallelism` unchanged, `ramp-to-break` ceiling 190. The limit is the 2-core Postgres CPU, which settings do not add. Reports `loadtest/reports/2026-10-24-m17-*.md`, `SUMMARY.md` *M17*, `**M17:**` lines on findings 1 to 3 and 15, `local-environment.md` §7.9. The pool-sizing report's first-to-break label corrected to `PostgreSQL` (its own figures meet the rule; the choice of 10 is unaffected). The 256-pair step still ends early (not investigated).
+- **M13 closed.** The owner accepted `IMP-M13-08`; the register, `CLAUDE.md` and `turnbase-frontend/CLAUDE.md` say so (frontend ref bumped).
+- **`OQ-004` resolved: `NFR-AVAIL-001` is 99%.** `platform-architecture.md`'s row now says 99% and points to `platform-operations.md`; both *Open Questions* entries are marked resolved.
+- **Phase B design** (`docs/specs/deployment/load-testing-phase-b.md`, replacing `load-testing.md` §9's outline), with the owner: the Game Host drops to 2 cores and PostgreSQL gets them (4); single-node capacity work first (statements per room create and join, a per-room participant cache, one Redis round trip per move, the OpenTelemetry agent's cost measured for the owner to decide); then the Platform autoscales (HPA, `/ws` routed by the instance hint the browser already sends, cross-instance SSE alerts, revocation and connection cap), the Game Host spreads sessions, autoscales with KEDA and drains; **at least two replicas of each for redundancy**; `OQ-5` decided by one correctness suite run against both reassignment modes; new scenarios `spike`, `sustained-high`, `diurnal`, `failover`; proposed `FR-ASC`/`NFR-ASC` requirements. The owner's priority: **redundancy and correctness over a higher ceiling.**
+- Recon facts the design rests on: multi-instance Platform was deferred post-MVP (`NFR-SCALE-001`, CON-013; lifted by the coming ADR-0020); the frontend nginx `/ws` proxy ignores `?instance=`; `NotificationEmitterRegistry` and the per-user socket cap are per instance; metrics-server is present on the node; the `draining` flag already exists in `HostRegistry`.
 
 ## Next Priorities
 
-**M17 is closed. Phase B follows** (its own design round: `load-testing.md` §9 is only an outline). Starting points are `SUMMARY.md` *Findings after M17*: Postgres CPU behind the pool (findings 1 and 3), the Espresso-context cost (8 and 9), and the early-ending 256-pair step. `NFR-DBQ-001` is open: it needs more Postgres CPU or fewer statements per room create and join, which no M17 item covers.
+**M18 is open: start with `IMP-M18-01`** (ADR-0020, `FR-ASC`/`NFR-ASC`, the amended rows; docs only, blocks everything). Then Track 1 (`02…07`), which needs the cluster from `02`; Tracks 2 (`08…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
 
-- `01`, `02`, `03` and `11…15` need Docker Desktop Kubernetes running with the `turnbase` release installed through `loadtest/install.sh`; they start with `bash loadtest/preflight.sh`. `04…09` do not, but they change images, so live items rebuild the images and run `loadtest/reset.sh` before measuring.
-- `14` and `15` are measurement only: findings that persist become Phase B notes in `load-testing.md` §13, never registry items.
-- **Phase B has its own design round** (autoscaling, multiple replicas; `load-testing.md` §9 is only an outline) and starts after M16.
-- **`IMP-M13-08` stays `WIP` and is owner-held.** It is a visual comparison against the approved
-  artefact that only the owner can finish.
-- `OQ-5` (eager or lazy reassignment) and `OQ-004` (`NFR-AVAIL-001`) stay the owner's; no M16 item decides them.
+- `IMP-M18-06` stops for the owner's choice on the OpenTelemetry agent after its report.
+- The proposed `NFR-ASC` targets are the orchestrator's; the owner may adjust them before `01` writes them down.
+- Still owner-held: `game-host-internals.md` §18 `OQ-6` (twelve Espresso contexts per JVM lifetime), not reached by Phase B's single-title scenarios.
 
 **[`docs/implementation/conventions.md`](docs/implementation/conventions.md) applies to every item and
 is not repeated in read-lists** — package layout, static analysis, Spotless, test suffixes, JaCoCo,
