@@ -242,7 +242,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | **M18 — Load testing Phase B: capacity and autoscaling** ||||
 | IMP-M18-01 | Phase B spec groundwork: ADR-0020, FR-ASC/NFR-ASC, the amended rows | docs | — | DONE |
 | IMP-M18-02 | Cores reallocated to PostgreSQL, and the Phase B baseline | docs (umbrella), platform (chart) | M18-01 | DONE |
-| IMP-M18-03 | Fewer statements per room create and join | platform | M18-02 | WIP (session 240) |
+| IMP-M18-03 | Fewer statements per room create and join | platform | M18-02 | DONE |
 | IMP-M18-04 | A per-room participant cache on the move path | platform | M18-02 | READY |
 | IMP-M18-05 | One Redis round trip per move | platform | M18-02 | READY |
 | IMP-M18-06 | The OpenTelemetry agent's cost is measured and decided | docs (umbrella), platform (chart) | M18-02 | READY |

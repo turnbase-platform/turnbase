@@ -1,15 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-10-24 (session 239) — **`IMP-M18-02` done: cores reallocated to PostgreSQL, and the Phase B baseline.** 194 of 209 items done. `turnbase-platform` ref bumped (chart `postgres.settings`, pipeline green).
+**Date:** 2026-10-24 (session 240) — **`IMP-M18-03` done: fewer statements per room create and join.** 195 of 209 items done. `turnbase-platform` ref bumped (pipeline green, `893e1b8`).
 
-- Both overlays: PostgreSQL 4 CPU / 2 GiB, Game Host 2 CPU (one replica); `check-overlays.sh` OK. `postgres.settings` rescaled (shared_buffers 512MB, effective_cache_size 1GB, `max_connections` 50, worker settings at 4/4/2/2), recorded in `local-environment.md` §7.9; `loadtest/README.md` table updated.
-- Baseline report `loadtest/reports/2026-10-24-m18-baseline.md` (`REPORT COMPLETE`), on the unchanged `e52c1f4` image: `parallelism` ceiling **128** pairs (M17: 64), first to break `none`, peak 1,690 moves/s, 256-pair step cut short again; `ramp-to-break` ceiling **220** (M17: 170/190), aborted at 230 on `tb_room_join` p95 218 ms, first to break **`DB pool`** (Postgres 2.4 of 4 cores, `hikari_pending` up to 183, platform 3.76 of 4). `SUMMARY.md` has an *M18* section.
-- Peak moves/s did not rise: the platform CPU per move is unchanged, which is what `IMP-M18-03…05` target.
+- Create inserts all initial teams in one multi-row `room_team` statement; join computes `join_order` inside the participant insert (`returning`) and reads the joiner's username in the locked `room` select. Join 10 → 8 statements, create 5 → 4; transactions, room lock and version-before-publish untouched.
+- Before/after `pg_stat_statements` table (two `start-rate` runs, 86 creates and joins each) is the `**M18:**` line under `load-testing.md` §13 finding 3. Time saved is small (the removed statements cost 0.01-0.02 ms); the team-slot query stays (cannot merge without moving the capacity check out of the locked read).
+- `GamePathQueryCostIT` asserts neither removed statement appears and one `room_team` insert text. Local `verify -Pintegration` had 9 errors in `GameAssetControllerIT`/`SeedDataIT` (`*.games.localhost` not resolvable under WSL; `GameAssetControllerIT` fails the same on unchanged master); CI is green.
+- The remote feature branch `feat/m18-03-fewer-statements` could not be deleted (the harness denied `git push --delete`); it is merged at `893e1b8` and should be removed by hand.
 - `check-corpus.py` clean.
 
 ## Next Priorities
 
-**M18: `IMP-M18-01` and `02` are done. Next, Track 1 (`03…07`; `03`, `04`, `05`, `06` each need only `02`); Tracks 2 (`08…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
+**M18: `IMP-M18-01`, `02` and `03` are done. Next, Track 1 (`04…07`; `04`, `05`, `06` each need only `02`); Tracks 2 (`08…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
 
 - `IMP-M18-06` stops for the owner's choice on the OpenTelemetry agent after its report.
 - The proposed `NFR-ASC` targets are the orchestrator's; the owner may adjust them before `01` writes them down.
