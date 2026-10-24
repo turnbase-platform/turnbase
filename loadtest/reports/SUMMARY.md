@@ -190,3 +190,36 @@ The baseline for every later M18 item is this report: Postgres is no longer the 
 | Scenario | Report | Result in one line |
 |---|---|---|
 | `parallelism` x 3 agent configurations | [2026-10-24-m18-otel.md](2026-10-24-m18-otel.md) | Platform CPU per move 2.201 ms (agent as specified), 1.994 ms (JDBC and Lettuce off, -9%), 1.813 ms (agent off, -18%); ceiling 192, 224 and 256 pairs; first to break `DB pool` in all three. The owner's choice is pending |
+
+### Single-instance re-verification (`IMP-M18-07`)
+
+`IMP-M18-03` to `06` are in (fewer statements per create and join, the participant cache, one Redis round trip per move, the OpenTelemetry agent as specified) and the three scenarios run again on one Platform instance at `turnbase-platform` `9eb9738`, the Phase B cores of the baseline.
+
+| Scenario | Report | Result in one line |
+|---|---|---|
+| `parallelism` | [2026-10-24-m18-parallelism.md](2026-10-24-m18-parallelism.md) | Ceiling 128 pairs; the 256-pair step runs in full and fails on `tb_room_join` (238 ms) and `tb_room_create` (211 ms); peak 2,068 moves/s (baseline 1,690); platform CPU per move -12%; first to break `DB pool` |
+| `ramp-to-break` | [2026-10-24-m18-ramp-to-break.md](2026-10-24-m18-ramp-to-break.md) | Ceiling 220 pairs (baseline 220; M17 170, 190 tuned), 440 sockets, 165 sessions; aborts at 230 on `tb_room_create` and `tb_room_join`; first to break `DB pool` (Postgres 2.0 of 4 cores, `hikari_pending` up to 168) |
+| `soak` | [2026-10-24-m18-soak.md](2026-10-24-m18-soak.md) | 56 pairs for 30 minutes: 0 errors, HTTP p99 +21.8% (17.7 -> 21.5 ms, warm-up; flat from minute 10), 217 games/s; first to break `none` |
+
+#### Database criteria (`platform-operations.md` NFR-DBQ-001 to 003)
+
+| Criterion | Result |
+|---|---|
+| NFR-DBQ-001: the database is not the first thing to break in `parallelism`, `ramp-to-break` and `soak` | **fail**: `parallelism` and `ramp-to-break` name `DB pool` (Postgres at 50% of 4 cores, 10 connections saturated, `hikari_pending` up to 150 and 168); `soak` names `none`. PostgreSQL itself is no longer the first to break |
+| NFR-DBQ-002: HTTP p99 drift < 25% over the soak hold | **pass**: +21.8% (first against last 5 minutes of the hold; +5% from minute 10), throughput +27% |
+| NFR-DBQ-003: `ramp-to-break` ceiling >= 80 pairs; `parallelism` ceiling >= 64 pairs and peak >= 1,002 moves/s | **pass**: 220 pairs; 128 pairs and 2,068 moves/s |
+
+#### The single-instance ceiling `NFR-ASC-006` is judged against
+
+**220 pairs** on `ramp-to-break` (440 sockets, 165 sessions at most), 128 pairs on `parallelism`, one Platform instance with the pool of 10: the scaled `ramp-to-break` ceiling must be at least 220 pairs. The M18 work raised throughput (2,068 against 1,690 moves/s) and lowered platform CPU per move by about 12%, not the ceiling: the ramp stops on the `tb_room_create` and `tb_room_join` tail behind the pool of 10 with the platform at 3.6 to 3.8 of 4 cores.
+
+#### Findings after the single-instance re-verification
+
+| # | Entry | Status | Evidence |
+|---|---|---|---|
+| 1 | Throughput plateaus at 16 pairs and declines past 32 | resolved as a plateau: 2,068 moves/s at 128 and 256 pairs, no decline; the ceiling 128 persists; `DB pool` | [parallelism](2026-10-24-m18-parallelism.md) |
+| 2 | The 200 ms move target fails at 128 pairs | resolved: 58 ms (M17 150, baseline 151) | [parallelism](2026-10-24-m18-parallelism.md) |
+| 3 | The ramp stops on a `tb_room_join` tail | persists at 220 pairs, unchanged by the move-path work; `DB pool` | [ramp-to-break](2026-10-24-m18-ramp-to-break.md) |
+| 15 | Latency rises across a 30-minute hold | resolved: +21.8% under the bar, flat from minute 10 | [soak](2026-10-24-m18-soak.md) |
+
+A `ramp-to-break` that follows `reset.sh` directly aborts on a cold-JVM `tb_move_rtt` sample at step 10; warm up with `smoke.js` first (ramp report finding 3).

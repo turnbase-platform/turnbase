@@ -1,13 +1,15 @@
 ## Last Session Summary
 
-**Date:** 2026-10-24 (session 244) — **`IMP-M18-06` is `DONE`: the owner chose configuration 1, the agent as specified.** 198 of 209 items done. Umbrella-only; no code, chart or submodule change.
+**Date:** 2026-10-24 (session 245) — **`IMP-M18-07` is `DONE`: the single-instance re-verification.** 199 of 209 items done. Umbrella-only; no code, chart or submodule change.
 
-- The choice is recorded in `loadtest/reports/2026-10-24-m18-otel.md` section 5. FR-TRACE-001, `observability.md` §4 and the chart default are unchanged. The `**Remaining:**` line is gone.
-- Measured in session 243: platform CPU per move 2.201 / 1.994 / 1.813 ms and ceiling 192 / 224 / 256 pairs for configurations 1 / 2 / 3; `DB pool` first to break in all three.
+- Three reports on the M18 build (`turnbase-platform` `9eb9738`, Phase B cores): `2026-10-24-m18-parallelism.md`, `…-ramp-to-break.md`, `…-soak.md`, each `REPORT COMPLETE`; `SUMMARY.md` *M18* and `load-testing.md` §13 findings 1 to 3 and 15 carry the results.
+- `parallelism`: ceiling 128, peak 2,068 moves/s (baseline 1,690), platform CPU per move -12%; the 256-pair step ran in full and fails on join/create; `DB pool`. `ramp-to-break`: ceiling **220 pairs** (same as the baseline; this is the single-instance figure `NFR-ASC-006` is judged against), `DB pool`, Postgres at 2.0 of 4 cores. `soak`: 0 errors, p99 +21.8% (warm-up, flat from minute 10), `none`.
+- NFR-DBQ-001 fails (`DB pool` in two scenarios; PostgreSQL itself no longer first), NFR-DBQ-002 and 003 pass. Per the item, Track 2 proceeds regardless.
+- A `ramp-to-break` straight after `reset.sh` aborts at step 10 on a cold-JVM sample; warm up with three `smoke.js PAIRS=40` runs first (noted in the ramp report; `IMP-M18-14`/`15` should do the same).
 
 ## Next Priorities
 
-**M18: `IMP-M18-01`…`06` are done. Next, Track 1 (`07`); Tracks 2 (`08…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
+**M18: `IMP-M18-01`…`07` are done (Track 1 is complete). Next, Tracks 2 (`08…10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
 
 - The proposed `NFR-ASC` targets are the orchestrator's; the owner may adjust them before `01` writes them down.
 - Still owner-held: `game-host-internals.md` §18 `OQ-6` (twelve Espresso contexts per JVM lifetime), not reached by Phase B's single-title scenarios.
