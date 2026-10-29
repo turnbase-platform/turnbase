@@ -645,8 +645,10 @@ path room closure uses; the reconciliation sweep
 ### 9.3 Crash recovery
 
 **Game Host crash (FR-FAIL-002, NFR-REL-002 < 30 s):** the liveness lease (§11)
-expires → Orchestration marks the instance failed, clears `routing:{sessionId}` for
-its sessions, selects a new host, and **re-dispatches the head-of-queue input**. The
+expires, nothing happens until a session next needs its host. The first input whose routed host
+is unreachable (or gone from the registry) makes Orchestration quarantine that host for the lease TTL,
+select a new one, rewrite `routing:{sessionId}` and **re-dispatch the head-of-queue input**
+(`GameInputService.reassign`; lazy, `OQ-5`). The
 new host has no local state → loads `session:{id}` from Redis (§9.1 step 2), calls
 `GameBridgeClient.restoreSession(sessionId, record.entryPointFqcn)` (§3.3) to recreate
 the guest instance without re-running `onInit`, sets the state, and proceeds. Because
@@ -659,7 +661,7 @@ dequeued without `OK`). If the dead host had actually applied it (advanced
 §9.1 step 1 → **replay**, so the action is not double-applied (GAME-B2 closed). If it
 had not applied it, the new host applies it fresh. Either way: exactly-once.
 
-*Whether reassignment happens when the lease expires or on the next input is open: see §18 `OQ-5`.*
+*Reassignment is lazy, on the next input, not at lease expiry: decided by measurement in §18 `OQ-5`.*
 
 **Platform pod crash (the other direction).** When the Platform Monolith pod that owns
 a room dies, the Game Host is unaffected: the session record is intact, and no guest
@@ -998,15 +1000,16 @@ All tunable via env/config, never hard-coded:
   invocation. If a real game's state (de)serialization proves a hotspot within the
   30 s budget, add an opt-in live-guest-object cache keyed by session (still
   persisting JSON to Redis).
-- **OQ-5 — eager or lazy reassignment after a Game Host dies.** §9.3 reads as *eager*: when the
-  liveness lease expires, Orchestration marks the instance failed, clears `routing:{sessionId}` for all
-  its sessions and selects a new host, with no input needed to trigger it. The code reassigns *lazily*:
-  nothing happens at lease expiry, and the first `ProcessInput` for a session whose routed host is
-  unreachable calls `reassign`, which selects a replacement and rewrites `routing:{sessionId}`
-  (`turnbase-platform/src/main/java/io/turnbase/platform/game/GameInputService.java`, `reassign`). The
-  difference shows only for a session that receives no input between the crash and the next turn, and in
-  how long a restored session sits with a dead routing entry. Neither reading is chosen here; the owner
-  decides which one the spec describes and whether the code changes. Found by `IMP-M15-02` (2026-10-18).
+- **OQ-5 — eager or lazy reassignment after a Game Host dies. Resolved 2026-10-29 (`IMP-M18-12`): lazy.**
+  §9.3 once read as *eager* (reassign at lease expiry); the code reassigned *lazily* on the first
+  `ProcessInput` whose routed host is unreachable. Eager was implemented behind a switch and both modes
+  ran one ten-scenario correctness suite (kill mid-move applied and not applied, idle kill with the next
+  input after 1 s, the TTL and the reassignment, a pending timer, a zombie host, two kills in succession, a
+  planned drain, concurrent inputs). Neither mode had a correctness failure of its own and both recovered
+  well inside NFR-REL-002, so the tie rule chose lazy, the code that exists; eager's sweep and switch were
+  removed. Evidence: [`docs/reviews/2026-10-29-m18-reassignment`](../../reviews/2026-10-29-m18-reassignment/INDEX.md).
+  The suite found one defect common to both and fixed it: two kills within one lease TTL could re-select the
+  first dead host, so `reassign` now quarantines the failed host for the lease TTL.
 - **OQ-6 — a JVM can create only twelve Espresso contexts in its lifetime.** Measured by `IMP-M16-05`
   (2026-10-19): the thirteenth `Context` build fails with `EspressoError: Cannot load library: eden`,
   although every earlier context was closed (`close()` or `close(true)`), with or without a shared engine.

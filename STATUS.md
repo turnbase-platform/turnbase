@@ -1,14 +1,14 @@
 ## Last Session Summary
 
-**Date:** 2026-10-29 (session 249) — **`IMP-M18-11` is `DONE`: host selection spreads sessions under a per-host cap.** 203 of 209 items done. `turnbase-platform` `0f49b52`.
+**Date:** 2026-10-29 (session 250) — **`IMP-M18-12` is `DONE`: `OQ-5` decided by measurement, lazy reassignment kept.** 204 of 209 items done. `turnbase-platform` `9e50f3f`.
 
-- `OrchestrationProperties.maxSessionsPerHost` (`turnbase.orchestration.max-sessions-per-host`, env `TURNBASE_ORCHESTRATION_MAX_SESSIONS_PER_HOST`, default **100**, sized from the `m18-baseline` report: 165 to 170 sessions on a 2-CPU host at the abort, so about 100 for a 1-CPU replica; recorded in `local-environment.md` §7.9). `HostRegistry.choose` is the pure rule: below cap, warm first, lowest `activeSessions`, lexical id; a warm host at cap yields a cold one; all at cap gives no host (`NO_HOST_AVAILABLE`).
-- Tests: `HostSelectionTest` (5 unit); `GameHostRegistryServerIT` gained cap and quarantine coverage (draining was already covered). Unit green; full `-Pintegration` 368 run, 10 errors: `GameAssetControllerIT`/`SeedDataIT` (known `*.games.localhost` environment) plus `ReconciliationJobIT` (MinIO container start) and `RoomPurgeJobIT` (web server start), both transient and green when rerun alone.
-- The cap uses the last heartbeated `activeSessions`, so it is approximate between heartbeats (noted in §7.9).
+- `HostFailureReassignmentIT` runs ten scenarios (kill mid-move applied and not, idle kill with the next input after 1 s / the TTL / the reassignment, pending timer, zombie host, two kills in succession, planned drain, concurrent inputs) against lazy and against an eager sweep built behind a switch. Both had zero failures of their own and met NFR-REL-002 everywhere, so the tie rule picked lazy; the eager sweep and switch were removed. Report: `docs/reviews/2026-10-29-m18-reassignment/INDEX.md`; `game-host-internals.md` §9.3 and §18 `OQ-5` amended.
+- The suite found a defect common to both: two hosts killed within one lease TTL ping-ponged until the retry limit aborted the game. Fixed: `reassign` quarantines the failed host for the lease TTL (`HostRegistry.quarantine(id, ttl)`).
+- Unit green; `-Pintegration` 367 run, 8 errors, none in this change: `GameAssetControllerIT` and `SeedDataIT` (the known `*.localhost` resolution, confirmed failing on untouched master) and one `NotificationControllerIT` container start; the first run's other flakes were green on rerun.
 
 ## Next Priorities
 
-**M18: `IMP-M18-01`…`09` are done (Track 1 is complete; `09` is first of Track 2). Next, Tracks 2 (`10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
+**M18: `IMP-M18-01`…`12` (except `10` and `11`, also done) are done (Track 1 is complete; `09` is first of Track 2). Next, Tracks 2 (`10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
 
 - The proposed `NFR-ASC` targets are the orchestrator's; the owner may adjust them before `01` writes them down.
 - Still owner-held: `game-host-internals.md` §18 `OQ-6` (twelve Espresso contexts per JVM lifetime), not reached by Phase B's single-title scenarios.
