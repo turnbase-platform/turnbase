@@ -249,7 +249,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M18-07 | Single-instance re-verification | docs (umbrella) | M18-03, M18-04, M18-05, M18-06 | DONE |
 | IMP-M18-08 | Platform state is correct across instances | platform, docs | M18-01 | DONE |
 | IMP-M18-09 | WebSocket upgrades reach the room's instance | frontend, platform (chart), docs | M18-01 | DONE |
-| IMP-M18-10 | Platform autoscaling, two-replica minimum and release on scale-in | platform, docs (umbrella) | M18-08, M18-09 | WIP (session 248) |
+| IMP-M18-10 | Platform autoscaling, two-replica minimum and release on scale-in | platform, docs (umbrella) | M18-08, M18-09 | DONE |
 | IMP-M18-11 | Host selection spreads sessions under a per-host cap | platform, docs | M18-01 | READY |
 | IMP-M18-12 | `OQ-5`: eager and lazy reassignment measured, the winner kept | platform, docs | M18-01 | READY |
 | IMP-M18-13 | Game Host autoscaling with KEDA, two-replica minimum and drain | platform (chart), game-host, docs (umbrella) | M18-11, M18-12 | READY |

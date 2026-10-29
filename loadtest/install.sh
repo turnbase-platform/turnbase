@@ -46,7 +46,10 @@ fi
 # Switching overlays changes the Deployments' pod templates. A rolling update needs a second 4-CPU platform pod
 # next to the first, which the VM cannot schedule (Insufficient cpu: the upgrade then hangs until the timeout),
 # so the application pods are removed first and the upgrade starts them again.
+# The HPA goes first (it would scale the pods back up, and a Deployment at zero is outside its control); the
+# upgrade recreates it and the Deployment, which omits `replicas` under an HPA, returns to the default of one.
 if helm status turnbase >/dev/null 2>&1; then
+  kubectl delete hpa/turnbase-platform --ignore-not-found
   kubectl scale deploy/turnbase-platform deploy/turnbase-gamehost --replicas=0
   for c in platform gamehost; do
     kubectl wait --for=delete pod -l "app.kubernetes.io/name=$c" --timeout=120s 2>/dev/null || true
@@ -57,4 +60,10 @@ helm upgrade --install turnbase "$CHART" \
   -f "$CHART/values-local.yaml" -f "$SECRETS" -f "$OVERLAY" \
   --set "platform.seed.bundlesHostPath=$SEED_HOST_PATH" \
   --wait --timeout 10m
+# The upgrade leaves a Deployment that was scaled to zero at zero when an HPA owns `replicas`: one pod wakes the HPA,
+# which takes it to its minimum.
+if kubectl get hpa/turnbase-platform >/dev/null 2>&1; then
+  kubectl scale deploy/turnbase-platform --replicas=1
+  kubectl rollout status deploy/turnbase-platform --timeout=5m
+fi
 # reset.sh owns restarts of a running install; this script has already removed the application pods.

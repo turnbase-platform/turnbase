@@ -9,11 +9,23 @@ platform:
   replicaCount: 1
   db:
     poolMaxSize: 10
+  # Phase B (ADR-0020, load-testing-phase-b.md §4.4, IMP-M18-10): the HPA owns the replica count, two at rest
+  # and three at most, 1.5 CPU each. Scale out fast, scale in slowly (anti-flapping, §1).
   autoscaling:
-    enabled: false
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 40
+    behavior:
+      scaleUp:
+        stabilizationWindowSeconds: 0
+        policies: [{ type: Pods, value: 1, periodSeconds: 30 }]
+      scaleDown:
+        stabilizationWindowSeconds: 120
+        policies: [{ type: Pods, value: 1, periodSeconds: 60 }]
   resources:
-    requests: { cpu: "4", memory: 3Gi }
-    limits:   { cpu: "4", memory: 3Gi }
+    requests: { cpu: "1500m", memory: 2Gi }
+    limits:   { cpu: "1500m", memory: 2Gi }
   extraEnv:
     - { name: JDK_JAVA_OPTIONS, value: "-XX:MaxRAMPercentage=70 -Xlog:gc*,safepoint:stdout:utctime,uptime" }
 gamehost:

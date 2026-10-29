@@ -21,6 +21,7 @@ export class Player {
     this.name = name;
     this.jar = new http.CookieJar();
     this.ws = null;
+    this.wsHint = null; // the room's owner, from X-TurnBase-Room-Instance: carried on the /ws URL (room-websocket.md)
     for (const c of cookies || []) this.jar.set(cfg.baseUrl, c.name, c.value);
   }
 
@@ -44,7 +45,7 @@ export class Player {
   async ensureConnected() {
     if (this.ws && this.ws.open) return;
     for (let attempt = 0; ; attempt++) {
-      const client = new StompClient(cfg.wsUrl,
+      const client = new StompClient(cfg.wsUrl + (this.wsHint ? '?instance=' + encodeURIComponent(this.wsHint) : ''),
         { Host: cfg.host, Origin: cfg.origin, Cookie: this.cookieHeader() },
         { onUnexpectedClose: () => { m.wsDisconnects.add(1, stepTags()); } });
       try {

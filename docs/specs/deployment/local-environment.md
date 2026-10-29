@@ -753,6 +753,27 @@ covers `platform.maxReplicas × poolMaxSize` (3 × 10) plus migrations and opera
 PostgreSQL and Game Host figures (one Game Host replica of 2 CPU until `IMP-M18-13`) and rescaled
 `postgres.settings` below.
 
+**Platform autoscaling (`IMP-M18-10`).** Both overlays render the HPA (`platform.autoscaling`): CPU utilisation
+target 40 % of the 1.5-CPU request, `minReplicas` 2, `maxReplicas` 3, scale-out at one pod per 30 s with no
+stabilisation, scale-in at one pod per 60 s after a 120 s stabilisation window. Each replica has 1.5 CPU and
+2 GiB at `requests == limits`, so the Platform at its maximum is 3 × 1.5 = 4.5 CPU and 6 GiB. With the Game Host
+still at one replica of 2 CPU / 4 GiB (until `IMP-M18-13`), the requests total 4 (PostgreSQL) + 1 (Redis) +
+2 (Game Host) + 4.5 (Platform) = 11.5 CPU and 2 + 0.5 + 4 + 6 = 12.5 GiB of memory, inside the node's 16 CPU and
+15 GiB; with the Game Host at three replicas of 1 CPU the CPU total is the 12.5 above. `max_connections` stays 50
+(3 × 10 pool connections plus operators). With an HPA the Deployment omits `replicas` (the HPA owns it), so
+`loadtest/install.sh`, which stops the application pods before an overlay switch, deletes the HPA first and
+starts one Platform pod afterwards for the HPA to take to its minimum. `loadtest/run.sh` still pins k6 to four
+cores; the three cores of the budget are `IMP-M18-14`'s to apply.
+
+**Scale-in drain (`IMP-M18-10`).** On `SIGTERM` (Spring's `ContextClosedEvent`, after the 5 s `preStop` pause
+and readiness off) `room.RoomDrain` refuses every claim of a room the instance does not own, then for each
+owned room takes the room lock (an in-flight mutation finishes), sends `RECONNECT_REQUIRED` to its sockets
+(tagged instance-initiated, so no disconnect is processed) and releases it, and last deletes the liveness key
+and stops its renewal. The next claimant takes the free branch with no lease wait and logs `adopted room`.
+`loadtest/test/scale-in-midgame.sh` checks it on the cluster. A REST call for a room that another instance owns
+answers `503 ROOM_UNAVAILABLE_RETRY` (the claim finds a live owner), so at two or more replicas a client retries
+it and the round-robin finds the owner; the k6 pairs of `scenarios/scale-in.js` do the same.
+
 | Property | Default | Env |
 |---|---|---|
 | `spring.datasource.url` | `jdbc:postgresql://postgres:5432/turnbase` | `SPRING_DATASOURCE_URL` |

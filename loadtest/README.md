@@ -53,6 +53,7 @@ frontend}:dev` built locally, and the Tic-Tac-Toe seed bundle in `turnbase-game-
 
 | Scenario | What it does |
 |---|---|
+| `scenarios/scale-in.js` | Reconnecting pairs for the scale-in test (`IMP-M18-10`); run through `test/scale-in-midgame.sh`, which scales the Platform 3 → 2 and deletes a pod mid-game and asserts 0 games lost |
 | `scenarios/smoke.js` | One pair (`lt-00000`, `lt-00001`), three games: two in one room (the second is the rematch), then one in a fresh room. Exits 0 with `tb_errors` at 0, `tb_games_completed` at 3 and both a `cold:true` and a `cold:false` `tb_game_start` sample. About 10 s. `THINK_MIN_MS=5000 THINK_MAX_MS=5000` stretches it to about 90 s of idle sockets, the heart-beat proof |
 | `test/selftest.js` | `k6 run loadtest/test/selftest.js`: STOMP codec and board helpers, no cluster needed |
 
