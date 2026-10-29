@@ -8,7 +8,7 @@
 
 ## Next Priorities
 
-**M18: `IMP-M18-01`…`12` (except `10` and `11`, also done) are done (Track 1 is complete; `09` is first of Track 2). Next, Tracks 2 (`10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
+**M18: `IMP-M18-01`…`12` are done (Track 1 is complete; `09` is first of Track 2). Next, Tracks 2 (`10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
 
 - The proposed `NFR-ASC` targets are the orchestrator's; the owner may adjust them before `01` writes them down.
 - Still owner-held: `game-host-internals.md` §18 `OQ-6` (twelve Espresso contexts per JVM lifetime), not reached by Phase B's single-title scenarios.
