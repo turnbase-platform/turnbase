@@ -107,8 +107,8 @@ load generator**. Argon2id (m=19456 KiB, t=2) makes login and registration expen
   [`game-host-internals.md`](../game-host/game-host-internals.md) §6.2 says sessions run concurrently in
   one context **(owner)**.
 - **Whether Espresso actually parallelises those threads is unknown. Phase A must answer it.**
-- There is no max-sessions knob: `platform-architecture.md` FR-SCALE-005 specifies one and it is
-  unimplemented.
+- There was no max-sessions knob in Phase A; `IMP-M18-11` added one (`local-environment.md` §7.9):
+  `platform-architecture.md` FR-SCALE-005.
 - Host selection is warm-first, then lowest `activeSessions`
   (`game-host-internals.md`, roughly lines 745-749; `platform-architecture.md` FR-ORCH-004). That is
   spec-mandated, so extra replicas stay idle. This is a Phase B spec change, not a Phase A bug.
