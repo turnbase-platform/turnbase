@@ -756,6 +756,8 @@ PostgreSQL and Game Host figures (one Game Host replica of 2 CPU until `IMP-M18-
 
 **Per-host session cap (`IMP-M18-11`).** `turnbase.orchestration.max-sessions-per-host` (`TURNBASE_ORCHESTRATION_MAX_SESSIONS_PER_HOST`, FR-SCALE-005) defaults to **100**. Sizing: in the `m18-baseline` report one Game Host of 2 CPU carried 165 to 170 sessions at the abort using about 1.2 of its 2 cores, so a Phase B replica of 1 CPU is sized at about 100, which leaves headroom for the guest start burst. A host at the cap is skipped by selection (`game-host-internals.md` §11); the cap is read from the `activeSessions` the host last heartbeated, so it is approximate between heartbeats.
 
+**Warm hosts (`IMP-M18-13`).** `turnbase.orchestration.warm-hosts` (`TURNBASE_ORCHESTRATION_WARM_HOSTS`) defaults to **2**: while fewer hosts than this hold a game's context, a new session goes to a cold host below its cap, so the second replica is warmed by a real start and a drain or failover does not meet a cold boot.
+
 **Platform autoscaling (`IMP-M18-10`).** Both overlays render the HPA (`platform.autoscaling`): CPU utilisation
 target 40 % of the 1.5-CPU request, `minReplicas` 2, `maxReplicas` 3, scale-out at one pod per 30 s with no
 stabilisation, scale-in at one pod per 60 s after a 120 s stabilisation window. Each replica has 1.5 CPU and

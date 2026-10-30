@@ -31,6 +31,16 @@ busy_host() { # the Ready Game Host pod with most sessions (registry: host:<id> 
       [ -n "$pod" ] && { echo "$pod $sess"; break; }
     done
 }
+warm_standby() { # the warm-hosts rule: two starts one after the other leave both hosts holding the context
+  for i in 1 2; do
+    k6bg "warm$i" WATCHED_PAIRS=1 DURATION_S=10 THINK_MIN_MS=800 THINK_MAX_MS=1500
+    wait "$K6PID" || true
+    sleep 12  # ReportContexts follows the context's creation
+  done
+  warm="$(kubectl exec statefulset/turnbase-redis -- sh -c 'r() { redis-cli -a "$TURNBASE_REDIS_PASSWORD" --no-auth-warning "$@"; }; for h in $(r SMEMBERS hosts); do r SCARD contexts:$h; done' 2>/dev/null | grep -c '^[1-9]')"
+  say "B: $warm Game Hosts hold the game's context after two starts (warm-hosts 2)"
+  [ "$warm" -ge 2 ] || { say "B FAILED: the standby was not warmed"; exit 1; }
+}
 k6bg() { # <name> <env...>
   local name="$1"; shift
   ( env "$@" taskset -c "$first-$((n - 1))" k6 run --summary-export "$DIR/$name-summary.json" loadtest/scenarios/scale-in.js > "$DIR/$name-k6.log" 2>&1; echo $? > "$DIR/$name-k6.exit" ) &
@@ -79,6 +89,7 @@ if [ "$part" = B ] || [ "$part" = both ]; then
   wait_for 600 "two ready Game Hosts" two_ready
   say "B: graceful delete of one of two Game Hosts with 8 watched pairs (think 3-5 s: a game outlasts the 30 s drain)"
   follow_logs B
+  warm_standby
   k6bg B WATCHED_PAIRS=8 DURATION_S=200 THINK_MIN_MS=3000 THINK_MAX_MS=5000
   sleep 45
   read -r victim held <<<"$(busy_host)"

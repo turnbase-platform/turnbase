@@ -8858,14 +8858,14 @@ against the cap and on memory; min 2, max 3, 1 CPU per replica (the §4.4 fallba
 trips); scale-in drains, then the `OQ-5` winner reassigns what remains.
 
 **Done when:**
-- At rest two Game Hosts run and both receive sessions (the §5.1 rule); a `parallelism` smoke past the cap
+- At rest two Game Hosts run and both receive sessions (the §5.1 rule, with `warm-hosts` 2 from session 251); a `parallelism` smoke past the cap
   brings a third, Ready within NFR-ASC-001's 3 min.
 - Removing a replica with 8 pairs playing: it is marked draining, takes no new session, and every game
   finishes, including those reassigned after the drain period.
 - Cold start at 1 CPU (single and four contexts) recorded as `**M18:**` lines under findings 8 and 9.
 - Overlays mirrored; pipelines green, refs bumped, `check-corpus.py` clean, merged and pushed.
 
-**Remaining:** built and live-tested (session 251): KEDA install, `ScaledObject`, draining heartbeat, `drain-period`, gauges, `loadtest/test/gamehost-scale.sh`. Part A passed: a third host Ready 141 s after the load started. Owed: (1) the cold standby: with warm-first §5.1 and warm-up off the second replica takes no session at rest, so a drain onto it lost 1 of 8 games (cold boot 21–28 s at 1 CPU against the 30 s budget); "both receive sessions at rest" cannot hold as written. Decide through `spec-defect` (warm the standby, or amend the clause), then re-run `gamehost-scale.sh B` to a clean pass. (2) Scale-in back to two after Part A never happened: 243 sessions left by the aborted/lost games stayed in the registry for 13+ min and kept utilisation at 0.81; find why they are not ended. (3) `verdict` in `gamehost-scale.sh` waits on a `*-k6.exit` file that was never written after k6 finished. (4) Cold start at 1 CPU, single and four contexts (findings 8 and 9 hold only the seen 21–28 s). (5) `local-environment.md` §7.9 budget arithmetic and KEDA description.
+**Remaining:** built and live-tested (sessions 251-252): KEDA install, `ScaledObject`, draining heartbeat, `drain-period`, gauges, `warm-hosts` (default 2: a cold standby is warmed by a real start; `HostRegistry.choose`), `loadtest/test/gamehost-scale.sh`. Part A passed (third host Ready 141 s after load start); Part B passed twice after `warm-hosts` with 0 games lost (before it, 1 of 8 lost to a cold standby), but both passes finished their games inside the 30 s drain, so a reassignment after the drain was not exercised in a passing run. Owed: (1) a Part B run where sessions outlast the drain (longer games or a shorter `drain-period`) and still lose none; (2) scale-in back to two after Part A never happened: 243 sessions left by aborted/lost games stayed in the registry 13+ min and kept utilisation at 0.81; find why they are not ended; (3) `verdict` in `gamehost-scale.sh` waits on a `*-k6.exit` file that was not written after k6 finished; (4) cold start at 1 CPU, single and four contexts (findings 8 and 9 hold only the seen 21-28 s); (5) `local-environment.md` §7.9 budget arithmetic and KEDA description.
 
 ### IMP-M18-14 — Harness: scaling timeline, correctness check, new scenarios
 

@@ -281,7 +281,7 @@ to 1 replica mid-game with every game finishing.
 Host selection today is warm-first, then lowest `activeSessions` (`game-host-internals.md` §11). It leaves
 new replicas idle while the warm one has capacity. The rule becomes: **among live, non-draining,
 non-quarantined hosts below their session cap, prefer warm, then lowest `activeSessions`; if every warm host
-is at its cap, choose a cold one.** The per-host cap is the FR-SCALE-005 configurable maximum (default sized by the
+is at its cap, choose a cold one; and while fewer than `warm-hosts` (default 2) hosts are warm, choose a cold one so the standby holds the context before a drain or failover needs it** (`IMP-M18-13` found a cold standby lost a game: the cold boot at 1 CPU, 21 to 28 s, outlasted the 30 s retry budget). The per-host cap is the FR-SCALE-005 configurable maximum (default sized by the
 builder from the §3.1 baseline at 2 CPU). A start with every host at its cap fails with `NO_HOST_AVAILABLE`, as
 today. `IMP-M18-01` amends §11.
 

@@ -776,7 +776,10 @@ replica takes the members of `hosts` and keeps those that (1) have a live `hostl
 (2) are not `draining`, and (3) list `jvm` in `runtimeTypes`, and (4) are below their per-host session
 cap (FR-SCALE-005, `load-testing-phase-b.md` §5.1). Among them it prefers instances whose
 `contexts:{instanceId}` contains `{gameId}:{gameVersion}` (warm); **if every warm candidate is at its cap, a
-cold one is chosen**, so a new replica takes load while the warm one still has no room. Ties — and the
+cold one is chosen**, so a new replica takes load while the warm one still has no room. **While fewer than `warm-hosts`
+(default 2) hosts are warm for the game and a cold candidate is below its cap, the cold one is chosen** (`session 251`): the
+standby is warmed by one real start, so a drain or a failover lands on a host that already has the context instead of paying
+a 21 to 28 s cold boot at 1 CPU. Ties — and the
 no-warm-host case, where any candidate will create the context on demand — break on lowest `activeSessions`, then on
 `instanceId` in lexical order, so the choice is deterministic for a given Redis state. No candidate
 (every host at its cap included) is a transport-level `UNAVAILABLE` for the caller (session creation fails; nothing is written to

@@ -4,6 +4,7 @@
 
 - Built: `HeartbeatRequest.draining`, host drain period, `GameHostLoadMetrics` gauges, KEDA `ScaledObject` (utilisation 0.7 and memory 85), `loadtest/install.sh` KEDA 2.21.0, overlays at 1 CPU / 2Gi, `loadtest/test/gamehost-scale.sh`.
 - Live: part A passed (third host Ready 141 s after load start). Part B lost 1 of 8 games: the warm-first standby was cold and booted in 21-28 s at 1 CPU against the 30 s budget.
+- Session 252 (owner chose option 1, improve production): `turnbase.orchestration.warm-hosts` (default 2) warms the standby with a real start; spec §11, phase-b §5.1 and local-environment §7.8 amended; Part B then lost 0 games in two runs.
 - Owed (registry `**Remaining:**`): decide the cold standby via `spec-defect`; why 243 sessions stayed in the registry after Part A (blocks scale-in); `verdict` exit-file hang; controlled cold-start measurement; `local-environment.md` §7.9.
 - Tests: unit green; ITs: `ReconciliationJobIT` flaky under load (passes alone), `GameAssetControllerIT`/`SeedDataIT` the known `*.localhost` failures.
 
