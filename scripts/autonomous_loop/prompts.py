@@ -36,7 +36,11 @@ chain a second item. Before finishing: run the full "Ending a Session"
 checklist from CLAUDE.md (STATUS.md replaced, corpus check clean if docs
 changed, submodule refs updated only if build+tests pass, everything
 committed, every branch created this session merged into master and deleted
-locally, nothing left uncommitted or unmerged).
+locally, nothing left uncommitted or unmerged). Commit, merge, push and branch
+cleanup go through `scripts/git-land.sh` (see the `work-item` skill), one call
+per Bash command: hand-written `git push -q …`, `git push --delete` and
+compound git one-liners are denied by the permission layer. Finish with
+`scripts/git-land.sh finish` and do not report DONE unless it prints no DIRTY.
 
 If the working tree was not clean, or not on master, when you started: stop
 immediately without changing anything and report that instead.

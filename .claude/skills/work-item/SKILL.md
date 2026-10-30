@@ -65,6 +65,29 @@ and deleted **in the session that created it** — prefer `--ff-only`, and delet
 A branch that outlives its session is the thing this rule exists to prevent, so if the work is not
 green by the end of the session, leave it unmerged rather than parking it as a PR.
 
+**Landing is `scripts/git-land.sh`, one call per repo — never hand-written `git push` / `git branch -d`
+/ `git push --delete`.** The loop's Bash allowlist is exact-match: a compound such as
+`git push -q origin master | tail -2; git branch -d …` matches nothing, and `--delete` is on the
+deny list, so one denied call strands the commit and merge half-landed (session 251, `IMP-M18-13`).
+The script is the allowlisted path and does the whole sequence:
+
+```bash
+scripts/git-land.sh commit --repo turnbase-platform -m "feat: …"          # stage + commit (sandbox-safe)
+scripts/git-land.sh land --repo turnbase-platform --commit "feat: …"     # commit, ff-merge, push master, delete branch local + remote
+scripts/git-land.sh land --repo turnbase-platform --branch fix/x --rebase # master moved: rebase then ff
+scripts/git-land.sh commit -m "docs: … ref bumped" --add STATUS.md --add docs/implementation/registry.md --add turnbase-platform --push
+scripts/git-land.sh push [--repo R]      # master ahead/behind only
+scripts/git-land.sh sweep --all          # delete merged leftovers everywhere, report unmerged
+scripts/git-land.sh finish               # last thing in the session: push, sweep, verdict for every repo
+scripts/git-land.sh status --all
+```
+
+Rules: pass `--repo` instead of `cd`; one script call per Bash call (no `&&`, `;`, pipes);
+`land` and `finish` end with `GIT_STATE: CLEAN` or `GIT_STATE: DIRTY <why>` — do not report
+done on `DIRTY`. Honour the run's ignored branches with `--ignore PATTERN` (or the
+`TURNBASE_GIT_IGNORE_BRANCHES` env var). It refuses force, non-`feat|fix|docs|chore/` names and
+unmerged deletes; if it stops with "needs a human", leave the repo as it is and report `BLOCKED`.
+
 Cross-repo changes are separate branches per repo — there is no atomic multi-repo commit. If your
 item touches `turnbase-common` and a consumer, the order is in `conventions.md` §5.
 

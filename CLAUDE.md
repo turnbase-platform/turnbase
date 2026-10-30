@@ -184,7 +184,7 @@ git config core.hooksPath .githooks    # once per clone, this repo and each subm
 **Do not open pull requests** ([ADR-0012](docs/decisions/0012-repo-strategy-polyrepo-submodules.md)
 *Pull requests are suspended*, 2026-09-05). Branch freely — the `feat/`, `fix/`, `docs/`, `chore/`
 names are unchanged — but **merge into `master` and delete the branch in the same session that
-created it**, on the remote as well as locally. Prefer `--ff-only` so `master` stays linear.
+created it**, on the remote as well as locally. Prefer `--ff-only` so `master` stays linear. **Use `scripts/git-land.sh`** (`land`, `sweep`, `finish`) for the commit-merge-push-delete sequence — it is the allowlisted path, so headless runs do not strand half-landed work.
 
 The reason is what happened without the rule: by 2026-09-05, five repositories held eight open PRs
 and eleven abandoned branches, none of them awaiting anybody's review. CI runs on push to `master`,
