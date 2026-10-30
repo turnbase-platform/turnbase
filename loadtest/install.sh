@@ -43,6 +43,14 @@ if [ -z "${SEED_HOST_PATH:-}" ]; then
   SEED_HOST_PATH="/run/desktop/mnt/host/c/Users/$WINUSER/turnbase-seed"
 fi
 
+# KEDA scales the Game Host (load-testing-phase-b.md 5.3). Pinned chart; installed once, in its own namespace.
+KEDA_CHART_VERSION=2.21.0
+if ! helm status keda -n keda >/dev/null 2>&1; then
+  helm repo add kedacore https://kedacore.github.io/charts >/dev/null
+  helm repo update kedacore >/dev/null
+  helm upgrade --install keda kedacore/keda --version "$KEDA_CHART_VERSION" -n keda --create-namespace --wait --timeout 5m
+fi
+
 # Switching overlays changes the Deployments' pod templates. A rolling update needs a second 4-CPU platform pod
 # next to the first, which the VM cannot schedule (Insufficient cpu: the upgrade then hangs until the timeout),
 # so the application pods are removed first and the upgrade starts them again.
@@ -50,6 +58,7 @@ fi
 # upgrade recreates it and the Deployment, which omits `replicas` under an HPA, returns to the default of one.
 if helm status turnbase >/dev/null 2>&1; then
   kubectl delete hpa/turnbase-platform --ignore-not-found
+  kubectl delete scaledobject/turnbase-gamehost --ignore-not-found # and with it KEDA's HPA
   kubectl scale deploy/turnbase-platform deploy/turnbase-gamehost --replicas=0
   for c in platform gamehost; do
     kubectl wait --for=delete pod -l "app.kubernetes.io/name=$c" --timeout=120s 2>/dev/null || true
@@ -65,5 +74,11 @@ helm upgrade --install turnbase "$CHART" \
 if kubectl get hpa/turnbase-platform >/dev/null 2>&1; then
   kubectl scale deploy/turnbase-platform --replicas=1
   kubectl rollout status deploy/turnbase-platform --timeout=5m
+fi
+# The Game Host Deployment omits `replicas` under KEDA, so it returns to one after the removal above: KEDA takes it
+# to its minimum.
+if kubectl get scaledobject/turnbase-gamehost >/dev/null 2>&1; then
+  kubectl scale deploy/turnbase-gamehost --replicas=1
+  kubectl rollout status deploy/turnbase-gamehost --timeout=10m
 fi
 # reset.sh owns restarts of a running install; this script has already removed the application pods.

@@ -252,7 +252,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M18-10 | Platform autoscaling, two-replica minimum and release on scale-in | platform, docs (umbrella) | M18-08, M18-09 | DONE |
 | IMP-M18-11 | Host selection spreads sessions under a per-host cap | platform, docs | M18-01 | DONE |
 | IMP-M18-12 | `OQ-5`: eager and lazy reassignment measured, the winner kept | platform, docs | M18-01 | DONE |
-| IMP-M18-13 | Game Host autoscaling with KEDA, two-replica minimum and drain | platform (chart), game-host, docs (umbrella) | M18-11, M18-12 | WIP (session 251) |
+| IMP-M18-13 | Game Host autoscaling with KEDA, two-replica minimum and drain | platform (chart), game-host, docs (umbrella) | M18-11, M18-12 | PARTIAL |
 | IMP-M18-14 | Harness: scaling timeline, correctness check, new scenarios | docs (umbrella) | M18-07, M18-10, M18-13 | READY |
 | IMP-M18-15 | Phase B runs: ceiling and spike | docs (umbrella) | M18-14 | READY |
 | IMP-M18-16 | Phase B runs: failover, up-down and diurnal | docs (umbrella) | M18-15 | READY |
@@ -8864,6 +8864,8 @@ trips); scale-in drains, then the `OQ-5` winner reassigns what remains.
   finishes, including those reassigned after the drain period.
 - Cold start at 1 CPU (single and four contexts) recorded as `**M18:**` lines under findings 8 and 9.
 - Overlays mirrored; pipelines green, refs bumped, `check-corpus.py` clean, merged and pushed.
+
+**Remaining:** built and live-tested (session 251): KEDA install, `ScaledObject`, draining heartbeat, `drain-period`, gauges, `loadtest/test/gamehost-scale.sh`. Part A passed: a third host Ready 141 s after the load started. Owed: (1) the cold standby: with warm-first §5.1 and warm-up off the second replica takes no session at rest, so a drain onto it lost 1 of 8 games (cold boot 21–28 s at 1 CPU against the 30 s budget); "both receive sessions at rest" cannot hold as written. Decide through `spec-defect` (warm the standby, or amend the clause), then re-run `gamehost-scale.sh B` to a clean pass. (2) Scale-in back to two after Part A never happened: 243 sessions left by the aborted/lost games stayed in the registry for 13+ min and kept utilisation at 0.81; find why they are not ended. (3) `verdict` in `gamehost-scale.sh` waits on a `*-k6.exit` file that was never written after k6 finished. (4) Cold start at 1 CPU, single and four contexts (findings 8 and 9 hold only the seen 21–28 s). (5) `local-environment.md` §7.9 budget arithmetic and KEDA description.
 
 ### IMP-M18-14 — Harness: scaling timeline, correctness check, new scenarios
 

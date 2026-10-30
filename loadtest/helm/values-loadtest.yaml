@@ -32,9 +32,23 @@ platform:
     - { name: JDK_JAVA_OPTIONS, value: "-XX:MaxRAMPercentage=70 -Xlog:gc*,safepoint:stdout:utctime,uptime" }
 gamehost:
   replicaCount: 1
+  # Phase B (IMP-M18-13, load-testing-phase-b.md 4.4, 5.3): KEDA owns the replica count, two at rest and three at
+  # most, 1 CPU each. Scale out when the sessions fill 70 % of the per-host cap or the heap passes 85 %; scale in
+  # slowly, the leaving host draining first (the drain period is the host's, 30 s).
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 3
+    behavior:
+      scaleUp:
+        stabilizationWindowSeconds: 0
+        policies: [{ type: Pods, value: 1, periodSeconds: 60 }]
+      scaleDown:
+        stabilizationWindowSeconds: 180
+        policies: [{ type: Pods, value: 1, periodSeconds: 120 }]
   resources:
-    requests: { cpu: "2", memory: 4Gi }
-    limits:   { cpu: "2", memory: 4Gi }
+    requests: { cpu: "1", memory: 2Gi }
+    limits:   { cpu: "1", memory: 2Gi }
   extraEnv:
     - { name: JDK_JAVA_OPTIONS, value: "-XX:MaxRAMPercentage=70" }
 postgres:

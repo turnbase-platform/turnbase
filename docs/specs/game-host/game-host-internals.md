@@ -760,7 +760,10 @@ The Game Host is the **client** of `GameHostRegistryService`:
   (`["jvm"]` for the MVP). Receives the heartbeat interval + lease TTL.
 - **`Heartbeat`** (bidi stream) — periodic load signals (`active_sessions`,
   `active_contexts`, `memory_used_percent`) refresh the Redis liveness lease; the
-  server may push `drain=true` for graceful scale-in. Lease expiry ⇒ instance
+  server may push `drain=true` for graceful scale-in, and a host that received `SIGTERM`
+  announces `draining=true` on an immediate beat (`IMP-M18-13`): the registry stops
+  selecting it while it serves its sessions for `drain-period`, then `Deregister`s.
+  Lease expiry ⇒ instance
   considered failed within NFR-REL-002 (< 30 s) → recovery (§9.3).
 - **`ReportContexts`** — full snapshot of live `ContextKey`s for warm-host selection
   (FR-ORCH-004).

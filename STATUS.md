@@ -1,10 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-10-29 (session 250) — **`IMP-M18-12` is `DONE`: `OQ-5` decided by measurement, lazy reassignment kept.** 204 of 209 items done. `turnbase-platform` `9e50f3f`.
+**Date:** 2026-10-30 (session 251) — **`IMP-M18-13` is `PARTIAL`.** 203 of 209 items done. `turnbase-common` `8b6d68b`, `turnbase-platform` `70c89ae`, `turnbase-game-host` merged to master.
 
-- `HostFailureReassignmentIT` runs ten scenarios (kill mid-move applied and not, idle kill with the next input after 1 s / the TTL / the reassignment, pending timer, zombie host, two kills in succession, planned drain, concurrent inputs) against lazy and against an eager sweep built behind a switch. Both had zero failures of their own and met NFR-REL-002 everywhere, so the tie rule picked lazy; the eager sweep and switch were removed. Report: `docs/reviews/2026-10-29-m18-reassignment/INDEX.md`; `game-host-internals.md` §9.3 and §18 `OQ-5` amended.
-- The suite found a defect common to both: two hosts killed within one lease TTL ping-ponged until the retry limit aborted the game. Fixed: `reassign` quarantines the failed host for the lease TTL (`HostRegistry.quarantine(id, ttl)`).
-- Unit green; `-Pintegration` 367 run, 8 errors, none in this change: `GameAssetControllerIT` and `SeedDataIT` (the known `*.localhost` resolution, confirmed failing on untouched master) and one `NotificationControllerIT` container start; the first run's other flakes were green on rerun.
+- Built: `HeartbeatRequest.draining`, host drain period, `GameHostLoadMetrics` gauges, KEDA `ScaledObject` (utilisation 0.7 and memory 85), `loadtest/install.sh` KEDA 2.21.0, overlays at 1 CPU / 2Gi, `loadtest/test/gamehost-scale.sh`.
+- Live: part A passed (third host Ready 141 s after load start). Part B lost 1 of 8 games: the warm-first standby was cold and booted in 21-28 s at 1 CPU against the 30 s budget.
+- Owed (registry `**Remaining:**`): decide the cold standby via `spec-defect`; why 243 sessions stayed in the registry after Part A (blocks scale-in); `verdict` exit-file hang; controlled cold-start measurement; `local-environment.md` §7.9.
+- Tests: unit green; ITs: `ReconciliationJobIT` flaky under load (passes alone), `GameAssetControllerIT`/`SeedDataIT` the known `*.localhost` failures.
 
 ## Next Priorities
 
