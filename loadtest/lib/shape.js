@@ -11,6 +11,15 @@ export function required(k) {
   return envNum(k, 0);
 }
 
+// Phase B scenarios are ceiling-relative (load-testing-phase-b.md §6): CEILING is the ramp-to-break ceiling in pairs
+// measured in the same run series, and `fraction` of it is the load. At least one pair.
+export function ceilingPairs(fraction) {
+  return Math.max(1, Math.round(required('CEILING') * fraction));
+}
+
+// Stages from [[minutes, target pairs], ...]: a ramp to each target over the given minutes.
+export const rampStages = (list) => list.map(([minutes, target]) => ({ target, duration: Math.round(minutes * 60) + 's' }));
+
 // The ramp that opens a step: a quarter of it, at most 10 s.
 export const rampSeconds = () => Math.min(10, Math.floor(cfg.stepSeconds / 4));
 

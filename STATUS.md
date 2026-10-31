@@ -1,11 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-31 (session 254) — **`IMP-M18-13` DONE.** 204 of 209 items done.
+**Date:** 2026-10-31 (session 255) — **`IMP-M18-14` DONE.** 205 of 209 items done.
 
-- Measured: four contexts at 1.5 CPU, both Game Hosts cold: cold starts 0.05-19.8 s (p95 18.1 s) and one host tripped the 20 s `BootWatchdog` (supervisor restarted it); recorded under finding 8 (`load-testing.md` §13). The earlier `:9090` failure did not recur (the Prometheus port-forward was up).
-- Final `gamehost-scale.sh both` on the committed overlay passed: third host Ready 65 s after the load (18 s after its pod), 5,478 games, 0 lost, back to two; Part B drain with 4 sessions on the victim, 54 games, 0 lost. `check-overlays.sh` OK (1.5 CPU / 1536 Mi in the overlays).
-- Cleaned: the four test bundles removed from the seed directory, stack reset. No code changed, so no submodule ref moved.
-- Next: M18 Track 4 (`IMP-M18-14`…`17`).
+- Harness (`loadtest/`): `timeline.sh` (5 s scaling timeline, `timeline.csv`), `correctness.sh` (games started = completed + abandoned, no `GAME_EVENT` sequence gap or duplicate, no room `IN_PROGRESS`; `CORRECTNESS: PASS|FAIL`), `failover-driver.sh`, scenarios `spike`, `sustained-high`, `diurnal`, `failover` (reuses `scale-in.js`'s recovering players); k6 pinned to 3 cores; `TEMPLATE.md` and `check-report.sh` gained the Phase B sections (required when `**Phase:** B`); README documents all.
+- Fixed in the pair loop: the `/ws` URL now carries the instance hint (the sockets opened before the create, so it never did), and a join is retried on `503 room-unavailable-retry` (REST is round-robin; `REST_RETRY_MS` 250, counted in `tb_rest_retries`). Without it every smoke failed with two Platform pods.
+- **256-pair finding explained (`load-testing.md` §13 finding 1, `**M18:**`):** a harness defect. The WSL 2 wall clock is slewed slow (measured 7.4% and 4.6% slow); VU stages follow the monotonic clock, step tags and Prometheus follow the wall clock, so steps drifted up to 95 s. The stepper now follows `exec.scenario.progress`; `run.sh` records `clock.start`/`clock.end`.
+- Smokes, one per new scenario, all with a timeline and a verdict: spike, sustained-high, diurnal and parallelism PASS; `failover` (two Platform and two Game Host kills, SIGKILL and graceful) ran end to end and its verdict is `FAIL games`: 2 watched games lost, `tb_si_budget_exceeded` 2 (smoke size, 4 load pairs; a result for `IMP-M18-16`, not fixed here).
+- Prometheus remote write: `run.sh` now picks whichever of 127.0.0.1 / ::1 answers on :9090 (a foreign listener holds 127.0.0.1 here).
 
 ## Next Priorities
 

@@ -55,6 +55,25 @@ export class StompClient {
     this.open = false;
     this.closing = false;
     this.nextSub = 0;
+    this.seen = {}; // sessionId -> {last, keys}: the correctness check of IMP-M18-14 (gaps and duplicates)
+    this.gaps = 0;
+    this.dups = 0;
+    this.checked = 0;
+  }
+
+  // A broadcast GAME_EVENT carries `sequence` (one per input) and `index` (one per effect of that input). After
+  // dedup on (sequence, index) the sequences a client sees must be consecutive: a jump is a gap, a repeat a duplicate.
+  track(f) {
+    const msg = f.msg;
+    if (!msg || msg.type !== 'GAME_EVENT' || typeof msg.sequence !== 'number') return;
+    if (!String(f.headers.destination || '').startsWith('/topic/game.') || /\.team\./.test(f.headers.destination)) return;
+    const s = this.seen[msg.sessionId] || (this.seen[msg.sessionId] = { last: null, keys: {} });
+    const key = msg.sequence + ':' + msg.index;
+    if (s.keys[key]) { this.dups++; return; }
+    s.keys[key] = true;
+    this.checked++;
+    if (s.last !== null && msg.sequence > s.last + 1) this.gaps += msg.sequence - s.last - 1;
+    if (s.last === null || msg.sequence > s.last) s.last = msg.sequence;
   }
 
   connect(timeoutMs) {
@@ -77,6 +96,7 @@ export class StompClient {
         const t = Date.now(); // arrival time, once per WebSocket message, before parsing
         for (const f of parseFrames(e.data)) {
           f.t = t;
+          this.track(f);
           if (f.command === 'CONNECTED') { this.open = true; settle(resolve, this); continue; }
           if (f.command === 'ERROR') {
             settle(reject, codeError('STOMP ERROR: ' + (f.headers.message || f.body), 'stomp_error'));

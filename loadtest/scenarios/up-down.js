@@ -11,7 +11,7 @@ const ramp = envNum('RAMP_MINUTES', 5) * 60;
 const hold = envNum('HOLD_MINUTES', 5) * 60;
 const idle = envNum('IDLE_MINUTES', envNum('HOLD_MINUTES', 5)) * 60;
 stepper.configure([{ tag: 'up', seconds: ramp }, { tag: 'hold', seconds: hold }, { tag: 'down', seconds: ramp },
-  { tag: 'idle', seconds: idle }], 0);
+  { tag: 'idle', seconds: idle }], 0, undefined, undefined, 2 * ramp + hold);
 
 // k6 drops a trailing zero-VU stage, so the hold at zero is a second scenario: one VU that sleeps and sends nothing.
 const loaded = 2 * ramp + hold;

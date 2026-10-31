@@ -1,9 +1,9 @@
-# Load and scalability tests (Phase A)
+# Load and scalability tests (Phase A and B)
 
 k6 scripts and shell tooling that drive real Tic-Tac-Toe player pairs (one VU = two users, two STOMP
 sockets) against the Helm install on Docker Desktop Kubernetes, to find where a single-node, laptop
 install breaks. Design: [`docs/specs/deployment/load-testing.md`](../docs/specs/deployment/load-testing.md);
-results: [`reports/SUMMARY.md`](reports/SUMMARY.md). Every report states
+Phase B (autoscaling, [`load-testing-phase-b.md`](../docs/specs/deployment/load-testing-phase-b.md)) adds the scaling timeline, the correctness check and five scenarios, below. Results: [`reports/SUMMARY.md`](reports/SUMMARY.md). Every report states
 that the result is a single-node, laptop ceiling.
 
 ## Prerequisites
@@ -132,7 +132,7 @@ The WSL resolver does not answer the IPv4 query for `turnbase.localhost`, so a k
 ## Generator and VM limits
 
 The Docker Desktop VM is the WSL 2 VM and is shared with k6, so k6 cannot get dedicated cores from a
-`.wslconfig`. k6 is pinned with `taskset` to the last 4 CPUs (the last 2 on a VM with fewer than 12);
+`.wslconfig`. k6 is pinned with `taskset` to the last 3 CPUs since Phase B (the node budget at the replica maxima, `load-testing-phase-b.md` §4.4; 4 in Phase A; the last 2 on a VM with fewer than 12);
 a step where k6 uses more than about 80% of its CPU is flagged generator-bound in the report.
 
 The `.wslconfig` recommendation is about memory only, so the VM neither starves nor swaps:
@@ -148,9 +148,9 @@ Record the file's content, or "absent (VM defaults)", in every report, together 
 
 | Script | What it does |
 |---|---|
-| `run.sh start <scenario> [VAR=value …]` | Creates `results/<stamp>-<scenario>/`, writes `params.txt`, runs the preflight, captures `cluster.txt` (VM size, nodes, Helm values, image IDs, commits, `.wslconfig`, k6 version), zeroes the cumulative counters (`pg_stat_statements_reset()`, Redis `CONFIG RESETSTAT`) and sets Redis `latency-monitor-threshold` to 100 ms so that `LATENCY LATEST` records, starts the Redis sampler, keeps a Prometheus port-forward on `:9090`, then starts k6 in the background pinned with `taskset` to the last 4 CPUs (2 on a VM with fewer than 12) and with the file-descriptor limit raised to the hard limit. Prints `RUN_DIR=…` and returns |
+| `run.sh start <scenario> [VAR=value …]` | Creates `results/<stamp>-<scenario>/`, writes `params.txt`, runs the preflight, captures `cluster.txt` (VM size, nodes, Helm values, image IDs, commits, `.wslconfig`, k6 version), zeroes the cumulative counters (`pg_stat_statements_reset()`, Redis `CONFIG RESETSTAT`) and sets Redis `latency-monitor-threshold` to 100 ms so that `LATENCY LATEST` records, starts the Redis sampler, keeps a Prometheus port-forward on `:9090`, then starts k6 in the background pinned with `taskset` to the last 3 CPUs (2 on a VM with fewer than 12; 4 until Phase B) and with the file-descriptor limit raised to the hard limit. Prints `RUN_DIR=…` and returns |
 | `run.sh wait <run-dir> [seconds=280]` | Polls for `exit-code` every 5 s; exit 0 and the code when done, 124 when the budget ran out. Exit code 99 (a threshold crossed) is a finished run, not a failure |
-| `sample-generator.sh <run-dir>` | Started by `run.sh`. Every 5 s appends `epoch,k6_cpu_pct,vm_cpu_pct,load1` to `samples.csv` (k6 as a share of one core: 4 cores reach 400) and, every third sample, `epoch,pod,cpu_m,mem_mi` rows from `kubectl top pods` to `pods.csv` |
+| `sample-generator.sh <run-dir>` | Started by `run.sh`. Every 5 s appends `epoch,k6_cpu_pct,vm_cpu_pct,load1` to `samples.csv` (k6 as a share of one core: 3 cores reach 300) and, every third sample, `epoch,pod,cpu_m,mem_mi` rows from `kubectl top pods` to `pods.csv` |
 | `check-generator.sh <samples.csv> <start_epoch> <segment_seconds> <k6_cores> [settle=20]` | One line per segment: `k6 mean X% of Y% -> ok` or `-> generator-bound` (Y is 80% of the pinned cores). Pass `scenario.epoch` as the start |
 | `steps-table.sh <summary.json>` | Writes `steps.csv` (`segment,metric,count,p95,p99,rate,pass`; `rate` is `tb_op_failed` only) from the step-tagged metrics of k6's `--summary-export`; `pass` is false when any threshold of that metric failed |
 | `snapshot.sh <run-dir> [segment_seconds]` | Runs the plan's PromQL list over the run into `prom/`, prints a mean / max table per segment, errors by code, and appends pod restarts, `OOMKilled`, Redis `used_memory_human` / `connected_clients` and the Postgres `pg_stat_statements` top 20 (by `calls`, by `total_exec_time`; `pg_stat_statements unavailable` when the extension is missing) to `cluster.txt`. It then runs `census.sh` with the label `snapshot`. A series with no samples prints `n/a` and is listed under `Missing metrics:` (for `http_5xx_per_s` that means no 5xx request ever happened: Micrometer creates the series on first use) |
@@ -158,7 +158,7 @@ Record the file's content, or "absent (VM defaults)", in every report, together 
 | `census.sh <run-dir> <label>` | Writes `census-<label>.txt`: thread counts by name prefix (digits stripped, with the total) for the platform and for the Game Host JVM, from `/proc/<pid>/task/*/comm`; the Game Host's `jcmd <pid> GC.class_histogram` top 30; Redis `DBSIZE`, `INFO keyspace`, `used_memory` and the `keys` / `scan` lines of `INFO commandstats`. A section that cannot be collected prints `<section> unavailable: <reason>`. `snapshot.sh` calls it with `snapshot`; `IMP-M16-10` and `15` use `before`, `peak` and `after` |
 | `redis-sampler.sh <run-dir>` | Started by `run.sh start`. Every 30 s appends `timestamp,dbsize,used_memory` (UTC) to `redis.csv` until `exit-code` exists |
 | `boot-wedge-repro.sh <cycles> <pairs> [--dry-run]` | `IMP-M16-03`. Each cycle deletes the Game Host pod, waits for a differently named pod to be Ready (300 s; a timeout is a `ready_timeout` row and the next cycle goes on), runs `run.sh start smoke PAIRS=<pairs>` so that the first real guest boot happens through the platform, saves the new pod's logs (and `--previous` when the container restarted) and counts both wedge modes in them: mode A, the supervisor's `killing it` lines, and mode B, the `BootWatchdog` line `Guest boot wedged`. Writes `results/<stamp>-boot-wedge/boot-wedge.csv` (`cycle,pairs,pod,mode_a,mode_b,smoke_exit,seconds_to_first_game`), the logs, `smoke-dirs.txt` and `summary.txt`. `<pairs>` is 1 for the baseline and 4 for contention. `--dry-run` prints one cycle's commands. About 40 s a cycle |
-| `check-report.sh <report.md>` | Exit 1 while a `FILL` or a required heading is left; `REPORT COMPLETE` otherwise |
+| `check-report.sh <report.md>` | Exit 1 while a `FILL` or a required heading is left; `REPORT COMPLETE` otherwise. A report whose `**Phase:** B` line says so must also have the *Scaling timeline*, *Correctness* and *NFR-ASC* sections and the `CORRECTNESS:` verdict (`IMP-M18-14`) |
 | `reports/TEMPLATE.md` | The report every run fills in (`load-testing.md` §8) |
 | `helm/values-default-limits.yaml` | `values-loadtest.yaml` without the `loadtest` profile and the remote-write receiver; `install.sh --default-limits` applies it |
 | `test/check-generator-selftest.sh`, `test/check-overlays.sh` | Selftests without a cluster: the generator check on a synthetic file, and the overlay equality |
@@ -216,3 +216,32 @@ kubectl logs deploy/turnbase-gamehost | grep 'Game context created'
 printed four lines, one per copy, from `GameContextManager`: `gameId=4a2ba2df-… gameVersion=1.0.3`,
 `gameId=e858badf-… gameVersion=1.0.1`, `gameId=2725900a-… gameVersion=1.0.2`, `gameId=6eef12b7-… gameVersion=1.0.4`.
 (The Redis session keys are not the proof; the Game Host's own context log is.)
+
+## Phase B (`IMP-M18-14`)
+
+### Scaling timeline, correctness check, failover driver
+
+| Script | What it does |
+|---|---|
+| `timeline.sh <run-dir>` | Started by `run.sh`. Every 5 s appends to `timeline.csv` (`epoch,kind,name,a,b`): `deploy` rows (desired, ready) for the Platform and Game Host Deployments, `hpa` rows (desired, current; the KEDA-created HPA is among them), and `pod` rows (state `Pending`/`Running`/`Ready`/`Terminating`, start time) whenever a Platform or Game Host pod appears or changes state. `mark` rows are the `failover` kills |
+| `correctness.sh <run-dir> [wait=60]` | After a run: `tb_games_started` = `tb_games_completed` + `tb_games_abandoned` (every started game finished, or the harness gave up on it and counted it; a `scale-in`/`failover` run also needs `tb_si_games_lost` 0), `tb_seq_gaps` and `tb_seq_dups` 0 (the `sequence`/`index` of broadcast `GAME_EVENT`s seen by each client, after dedup), and no room `IN_PROGRESS` and none with an active session once the load is gone (polled for `wait` seconds). Writes `correctness.txt`; ends `CORRECTNESS: PASS` or `CORRECTNESS: FAIL <rules>` and exits 1 on FAIL. Run it on every run, beside `steps-table.sh` and `snapshot.sh` |
+| `failover-driver.sh <run-dir>` | Started by `run.sh start failover`. After `FAILOVER_WARMUP_S` (180) from the setup, kills one Platform pod (`--grace-period=0 --force`), waits for the Deployment to be whole, pauses `FAILOVER_RECOVER_S` (120), the same for a Game Host pod, then one of each deleted gracefully. Every kill and recovery is a `mark` row of `timeline.csv` and a line of `failover.log` |
+
+### Scenarios (minimum size: each runs for at most three minutes)
+
+`CEILING` is the `ramp-to-break` ceiling, in pairs, measured in the same Phase B run series; the load of a scenario is a fraction of it.
+
+| Scenario | Shape | Minimum parameters |
+|---|---|---|
+| `spike` | 10% of `CEILING` for `LOW_MINUTES` (5), a step to 100% within `STEP_UP_SECONDS` (30), `HOLD_MINUTES` (10), a drop to 10% and `TAIL_MINUTES` (5). Steps `base`, `rise`, `spike`, `drop`, `tail`; no threshold aborts | `CEILING=8 LOW_MINUTES=0.5 HOLD_MINUTES=1 TAIL_MINUTES=0.5 STEP_UP_SECONDS=15` |
+| `sustained-high` | Ramp (`RAMP_MINUTES`, 5) to `FRACTION` (0.7) of `CEILING`, hold `HOLD_MINUTES` (60), down `DOWN_MINUTES` (2). Steps `ramp`, `hold`, `down` | `CEILING=10 RAMP_MINUTES=0.25 HOLD_MINUTES=0.5 DOWN_MINUTES=0.25` |
+| `diurnal` | `DAYS` (2) of `DAY_MINUTES` (20): 5% to 60% of `CEILING` over `RISE_SHARE` (0.3) of a day, a plateau, and back. Steps `rise`, `plateau`, `fall` | `CEILING=10 DAYS=2 DAY_MINUTES=1` |
+| `failover` | `scale-in.js`'s players: `LOAD_PAIRS` (50% of `CEILING`, required) plain pairs hold the load for `LOAD_HOLD_S` and `WATCHED_PAIRS` (8) recovering pairs are the measurement, for `DURATION_S`; `run.sh` defaults them to 1500 and 1440 s for this scenario, and starts `failover-driver.sh`. Threshold: `tb_si_games_lost` 0 | `LOAD_PAIRS=4 WATCHED_PAIRS=2 DURATION_S=480 LOAD_HOLD_S=440 FAILOVER_WARMUP_S=15 FAILOVER_RECOVER_S=20` |
+| `ramp-to-break`, `up-down` | Unchanged; with autoscaling on (the Phase B overlays) they show the scaled ceiling and the scale-in. `up-down` takes `PAIRS` | as in Phase A |
+
+### What the Phase B harness does differently from Phase A
+
+- **The `/ws` URL carries the instance hint.** `pairSession` reads `X-TurnBase-Room-Instance` from the create and the join and opens the sockets *after* both, with `?instance=<hint>` (`IMP-M18-09`: the frontend nginx proxies to the pod named by it). Before `IMP-M18-14` the pair loop connected first and never sent the hint, so with two Platform pods half the sockets landed on a non-owner. A reconnect in `scale-in.js` clears the hint, as a client whose owner died must.
+- **A join is retried on `503` `room-unavailable-retry`.** REST is round-robin; a join that lands on a Platform pod that does not own the room cannot claim it and is answered `503` (`room-rest-api.md` §7), which a client retries. The harness pauses `REST_RETRY_MS` (250; the spec's `retryAfterMs` is 2000, which would turn half the joins into two-second waits and cut the load) up to `REST_RETRY_BUDGET_MS` (10000), counts each retry in `tb_rest_retries`, and `tb_room_join` is the successful attempt's duration, as every other request's is. With one Platform pod there is no retry.
+- New counters: `tb_games_started`, `tb_games_abandoned`, `tb_seq_gaps`, `tb_seq_dups`, `tb_rest_retries`.
+- **Steps follow the executor, not the wall clock.** `lib/metrics.js` `stepper` places a sample in a step from `exec.scenario.progress` (the VU stages' own clock). The WSL 2 guest's wall clock can be slewed slow (7.4% measured: 18.52 s of wall for 20.00 s of `/proc/uptime`), and `Date.now()`-based windows then drifted up to 95 s from the VUs they belong to (the early-ending 256-pair step, `load-testing.md` §13 finding 1, `**M18:**` `IMP-M18-14`). `run.sh` writes `clock.start` and `clock.end` (`<uptime> <wall>`); a report states the slew (wall elapsed / uptime elapsed) beside the host load, and wall-clock offsets from `scenario.epoch` or Prometheus drift against the plan by that ratio.

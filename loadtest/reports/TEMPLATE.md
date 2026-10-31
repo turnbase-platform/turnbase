@@ -2,6 +2,8 @@
 
 **Verdict:** FILL (one line: what the run showed)
 
+**Phase:** FILL (`A`: one Platform and one Game Host, as in `load-testing.md`; `B`: autoscaling on, `load-testing-phase-b.md`. A `B` report also fills sections 10 to 12, which `check-report.sh` then requires; an `A` report deletes them)
+
 ## 1. Run
 
 | Field | Value |
@@ -119,3 +121,41 @@ Missing metrics: FILL
 - One step is generator-bound when the k6 process averages more than 80% of its pinned cores after the settle window; such a step never counts as the platform's breaking point.
 - The first `SETTLE_SECONDS` of every step are excluded from that step's thresholds.
 - A crossed threshold aborts the run no earlier than 30 s after the test start (`delayAbortEval` counts from the test start, not from the step), so a step's first samples after its settle window can trip a one-sample percentile.
+
+## 10. Scaling timeline (Phase B)
+
+`timeline.csv` of the run directory (`timeline.sh`, every 5 s): Deployment, HPA and KEDA desired and ready replicas,
+pod start and termination, and the `mark` rows of the `failover` kills. Replica counts as a table of events, one row per
+change (a long run is summarised and the file is cited):
+
+| Time (UTC) | Offset from scenario start | Event | Platform ready/desired | Game Host ready/desired |
+|---|---|---|---|---|
+| FILL | FILL | FILL (a scale-out, a scale-in, a pod Ready, a pod Terminating, a kill) | FILL | FILL |
+
+Scale events: FILL (count; for `sustained-high`, how many after the first 10 minutes). Flapping (a scale-out followed by a
+scale-in of the same workload within the stabilisation window): FILL.
+
+## 11. Correctness (Phase B)
+
+Output of `correctness.sh` (`correctness.txt` of the run directory), verbatim:
+
+```
+FILL
+```
+
+`tb_rest_retries` (a 503 `ROOM_UNAVAILABLE_RETRY` answered to a join on an instance that does not own the room, retried by the
+harness after `REST_RETRY_MS`): FILL.
+
+## 12. NFR-ASC (Phase B)
+
+One row per requirement that this scenario judges (`load-testing-phase-b.md` §7); `n/a` for the others.
+
+| ID | Target | Observed | Pass |
+|---|---|---|---|
+| NFR-ASC-001 scale-out reaction | <= 3 min, Platform and Game Host | FILL | FILL |
+| NFR-ASC-002 correctness through scaling | no lost, duplicated or reordered input, error rate < 1% | FILL | FILL |
+| NFR-ASC-003 scale-in | back to minimum, resources within 10% of the pre-run level, <= 10 min | FILL | FILL |
+| NFR-ASC-004 spike recovery | thresholds recover <= 3 min | FILL | FILL |
+| NFR-ASC-005 sustained high load | p99 drift < 25%, <= 1 scale event per 10 min after the first 10 | FILL | FILL |
+| NFR-ASC-006 scaled ceiling | >= the single-instance ceiling | FILL | FILL |
+| NFR-ASC-007 failover | games continue, players back in their room <= 30 s | FILL | FILL |

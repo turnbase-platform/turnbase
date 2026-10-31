@@ -16,6 +16,8 @@ export const cfg = {
   thresholdScale: n('THRESHOLD_SCALE', 1),
   coldWindowMs: n('COLD_WINDOW_MS', 30000),
   startTimeoutMs: n('START_TIMEOUT_MS', 120000), stepTimeoutMs: n('STEP_TIMEOUT_MS', 10000),
+  restRetryMs: n('REST_RETRY_MS', 250), // pause before retrying a 503 ROOM_UNAVAILABLE_RETRY (the spec's retryAfterMs is 2000)
+  restRetryBudgetMs: n('REST_RETRY_BUDGET_MS', 10000),
   errorBackoffMs: n('ERROR_BACKOFF_MS', 1000),
   pairs: n('PAIRS', 1), // smoke.js: concurrent pairs, each its own two users
 };

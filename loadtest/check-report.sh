@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Checks that a load-test report is complete.
 # Usage: loadtest/check-report.sh <report.md>
+# A report whose `**Phase:** B` line says so must also carry the Phase B sections (IMP-M18-14).
 # Exits 1, listing the line numbers, while any line still contains the literal FILL or a required heading is
 # missing; otherwise prints REPORT COMPLETE and exits 0. Run on TEMPLATE.md it must fail.
 set -uo pipefail
@@ -11,6 +12,12 @@ if [ -n "$fills" ]; then echo "FILL left on lines: $fills"; bad=1; fi
 for h in "Run" "Environment" "Thresholds" "Steps" "Result" "Server side" "Errors by code" "Findings" "Constants"; do
   grep -qE "^## [0-9]+\. $h\$" "$R" || { echo "missing heading: ## N. $h"; bad=1; }
 done
+if grep -qE '^\*\*Phase:\*\* B' "$R"; then # Phase B reports carry the scaling sections (a report without the line is Phase A)
+  for h in "Scaling timeline \(Phase B\)" "Correctness \(Phase B\)" "NFR-ASC \(Phase B\)"; do
+    grep -qE "^## [0-9]+\. $h\$" "$R" || { echo "missing heading: ## N. ${h//\\/}"; bad=1; }
+  done
+  grep -q 'CORRECTNESS: ' "$R" || { echo "missing the correctness.sh verdict (CORRECTNESS: PASS or FAIL)"; bad=1; }
+fi
 for c in "single-node, laptop ceiling" "coordinated omission" "generator-bound" "SETTLE_SECONDS"; do
   grep -q "$c" "$R" || { echo "missing constant text: $c"; bad=1; }
 done

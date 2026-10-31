@@ -2,7 +2,7 @@
 # Samples the load generator and the VM while a run is going, until <run-dir>/exit-code exists.
 # Usage: loadtest/sample-generator.sh <run-dir>      (started by run.sh)
 # Every 5 s appends `epoch,k6_cpu_pct,vm_cpu_pct,load1` to samples.csv: k6_cpu_pct is the CPU time the newest
-# k6 process used in the interval as a percentage of ONE core (4 cores reach 400); vm_cpu_pct is the busy
+# k6 process used in the interval as a percentage of ONE core (3 cores reach 300); vm_cpu_pct is the busy
 # share of all CPUs. Every third sample appends `epoch,pod,cpu_m,mem_mi` rows from `kubectl top pods` to pods.csv.
 set -uo pipefail
 DIR="${1:?usage: sample-generator.sh <run-dir>}"

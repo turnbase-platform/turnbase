@@ -50,9 +50,23 @@ export function getPair(data) {
   return pairs[idx];
 }
 
+// REST goes round-robin, so with more than one Platform instance a join can land on an instance that does not own
+// the room: its claim fails and it answers 503 ROOM_UNAVAILABLE_RETRY (room-rest-api.md), which a client retries. The
+// retry is the client's job and the pause is the harness's (REST_RETRY_MS, shorter than the spec's retryAfterMs so that
+// the load stays the load); the returned `ms` is the successful attempt's, and each retry is counted in tb_rest_retries.
+async function requestRetrying(p, method, path, body, name) {
+  const t0 = Date.now();
+  for (;;) {
+    const r = await p.request(method, path, body, name);
+    if (r.res.status !== 503 || !String(r.res.body).includes('room-unavailable-retry') || Date.now() - t0 > cfg.restRetryBudgetMs) return r;
+    m.restRetries.add(1, stepTags());
+    await sleepMs(cfg.restRetryMs);
+  }
+}
+
 async function leave(p, roomId) {
   // Defensive cleanup: not counted as a failure whatever it returns.
-  try { await p.request('DELETE', '/api/rooms/' + roomId + '/participants/me', null, 'DELETE /api/rooms/{id}/participants/me'); } catch (_) { /* ignore */ }
+  try { await requestRetrying(p, 'DELETE', '/api/rooms/' + roomId + '/participants/me', null, 'DELETE /api/rooms/{id}/participants/me'); } catch (_) { /* ignore */ }
 }
 
 // A server-side error frame explains a timeout better than the timeout does.
@@ -89,10 +103,12 @@ async function playGame(pair, roomId) {
   ]);
   m.gameStart.add(startedHost.t - tStart, stepTags({ cold: String(cold) }));
   pair.gamesStarted++;
+  m.gamesStarted.add(1, stepTags());
   ok();
   const sid = startedHost.msg.payload.sessionId;
   m.activeGames.add(1);
 
+  let finished = false;
   const gameSubs = [host.ws.subscribe('/topic/game.' + sid), guest.ws.subscribe('/topic/game.' + sid)];
   try {
     const views = await Promise.all([host, guest].map(async (p) => {
@@ -128,8 +144,18 @@ async function playGame(pair, roomId) {
     m.gameDuration.add(Date.now() - tFirstMove, stepTags());
     await Promise.all([host, guest].map((p) => p.ws.waitFor((f) => f.msg && f.msg.type === 'GAME_ENDED', T, 'game_ended_timeout')));
     m.gamesCompleted.add(1, stepTags());
+    finished = true;
     ok();
   } finally {
+    if (!finished) m.gamesAbandoned.add(1, stepTags());
+    for (const p of [host, guest]) {
+      m.seqChecked.add(p.ws.checked, stepTags());
+      m.seqGaps.add(p.ws.gaps, stepTags());
+      m.seqDups.add(p.ws.dups, stepTags());
+      p.ws.checked = 0;
+      p.ws.gaps = 0;
+      p.ws.dups = 0;
+    }
     m.activeGames.add(0);
     host.ws.unsubscribe(gameSubs[0]);
     guest.ws.unsubscribe(gameSubs[1]);
@@ -142,26 +168,38 @@ export async function pairSession(pair, { games, gameId = cfg.gameId }) {
   if (!pair.counted) { // first iteration: make the zero-valued counters print in the summary
     pair.counted = true;
     m.errors.add(0);
+    m.restRetries.add(0);
+    m.gamesStarted.add(0);
+    m.gamesAbandoned.add(0);
+    m.seqChecked.add(0);
+    m.seqGaps.add(0);
+    m.seqDups.add(0);
     m.wsDisconnects.add(0);
   }
   let roomId = null;
   let failed = false;
   const roomSubs = [];
   try {
-    await Promise.all([host.ensureConnected(), guest.ensureConnected()]);
+    host.wsHint = null;
+    guest.wsHint = null;
     const created = await host.request('POST', '/api/rooms',
       { gameId, visibility: 'PUBLIC', spectatingEnabled: false }, 'POST /api/rooms');
     if (created.res.status !== 201) throw Object.assign(new Error('room create ' + created.res.status), { code: errorCode(created.res) });
     const body = created.res.json();
     roomId = body.roomId || (body.room && body.room.roomId);
+    host.wsHint = created.res.headers['X-Turnbase-Room-Instance'] || null; // /ws?instance=<owner> (IMP-M18-09, -14)
     m.roomCreate.add(created.ms, stepTags());
     ok();
 
-    const joined = await guest.request('POST', '/api/rooms/' + roomId + '/participants', { role: 'PLAYER' },
+    const joined = await requestRetrying(guest, 'POST', '/api/rooms/' + roomId + '/participants', { role: 'PLAYER' },
       'POST /api/rooms/{id}/participants');
     if (joined.res.status !== 201) throw Object.assign(new Error('room join ' + joined.res.status), { code: errorCode(joined.res) });
+    guest.wsHint = joined.res.headers['X-Turnbase-Room-Instance'] || null;
     m.roomJoin.add(joined.ms, stepTags());
     ok();
+
+    // The sockets open after the REST calls because the room's owner, which they must reach, is only known now.
+    await Promise.all([host.ensureConnected(), guest.ensureConnected()]);
 
     // Nobody acts on the room before both room subscriptions are confirmed by a RECEIPT: the two sockets are
     // processed independently, so the guest's first TOGGLE_READY could otherwise be broadcast before the host's
