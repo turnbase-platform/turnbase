@@ -1,12 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-10-31 (session 253) — **`IMP-M18-13` stays `PARTIAL`.** 203 of 209 items done.
+**Date:** 2026-10-31 (session 254) — **`IMP-M18-13` DONE.** 204 of 209 items done.
 
-- Found: the 1-CPU Game Host tripped the 20 s `BootWatchdog` when the third replica booted under load, so the §4.4 fallback is applied (Game Host 1.5 CPU). The third host's 4-minute waits were `Pending: Insufficient memory` (three Platform plus three Game Host pods at 2 GiB), so the Platform is 1536 Mi. 170 and 185 pairs sit at 0.65-0.77 utilisation and do not reliably cross 0.7; `gamehost-scale.sh` now uses 200.
-- Live: Part B with an 8 s drain: 7 reassignments after the drain, 0 games lost. Part A at 200 pairs: third host Ready 60 s after the load, 0 lost, fleet back to two. Cold start at 1.5 CPU: 13 s (single context).
-- Built: a `GameHostRegistryServerIT` case (a lapsed lease drops a host out of the gauges), harness diagnostics (pod timeline, describe), overlays at 1.5 CPU / 1536 Mi mirrored, findings 8 and 9 and `local-environment.md` §7.9 updated.
-- Owed (registry `**Remaining:**`): four-context cold start at 1.5 CPU (the `contexts` scenario aborted on the :9090 remote-write endpoint), a final `gamehost-scale.sh both`.
-- Tests: `GameHostRegistryServerIT` 9/9; the rest not rerun.
+- Measured: four contexts at 1.5 CPU, both Game Hosts cold: cold starts 0.05-19.8 s (p95 18.1 s) and one host tripped the 20 s `BootWatchdog` (supervisor restarted it); recorded under finding 8 (`load-testing.md` §13). The earlier `:9090` failure did not recur (the Prometheus port-forward was up).
+- Final `gamehost-scale.sh both` on the committed overlay passed: third host Ready 65 s after the load (18 s after its pod), 5,478 games, 0 lost, back to two; Part B drain with 4 sessions on the victim, 54 games, 0 lost. `check-overlays.sh` OK (1.5 CPU / 1536 Mi in the overlays).
+- Cleaned: the four test bundles removed from the seed directory, stack reset. No code changed, so no submodule ref moved.
+- Next: M18 Track 4 (`IMP-M18-14`…`17`).
 
 ## Next Priorities
 

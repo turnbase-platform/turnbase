@@ -252,7 +252,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M18-10 | Platform autoscaling, two-replica minimum and release on scale-in | platform, docs (umbrella) | M18-08, M18-09 | DONE |
 | IMP-M18-11 | Host selection spreads sessions under a per-host cap | platform, docs | M18-01 | DONE |
 | IMP-M18-12 | `OQ-5`: eager and lazy reassignment measured, the winner kept | platform, docs | M18-01 | DONE |
-| IMP-M18-13 | Game Host autoscaling with KEDA, two-replica minimum and drain | platform (chart), game-host, docs (umbrella) | M18-11, M18-12 | PARTIAL |
+| IMP-M18-13 | Game Host autoscaling with KEDA, two-replica minimum and drain | platform (chart), game-host, docs (umbrella) | M18-11, M18-12 | DONE |
 | IMP-M18-14 | Harness: scaling timeline, correctness check, new scenarios | docs (umbrella) | M18-07, M18-10, M18-13 | READY |
 | IMP-M18-15 | Phase B runs: ceiling and spike | docs (umbrella) | M18-14 | READY |
 | IMP-M18-16 | Phase B runs: failover, up-down and diurnal | docs (umbrella) | M18-15 | READY |
@@ -8864,8 +8864,6 @@ trips); scale-in drains, then the `OQ-5` winner reassigns what remains.
   finishes, including those reassigned after the drain period.
 - Cold start at 1 CPU (single and four contexts) recorded as `**M18:**` lines under findings 8 and 9.
 - Overlays mirrored; pipelines green, refs bumped, `check-corpus.py` clean, merged and pushed.
-
-**Remaining:** built and live-tested (sessions 251-253): KEDA, `ScaledObject`, draining heartbeat, `warm-hosts`, 1.5-CPU Game Host (the §4.4 fallback, the 1-CPU boot tripped the watchdog), Platform 1536 Mi (memory budget), lapsed-lease gauge test. Part B with an 8 s drain: 7 reassignments after the drain, 0 games lost; Part A at 200 pairs: third host Ready 60 s after the load, 0 lost, back to two. Owed: (1) four-context cold start at 1.5 CPU (finding 9's `**M18:**` line): the `contexts` scenario (`run.sh start contexts PAIRS=4 CONTEXT_IDS=…` after copying `lib/bundles.sh 4` zips to the seed dir and `reset.sh`) aborted in session 253 on the Prometheus remote-write endpoint at :9090 with one context created; fix the endpoint (port-forward?) and rerun, then delete the copies and reset; (2) run `gamehost-scale.sh both` once on the committed overlay for a final pass; (3) the cluster runs Platform 1536 Mi and Game Host 1500m through `kubectl set resources`, install.sh from the overlays reproduces it.
 
 ### IMP-M18-14 — Harness: scaling timeline, correctness check, new scenarios
 
