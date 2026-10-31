@@ -235,3 +235,34 @@ Autoscaling on: Platform and Game Host 2 to 3 replicas of 1.5 CPU, k6 on 3 cores
 | `failover` | [2026-10-31-m18-failover.md](2026-10-31-m18-failover.md) | 85 pairs plus 8 watched; Platform SIGKILL and graceful Game Host delete lost nothing, Game Host SIGKILL lost 4 watched games, graceful Platform delete 1 (5 of 989): NFR-ASC-007 and 002 not met; recoveries at most 20.8 s; 0 gaps, 0 duplicates |
 | `up-down` | [2026-10-31-m18-up-down.md](2026-10-31-m18-up-down.md) | 120 pairs, 5 min up, 5 hold, 5 down, 12 idle: Platform 2 to 3 to 2 (back about 2 min after the load), Game Host stayed at 2, threads and Redis keys below pre-run, `CORRECTNESS: PASS`: NFR-ASC-003 met |
 | `diurnal` | [2026-10-31-m18-diurnal.md](2026-10-31-m18-diurnal.md) | Two 20 min days to 102 pairs: no scale event after the first minute, no flapping, move p95 62 ms, `CORRECTNESS: PASS`; the Platform never scaled in at the troughs, so scale-in under a daily shape was not exercised |
+| `sustained-high` | [2026-10-31-m18-sustained-high.md](2026-10-31-m18-sustained-high.md) | 119 pairs (70% of 170) for 60 min: 770,040 games, 0 abandoned, 0 gaps, 0 duplicates, 15 errors in 9.26 million operations, `CORRECTNESS: PASS`; k6 p99 lower at the end than at the start, 0 scale events after the first minute, no flapping, no restarts: NFR-ASC-005 met; Platform threads 129 -> 172 at the end of the hold, not isolated |
+
+### Phase B requirements (`IMP-M18-17`, 2026-10-31)
+
+| ID | Result | Evidence |
+|---|---|---|
+| FR-ASC-001 Platform autoscaling on CPU, min 2 | **pass** | The HPA took the Platform from 2 to 3 in the setup burst of `diurnal`, `failover`, `up-down` and `sustained-high` (Ready 19 to 55 s) and back to 2 after `up-down` |
+| FR-ASC-002 instance hint reaches the named instance | **pass** | Pairs open `/ws?instance=<hint>` in every Phase B run; no `ws_closed` or non-owner socket error in the reports (`IMP-M18-09`, `IMP-M18-14`) |
+| FR-ASC-003 user-scoped state across instances | not measured by a load run | Covered by the `IMP-M18-08` tests; no Phase B scenario drives alerts, revocations or the connection cap |
+| FR-ASC-004 release on removal | **fail** | `up-down` scale-in lost nothing, but the graceful Platform delete in `failover` lost 1 watched game (`retry_budget`, 36 s later) |
+| FR-ASC-005 two replicas at all times | **pass** | `timeline.csv` of every run: Platform and Game Host never below 2 ready, outside the deliberate kills of `failover` |
+| NFR-ASC-001 scale-out reaction <= 3 min | **pass** | Platform 19 to 55 s; Game Host 142 s in `spike` (third replica Ready from the start of the rise) |
+| NFR-ASC-002 correctness through scaling | **fail** | `ramp-to-break` (138 interrupted games at the abort) and `failover` (5 watched games lost); `spike`, `up-down`, `diurnal` and `sustained-high` pass with 0 gaps and 0 duplicates |
+| NFR-ASC-003 scale-in | **pass** | `up-down`: Platform back at 2 about 2 min after the load, threads and Redis keys below the pre-run level |
+| NFR-ASC-004 spike recovery <= 3 min | **pass** | `spike`: no threshold crossed during or after the step, `tail` better than `base` |
+| NFR-ASC-005 sustained high load | **pass** | `sustained-high`: p99 drift negative (-17% to -31%), 0 scale events after the first 10 minutes |
+| NFR-ASC-006 scaled ceiling >= single instance | **fail** | 170 pairs against 220 |
+| NFR-ASC-007 failover <= 30 s, games continue | **fail** | Recoveries at most 20.8 s, but the Game Host SIGKILL lost 4 watched games |
+
+### The owner's three questions, after M18 (scaled deployment)
+
+**(a) Worst-case load.** `ramp-to-break` ceiling **170 pairs** (single instance 220), aborting at 180 on `tb_game_start` on a Game Host the autoscaler had just added; 119 pairs (81 sessions at most, 78 sockets on the gauges) held for an hour with no threshold crossed. 500 sessions and 5,000 WebSockets are still not reached.
+**(b) Rising and falling load.** The scaled deployment absorbs a 10x step in 30 s (`spike`), two compressed days (`diurnal`) and an hour at 70% (`sustained-high`) with the thresholds met and no game lost; the Platform scales out within a minute and in again in about two. The Game Host is the weak side: it flapped under `ramp-to-break`, and a third replica needs 142 s.
+**(c) Where it breaks.** On the Game Host: Espresso context start and contention on a freshly added host (`tb_game_start` 2.1 s at 180 pairs; the 20 s `BootWatchdog` at 1.5 CPU), and a Game Host SIGKILL loses the games on it. The Platform's 1.5-CPU replicas are at their request throughout the hold at 3 replicas, so the 3-replica maximum, not Postgres, bounds the Platform.
+
+### What Phase C starts from
+
+1. The scaled ceiling is below the single-instance one (NFR-ASC-006): the Game Host's cold start and its scale-out flapping, found in `ramp-to-break` and `spike`.
+2. A Game Host SIGKILL and a graceful Platform delete each lose games (NFR-ASC-002, 007, FR-ASC-004): the sync and retry budgets of the harness and the recovery of a session whose host died.
+3. Warm-up of the standby Game Host (`turnbase.gamehost.warmup-enabled` is off), and a Game Host scale-in that does not undo its scale-out inside a ramp.
+4. Not exercised: scale-in under a daily shape (`diurnal`), FR-ASC-003 under load, the Platform thread step at the end of the `sustained-high` hold, and `game-host-internals.md` §18 `OQ-6`.

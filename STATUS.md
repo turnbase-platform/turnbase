@@ -1,15 +1,14 @@
 ## Last Session Summary
 
-**Date:** 2026-10-31 (session 257) — **`IMP-M18-16` DONE.** 207 of 209 items done. Umbrella only (three reports, SUMMARY).
+**Date:** 2026-10-31 (session 258) — **`IMP-M18-17` DONE; M18 and the register are complete: 209 of 209 items done.** Umbrella only (one report, SUMMARY, §13 lines).
 
-- **`failover`** (`loadtest/reports/2026-10-31-m18-failover.md`, 85 pairs + 8 watched): **NFR-ASC-007 and NFR-ASC-002 not met.** Platform SIGKILL and graceful Game Host delete lost nothing; the Game Host SIGKILL lost 4 watched games (2 `sync_timeout`, 2 `retry_budget`), the graceful Platform delete 1 (`retry_budget`, 36 s later). Recoveries that completed took at most 20.8 s; 0 gaps/duplicates; `CORRECTNESS: FAIL games`.
-- **`up-down`** (120 pairs): Platform 2 → 3 → 2 (back about 2 min after the load, bound 10), Game Host stayed at 2, threads/Redis keys below pre-run, `CORRECTNESS: PASS`: NFR-ASC-003 met.
-- **`diurnal`** (two 20 min days to 102 pairs): no scale event after the first minute, no flapping, `CORRECTNESS: PASS`; the Platform never scaled in at the troughs, so scale-in under a daily shape was not exercised.
-- Harness notes: run prep needs `grep -c … || true` under `set -e`; after `reset.sh` + provision + smokes wait for 2 Platform replicas and no Terminating pod before `run.sh start`.
+- **`sustained-high`** (`loadtest/reports/2026-10-31-m18-sustained-high.md`): 119 pairs (70% of the 170-pair scaled ceiling) for 60 min, 770,040 games, 0 abandoned, 0 gaps/duplicates, 15 errors in 9.26 million operations, `CORRECTNESS: PASS`, no restarts. **NFR-ASC-005 met**: 0 scale events after the first minute, k6 p99 lower at the end than at the start (create 106 → 88 ms). Platform threads 129 → 172 at the end of the hold, not isolated.
+- **`SUMMARY.md` *M18*** now has the FR-ASC/NFR-ASC table (pass: FR-001, 002, 005, NFR-001, 003, 004, 005; fail: FR-004, NFR-002, 006, 007; FR-003 not measured by a load run), the owner's three questions for the scaled deployment, and what Phase C starts from (Game Host cold start and flapping, game loss on a Game Host SIGKILL, standby warm-up). `load-testing.md` §13 findings 15 and 16 carry `**M18:**` lines.
+- Harness note: after `reset.sh` + provision + two smokes, wait for 2 Platform replicas and no Terminating pod before `run.sh start`; `CEILING=170 USERS=3000`.
 
 ## Next Priorities
 
-**M18: `IMP-M18-01`…`16` are done; next `17` (sustained high load and the Phase B summary; the `15` and `16` reports are the inputs) (Track 1 is complete; `09` is first of Track 2). Next, Tracks 2 (`10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
+**All 209 work items are DONE.** No item is READY or PARTIAL. Open ground is owner-held: the Phase C starting points in `loadtest/reports/SUMMARY.md` (*What Phase C starts from*) and `game-host-internals.md` §18 `OQ-6`. Next session: ask the owner what to do next (a Phase C scope, or a new audit).
 
 - The proposed `NFR-ASC` targets are the orchestrator's; the owner may adjust them before `01` writes them down.
 - Still owner-held: `game-host-internals.md` §18 `OQ-6` (twelve Espresso contexts per JVM lifetime), not reached by Phase B's single-title scenarios.
