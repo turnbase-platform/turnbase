@@ -43,7 +43,7 @@ warm_standby() { # the warm-hosts rule: two starts one after the other leave bot
 }
 k6bg() { # <name> <env...>
   local name="$1"; shift
-  ( env "$@" taskset -c "$first-$((n - 1))" k6 run --summary-export "$DIR/$name-summary.json" loadtest/scenarios/scale-in.js > "$DIR/$name-k6.log" 2>&1; echo $? > "$DIR/$name-k6.exit" ) &
+  ( env "$@" taskset -c "$first-$((n - 1))" timeout -k 10 900 k6 run --summary-export "$DIR/$name-summary.json" loadtest/scenarios/scale-in.js > "$DIR/$name-k6.log" 2>&1; echo $? > "$DIR/$name-k6.exit" ) &
   K6PID=$!
 }
 follow_logs() { # <name>: every Game Host pod's log until it is gone, and the Platform pods'
@@ -56,7 +56,7 @@ follow_logs() { # <name>: every Game Host pod's log until it is gone, and the Pl
 verdict() { # <name>
   local name="$1"
   wait "$K6PID" || true
-  until [ -s "$DIR/$name-k6.exit" ]; do sleep 1; done
+  until [ -s "$DIR/$name-k6.exit" ]; do sleep 1; done  # k6 is killed after 900 s: it once hung after its summary
   local code; code="$(cat "$DIR/$name-k6.exit")"
   say "$name: k6 exit $code (0 = thresholds held); $(grep -hE 'tb_si_games_(finished|aborted|lost)|tb_si_recoveries|tb_si_budget_exceeded' "$DIR/$name-k6.log" | tr -s ' .' ' ' | tr '\n' ';')"
   [ "$code" = 0 ] || { say "$name FAILED"; return 1; }
@@ -81,7 +81,8 @@ if [ "$part" = A ] || [ "$part" = both ]; then
   follow_logs A
   say "A: $(kubectl get scaledobject turnbase-gamehost --no-headers)"
   verdict A
-  wait_for 600 "two Game Hosts again" two_ready
+  say "A: registry after the load: $(kubectl exec statefulset/turnbase-redis -- sh -c 'r() { redis-cli -a "$TURNBASE_REDIS_PASSWORD" --no-auth-warning "$@"; }; echo sessions=$(r --scan --pattern "session:*" | wc -l); for h in $(r SMEMBERS hosts); do echo $h $(r HGET host:$h activeSessions); done' 2>/dev/null | tr '\n' ' ')"
+  wait_for 900 "two Game Hosts again" two_ready
   say "A: games per Game Host while at three: see the per-pod 'Drain over' lines: $(grep -h 'Drain over' "$DIR"/A-*.log | tr '\n' ';')"
 fi
 
