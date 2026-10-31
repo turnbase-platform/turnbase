@@ -223,3 +223,12 @@ The baseline for every later M18 item is this report: Postgres is no longer the 
 | 15 | Latency rises across a 30-minute hold | resolved: +21.8% under the bar, flat from minute 10 | [soak](2026-10-24-m18-soak.md) |
 
 A `ramp-to-break` that follows `reset.sh` directly aborts on a cold-JVM `tb_move_rtt` sample at step 10; warm up with `smoke.js` first (ramp report finding 3).
+
+### Scaled runs (`IMP-M18-15`, 2026-10-31)
+
+Autoscaling on: Platform and Game Host 2 to 3 replicas of 1.5 CPU, k6 on 3 cores.
+
+| Scenario | Report | Result in one line |
+|---|---|---|
+| `ramp-to-break` | [2026-10-31-m18-scaled-ramp-to-break.md](2026-10-31-m18-scaled-ramp-to-break.md) | Ceiling 170 pairs (single instance 220: NFR-ASC-006 not met); aborts at 180 on `tb_game_start` (2.1 s) on a Game Host the autoscaler had just added; that host had flapped (out, in, out) during the ramp and step 170 lost 28% of its games; first to break `Espresso contention` |
+| `spike` | [2026-10-31-m18-spike.md](2026-10-31-m18-spike.md) | 17 to 170 pairs in 30 s, held 10 min: every threshold passes, third Game Host Ready 142 s after the rise, `CORRECTNESS: PASS`; the Game Host scaled in again mid-hold (flapping) |

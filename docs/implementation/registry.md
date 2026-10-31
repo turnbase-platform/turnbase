@@ -254,7 +254,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M18-12 | `OQ-5`: eager and lazy reassignment measured, the winner kept | platform, docs | M18-01 | DONE |
 | IMP-M18-13 | Game Host autoscaling with KEDA, two-replica minimum and drain | platform (chart), game-host, docs (umbrella) | M18-11, M18-12 | DONE |
 | IMP-M18-14 | Harness: scaling timeline, correctness check, new scenarios | docs (umbrella) | M18-07, M18-10, M18-13 | DONE |
-| IMP-M18-15 | Phase B runs: ceiling and spike | docs (umbrella) | M18-14 | READY |
+| IMP-M18-15 | Phase B runs: ceiling and spike | docs (umbrella) | M18-14 | DONE |
 | IMP-M18-16 | Phase B runs: failover, up-down and diurnal | docs (umbrella) | M18-15 | READY |
 | IMP-M18-17 | Phase B runs: sustained high load, and the Phase B summary | docs (umbrella) | M18-16 | READY |
 

@@ -1,16 +1,14 @@
 ## Last Session Summary
 
-**Date:** 2026-10-31 (session 255) — **`IMP-M18-14` DONE.** 205 of 209 items done.
+**Date:** 2026-10-31 (session 256) — **`IMP-M18-15` DONE.** 206 of 209 items done. Umbrella only (reports, SUMMARY); both Platform and Game Host images rebuilt first.
 
-- Harness (`loadtest/`): `timeline.sh` (5 s scaling timeline, `timeline.csv`), `correctness.sh` (games started = completed + abandoned, no `GAME_EVENT` sequence gap or duplicate, no room `IN_PROGRESS`; `CORRECTNESS: PASS|FAIL`), `failover-driver.sh`, scenarios `spike`, `sustained-high`, `diurnal`, `failover` (reuses `scale-in.js`'s recovering players); k6 pinned to 3 cores; `TEMPLATE.md` and `check-report.sh` gained the Phase B sections (required when `**Phase:** B`); README documents all.
-- Fixed in the pair loop: the `/ws` URL now carries the instance hint (the sockets opened before the create, so it never did), and a join is retried on `503 room-unavailable-retry` (REST is round-robin; `REST_RETRY_MS` 250, counted in `tb_rest_retries`). Without it every smoke failed with two Platform pods.
-- **256-pair finding explained (`load-testing.md` §13 finding 1, `**M18:**`):** a harness defect. The WSL 2 wall clock is slewed slow (measured 7.4% and 4.6% slow); VU stages follow the monotonic clock, step tags and Prometheus follow the wall clock, so steps drifted up to 95 s. The stepper now follows `exec.scenario.progress`; `run.sh` records `clock.start`/`clock.end`.
-- Smokes, one per new scenario, all with a timeline and a verdict: spike, sustained-high, diurnal and parallelism PASS; `failover` (two Platform and two Game Host kills, SIGKILL and graceful) ran end to end and its verdict is `FAIL games`: 2 watched games lost, `tb_si_budget_exceeded` 2 (smoke size, 4 load pairs; a result for `IMP-M18-16`, not fixed here).
-- Prometheus remote write: `run.sh` now picks whichever of 127.0.0.1 / ::1 answers on :9090 (a foreign listener holds 127.0.0.1 here).
+- **`ramp-to-break` scaled** (`loadtest/reports/2026-10-31-m18-scaled-ramp-to-break.md`): ceiling **170 pairs** against 220 single-instance, so **NFR-ASC-006 is not met**. The abort at 180 is `tb_game_start{cold:false}` p95 2.1 s on a Game Host the autoscaler had just added (cold Espresso boot; the harness tags cold by time, not by host); move, create, join and Hikari were healthy. The Game Host flapped during the ramp (out +1,398 s, in +1,622 s, out +1,678 s: the KEDA trigger is a spiky point maximum) and step 170 lost 28% of its games. The busiest Platform pod sat at its 1.5 CPU limit from step 60 at the HPA maximum of 3.
+- **`spike`** (`…-m18-spike.md`, `CEILING=170`): 17 to 170 pairs in 30 s, 10 min hold: every threshold passes, third Game Host Ready 142 s after the rise (NFR-ASC-001), `CORRECTNESS: PASS`, but the Game Host scaled in again mid-hold. The Platform went to 3 replicas on the setup's login burst, so its reaction to the spike is not measured.
+- Harness notes: `correctness.sh` reports `FAIL games` after an aborted `ramp-to-break` (138 interrupted games are neither completed nor abandoned); the warm-up smokes leave the Platform at 3 replicas, so wait for 2 before a run; `run.sh start` fails its preflight while a pod is Terminating.
 
 ## Next Priorities
 
-**M18: `IMP-M18-01`…`12` are done (Track 1 is complete; `09` is first of Track 2). Next, Tracks 2 (`10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
+**M18: `IMP-M18-01`…`15` are done; next `16` (failover, up-down, diurnal; use the flapping and 170-pair ceiling findings of `15`) (Track 1 is complete; `09` is first of Track 2). Next, Tracks 2 (`10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
 
 - The proposed `NFR-ASC` targets are the orchestrator's; the owner may adjust them before `01` writes them down.
 - Still owner-held: `game-host-internals.md` §18 `OQ-6` (twelve Espresso contexts per JVM lifetime), not reached by Phase B's single-title scenarios.
