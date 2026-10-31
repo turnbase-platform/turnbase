@@ -24,8 +24,8 @@ platform:
         stabilizationWindowSeconds: 120
         policies: [{ type: Pods, value: 1, periodSeconds: 60 }]
   resources:
-    requests: { cpu: "1500m", memory: 2Gi }
-    limits:   { cpu: "1500m", memory: 2Gi }
+    requests: { cpu: "1500m", memory: 1536Mi }
+    limits:   { cpu: "1500m", memory: 1536Mi }
   extraEnv:
     - { name: JDK_JAVA_OPTIONS, value: "-XX:MaxRAMPercentage=70 -Xlog:gc*,safepoint:stdout:utctime,uptime" }
 gamehost:
@@ -45,8 +45,8 @@ gamehost:
         stabilizationWindowSeconds: 180
         policies: [{ type: Pods, value: 1, periodSeconds: 120 }]
   resources:
-    requests: { cpu: "1", memory: 2Gi }
-    limits:   { cpu: "1", memory: 2Gi }
+    requests: { cpu: "1500m", memory: 2Gi }
+    limits:   { cpu: "1500m", memory: 2Gi }
   extraEnv:
     - { name: JDK_JAVA_OPTIONS, value: "-XX:MaxRAMPercentage=70" }
 postgres:

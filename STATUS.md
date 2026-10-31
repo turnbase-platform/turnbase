@@ -1,12 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-10-30 (session 251) — **`IMP-M18-13` is `PARTIAL`.** 203 of 209 items done. `turnbase-common` `8b6d68b`, `turnbase-platform` `70c89ae`, `turnbase-game-host` merged to master.
+**Date:** 2026-10-31 (session 253) — **`IMP-M18-13` stays `PARTIAL`.** 203 of 209 items done.
 
-- Built: `HeartbeatRequest.draining`, host drain period, `GameHostLoadMetrics` gauges, KEDA `ScaledObject` (utilisation 0.7 and memory 85), `loadtest/install.sh` KEDA 2.21.0, overlays at 1 CPU / 2Gi, `loadtest/test/gamehost-scale.sh`.
-- Live: part A passed (third host Ready 141 s after load start). Part B lost 1 of 8 games: the warm-first standby was cold and booted in 21-28 s at 1 CPU against the 30 s budget.
-- Session 252 (owner chose option 1, improve production): `turnbase.orchestration.warm-hosts` (default 2) warms the standby with a real start; spec §11, phase-b §5.1 and local-environment §7.8 amended; Part B then lost 0 games in two runs.
-- Owed (registry `**Remaining:**`): decide the cold standby via `spec-defect`; why 243 sessions stayed in the registry after Part A (blocks scale-in); `verdict` exit-file hang; controlled cold-start measurement; `local-environment.md` §7.9.
-- Tests: unit green; ITs: `ReconciliationJobIT` flaky under load (passes alone), `GameAssetControllerIT`/`SeedDataIT` the known `*.localhost` failures.
+- Found: the 1-CPU Game Host tripped the 20 s `BootWatchdog` when the third replica booted under load, so the §4.4 fallback is applied (Game Host 1.5 CPU). The third host's 4-minute waits were `Pending: Insufficient memory` (three Platform plus three Game Host pods at 2 GiB), so the Platform is 1536 Mi. 170 and 185 pairs sit at 0.65-0.77 utilisation and do not reliably cross 0.7; `gamehost-scale.sh` now uses 200.
+- Live: Part B with an 8 s drain: 7 reassignments after the drain, 0 games lost. Part A at 200 pairs: third host Ready 60 s after the load, 0 lost, fleet back to two. Cold start at 1.5 CPU: 13 s (single context).
+- Built: a `GameHostRegistryServerIT` case (a lapsed lease drops a host out of the gauges), harness diagnostics (pod timeline, describe), overlays at 1.5 CPU / 1536 Mi mirrored, findings 8 and 9 and `local-environment.md` §7.9 updated.
+- Owed (registry `**Remaining:**`): four-context cold start at 1.5 CPU (the `contexts` scenario aborted on the :9090 remote-write endpoint), a final `gamehost-scale.sh both`.
+- Tests: `GameHostRegistryServerIT` 9/9; the rest not rerun.
 
 ## Next Priorities
 

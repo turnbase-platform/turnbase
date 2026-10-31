@@ -4,13 +4,13 @@
 # games that outlast the drain period: the host announces draining and takes no new session, and every game finishes,
 # those still on it after the drain being reassigned.
 # Usage: loadtest/test/gamehost-scale.sh [A|B|both]      (default both; needs the Phase B overlay installed)
-# Env: CAP_PAIRS (170: concurrent games, above 0.7 x 2 x 100), RETRY_BUDGET_MS (30000).
+# Env: CAP_PAIRS (200: concurrent games, above 0.7 x 2 x 100), RETRY_BUDGET_MS (30000).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 part="${1:-both}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 DIR="loadtest/results/$STAMP-gamehost-scale"; mkdir -p "$DIR"
-CAP_PAIRS="${CAP_PAIRS:-170}"
+CAP_PAIRS="${CAP_PAIRS:-200}"
 export RETRY_BUDGET_MS="${RETRY_BUDGET_MS:-30000}" USERS="${USERS:-2000}"
 n="$(nproc)"; first=$((n - 3))
 gh='app.kubernetes.io/name=gamehost'
@@ -49,7 +49,7 @@ k6bg() { # <name> <env...>
 follow_logs() { # <name>: every Game Host pod's log until it is gone, and the Platform pods'
   local name="$1"
   for p in $(kubectl get pods -l "$gh" -o name) $(kubectl get pods -l app.kubernetes.io/name=platform -o name); do
-    [ -e "$DIR/$name-${p#pod/}.log" ] && continue
+    [ -s "$DIR/$name-${p#pod/}.log" ] && continue
     ( kubectl logs -f "$p" > "$DIR/$name-${p#pod/}.log" 2>&1 || true ) &
   done
 }
@@ -79,6 +79,11 @@ if [ "$part" = A ] || [ "$part" = both ]; then
   wait_for 240 "three ready Game Hosts" three_ready || true
   say "A: the third Game Host was Ready $((SECONDS - t1)) s after its pod was created, $((SECONDS - t0)) s after the load started (NFR-ASC-001: 180 s from the threshold crossing)"
   follow_logs A
+  say "A: pod timeline (created, scheduled, containers ready, ready): $(kubectl get pods -l "$gh" --sort-by=.metadata.creationTimestamp -o jsonpath='{range .items[-1:]}{.metadata.creationTimestamp}{" "}{.status.conditions[?(@.type=="PodScheduled")].lastTransitionTime}{" "}{.status.conditions[?(@.type=="ContainersReady")].lastTransitionTime}{" "}{.status.conditions[?(@.type=="Ready")].lastTransitionTime}{end}'); events: $(kubectl get events --field-selector involvedObject.kind=Pod --sort-by=.lastTimestamp 2>/dev/null | grep gamehost | tail -6 | tr -s ' ' | tr '\n' '|')"
+  newest="$(kubectl get pods -l "$gh" --sort-by=.metadata.creationTimestamp -o name | tail -1)"
+  kubectl describe "$newest" > "$DIR/A-newest-describe.txt" 2>&1 || true
+  kubectl logs "$newest" --tail=60 > "$DIR/A-newest-tail.log" 2>&1 || true
+  kubectl top node > "$DIR/A-top-node.txt" 2>&1 || true
   say "A: $(kubectl get scaledobject turnbase-gamehost --no-headers)"
   verdict A
   say "A: registry after the load: $(kubectl exec statefulset/turnbase-redis -- sh -c 'r() { redis-cli -a "$TURNBASE_REDIS_PASSWORD" --no-auth-warning "$@"; }; echo sessions=$(r --scan --pattern "session:*" | wc -l); for h in $(r SMEMBERS hosts); do echo $h $(r HGET host:$h activeSessions); done' 2>/dev/null | tr '\n' ' ')"
