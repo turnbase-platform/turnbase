@@ -1,14 +1,15 @@
 ## Last Session Summary
 
-**Date:** 2026-10-31 (session 256) — **`IMP-M18-15` DONE.** 206 of 209 items done. Umbrella only (reports, SUMMARY); both Platform and Game Host images rebuilt first.
+**Date:** 2026-10-31 (session 257) — **`IMP-M18-16` DONE.** 207 of 209 items done. Umbrella only (three reports, SUMMARY).
 
-- **`ramp-to-break` scaled** (`loadtest/reports/2026-10-31-m18-scaled-ramp-to-break.md`): ceiling **170 pairs** against 220 single-instance, so **NFR-ASC-006 is not met**. The abort at 180 is `tb_game_start{cold:false}` p95 2.1 s on a Game Host the autoscaler had just added (cold Espresso boot; the harness tags cold by time, not by host); move, create, join and Hikari were healthy. The Game Host flapped during the ramp (out +1,398 s, in +1,622 s, out +1,678 s: the KEDA trigger is a spiky point maximum) and step 170 lost 28% of its games. The busiest Platform pod sat at its 1.5 CPU limit from step 60 at the HPA maximum of 3.
-- **`spike`** (`…-m18-spike.md`, `CEILING=170`): 17 to 170 pairs in 30 s, 10 min hold: every threshold passes, third Game Host Ready 142 s after the rise (NFR-ASC-001), `CORRECTNESS: PASS`, but the Game Host scaled in again mid-hold. The Platform went to 3 replicas on the setup's login burst, so its reaction to the spike is not measured.
-- Harness notes: `correctness.sh` reports `FAIL games` after an aborted `ramp-to-break` (138 interrupted games are neither completed nor abandoned); the warm-up smokes leave the Platform at 3 replicas, so wait for 2 before a run; `run.sh start` fails its preflight while a pod is Terminating.
+- **`failover`** (`loadtest/reports/2026-10-31-m18-failover.md`, 85 pairs + 8 watched): **NFR-ASC-007 and NFR-ASC-002 not met.** Platform SIGKILL and graceful Game Host delete lost nothing; the Game Host SIGKILL lost 4 watched games (2 `sync_timeout`, 2 `retry_budget`), the graceful Platform delete 1 (`retry_budget`, 36 s later). Recoveries that completed took at most 20.8 s; 0 gaps/duplicates; `CORRECTNESS: FAIL games`.
+- **`up-down`** (120 pairs): Platform 2 → 3 → 2 (back about 2 min after the load, bound 10), Game Host stayed at 2, threads/Redis keys below pre-run, `CORRECTNESS: PASS`: NFR-ASC-003 met.
+- **`diurnal`** (two 20 min days to 102 pairs): no scale event after the first minute, no flapping, `CORRECTNESS: PASS`; the Platform never scaled in at the troughs, so scale-in under a daily shape was not exercised.
+- Harness notes: run prep needs `grep -c … || true` under `set -e`; after `reset.sh` + provision + smokes wait for 2 Platform replicas and no Terminating pod before `run.sh start`.
 
 ## Next Priorities
 
-**M18: `IMP-M18-01`…`15` are done; next `16` (failover, up-down, diurnal; use the flapping and 170-pair ceiling findings of `15`) (Track 1 is complete; `09` is first of Track 2). Next, Tracks 2 (`10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
+**M18: `IMP-M18-01`…`16` are done; next `17` (sustained high load and the Phase B summary; the `15` and `16` reports are the inputs) (Track 1 is complete; `09` is first of Track 2). Next, Tracks 2 (`10`) and 3 (`11…13`) may interleave with it once `01` is done; Track 4 (`14…17`) last. The design is `docs/specs/deployment/load-testing-phase-b.md`; the milestone introduction in the registry carries the live-item rules.
 
 - The proposed `NFR-ASC` targets are the orchestrator's; the owner may adjust them before `01` writes them down.
 - Still owner-held: `game-host-internals.md` §18 `OQ-6` (twelve Espresso contexts per JVM lifetime), not reached by Phase B's single-title scenarios.
