@@ -38,6 +38,9 @@ developer-facing half of `docs/requirements/game-contracts.md`.
   proto while keeping construction funneled.
 - **Per-hook result types** (`InitResult`…`PlayerLeftResult`) keep signatures
   self-documenting; a shared fluent builder shape avoids duplicated logic.
+  `InitResult` alone is restricted to `LogEffect`s: at sequence 0 no client is
+  subscribed and only the game log is retained, so no other effect could be
+  delivered (`backend-gdk-api.md` §7).
 - **`onPlayerJoined` has a default no-op**, so a minimal game implements four
   methods (NFR-DX-002). `onResync` deliberately has **no** default — a default
   empty view would silently produce a blank game for every reconnecting player.

@@ -196,7 +196,7 @@ There is no window in which a message is neither in the snapshot nor delivered. 
 
 ### Consequences worth stating
 
-- **`onInit` effects are not delivery-guaranteed.** They are fanned out to whoever is subscribed at sequence 0, which at game start is typically nobody. A game backend must not rely on them to establish a player's view; that is `onResync`'s job. (This is why `game-contracts.md` FR-FE-001 no longer promises initial state via `send_to_player`.)
+- **`onInit` can return log entries only.** Its effects are fanned out at sequence 0, when nobody is subscribed, and there is no effect journal; log entries are retained and arrive in `GAME_SYNC.payload.log`, so they are the one kind that survives. A game backend cannot use `onInit` to establish a player's view — the GDK's `InitResult` does not accept a client-facing effect; that is `onResync`'s job. (This is why `game-contracts.md` FR-FE-001 no longer promises initial state via `send_to_player`.)
 - **The resync view is always the first `game_event` a freshly loaded game FE receives** — at start, on reconnect, and on late join alike. A game FE therefore needs no discriminator to tell a snapshot from a delta: its first event is always the full view. Recorded as the resolution of frontend-gdk-api OQ-001.
 - **The game log is the only thing the platform retains per session** (FR-DELIVER-003, FR-LOG-004): bounded text entries, not opaque effect payloads. There is no effect journal.
 - **After `GAME_OVER` the session is terminated** and sync is no longer available. A client reconnecting after game end returns to the room lobby (game-rooms.md FR-LIFE-002; the results view is a client-side overlay, reconnection-flow.md FR-DC-004).

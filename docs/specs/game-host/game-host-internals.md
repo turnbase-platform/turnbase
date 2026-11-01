@@ -723,9 +723,13 @@ FR-RESP-004):
   view is reconstructed on attach by the read-only `Resync` path (§9.1), not by
   replaying past effects. Delivery of the retained log to an attaching client is the
   **game-session WebSocket spec**'s `GAME_SYNC`.
-- **`onInit` effects are not delivery-guaranteed.** They are fanned out at sequence 0,
-  when typically no client has subscribed yet. This is by design and is why `Resync`
-  exists (game-contracts.md FR-IN-006/FR-FE-001, review **I6**).
+- **`onInit` may return `log` effects only.** Its effects are fanned out at sequence 0,
+  when no client has subscribed yet, and there is no effect journal; a `log` entry is
+  retained and replayed to every attaching client, any other kind would reach nobody.
+  The GDK enforces this in the type (`InitResult` carries `List<LogEffect>`,
+  `backend-gdk-api.md` §7), so the host never receives a client-facing effect from
+  `init`. Initial state reaches clients through `Resync`
+  (game-contracts.md FR-IN-006/FR-FE-001, review **I6**).
 - **`game_over` handling.** After the game-over effect is delivered, Orchestration
   marks the session terminated, persists the `GameOutcome` to game history (see
   `game-history.md`), notifies the Room Service, then calls `TerminateSession` with

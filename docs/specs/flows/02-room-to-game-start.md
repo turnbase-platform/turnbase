@@ -146,8 +146,10 @@ exactly `new URL(gameFrontendUrl).origin`, and the whole isolation argument of
 [ADR-0007](../../decisions/0007-game-frontend-separate-domain.md) rests on that origin being the one
 the server chose.
 
-**`onInit`'s effects are fanned out to nobody**, and this is expected rather than a bug. At sequence
-0 every player is still navigating from lobby to game view with an unloaded iframe. `FR-FE-001` was
+**`onInit` can return log entries only**, because anything else would be fanned out to nobody. At
+sequence 0 every player is still navigating from lobby to game view with an unloaded iframe, and the
+platform keeps no effect journal; the game log is the one thing it retains and replays, so a `log`
+entry reaches every client at `GAME_SYNC` and the GDK's `InitResult` admits nothing else. `FR-FE-001` was
 amended to stop promising initial state via `send_to_player`; establishing a player's view is
 `onResync`'s job, and the resync is the first `game_event` any freshly loaded game FE receives —
 at start, on reconnect, and on late join alike.

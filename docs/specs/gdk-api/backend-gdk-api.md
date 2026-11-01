@@ -90,7 +90,8 @@ import io.turnbase.gdk.result.*;
 public interface TurnBaseGame<S extends GameState> {
 
     /** Game start. No prior state exists; the result establishes the initial
-     *  state (FR-IN-002, FR-STATE-005). */
+     *  state (FR-IN-002, FR-STATE-005). The result may carry log entries only
+     *  (§7). */
     InitResult<S> onInit(InitContext ctx);
 
     /** A player submitted an action (FR-IN-003). */
@@ -121,8 +122,9 @@ public interface TurnBaseGame<S extends GameState> {
      * on the game's behalf (NFR-SEC-002).
      *
      * <p>Initial state must be established here rather than in {@code onInit}'s
-     * effects: at game start no client has subscribed yet, so {@code onInit}
-     * effects are not delivery-guaranteed (FR-FE-001).
+     * result: at game start no client has subscribed yet, so a client-facing
+     * effect from {@code onInit} would reach nobody. {@code InitResult} therefore
+     * cannot carry one (§7, FR-FE-001).
      */
     ViewResult onResync(S state, ResyncContext ctx);
 }
@@ -387,7 +389,7 @@ public final class Effects {
     public static Effect broadcast(Object payload) { ... }
     public static Effect sendToPlayer(UUID playerId, Object payload) { ... }
     public static Effect sendToTeam(UUID teamId, Object payload) { ... }
-    public static Effect log(String text) { ... }
+    public static LogEffect log(String text) { ... }
     public static Effect gameOver(GameOutcome outcome, Object resultsPayload) { ... }
 }
 ```
@@ -450,6 +452,33 @@ exactly. Distinct types (rather than one shared result) keep hook signatures
 self-documenting per FR-GDK-009; the shared builder shape keeps the
 implementation duplication mechanical. The contained state is **mandatory**
 (FR-RESP-002); the effect list may be empty (FR-RESP-003).
+
+**`InitResult` is the exception to "mirror this exactly": its effects are
+`List<LogEffect>`, and its builder's `effect`/`effects` accept `LogEffect`
+only.** `Effects.log(..)` returns `LogEffect` so it fits every result type. The
+reason is delivery, not taste:
+
+- `onInit` runs inside `CreateSession`, at sequence 0, *before* the room is
+  committed `IN_PROGRESS` and before `GAME_STARTED` is broadcast. No client
+  knows the `sessionId`, none has loaded the iframe, none is subscribed
+  (`flows/02-room-to-game-start.md` steps 8–11).
+- The platform keeps no effect journal and never replays effects
+  (`platform-architecture.md` FR-DELIVER-005). The one thing it retains per
+  session is the game log (FR-DELIVER-003), which it hands to every client that
+  attaches.
+- So a `log` entry from `onInit` is the only effect with a consumer — every
+  client sees it in `GAME_SYNC.payload.log` — while `broadcast`,
+  `send_to_player` and `send_to_team` were accepted and silently reached
+  nobody, and `game_over` would terminate a session nobody has seen. A type
+  that admits them is a trap that compiles; this one does not.
+- What a client must know at game start belongs in the **state**, which
+  `onResync` turns into that viewer's first picture (FR-IN-006, FR-FE-001). A
+  game that wants a start-of-game reveal derives it from that view, not from an
+  effect.
+
+Widening this later (for example a single-use buffer that delivers init effects
+with each viewer's first resync) would be additive; narrowing it later would
+break every game that used the wide form, which is why it is narrow now.
 
 Typical usage:
 
