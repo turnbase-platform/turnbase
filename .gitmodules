@@ -16,3 +16,6 @@
 [submodule "turnbase-game-tictactoe"]
 	path = turnbase-game-tictactoe
 	url = git@github.com:turnbase-platform/turnbase-game-tictactoe.git
+[submodule "turnbase-game-7wonders-duel"]
+	path = turnbase-game-7wonders-duel
+	url = git@github.com:turnbase-platform/turnbase-game-7wonders-duel.git

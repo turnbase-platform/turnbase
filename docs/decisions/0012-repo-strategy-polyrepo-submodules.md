@@ -31,6 +31,7 @@ All repos live under the `turnbase-platform` GitHub organisation (`github.com/tu
 | `turnbase-game-host` | Game Host (GraalVM CE for JDK 21 + Truffle) | Docker image |
 | `turnbase-frontend` | Platform frontend (React 19, TypeScript) | Docker image / static assets |
 | `turnbase-game-tictactoe` | First official game — a **consumer** of the published GDK, not a platform component (`IMP-M3-10`; ADR-0006) | Game bundle (`<gameId>.zip`, `bundle-format.md` §2) |
+| `turnbase-game-7wonders-duel` | Second official game (skeleton) — a **consumer** of the published GDK, with a React frontend; not a platform component (ADR-0006) | Game bundle (`<gameId>.zip`, `bundle-format.md` §2) |
 
 All repos are **private** during Phase 0. Visibility may be changed to public when the project is ready to showcase.
 
