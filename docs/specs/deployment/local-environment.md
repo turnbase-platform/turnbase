@@ -320,8 +320,9 @@ Prerequisites: Docker with Compose v2, JDK 21, Node, `make`, `zip`. From the rep
 ```bash
 git clone --recurse-submodules https://github.com/turnbase-platform/turnbase && cd turnbase
 
-# 1. The game bundle the seeder uploads (§6) — without it the catalog is empty
-(cd turnbase-game-tictactoe && ./mvnw package && npm ci && npm run build && ./scripts/package.sh)
+# 1. The game bundles the seeder uploads (§6) — without them the catalog is empty.
+#    Builds Tic-Tac-Toe and 7 Wonders Duel into target/seed-bundles/
+scripts/seed-bundles.sh
 
 # 2. The two images compose does not build (ADR-0012: the platform repo never reads a sibling path)
 docker build -t turnbase/game-host:dev turnbase-game-host

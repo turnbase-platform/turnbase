@@ -16,7 +16,7 @@ endpoints are on loopback only: platform `8081`, game host `8082`. The driver is
 Docker with compose v2, Node 22, and the game's `node_modules` (the driver borrows its `ws`):
 `turnbase-game-tictactoe/node_modules/ws` must exist. The images
 `turnbase/platform:dev`, `turnbase/game-host:dev`, `turnbase/frontend:dev` must be built; a
-`turnbase-game-tictactoe/target/seed/<gameId>.zip` bundle is what gets seeded.
+`target/seed-bundles/<gameId>.zip` (Tic-Tac-Toe and 7 Wonders Duel, from `scripts/seed-bundles.sh`) is what gets seeded.
 
 ## 1. Secrets (once)
 

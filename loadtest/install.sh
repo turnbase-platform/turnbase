@@ -36,8 +36,8 @@ fi
 if [ -z "${SEED_HOST_PATH:-}" ]; then
   WINUSER="$(cmd.exe /c 'echo %USERNAME%' 2>/dev/null | tr -d '\r' || true)"
   [ -n "$WINUSER" ] || { echo "set SEED_HOST_PATH (cannot find the Windows user)" >&2; exit 1; }
-  SEED_SRC="$ROOT/turnbase-game-tictactoe/target/seed"
-  ls "$SEED_SRC"/*.zip >/dev/null 2>&1 || { echo "no bundle in $SEED_SRC; build it (turnbase-game-tictactoe README)" >&2; exit 1; }
+  SEED_SRC="$ROOT/target/seed-bundles"
+  ls "$SEED_SRC"/*.zip >/dev/null 2>&1 || { echo "no bundles in $SEED_SRC; run scripts/seed-bundles.sh" >&2; exit 1; }
   mkdir -p "/mnt/c/Users/$WINUSER/turnbase-seed"
   cp "$SEED_SRC"/*.zip "/mnt/c/Users/$WINUSER/turnbase-seed/"
   SEED_HOST_PATH="/run/desktop/mnt/host/c/Users/$WINUSER/turnbase-seed"
