@@ -328,6 +328,11 @@ the player is reading.
 So: one route, one mounted iframe, and an overlay. `GAME_ENDED` sets an overlay flag; **Return to
 Lobby** clears it and unmounts.
 
+**While a game is shown, the room takes the whole window** — the shell's navigation and sky are
+removed and the only platform control is the room dock. That is specified in
+[`immersive-room.md`](immersive-room.md); it changes presentation only, so the one mounted iframe
+and the overlay flag above are unchanged.
+
 **Entry enrols only members.** The room view's first call is `GET /api/rooms/{id}`. If `viewerRole` is
 set it re-enters through the idempotent join; if it is `null` the view renders the join prompt and
 `POST …/participants` is sent only from a button (`platform-views.md` *Room — Lobby*, Entry; a link
@@ -382,5 +387,6 @@ coverage on HTTP and WebSocket clients rather than a browser.
 | `frontend-gdk-api.md` §8/§9 | §5 origin checks and the bootstrap obligation |
 | FR-ALERT-001…006, FR-NOTIF-001/002 | §7 |
 | FR-LIFE-003, VW-RRESULT-* | §8 room view |
+| VW-RGAME-009…016 | [`immersive-room.md`](immersive-room.md) |
 | FR-REJOIN-002, VW-ROOMS-005 | §8 reconnection card |
 | `platform-ui-library.md` | §2 — consumed, never re-implemented |

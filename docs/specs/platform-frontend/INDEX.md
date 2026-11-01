@@ -23,6 +23,7 @@ separately published component library.
 | File | Topic |
 |------|-------|
 | [design-system.md](design-system.md) | **Astryx integration** (ADR-0013) and the **TurnBase theme** (ADR-0017): packages and pinning, setup, the built theme and provider order, the compose→swizzle→write ladder, the `ui/` import boundary and the hook-plus-view split, CSS Modules and `--tb-*` tokens for our own code, and the CLI/MCP lookup path |
+| [immersive-room.md](immersive-room.md) | **The room while a game is shown** (owner-specified 2026-10-27): the game fills the window, the one platform control is the round room dock that expands into the room panel, and the chat can be undocked into a movable floating window |
 | [shell-architecture.md](shell-architecture.md) | Structure and stack, routing and auth tiers, the WebSocket client, the game-iframe trust boundary, the platform origin's Content-Security-Policy, notifications and alerts, room and results views, testing |
 
 ## Key Decisions

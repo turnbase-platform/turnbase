@@ -257,8 +257,16 @@ Note: VW-RLOBBY-005 (Invite Friends) is hidden for Guest hosts because guests ca
 | VW-RGAME-006 | Chat panel (unified message view) | Players only; spectators excluded per `in-room-chat.md` FR-CHAN-004 | Visible | Visible |
 | VW-RGAME-007 | Team channel tab | Players with a team assignment; only when the game declares team support | Visible | Visible |
 | VW-RGAME-008 | Write channel switcher | Players with access to both room and team channels | Enabled | Enabled |
+| VW-RGAME-009 | Game frame fills the window; the navigation, header and every other platform element are removed while it is shown | Player or Spectator | Visible | Visible |
+| VW-RGAME-010 | Room dock — a round, semitransparent TurnBase button, bottom-left; opaque with a subtle animation on hover and focus | All participants | Visible | Visible |
+| VW-RGAME-011 | Room panel — the dock expands into it; room info, participants, host controls, chat and Leave Room (VW-RGAME-002…008 live here) | All participants | Visible | Visible |
+| VW-RGAME-012 | Leave Room asks for confirmation before it is sent | All participants | Enabled | Enabled |
+| VW-RGAME-013 | Undock chat button | Players only (FR-CHAN-004) | Enabled | Enabled |
+| VW-RGAME-014 | Floating chat window — semitransparent, movable, with the same log and composer | Players only | Visible | Visible |
+| VW-RGAME-015 | Dock chat button (closes the floating window) | Players only | Enabled | Enabled |
+| VW-RGAME-016 | While the chat is floating it is absent from the room panel | Players only | Hidden | Hidden |
 
-Note: Chat behavior, channel rules, and message format are fully specified in `in-room-chat.md`.
+Note: Chat behavior, channel rules, and message format are fully specified in `in-room-chat.md`. the elements above (VW-RGAME-002…008) are reached through the room panel (VW-RGAME-011); the behaviour of VW-RGAME-009…016 is specified in [`../specs/platform-frontend/immersive-room.md`](../specs/platform-frontend/immersive-room.md). The same screen serves Post-Game Results (below): the dock and panel carry VW-RRESULT-002…005.
 
 ---
 

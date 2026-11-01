@@ -257,6 +257,7 @@ pinning are settled there. Items name it only where they are the item that *esta
 | IMP-M18-15 | Phase B runs: ceiling and spike | docs (umbrella) | M18-14 | DONE |
 | IMP-M18-16 | Phase B runs: failover, up-down and diurnal | docs (umbrella) | M18-15 | DONE |
 | IMP-M18-17 | Phase B runs: sustained high load, and the Phase B summary | docs (umbrella) | M18-16 | DONE |
+| IMP-M19-01 | The immersive game room: full-window game, room dock and panel, floating chat | frontend, docs | — | DONE |
 
 **209 live items.** `IMP-M18-01…17` were added 2026-10-24 by the Phase B design round ([`load-testing-phase-b.md`](../specs/deployment/load-testing-phase-b.md)): spec groundwork (`01`), capacity on one node with the cores reallocated to PostgreSQL (`02…07`), the Platform scaling out with room affinity and a two-replica minimum (`08…10`), the Game Host spreading, `OQ-5` by measurement and KEDA autoscaling (`11…13`), and the harness and runs (`14…17`); see the M18 section. `IMP-M17-01…05` were added 2026-10-22 from the M16 re-verification, in which the database was the first thing to break (`platform-operations.md` FR-DBQ-*, NFR-DBQ-*): the sweep re-read (`01`), history-independent game-path queries (`02`), an explicit pool size (`03`), the pool size measured (`04`) and the re-verification runs (`05`); see the M17 section. `IMP-M16-01…15` were added 2026-10-19 from the 18 findings of Phase A ([`load-testing.md`](../specs/deployment/load-testing.md) §13): the harness and record corrections (`01`), the Game Host wedge and boot fixes (`02…06`), the platform's room ownership, Redis keys, scans and threads (`07…10`), the subscribe race and the 300 s stall (`11`, `12`), the CPU profile (`13`) and the two re-verification runs (`14`, `15`); see the M16 section. `IMP-M15-01…13` were added 2026-10-18 by the load-testing design ([`load-testing.md`](../specs/deployment/load-testing.md)): the spec groundwork and the four fixes the chart and the platform need before anything can be measured (`01…06`), the k6 harness and its scenarios (`07…10`), and the baseline runs, split into three run items so that none outlasts a session (`11…13`); see the M15 section. `IMP-M14-01…03` were added 2026-10-17 by ADR-0018: a game start that survives a cold, restarting or wedged Game Host and shows its progress; see the M14 section. `IMP-M13-01…08` were added 2026-10-12 after the owner reviewed the running M12 build and found it did not match the approved prototype: see the M13 section. `IMP-M12-01…11` were added 2026-10-11 by [ADR-0017](../decisions/0017-turnbase-visual-identity.md): the approved prototype look replaces the stock Astryx theme across every view while the services, reducers and sockets stay as they are (see the M12 section). Before them, 137 live items. `IMP-M11-01…08` were added 2026-10-10 by [ADR-0016](../decisions/0016-spring-boot-4-migration.md), closing `IMP-GATE-97`: both Spring Boot services move to Boot 4.1.1 because two CRITICAL `spring-webmvc` CVEs have no fix on the 3.5 line. **M11 runs before M10** — every `IMP-M10-*` item depends on `IMP-M11-08` — and its items are judged locally with CI not awaited (see the M11 section). `IMP-M10-01…24` were added 2026-10-10 from the
 [E2E & security audit](../reviews/2026-10-10-e2e-security-audit/INDEX.md) (`AUD-01…24`), the first
@@ -8927,6 +8928,29 @@ explained (and fixed if it is the harness). k6 pinned to 3 cores (§4.4).
 - `check-corpus.py` clean; merged and pushed.
 
 ---
+
+## M19 — The immersive game room
+
+Opened 2026-10-27 by the owner while playtesting 7 Wonders Duel on the platform: the iframe was a 600 px
+strip inside the page layout and the game was barely playable. The design is
+[`immersive-room.md`](../specs/platform-frontend/immersive-room.md); it is presentation only — no server change.
+
+### IMP-M19-01 — The immersive game room
+
+**Repo:** `turnbase-frontend`, `turnbase` · **Depends on:** — (owner-specified; built on the 7WD worktree branch)
+
+**Read first:** `immersive-room.md`; `platform-views.md` *Room — In Progress* and *Post-Game Results*;
+`shell-architecture.md` §5 and §8; `design-system.md`; `in-room-chat.md` FR-CHAN-004.
+
+**Done when:**
+- While a game is shown the iframe fills the window and the shell's navigation, sky, room header and page
+  padding are removed (VW-RGAME-009); the lobby is unchanged.
+- The room dock and its expanding panel behave as `immersive-room.md` §2.2–2.3, including Leave Room with
+  confirmation, the host's transfer/kick, and Return to lobby once the match is over (VW-RGAME-010…012).
+- The chat can be undocked into a movable semitransparent window and docked again; while floating it is absent
+  from the panel; the draft survives (VW-RGAME-013…016).
+- Component and room tests, lint, typecheck and `npm test` green; the visuals checked in both appearances at
+  desktop and phone width.
 
 ## Readiness gates
 
