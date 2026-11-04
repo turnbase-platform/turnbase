@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Structural checks over the TurnBase documentation corpus.
 
-Seven checks, run from the repository root:
+Eight checks, run from the repository root:
 
   1. links    — every relative markdown link resolves to a file that exists
   2. cites    — every document-qualified requirement ID is DEFINED in that document
@@ -11,6 +11,8 @@ Seven checks, run from the repository root:
   6. items    — every cited IMP-Mn-nn identifier resolves to a section
   7. counts   — every count CLAUDE.md states (requirement documents, work items,
                 repositories, submodules) equals the number on disk
+  8. code-maps — every class, package and path named in an ARCHITECTURE.md (the
+                umbrella's and each service's) resolves in the code it maps
 
 Checks 2 and 3 are the ones that have historically found real defects: the
 2026-08-16 round found 19 mis-qualified citations and a requirement range
@@ -36,7 +38,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOCS = os.path.join(ROOT, "docs")
-EXTRA = ["CLAUDE.md", "STATUS.md"]
+EXTRA = ["CLAUDE.md", "STATUS.md", "ARCHITECTURE.md"]
 
 # A requirement identifier: FR-ROOM-001, NFR-SEC-003, CON-012, OQ-002, VW-JOIN-001, IR-24.
 ID = r"(?:FR|NFR|CON|OQ|VW|IR)-[A-Z]+-\d+[a-z]?|(?:CON|OQ|IR)-\d+[a-z]?"
@@ -368,6 +370,92 @@ def check_counts(_files: list[str]) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# code-maps: ARCHITECTURE.md files name code; the names must resolve.
+#
+# A backticked token in a map is checked when it has one of these shapes:
+#   io.turnbase.x.y            a Java package -> a directory under src/main/java (or test)
+#   Name / Name.method         a class or component (also useFoo) -> a file Name.<ext>
+#                              somewhere in the repository; `.method` must occur in it
+#   a/b/c.ext, a/b/            a path relative to the repository root
+#   file.ext                   a file of that name somewhere in the repository
+# Everything else (endpoints, STOMP destinations, `rpc X`, prose) is not checked.
+
+MAP_REPOS = ["", "turnbase-platform", "turnbase-game-host", "turnbase-frontend", "turnbase-sdk"]
+MAP_SKIP_DIRS = {"node_modules", "target", "dist", "coverage", ".git", "test-results", "build"}
+MAP_EXT = r"(?:java|ts|tsx|css|xml|proto|md|yml|yaml|json|sh|py|sql|properties|mjs|js)"
+MAP_CLASS = re.compile(r"^((?:[A-Z]|use[A-Z])[A-Za-z0-9]*)(?:\.([a-z][A-Za-z0-9]*))?$")
+MAP_PACKAGE = re.compile(r"^io\.turnbase(?:\.[a-z][a-z0-9]*)+$")
+MAP_FILE = re.compile(r"^[\w./@-]*[\w-]\." + MAP_EXT + r"$")
+MAP_PATH_DIR = re.compile(r"^[\w.@-]+(?:/[\w.@-]+)*/$")
+MAP_CODE_EXT = (".java", ".ts", ".tsx", ".js", ".mjs")
+
+
+def map_index(base: str) -> tuple[dict[str, list[str]], set[str], set[str]]:
+    """basename-without-ext -> files, all basenames, all relative dir paths under base."""
+    stems: dict[str, list[str]] = {}
+    names: set[str] = set()
+    dirs: set[str] = set()
+    for d, subs, fs in os.walk(base):
+        subs[:] = [x for x in subs if x not in MAP_SKIP_DIRS]
+        dirs.add(os.path.relpath(d, base).replace(os.sep, "/"))
+        for f in fs:
+            names.add(f)
+            stems.setdefault(f.split(".")[0], []).append(os.path.join(d, f))
+    return stems, names, dirs
+
+
+def code_files(base: str, stems: dict[str, list[str]]) -> list[str]:
+    return [f for fs in stems.values() for f in fs if f.endswith(MAP_CODE_EXT)]
+
+
+def check_code_maps(_files: list[str]) -> list[str]:
+    bad = []
+    for repo in MAP_REPOS:
+        base = os.path.join(ROOT, repo) if repo else ROOT
+        label = (repo + "/" if repo else "") + "ARCHITECTURE.md"
+        path = os.path.join(base, "ARCHITECTURE.md")
+        if not os.path.isfile(path):
+            bad.append(f"{label}: missing (every service and the umbrella carry a code map)")
+            continue
+        stems, names, dirs = map_index(base)
+        # The umbrella map names no code of its own: its tokens resolve in the umbrella tree.
+        for n, line in enumerate(read(path).splitlines(), 1):
+            for tok in re.findall(r"`([^`\s]+)`", line):
+                tok = tok.rstrip(".,;:")
+                if MAP_PACKAGE.match(tok):
+                    rel = tok.replace(".", "/")
+                    if not any(d.endswith(rel) for d in dirs):
+                        bad.append(f"{label}:{n}: package `{tok}` has no directory")
+                elif MAP_PATH_DIR.match(tok) and tok.startswith(("docs/", "scripts/")):
+                    if not os.path.isdir(os.path.join(ROOT, tok)):  # umbrella paths, from any map
+                        bad.append(f"{label}:{n}: path `{tok}` does not exist")
+                elif MAP_PATH_DIR.match(tok):
+                    if tok.rstrip("/") not in dirs:
+                        bad.append(f"{label}:{n}: path `{tok}` does not exist")
+                elif MAP_FILE.match(tok):
+                    if "/" in tok:
+                        if not os.path.exists(os.path.join(base, tok)):
+                            bad.append(f"{label}:{n}: path `{tok}` does not exist")
+                    elif tok not in names:
+                        bad.append(f"{label}:{n}: file `{tok}` not found")
+                else:
+                    m = MAP_CLASS.match(tok)
+                    if not m:
+                        continue
+                    cands = [f for f in stems.get(m.group(1), []) if f.endswith(MAP_CODE_EXT)]
+                    if not cands:  # declared inside a file named otherwise (gameRelay.ts: class GameRelay)
+                        decl = re.compile(r"\b(?:class|interface|enum|record|type|function|const)\s+"
+                                          + re.escape(m.group(1)) + r"\b")
+                        cands = [f for f in code_files(base, stems) if decl.search(read(f))]
+                    if not cands:
+                        bad.append(f"{label}:{n}: `{tok}` — no class or component {m.group(1)}")
+                    elif m.group(2) and not any(
+                            re.search(r"\b" + re.escape(m.group(2)) + r"\b", read(f)) for f in cands):
+                        bad.append(f"{label}:{n}: `{tok}` — {m.group(1)} has no member {m.group(2)}")
+    return bad
+
+
+# ---------------------------------------------------------------------------
 
 CHECKS = {
     "links": ("relative links resolve", check_links),
@@ -377,6 +465,7 @@ CHECKS = {
     "registry": ("the register table and the item sections agree, archives included", check_registry),
     "items": ("every cited IMP-* identifier resolves to a section", check_items),
     "counts": ("counts stated in CLAUDE.md match the disk", check_counts),
+    "code-maps": ("ARCHITECTURE.md maps name code that exists", check_code_maps),
 }
 
 
@@ -395,7 +484,7 @@ def main(argv: list[str]) -> int:
         label, fn = CHECKS[name]
         problems = fn(files)
         mark = "ok  " if not problems else "FAIL"
-        print(f"[{mark}] {name:9} {label} — {len(problems)} problem(s)")
+        print(f"[{mark}] {name:10} {label} — {len(problems)} problem(s)")
         for line in problems:
             print(f"         {line}")
         failed += len(problems)
