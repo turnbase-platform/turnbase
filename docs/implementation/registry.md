@@ -60,7 +60,7 @@ Every item of these is `DONE` (or `CANCELLED`). Their sections and register rows
 |---|---|---|---|---|
 | **M20 — Refinement** ||||
 | IMP-M20-01 | Registry archive: closed milestones out of the session's way | docs | — | DONE |
-| IMP-M20-02 | `STATUS.md` reset to the present | docs | M20-01 | READY |
+| IMP-M20-02 | `STATUS.md` reset to the present | docs | M20-01 | DONE |
 | IMP-M20-03 | `CLAUDE.md` trim, counts checked, memory aligned | docs | M20-02 | READY |
 | IMP-M20-04 | Code maps: one checked `ARCHITECTURE.md` per service | platform, game-host, frontend, sdk, docs | — | READY |
 | IMP-M20-05 | Code→spec references checked by the corpus checker | docs, platform, frontend | — | READY |

@@ -490,6 +490,15 @@ That reasoning outlives the freeze; deleting the files would discard it and leav
 like neglect. **Keep landing new `ignore` entries in the same change as the pin they protect**, for
 the same reason.
 
+Two rules for those entries, both learned the hard way: **an exact-build pin** (Espresso, Astryx —
+"the build a spike verified") takes an `ignore` with no version floor, because a patch bump is still a
+different build and a `>=<major>` range does not cover it; and **verify that a `dependency-name`
+actually matches** — a docker entry never includes the registry host (`ghcr.io/…` does not match, the
+bare image name does).
+
+**Line endings:** `.gitattributes` pins `*.sh`, git hooks and `mvnw` to LF in every repository, or a CRLF
+checkout makes git silently refuse to run a hook.
+
 Re-enabling is restoring the limits, nothing else. Bumping a dependency while frozen is an ordinary
 change on an ordinary branch.
 
