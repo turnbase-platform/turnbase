@@ -1,17 +1,18 @@
 ## Last Session Summary
 
-**Date:** 2026-10-31 (session 258) — **`IMP-M18-17` DONE; M18 and the register are complete: 209 of 209 items done.** Umbrella only (one report, SUMMARY, §13 lines).
+**Date:** 2026-11-04 (session 259) — **Refinement spike done; M20 (22 items) registered. 210 of 232 items done.** Umbrella only.
 
-- **`sustained-high`** (`loadtest/reports/2026-10-31-m18-sustained-high.md`): 119 pairs (70% of the 170-pair scaled ceiling) for 60 min, 770,040 games, 0 abandoned, 0 gaps/duplicates, 15 errors in 9.26 million operations, `CORRECTNESS: PASS`, no restarts. **NFR-ASC-005 met**: 0 scale events after the first minute, k6 p99 lower at the end than at the start (create 106 → 88 ms). Platform threads 129 → 172 at the end of the hold, not isolated.
-- **`SUMMARY.md` *M18*** now has the FR-ASC/NFR-ASC table (pass: FR-001, 002, 005, NFR-001, 003, 004, 005; fail: FR-004, NFR-002, 006, 007; FR-003 not measured by a load run), the owner's three questions for the scaled deployment, and what Phase C starts from (Game Host cold start and flapping, game loss on a Game Host SIGKILL, standby warm-up). `load-testing.md` §13 findings 15 and 16 carry `**M18:**` lines.
-- Harness note: after `reset.sh` + provision + two smokes, wait for 2 Platform replicas and no Terminating pod before `run.sh start`; `CEILING=170 USERS=3000`.
+- **Spike** (`docs/reviews/2026-11-04-refinement-spike/INDEX.md`): findings `RS-01…24` over code, docs, architecture, Claude's effectiveness and test cost. Headlines: CI refused for billing on most repositories; frontend Trivy and 7WD bootstrap token are real failures; the umbrella pins CI-unverified refs; the platform IT suite boots Spring per test method (failsafe 812 s of a 24 min job); `RoomRepository` 3,242 lines; 7 dangling code→spec refs; registry 9,026 lines; auto-memory stale.
+- **Owner's answers:** fully open source; games based on existing games credit their authors (7WD: Bauza and Cathala, art Coimbra, Repos Production 2015), in the manifest, shown by the platform; the owner writes to the publisher; `IMP-*` refs in code stay; registry and Claude-critical files archived; release = cloud CI/CD (M21), deployment (M22) one provider, a single-instance profile that may scale to zero alongside Kubernetes; PostgreSQL stays.
+- **M20 — Refinement** registered in `registry.md` (`IMP-M20-01…22`), milestone map row added; the approved design was deleted once registered. Auto-memory corrected (RS-19).
 
 ## Next Priorities
 
-**All 209 work items are DONE.** No item is READY or PARTIAL. Open ground is owner-held: the Phase C starting points in `loadtest/reports/SUMMARY.md` (*What Phase C starts from*) and `game-host-internals.md` §18 `OQ-6`. Next session: ask the owner what to do next (a Phase C scope, or a new audit).
+**M20 is open; all 22 items READY by gates** (dependencies inside M20 set the order). Judged locally while CI is refused for billing.
 
-- The proposed `NFR-ASC` targets are the orchestrator's; the owner may adjust them before `01` writes them down.
-- Still owner-held: `game-host-internals.md` §18 `OQ-6` (twelve Espresso contexts per JVM lifetime), not reached by Phase B's single-title scenarios.
+- Start with `IMP-M20-01` (registry archive) → `02` (`STATUS.md` reset) → `03` (`CLAUDE.md` trim); `04`, `05`, `07`, `08` may run in parallel.
+- Owner-held: CI billing (or wait for the public flip); the 7WD `TURNBASE_SDK_PAT`-style bootstrap secret (re-check live); the Repos Production reply, which decides whether 7WD ships under its name.
+- After M20: M21 public release (licence, README, gitleaks, published artifacts), M22 cloud deployment (ADR-0021 from `IMP-M20-15` first), then Phase C.
 
 **[`docs/implementation/conventions.md`](docs/implementation/conventions.md) applies to every item and
 is not repeated in read-lists** — package layout, static analysis, Spotless, test suffixes, JaCoCo,
