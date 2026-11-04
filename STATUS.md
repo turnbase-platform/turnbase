@@ -1,13 +1,14 @@
 ## Last Session Summary
 
-**Date:** 2026-11-04 (session 261) — **`IMP-M20-02` done: `STATUS.md` reset to the present. 212 of 232 items done.** Umbrella only.
+**Date:** 2026-11-04 (session 262) — **`IMP-M20-03` done: `CLAUDE.md` trimmed, counts checked. 213 of 232 items done.** Umbrella only.
 
-- The file was 260 lines of M0-era text; it is now this page. Lessons worth keeping went to `conventions.md` §6 (Dependabot `ignore` rules, line endings); the rest was already in `conventions.md`/submodule `CLAUDE.md` or is spent. The commit body lists each.
-- The per-document coverage table and the open-questions table were dropped: `docs/requirements/INDEX.md`, `docs/specs/INDEX.md` and each document's own *Open questions* are the authority (`IMP-M20-20` triages them).
+- *Current Phase* is now three lines linking the register; per-milestone history and the work-item counts left `CLAUDE.md`. Restated "five repositories" wording removed.
+- New `counts` check in `scripts/check-corpus.py` (7th): numbers `CLAUDE.md` states for requirement documents, work items, repositories and submodules must equal the disk; verified to fail on a planted wrong count.
+- Auto-memory (outside the repo, not checkable): `MEMORY.md` + `project_turnbase_overview.md` — a pointer only, deferring to `CLAUDE.md`/`STATUS.md`; no contradicting claim.
 
 ## Current State
 
-- **Phase 1, M20 (refinement) open**: 20 of 22 items remain. M0–M19 are closed (archived under `docs/implementation/archive/`).
+- **Phase 1, M20 (refinement) open**: 19 of 22 items remain. M0–M19 are closed (archived under `docs/implementation/archive/`).
 - **Red / not run:** CI is refused for billing, so every item is judged locally (`spotless:apply`, `verify`, `verify -Pintegration`). Nothing else is known red.
 - **Owner-held:** CI billing (or the public flip); the 7WD bootstrap secret (re-check live before reporting it); the Repos Production reply, which decides whether 7WD ships under its name.
 

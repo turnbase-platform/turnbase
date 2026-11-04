@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Structural checks over the TurnBase documentation corpus.
 
-Six checks, run from the repository root:
+Seven checks, run from the repository root:
 
   1. links    — every relative markdown link resolves to a file that exists
   2. cites    — every document-qualified requirement ID is DEFINED in that document
@@ -9,6 +9,8 @@ Six checks, run from the repository root:
   4. index    — every file under docs/ is registered in its nearest INDEX.md
   5. registry — register rows and item sections agree (registry.md and archive/)
   6. items    — every cited IMP-Mn-nn identifier resolves to a section
+  7. counts   — every count CLAUDE.md states (requirement documents, work items,
+                repositories, submodules) equals the number on disk
 
 Checks 2 and 3 are the ones that have historically found real defects: the
 2026-08-16 round found 19 mis-qualified citations and a requirement range
@@ -330,6 +332,41 @@ def check_items(files: list[str]) -> list[str]:
     return bad
 
 
+WORDS = {w: i for i, w in enumerate(
+    "zero one two three four five six seven eight nine ten eleven twelve thirteen "
+    "fourteen fifteen sixteen seventeen eighteen nineteen twenty".split())}
+COUNT = re.compile(
+    r"\b(\d+|" + "|".join(WORDS) + r")\s+"
+    r"(requirement documents|per-feature documents|work items|repositories|submodules)\b", re.I)
+
+
+def actual_counts() -> dict[str, int]:
+    reqs = os.path.join(DOCS, "requirements")
+    rows, _, _ = registry_items()
+    gm = read(os.path.join(ROOT, ".gitmodules"))
+    mods = len(re.findall(r"^\[submodule ", gm, re.M))
+    return {
+        "requirement documents": len([f for f in os.listdir(reqs) if f.endswith(".md") and f != "INDEX.md"]),
+        "work items": len(rows),
+        "submodules": mods,
+        "repositories": mods + 1,  # the submodules plus this umbrella repository
+    }
+
+
+def check_counts(_files: list[str]) -> list[str]:
+    """Every number CLAUDE.md states about the corpus equals what is on disk."""
+    actual = actual_counts()
+    bad = []
+    for n, line in enumerate(read(os.path.join(ROOT, "CLAUDE.md")).splitlines(), 1):
+        for m in COUNT.finditer(line):
+            said = m.group(1).lower()
+            said_n = int(said) if said.isdigit() else WORDS[said]
+            noun = m.group(2).lower().replace("per-feature", "requirement")
+            if said_n != actual[noun]:
+                bad.append(f"CLAUDE.md:{n}: states {said_n} {noun}, found {actual[noun]}")
+    return bad
+
+
 # ---------------------------------------------------------------------------
 
 CHECKS = {
@@ -339,6 +376,7 @@ CHECKS = {
     "index": ("every document is registered in its nearest INDEX", check_index),
     "registry": ("the register table and the item sections agree, archives included", check_registry),
     "items": ("every cited IMP-* identifier resolves to a section", check_items),
+    "counts": ("counts stated in CLAUDE.md match the disk", check_counts),
 }
 
 

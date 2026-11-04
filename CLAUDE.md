@@ -15,23 +15,17 @@ TurnBase is a platform for hosting and playing multiplayer games online. It prov
 
 ## Current Phase
 
-**Phase 1 — Implementation** (under way, **211 of 232 work items done** (M20 — 22 items, refinement before the repositories go public, from the [2026-11-04 refinement spike](docs/reviews/2026-11-04-refinement-spike/INDEX.md) — was opened 2026-11-04 and is open; M19 — 1 item, the immersive game room — is closed; M18 — 17 items, Phase B of load testing: capacity and autoscaling, [`load-testing-phase-b.md`](docs/specs/deployment/load-testing-phase-b.md) — was opened 2026-10-24 and is closed; M13 — 8 items, prototype fidelity — is closed, accepted by the owner 2026-10-24; M17 — 5 items, database capacity from the M16 findings — was opened 2026-10-22 and is closed; M15 — 13 items, Phase A of load and scalability testing, [`load-testing.md`](docs/specs/deployment/load-testing.md) — is closed; M16 — 15 items, the pre-Phase-B fixes for the Phase A findings — was opened 2026-10-19 and is closed); M9 closed the 2026-10-04 completeness audit, M10 — 24 items — opened from the 2026-10-10 E2E & security audit and is now closed, as is M11, the Spring Boot 4 migration — 8 items; [ADR-0016](docs/decisions/0016-spring-boot-4-migration.md). M12 — 11 items — is closed too: the TurnBase visual identity, [ADR-0017](docs/decisions/0017-turnbase-visual-identity.md); M14 — 3 items — is closed: game start resilience, [ADR-0018](docs/decisions/0018-game-start-resilience.md)). Phase 0 is complete and has
-been audited for implementation-readiness — but the first item to actually compile against the corpus
-found three contradictions in its own read-list, so treat "audited" as meaning *no known* defects
-rather than *no* defects.
+**Phase 1 — Implementation**, under way; milestone M20 (refinement before the repositories go public) is open.
+The register ([`registry.md`](docs/implementation/registry.md)) holds the open items and
+[STATUS.md](STATUS.md) the progress; closed milestones are in `docs/implementation/archive/`.
 
-Check [STATUS.md](STATUS.md) at the start of each session for current state, last session summary,
-and next priorities.
+Check [STATUS.md](STATUS.md) at the start of each session.
 
-**Before writing any code**, read [docs/implementation/INDEX.md](docs/implementation/INDEX.md) — the
-work-item registry — and
-[docs/implementation/conventions.md](docs/implementation/conventions.md), which settles package
-layout, formatting, test layout, coverage and cross-repo versions once for every repository so that
-individual work items do not each decide them. The 2026-08-16 readiness audit's **23 blockers are all closed**
-([register](docs/reviews/2026-08-16-implementation-readiness/INDEX.md)), so no work item is gated;
-an item's status is whatever its own dependencies imply. If a new specification defect is found while
-implementing, the fix belongs in the specification, not in code — use the **`spec-defect`** skill; it
-fired three times on the first item alone, so this is the normal case, not an exception.
+**Before writing any code**, read [docs/implementation/INDEX.md](docs/implementation/INDEX.md) and
+[docs/implementation/conventions.md](docs/implementation/conventions.md) (package layout, formatting,
+tests, coverage, cross-repo versions — settled once, not per item). No work item is gated by the
+2026-08-16 readiness audit. A specification defect found while implementing is fixed in the
+specification, not in code — use the **`spec-defect`** skill.
 
 ## Tech Stack
 
@@ -76,7 +70,7 @@ turnbase/                    # This repo (landing + docs)
 │   │                        #   deployment, internal-grpc, game-host, gdk-api, manifest,
 │   │                        #   platform-frontend, game-frontend)
 │   ├── decisions/           # ADRs — one numbered file per architectural decision
-│   ├── implementation/      # The build plan — INDEX.md (conventions) + registry.md (232 work items)
+│   ├── implementation/      # The build plan — INDEX.md (conventions) + registry.md (open work items) + archive/
 │   └── reviews/             # Closed review rounds, reduced to their INDEX plus anything still cited
 ├── turnbase-common/         # git submodule
 ├── turnbase-sdk/            # git submodule
@@ -100,7 +94,7 @@ turnbase-frontend — no Maven dependency (postMessage with game FEs only)
 
 **Docs structure — INDEX-based navigation (mandatory):**
 
-- `docs/requirements/` and `docs/specs/` are index-oriented. `docs/requirements/INDEX.md` lists all seventeen requirement documents and the requirement-ID prefixes each one **defines**; every subdirectory under `docs/specs/` has an `INDEX.md` as its entry point.
+- `docs/requirements/` and `docs/specs/` are index-oriented. `docs/requirements/INDEX.md` lists all 17 requirement documents and the requirement-ID prefixes each one **defines**; every subdirectory under `docs/specs/` has an `INDEX.md` as its entry point.
 - **Reading:** always start from the relevant `INDEX.md` when looking for information in `docs/`. Do not scan files directly — follow the index to the right file.
 - **Writing:** when adding a new file or subdirectory anywhere under `docs/`, register it in the nearest `INDEX.md` (one-line entry with description) before considering the work done. When updating an existing file, check whether its `INDEX.md` entry needs to be updated too.
 - Requirements documents link to related spec files via "Related API Specifications" sections; keep those links up to date when specs change.
@@ -188,12 +182,12 @@ git config core.hooksPath .githooks    # once per clone, this repo and each subm
 names are unchanged — but **merge into `master` and delete the branch in the same session that
 created it**, on the remote as well as locally. Prefer `--ff-only` so `master` stays linear. **Use `scripts/git-land.sh`** (`land`, `sweep`, `finish`) for the commit-merge-push-delete sequence — it is the allowlisted path, so headless runs do not strand half-landed work.
 
-The reason is what happened without the rule: by 2026-09-05, five repositories held eight open PRs
+The reason is what happened without the rule: by 2026-09-05, the repositories held eight open PRs
 and eleven abandoned branches, none of them awaiting anybody's review. CI runs on push to `master`,
 so a direct merge is checked exactly as a PR was. If the work is not green when the session ends,
 leave it unmerged and unpushed rather than parking it as a PR.
 
-**Dependabot is frozen** in all five repositories for the same reason (`conventions.md` §6). The
+**Dependabot is frozen** in every repository for the same reason (`conventions.md` §6). The
 `dependabot.yml` files stay — their `ignore` entries record why each pin is deliberate — but every
 ecosystem carries `open-pull-requests-limit: 0`. Bump a dependency the ordinary way, on a branch.
 
