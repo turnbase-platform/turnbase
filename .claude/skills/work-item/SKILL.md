@@ -21,6 +21,8 @@ steps below are actually for.
 ### 1. Find the item and check it can start
 
 Open `docs/implementation/registry.md`. Read the item's section and its row in the register table.
+The register holds open milestones only; the text of a closed item lives verbatim in
+`docs/implementation/archive/<milestone>-*.md`. Do not read the archive unless an item's read-list names it.
 
 **When choosing, a `PARTIAL` item comes before any `READY` one.** It is half-built, and starting
 something new beside it is how an item stays half-built for good. Its `**Remaining:**` line is where

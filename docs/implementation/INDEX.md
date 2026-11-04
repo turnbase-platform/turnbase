@@ -26,7 +26,27 @@ that surfaces three milestones later. Record it against the item's *Gate* field.
 |------|---------|
 | [INDEX.md](INDEX.md) | This file — registry conventions, the milestone map, and how to read a work item |
 | [conventions.md](conventions.md) | **Code and build conventions** — package layout, formatting, tests, coverage, git, cross-repo versions. Normative, and shared by every item |
-| [registry.md](registry.md) | The register itself, and the per-item detail: read-lists, requirements satisfied, done-when clauses |
+| [registry.md](registry.md) | The register of **open** milestones (M20), one line per closed milestone, and the readiness gates. Per-item detail: read-lists, requirements satisfied, done-when clauses |
+| [archive/M0-bootstrap.md](archive/M0-bootstrap.md) | Closed milestone M0: its register rows and item sections, verbatim |
+| [archive/M1-accounts-and-sessions.md](archive/M1-accounts-and-sessions.md) | Closed milestone M1: its register rows and item sections, verbatim |
+| [archive/M2-rooms-and-realtime.md](archive/M2-rooms-and-realtime.md) | Closed milestone M2: its register rows and item sections, verbatim |
+| [archive/M3-game-execution.md](archive/M3-game-execution.md) | Closed milestone M3: its register rows and item sections, verbatim |
+| [archive/M4-catalog-and-upload.md](archive/M4-catalog-and-upload.md) | Closed milestone M4: its register rows and item sections, verbatim |
+| [archive/M5-history-statistics-notifications.md](archive/M5-history-statistics-notifications.md) | Closed milestone M5: its register rows and item sections, verbatim |
+| [archive/M6-platform-frontend.md](archive/M6-platform-frontend.md) | Closed milestone M6: its register rows and item sections, verbatim |
+| [archive/M7-mvp-review-remediation.md](archive/M7-mvp-review-remediation.md) | Closed milestone M7: its register rows and item sections, verbatim |
+| [archive/M8-regression-review-remediation-and-mvp-vi.md](archive/M8-regression-review-remediation-and-mvp-vi.md) | Closed milestone M8: its register rows and item sections, verbatim |
+| [archive/M9-mvp-completeness-audit-remediation.md](archive/M9-mvp-completeness-audit-remediation.md) | Closed milestone M9: its register rows and item sections, verbatim |
+| [archive/M10-e2e-security-audit-remediation.md](archive/M10-e2e-security-audit-remediation.md) | Closed milestone M10: its register rows and item sections, verbatim |
+| [archive/M11-spring-boot-4-migration.md](archive/M11-spring-boot-4-migration.md) | Closed milestone M11: its register rows and item sections, verbatim |
+| [archive/M12-turnbase-visual-identity.md](archive/M12-turnbase-visual-identity.md) | Closed milestone M12: its register rows and item sections, verbatim |
+| [archive/M13-prototype-fidelity.md](archive/M13-prototype-fidelity.md) | Closed milestone M13: its register rows and item sections, verbatim |
+| [archive/M14-game-start-resilience.md](archive/M14-game-start-resilience.md) | Closed milestone M14: its register rows and item sections, verbatim |
+| [archive/M15-load-and-scalability-testing-phase-a.md](archive/M15-load-and-scalability-testing-phase-a.md) | Closed milestone M15: its register rows and item sections, verbatim |
+| [archive/M16-pre-phase-b-fixes.md](archive/M16-pre-phase-b-fixes.md) | Closed milestone M16: its register rows and item sections, verbatim |
+| [archive/M17-database-capacity.md](archive/M17-database-capacity.md) | Closed milestone M17: its register rows and item sections, verbatim |
+| [archive/M18-load-testing-phase-b-capacity-and-autosc.md](archive/M18-load-testing-phase-b-capacity-and-autosc.md) | Closed milestone M18: its register rows and item sections, verbatim |
+| [archive/M19-the-immersive-game-room.md](archive/M19-the-immersive-game-room.md) | Closed milestone M19: its register rows and item sections, verbatim |
 
 ## Related
 
@@ -58,6 +78,15 @@ through rather than renumbered, and its number is never reused.
 | `REVIEW` | Code complete, awaiting a passing pipeline. |
 | `DONE` | Merged, tests green, and — if the item touches a submodule — the submodule ref in this repo is updated. |
 | `CANCELLED` | The requirement it implemented was cut. The heading is struck through and kept; the number is never reused. |
+
+### Archive
+
+Once every item of a milestone is `DONE` (or `CANCELLED`), its register rows and item sections move,
+verbatim, to `archive/<milestone>-<slug>.md` and `registry.md` keeps one line for it (`IMP-M20-01`). Nothing is
+deleted: specs, requirements and ADRs cite `IMP-*` identifiers and each resolves to a section in the register
+or an archive. **A session does not read the archive** unless an item's read-list names it. `check-corpus.py`
+enforces that each row and its section sit in the same file and that every cited identifier resolves
+(`registry` and `items`).
 
 ### Where status lives, and who writes it
 

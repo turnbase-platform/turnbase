@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Structural checks over the TurnBase documentation corpus.
 
-Four checks, run from the repository root:
+Six checks, run from the repository root:
 
   1. links    — every relative markdown link resolves to a file that exists
   2. cites    — every document-qualified requirement ID is DEFINED in that document
   3. sections — every "`doc.md` §N" reference resolves to a real heading
   4. index    — every file under docs/ is registered in its nearest INDEX.md
+  5. registry — register rows and item sections agree (registry.md and archive/)
+  6. items    — every cited IMP-Mn-nn identifier resolves to a section
 
 Checks 2 and 3 are the ones that have historically found real defects: the
 2026-08-16 round found 19 mis-qualified citations and a requirement range
@@ -227,6 +229,7 @@ def check_index(files: list[str]) -> list[str]:
 # --------------------------------------------------------------------------- 5
 
 REGISTRY = os.path.join(DOCS, "implementation", "registry.md")
+ARCHIVE = os.path.join(DOCS, "implementation", "archive")
 ITEM = r"IMP-M\d+-\d+"
 STATUSES = {"BLOCKED", "READY", "WIP", "PARTIAL", "REVIEW", "DONE", "CANCELLED"}
 
@@ -241,8 +244,40 @@ def check_registry(_files: list[str]) -> list[str]:
     """
     if not os.path.exists(REGISTRY):
         return [f"{rel(REGISTRY)}: missing"]
-    text = read(REGISTRY)
+    rows, sections_seen, bad = registry_items()
+    return bad + _registry_invariants(rows, sections_seen)
 
+
+def registry_items() -> tuple[dict[str, str], dict[str, str], list[str]]:
+    """Rows and sections of the register AND of every archive file (IMP-M20-01).
+
+    Closed milestones live verbatim in docs/implementation/archive/; an item's
+    row and its section must be in the same file, so a half-moved item fails.
+    """
+    rows: dict[str, str] = {}
+    sections_seen: dict[str, str] = {}
+    bad: list[str] = []
+    files = [REGISTRY] + sorted(
+        os.path.join(ARCHIVE, f) for f in os.listdir(ARCHIVE) if f.endswith(".md")
+    ) if os.path.isdir(ARCHIVE) else [REGISTRY]
+    for f in files:
+        r, s = _parse_registry(f)
+        for iid in r:
+            if iid in rows:
+                bad.append(f"{rel(f)}: {iid} has a register row in more than one file")
+        for iid in s:
+            if iid in sections_seen:
+                bad.append(f"{rel(f)}: {iid} has a section in more than one file")
+        for iid in set(r) ^ set(s):
+            if f != REGISTRY or iid in r:
+                bad.append(f"{rel(f)}: {iid} has a {'row' if iid in r else 'section'} but not a {'section' if iid in r else 'row'} in the same file")
+        rows.update(r)
+        sections_seen.update(s)
+    return rows, sections_seen, bad
+
+
+def _parse_registry(path: str) -> tuple[dict[str, str], dict[str, str]]:
+    text = read(path)
     rows: dict[str, str] = {}
     for line in text.splitlines():
         s = line.strip()
@@ -259,29 +294,39 @@ def check_registry(_files: list[str]) -> list[str]:
         start = m.end()
         nxt = re.search(r"^###\s", text[start:], re.M)
         sections_seen[m.group(1)] = text[start: start + (nxt.start() if nxt else len(text))]
+    return rows, sections_seen
 
+
+def _registry_invariants(rows: dict[str, str], sections_seen: dict[str, str]) -> list[str]:
     bad = []
     for iid, status in sorted(rows.items()):
         if status not in STATUSES:
-            bad.append(f"{rel(REGISTRY)}: {iid} has unknown status {status!r}")
-        if iid not in sections_seen:
-            bad.append(f"{rel(REGISTRY)}: {iid} is in the register with no section")
-    for iid in sorted(sections_seen):
-        if iid not in rows:
-            bad.append(f"{rel(REGISTRY)}: {iid} has a section but no register row")
+            bad.append(f"registry: {iid} has unknown status {status!r}")
 
     for iid, body in sorted(sections_seen.items()):
         gated = re.search(r"^\*\*Gate:\*\*", body, re.M) is not None
         blocked = rows.get(iid) == "BLOCKED"
         if gated and not blocked:
-            bad.append(f"{rel(REGISTRY)}: {iid} has a Gate: line but is not BLOCKED")
+            bad.append(f"registry: {iid} has a Gate: line but is not BLOCKED")
         if blocked and not gated:
-            bad.append(f"{rel(REGISTRY)}: {iid} is BLOCKED with no Gate: line")
+            bad.append(f"registry: {iid} is BLOCKED with no Gate: line")
         remaining = re.search(r"^\*\*Remaining:\*\*", body, re.M) is not None
         if rows.get(iid) == "PARTIAL" and not remaining:
-            bad.append(f"{rel(REGISTRY)}: {iid} is PARTIAL with no Remaining: line")
+            bad.append(f"registry: {iid} is PARTIAL with no Remaining: line")
         if remaining and rows.get(iid) not in ("PARTIAL", "WIP", "BLOCKED"):
-            bad.append(f"{rel(REGISTRY)}: {iid} has a Remaining: line but is {rows.get(iid)}")
+            bad.append(f"registry: {iid} has a Remaining: line but is {rows.get(iid)}")
+    return bad
+
+
+def check_items(files: list[str]) -> list[str]:
+    """Every IMP-Mn-nn cited anywhere resolves to a section in the register or an archive."""
+    _, sections_seen, _ = registry_items()
+    bad = []
+    for p in files:
+        for n, line in enumerate(read(p).splitlines(), 1):
+            for m in re.finditer(rf"(?<![\w-])({ITEM})(?![\w-])", line):
+                if m.group(1) not in sections_seen:
+                    bad.append(f"{rel(p)}:{n}: {m.group(1)} has no section in the register or an archive")
     return bad
 
 
@@ -292,7 +337,8 @@ CHECKS = {
     "cites": ("requirement citations name the defining document", check_cites),
     "sections": ("section references resolve", check_sections),
     "index": ("every document is registered in its nearest INDEX", check_index),
-    "registry": ("the register table and the item sections agree", check_registry),
+    "registry": ("the register table and the item sections agree, archives included", check_registry),
+    "items": ("every cited IMP-* identifier resolves to a section", check_items),
 }
 
 

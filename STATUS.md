@@ -1,16 +1,15 @@
 ## Last Session Summary
 
-**Date:** 2026-11-04 (session 259) — **Refinement spike done; M20 (22 items) registered. 210 of 232 items done.** Umbrella only.
+**Date:** 2026-11-04 (session 260) — **`IMP-M20-01` done: registry archive. 211 of 232 items done.** Umbrella only.
 
-- **Spike** (`docs/reviews/2026-11-04-refinement-spike/INDEX.md`): findings `RS-01…24` over code, docs, architecture, Claude's effectiveness and test cost. Headlines: CI refused for billing on most repositories; frontend Trivy and 7WD bootstrap token are real failures; the umbrella pins CI-unverified refs; the platform IT suite boots Spring per test method (failsafe 812 s of a 24 min job); `RoomRepository` 3,242 lines; 7 dangling code→spec refs; registry 9,026 lines; auto-memory stale.
-- **Owner's answers:** fully open source; games based on existing games credit their authors (7WD: Bauza and Cathala, art Coimbra, Repos Production 2015), in the manifest, shown by the platform; the owner writes to the publisher; `IMP-*` refs in code stay; registry and Claude-critical files archived; release = cloud CI/CD (M21), deployment (M22) one provider, a single-instance profile that may scale to zero alongside Kubernetes; PostgreSQL stays.
-- **M20 — Refinement** registered in `registry.md` (`IMP-M20-01…22`), milestone map row added; the approved design was deleted once registered. Auto-memory corrected (RS-19).
+- `registry.md` 9429 → 552 lines: M0–M19 (rows and sections, verbatim, links re-based) moved to `docs/implementation/archive/<milestone>-*.md`; the registry keeps a one-line table of closed milestones, the M20 rows and sections, and the readiness gates.
+- `check-corpus.py`: `registry` now spans register + archives (row and section must share a file); new `items` check resolves every cited `IMP-Mn-nn` to a section — a planted bad identifier fails it. Archives registered in `INDEX.md` (new *Archive* section); `work-item` skill says the archive is not read unless a read-list names it.
 
 ## Next Priorities
 
 **M20 is open; all 22 items READY by gates** (dependencies inside M20 set the order). Judged locally while CI is refused for billing.
 
-- Start with `IMP-M20-01` (registry archive) → `02` (`STATUS.md` reset) → `03` (`CLAUDE.md` trim); `04`, `05`, `07`, `08` may run in parallel.
+- `IMP-M20-01` is done. Next `02` (`STATUS.md` reset) → `03` (`CLAUDE.md` trim); `04`, `05`, `07`, `08` may run in parallel; `06` is unblocked.
 - Owner-held: CI billing (or wait for the public flip); the 7WD `TURNBASE_SDK_PAT`-style bootstrap secret (re-check live); the Repos Production reply, which decides whether 7WD ships under its name.
 - After M20: M21 public release (licence, README, gitleaks, published artifacts), M22 cloud deployment (ADR-0021 from `IMP-M20-15` first), then Phase C.
 
