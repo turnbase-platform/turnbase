@@ -70,8 +70,8 @@ get the warm one. The seeded e2e script is a second opinion:
 
 For the UI, the browser is `http://turnbase.localhost:8080`. Two players that do not share a session
 need separate Playwright **browser contexts** (`browser.newContext()`), each with its own cookie jar.
-The room views are not built yet (`IMP-M7-01…03`), so past registering, "Play as Guest" and the game
-detail page there is nothing to click; use the driver for gameplay.
+The room list, lobby, in-game and results views are built (`IMP-M7-01…03`), so a UI session can create
+and play a room; the driver remains the way to script several players and measure latency.
 
 ## Gotchas
 
@@ -84,8 +84,8 @@ detail page there is nothing to click; use the driver for gameplay.
 - **Timestamps:** compare client latencies with `Date.now()`. `performance.now()` has a per-page origin,
   so values from two Playwright pages cannot be subtracted.
 - **The WebSocket needs an `Origin` header** matching the platform host; a foreign one is `403`.
-- **A room left empty in the Lobby is not closed** (MR-02) and stays listed; leaving mid-game leaves the
-  room `IN_PROGRESS` (MR-03). Both are tracked as `IMP-M7-05` and `IMP-M7-06`.
+- **Rooms abandoned in the Lobby are closed and mid-game leaves reach the engine** (`IMP-M7-05`,
+  `IMP-M7-06`, done); an empty room that is still listed is a regression, not a known gap.
 
 ## Troubleshooting
 
