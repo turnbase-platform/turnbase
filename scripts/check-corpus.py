@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Structural checks over the TurnBase documentation corpus.
 
-Eight checks, run from the repository root:
+Nine checks, run from the repository root:
 
   1. links    — every relative markdown link resolves to a file that exists
   2. cites    — every document-qualified requirement ID is DEFINED in that document
@@ -13,6 +13,8 @@ Eight checks, run from the repository root:
                 repositories, submodules) equals the number on disk
   8. code-maps — every class, package and path named in an ARCHITECTURE.md (the
                 umbrella's and each service's) resolves in the code it maps
+  9. code-refs — every `*.md` file and `<file>.md §N` a submodule's tracked source
+                names resolves against the corpus and the repository's own documents
 
 Checks 2 and 3 are the ones that have historically found real defects: the
 2026-08-16 round found 19 mis-qualified citations and a requirement range
@@ -455,6 +457,89 @@ def check_code_maps(_files: list[str]) -> list[str]:
     return bad
 
 
+# --------------------------------------------------------------------------- 9
+#
+# The code cites the specifications 700+ times by file name. Nothing checked them
+# (RS-14): seven had dangled. A reference is a token `name.md` or `dir/name.md` in a
+# tracked, non-markdown source file of a submodule; it resolves when the file exists
+# in the umbrella corpus or among the repository's own markdown. A `§N` following it
+# must be a heading of that file. Generated output (`target/…`) is not a reference.
+
+REF_FILE = re.compile(r"(?<![\w./-])((?:[\w-]+/)*[\w-]+\.md)(?![\w-])")
+# the reference, then optional closing markup, then a run of §-references ("§1.1/§1.5, §3")
+REF_SECTION = re.compile(
+    r"(?<![\w./-])((?:[\w-]+/)*[\w-]+\.md)(?![\w-])[`}'s\s]{0,6}"
+    r"((?:§§?\s?\d+(?:\.\d+)*(?:\s?(?:/|,|and|–|—|-|;)\s?(?:§)?\s?\d+(?:\.\d+)*)*)?)")
+REF_GENERATED = ("target/", "build/", "dist/", "node_modules/", "coverage/")
+REF_SKIP_SUFFIX = (".lock", ".png", ".jpg", ".svg", ".ico", ".woff", ".woff2", ".zip", ".jar", ".md", ".mdx")
+REF_SKIP_NAMES = {"package-lock.json"}
+# A file a game BUNDLE names (manifest `infoDoc`), not a document of this corpus.
+REF_ALLOW = {"INFO.md"}
+
+
+def tracked(repo_dir: str) -> list[str]:
+    import subprocess
+    out = subprocess.run(["git", "-C", repo_dir, "ls-files", "-z"], capture_output=True, check=True).stdout
+    return [f for f in out.decode().split("\0") if f]
+
+
+def check_code_refs(files: list[str]) -> list[str]:
+    umbrella = [p for p in files]  # docs/ + CLAUDE.md, STATUS.md, ARCHITECTURE.md
+    secs_cache: dict[str, set[str]] = {}
+    bad = []
+    modules = sorted(d for d in os.listdir(ROOT)
+                     if d.startswith("turnbase-") and os.path.exists(os.path.join(ROOT, d, ".git")))
+    for mod in modules:
+        base = os.path.join(ROOT, mod)
+        names = tracked(base)
+        own = [os.path.join(base, f) for f in names if f.endswith(".md")]
+        known = umbrella + own
+        by_name: dict[str, list[str]] = {}
+        for k in known:
+            by_name.setdefault(os.path.basename(k), []).append(k)
+        for f in names:
+            if f.endswith(REF_SKIP_SUFFIX) or os.path.basename(f) in REF_SKIP_NAMES:
+                continue
+            full = os.path.join(base, f)
+            if os.path.getsize(full) > 2_000_000:
+                continue
+            try:
+                text = read(full)
+            except (UnicodeDecodeError, OSError):
+                continue
+            for n, line in enumerate(text.splitlines(), 1):
+                if ".md" not in line:
+                    continue
+                for m in REF_SECTION.finditer(line):
+                    ref, tail = m.group(1), m.group(2)
+                    if ref.startswith(REF_GENERATED) or "target/" in line[max(0, m.start() - 8):m.start()]:
+                        continue
+                    if ref in REF_ALLOW:
+                        continue
+                    where = f"{mod}/{f}:{n}"
+                    if "/" in ref:
+                        cands = [k for k in known if k.endswith("/" + ref) or k == ref]
+                        cands += [c for c in (os.path.join(ROOT, ref), os.path.join(base, ref))
+                                  if os.path.exists(c)]
+                    else:
+                        cands = by_name.get(ref, [])
+                    if not cands:
+                        bad.append(f"{where}: `{ref}` names no document in the corpus or the repository")
+                        continue
+                    for s in SECTION.findall(tail):
+                        have = set()
+                        for c in cands:
+                            if c not in secs_cache:
+                                secs_cache[c] = sections(c) if os.path.isfile(c) else set()
+                            have |= secs_cache[c]
+                        if not have or s in have or any(h.startswith(s + ".") for h in have):
+                            continue
+                        if "." in s and s.rsplit(".", 1)[0] in have:
+                            continue
+                        bad.append(f"{where}: `{ref}` has no §{s}")
+    return bad
+
+
 # ---------------------------------------------------------------------------
 
 CHECKS = {
@@ -466,6 +551,7 @@ CHECKS = {
     "items": ("every cited IMP-* identifier resolves to a section", check_items),
     "counts": ("counts stated in CLAUDE.md match the disk", check_counts),
     "code-maps": ("ARCHITECTURE.md maps name code that exists", check_code_maps),
+    "code-refs": ("file and § references in submodule sources resolve", check_code_refs),
 }
 
 

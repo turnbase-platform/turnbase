@@ -150,10 +150,10 @@ turnbase-frontend — no Maven dependency (postMessage with game FEs only)
 ### After any change under `docs/`
 
 ```bash
-python3 scripts/check-corpus.py      # links · cites · sections · index · registry · items · counts · code-maps
+python3 scripts/check-corpus.py      # links · cites · sections · index · registry · items · counts · code-maps · code-refs
 ```
 
-Eight structural checks, exit 1 on failure. **`cites` and `sections` are the two that have found real
+Nine structural checks, exit 1 on failure. **`cites` and `sections` are the two that have found real
 defects** — mis-qualified requirement IDs and ranges naming IDs that do not exist. Run it before
 committing documentation; it takes under a second and it is cheaper than the defect.
 

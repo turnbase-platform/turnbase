@@ -63,7 +63,7 @@ Every item of these is `DONE` (or `CANCELLED`). Their sections and register rows
 | IMP-M20-02 | `STATUS.md` reset to the present | docs | M20-01 | DONE |
 | IMP-M20-03 | `CLAUDE.md` trim, counts checked, memory aligned | docs | M20-02 | DONE |
 | IMP-M20-04 | Code maps: one checked `ARCHITECTURE.md` per service | platform, game-host, frontend, sdk, docs | — | DONE |
-| IMP-M20-05 | Code→spec references checked by the corpus checker | docs, platform, frontend | — | READY |
+| IMP-M20-05 | Code→spec references checked by the corpus checker | docs, platform, frontend | — | DONE |
 | IMP-M20-06 | Claude tooling review: permissions, skills, language server | docs | M20-01 | READY |
 | IMP-M20-07 | An honest build: green locally, verified submodule refs | frontend, 7WD, docs | — | READY |
 | IMP-M20-08 | `scripts/test-cost.sh` and the test-cost baseline | docs | — | READY |
