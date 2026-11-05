@@ -1,11 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-11-05 (session 269) — **`IMP-M20-10` PARTIAL: 17 platform IT classes now share one cached Spring context. 219 of 232 items done.**
+**Date:** 2026-11-05 (session 270) — **`IMP-M20-10` still PARTIAL: every class that can share the cached Spring context now does. 219 of 232 items done.**
 
-- New test helpers `SharedApplication` (one live context at a time, keyed by its args and extra sources; per call it truncates every table but `flyway_schema_history`, empties the bucket, and deletes Redis keys except `pod:*:alive` and `platform:sentinel`) and `@UsesSharedApplication` (tells `PostgresIntegrationTest` not to drop the schema under it). Migrations seed no rows and the JWT keys are in memory, so a truncated database is a first-boot one.
-- Failsafe 381 tests before and after; class-time sum 590.8 s → ~503 s. Local run: only the 7 `*.localhost` DNS failures. Target (half of baseline) not met yet: the remaining hand-booted classes, `NotificationControllerIT` (~100 s SSE waits), `TwoInstanceIT` and `WebSocketIT` are the bulk. The item's `**Remaining:**` line lists them.
-- Learned the hard way: dropping `FLUSHALL` for a key filter (a live instance's liveness key is written once at boot, else every join gives 503); `GuestPurgeJobIT` and `NotificationPurgeJobsIT` keep their own boot (their scheduled jobs race fixtures in a long-lived context).
-- No CI (billing); judged locally. Baseline for `10`–`12` below.
+- Moved 14 more ITs onto `SharedApplication` (grace sweep, room purge, reconnect, event executor, session detacher, participant cache, sweep selection, reconciliation, game-path cost, session teardown, inline leave, host registry, game input); ten that must boot alone carry a Javadoc line saying why.
+- Bug found: ShedLock's JDBC provider caches which lock rows exist, so truncating `shedlock` made scheduled jobs silently skip. `SharedApplication` now leaves that table alone.
+- `NotificationControllerIT` ~98 s → under 10 s: the "SSE waits" were per-test boots.
+- Failsafe: 381 tests unchanged, only the 7 `*.localhost` DNS failures. Class-time sum ~507 s (~400 s without the DNS timeouts) against a ≤ ~307 s target; the `Remaining:` line lists what is left (`TwoInstanceIT`, `WebSocketIT`, `RoomOwnershipServiceIT`). No CI (billing); judged locally.
+- Next: continue `IMP-M20-10` from its `Remaining:` line.
 
 ```
 == turnbase-platform

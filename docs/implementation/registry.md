@@ -293,19 +293,15 @@ the wait is the test's, not the system's. May be split into `10a`/`10b` when pic
   item says by how much and why).
 - Merged and pushed; ref bumped.
 
-**Remaining:** (session 269 built `SharedApplication` + `@UsesSharedApplication` in the test tree and moved
-17 `@BeforeEach`-boot classes onto it: failsafe 590.8 s → ~503 s, 381 tests unchanged.) Still owed: the
-hand-booted classes with no `@BeforeEach` boot (`GraceDeadlineSweepJobIT`, `MoveParticipantCacheIT`,
-`RoomPurgeJobIT`, `RoomReconnectIT`, `RoomEventExecutorIT`, `RoomOwnershipServiceIT`,
-`SweepSelectsOnlyRoomsItCanChangeIT`, `RoomSessionDetacherImplIT`, `GamePathQueryCostIT`,
-`ReconciliationJobIT`, `SessionTeardownIT`, `GameHostRegistryServerIT`, `GameInputServiceIT`,
-`InlineLeaveDispatchIT`); a Javadoc line saying why on every class that keeps its own boot
-(`TwoInstanceIT`, `ThreadBoundsIT`, `SingleListenerOriginRoutingIT`, `TurnBaseApplicationIT`, `SeedDataIT`,
-`RateLimitInterceptorIT`, `AuthMethodControllerIT`/`OAuthControllerIT` (stub port in the args),
-`GameAssetControllerIT`; `GuestPurgeJobIT`/`NotificationPurgeJobsIT` already say so); the ~100 s of
-`NotificationControllerIT` (SSE waits) explained and shortened; then the half-of-baseline target (≤ ~307 s) or
-the shortfall and why. Caveat learned: a long-lived context's own scheduled jobs race fixtures (retention 0 s),
-and `SharedApplication` must keep `pod:*:alive` and `platform:sentinel` in Redis.
+**Remaining:** (sessions 269-270 moved every hand-booted class that can share onto `SharedApplication`, and
+the ten that keep their own boot say why in their Javadoc; `NotificationControllerIT` fell from ~98 s to
+under 10 s with the shared context, so its SSE waits were boot cost, not the test's. 381 tests unchanged;
+the only failures are the 7 `*.localhost` DNS ones.) Still owed: the half-of-baseline target (≤ ~307 s). The
+sum of class times is now ~507 s, of which ~110 s is the 7 DNS timeouts of this machine, so ~400 s real.
+Largest left: `TwoInstanceIT` (~104 s, find whether the wait is the test's), `GameAssetControllerIT` and
+`SeedDataIT` (DNS here), `WebSocketIT` (~49 s), `RoomOwnershipServiceIT` (~32 s), `HostFailureReassignmentIT`
+(~17 s). Either shorten those or record the shortfall and why, then mark `DONE`. Caveat: `SharedApplication`
+keeps `shedlock` rows (ShedLock's provider caches row existence), `pod:*:alive` and `platform:sentinel`.
 
 ### IMP-M20-11 — Measurements leave the default build (`perf` tag)
 
