@@ -1,36 +1,86 @@
 ## Last Session Summary
 
-**Date:** 2026-11-05 (session 266) — **`IMP-M20-07` done: the build is honest, refs verified. 217 of 232 items done.**
+**Date:** 2026-11-05 (session 267) — **`IMP-M20-08` done: `scripts/test-cost.sh` and the test-cost baseline. 218 of 232 items done.**
 
-- **Frontend image:** `apk upgrade --no-cache` in the runtime stage (the `nginx:1.31-alpine` base, freshly pulled, still carried `brotli-libs` 1.2.0-r1 and `curl` 8.22). `trivy image` is clean at HIGH+CRITICAL (was 1 CRITICAL + 9 HIGH). Pushed as 9197741; its CI run is green, Trivy gate included. Ref bumped.
-- **Local builds at the pinned refs:** common, sdk, tictactoe, 7WD (format, lint, typecheck, 263 tests, bundle) and frontend (lint, format, build, 944 tests) green; game-host `spotless:check verify -Pintegration` green (22 ITs). Stale `target/` after an SDK change gives `NoSuchMethodError: Effects.log` in tictactoe and game-host: `clean` fixes it.
-- **Platform:** CI is green at the pinned 7ba10d1 (run 2026-11-05 16:55). The local `verify -Pintegration` had 9 failures: 7 (`GameAssetControllerIT` 6, `SeedDataIT` 1) are this WSL's dead DNS (`/etc/resolv.conf` names 10.255.255.254, which times out, so Java cannot resolve `<uuid>.games.localhost`); 2 (`GuestPurgeJobIT`, `NotificationPurgeJobsIT`) pass alone and fail only inside the full run — an order dependency for `IMP-M20-09`/`12`. Not fixed here.
-- A flaky frontend test failed once in four `npm test` runs (944 tests); the failing name was not captured.
-- Re-checked live: `gh secret list` on 7WD is empty, so its CI stays red until the owner provisions the SDK token.
+- `scripts/test-cost.sh [--top N] [--methods] [REPO ...]` reads existing reports (never runs a build): JUnit XML from `target/surefire-reports` (unit) and `target/failsafe-reports` (integration), and vitest JSON from `test-results/vitest.json` (frontend) or `target/vitest.json` (others; produce with `npx vitest run --reporter=json --outputFile=<path>`). A repository with no report exits 1 with `NO REPORTS`.
+- Baseline below (this WSL, 2026-11-05, local runs; the platform IT total is from the last full `-Pintegration` run, which had the 9 DNS/order failures noted in session 266). Compare `09`–`12` against it. Smaller repos: common unit 0.4 s; sdk unit 0.2 s + vitest 17 tests; tictactoe unit 0.4 s + vitest 14; 7WD unit 6.9 s (583 tests) + vitest 6.0 s (263).
+- Game-host "unit" is 117 s because `GameBridgeClientEspressoTest` (57 s), `GameHostWarmupTest` and `HostWedgeTest` boot Espresso under surefire — a candidate for `IMP-M20-11`.
 
-**CI per repository (last run on `master`, 2026-11-05):**
-
-| Repository | Pinned | Last CI |
-|---|---|---|
-| turnbase-common | 8b6d68b | failure 2026-10-29 (log expired); local build green |
-| turnbase-sdk | 7a02471 | success |
-| turnbase-platform | 7ba10d1 | success |
-| turnbase-game-host | 7f9734f | success |
-| turnbase-frontend | 9197741 | success |
-| turnbase-game-tictactoe | c5a0d08 | success (2026-10-04, no later push) |
-| turnbase-game-7wonders-duel | bfddf79 | failure — missing SDK bootstrap token (owner) |
-
-CI does run again; the umbrella has no workflow.
+```
+== turnbase-platform
+phase        classes  tests   seconds
+unit              65    298       6.0
+integration       53    381     614.5
+-- slowest classes [unit] (sum of test times)
+     1.61s    8  io.turnbase.platform.game.GameSessionServiceTest
+     1.13s    1  io.turnbase.platform.account.LoginServiceTimingTest
+     0.78s    2  io.turnbase.platform.RedisConnectionConfigTest
+     0.70s    2  io.turnbase.platform.ConnectionPoolSizeTest
+     0.59s    6  io.turnbase.platform.room.ParticipantCacheTest
+     0.56s    1  io.turnbase.platform.room.RoomOwnershipSchedulingConfigTest
+     0.40s    2  io.turnbase.platform.game.GameHostChannelsTest
+     0.39s    5  io.turnbase.platform.session.OAuthStateServiceTest
+     0.35s    4  io.turnbase.platform.account.GoogleOAuthClientTest
+     0.27s   12  io.turnbase.platform.websocket.WebSocketRateLimiterTest
+-- slowest classes [integration] (sum of test times)
+    97.96s   13  io.turnbase.platform.notification.NotificationControllerIT
+    93.97s    6  io.turnbase.platform.upload.GameAssetControllerIT
+    67.17s    6  io.turnbase.platform.notification.TwoInstanceIT
+    55.18s    6  io.turnbase.platform.websocket.WebSocketIT
+    28.78s   21  io.turnbase.platform.room.RoomOwnershipServiceIT
+    22.94s    8  io.turnbase.platform.seed.SeedDataIT
+    18.24s   25  io.turnbase.platform.room.RoomControllerIT
+    18.14s   11  io.turnbase.platform.room.ReconciliationJobIT
+    17.95s    1  io.turnbase.platform.game.HostFailureReassignmentIT
+    15.31s   20  io.turnbase.platform.social.SocialControllerIT
+== turnbase-game-host
+phase        classes  tests   seconds
+unit              22     89     117.2
+integration        7     22     100.2
+-- slowest classes [unit] (sum of test times)
+    57.43s    5  io.turnbase.gamehost.shim.GameBridgeClientEspressoTest
+    17.51s    3  io.turnbase.gamehost.warmup.GameHostWarmupTest
+    12.52s    4  io.turnbase.gamehost.registration.HostWedgeTest
+    12.11s    4  io.turnbase.gamehost.espresso.EspressoIsolationTest
+     3.59s    3  io.turnbase.gamehost.espresso.SharedEngineIsolationTest
+     2.53s    1  io.turnbase.gamehost.espresso.EspressoContextLifecycleTest
+     2.41s    2  io.turnbase.gamehost.registration.HostLivenessLoopTest
+     1.88s    7  io.turnbase.gamehost.espresso.GameContextManagerTest
+     1.70s    7  io.turnbase.gamehost.espresso.BootWatchdogTest
+     1.49s    1  io.turnbase.gamehost.registration.HostWedgeWiringTest
+-- slowest classes [integration] (sum of test times)
+    43.98s    1  io.turnbase.gamehost.espresso.ConcurrentBootsIT
+    25.83s    1  io.turnbase.gamehost.espresso.bench.EngineSharingBenchmarkIT
+    24.66s   11  io.turnbase.gamehost.dispatch.SessionDispatcherIT
+     4.51s    2  io.turnbase.gamehost.grpc.GrpcServerIntegrationIT
+     0.78s    2  io.turnbase.gamehost.artifact.S3ArtifactStoreIT
+     0.46s    4  io.turnbase.gamehost.dispatch.SessionRecordStoreIT
+     0.00s    1  io.turnbase.gamehost.bridge.GuestBridgeJarIT
+== turnbase-frontend
+phase        classes  tests   seconds
+vitest           122    944      57.9
+-- slowest classes [vitest] (sum of test times)
+     8.15s   63  src/app/App.test.tsx
+     5.03s   36  src/features/rooms/RoomPage.test.tsx
+     3.66s   15  src/features/settings/SettingsPage.test.tsx
+     3.03s   13  src/features/notifications/NotificationPanel.test.tsx
+     2.29s    8  src/features/catalog/CatalogPage.test.tsx
+     2.16s   10  src/features/rooms/RoomsPage.test.tsx
+     1.45s   14  src/features/rooms/RoomGame.test.tsx
+     1.45s    8  src/features/friends/FriendsPage.test.tsx
+     1.35s   12  src/features/profile/ProfilePage.test.tsx
+     1.20s    4  eslint-rules/theme-scope.test.js
+```
 
 ## Current State
 
-- **Phase 1, M20 (refinement) open**: 15 of 22 items remain. M0–M19 are closed (archived under `docs/implementation/archive/`).
+- **Phase 1, M20 (refinement) open**: 14 of 22 items remain. M0–M19 are closed (archived under `docs/implementation/archive/`).
 - **Red / not run:** CI is refused for billing, so every item is judged locally (`spotless:apply`, `verify`, `verify -Pintegration`). Nothing else is known red.
 - **Owner-held:** CI billing (or the public flip); the 7WD bootstrap secret (re-check live before reporting it); the Repos Production reply, which decides whether 7WD ships under its name.
 
 ## Next Priorities
 
-- `08`, `13`, `15`, `17`, `18`, `19`, `20`, `21` have no open dependency. Keep the maps current: `check-corpus.py code-maps` fails on a renamed class they name.
+- `09`, `11`, `13`, `15`, `17`, `18`, `19`, `20`, `21` have no open dependency. Keep the maps current: `check-corpus.py code-maps` fails on a renamed class they name.
 - After M20: M21 public release (licence, README, gitleaks, published artifacts), M22 cloud deployment (ADR-0021 from `IMP-M20-15` first), then Phase C.
 
 [`conventions.md`](docs/implementation/conventions.md) applies to every item and is not repeated in read-lists.
