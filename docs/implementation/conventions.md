@@ -169,10 +169,18 @@ Three categories, defined by `platform-operations.md` FR-CICD-004 and given thei
 | Unit | `*Test` | surefire | none — mocked boundaries | `./mvnw test` |
 | Integration | `*IT` | failsafe, bound to `verify` under `-Pintegration` | real Postgres, Redis, MinIO via **Testcontainers** | `./mvnw verify -Pintegration` |
 | E2E | — | — | the full compose stack | `make e2e` |
+| Measurement | `*Test` or `*IT`, tagged `@Tag("perf")` | surefire / failsafe, `-Pperf` | as the test needs | `./mvnw verify -Pperf` |
 
 Tests live **beside the code they test**, in the same package-by-feature tree, under
 `src/test/java`. There is no parallel `it/` source root: an integration test for rooms is
 `io.turnbase.platform.room.RoomJoinIT`, next to `RoomJoinTest`.
+
+**Measurements carry the JUnit tag `perf`** and leave the default build (IMP-M20-11). A test is a
+measurement when it records what the system costs (a benchmark, a calibrated timing); a test that guards a
+requirement stays untagged, however slow, and is made cheaper instead. Surefire and failsafe exclude the tag
+by default (`perf.excludedGroups`); `-Pperf` runs only it, with JaCoCo off. Today `turnbase-game-host` has two
+(`EngineSharingBenchmarkIT`, `ConcurrentBootsIT`); `turnbase-platform` has none, and gains the same two
+properties when it gets one.
 
 **Integration tests never use Docker Compose.** FR-CICD-004 said they did until 2026-08-20; §8 was
 right and the requirement was corrected. A test that depends on a stack someone started by hand

@@ -1,10 +1,10 @@
 ## Last Session Summary
 
-**Date:** 2026-11-05 (session 271) — **`IMP-M20-10` DONE. 220 of 232 items done.**
+**Date:** 2026-11-05 (session 272) — **`IMP-M20-11` DONE. 221 of 232 items done.**
 
-- `TwoInstanceIT` now boots its two contexts once per class (`PER_CLASS`; every test registers its own user): ~104 s → ~41 s.
-- Failsafe: 381 tests unchanged, only the 7 `*.localhost` DNS failures of this machine. Class-time sum 614.5 s → 391.8 s; the 7 DNS timeouts are ~110 s of it, so ~282 s real, under the ≤ ~307 s target. Raw figure misses it by ~85 s, entirely DNS timeouts.
-- Left slow on purpose: `WebSocketIT` (~50 s, a 1000-iteration race guard), `RoomOwnershipServiceIT` (20 000-room <2 s requirement guard). No CI (billing); judged locally.
+- Judged the nine tests. Only `EngineSharingBenchmarkIT` and `ConcurrentBootsIT` (game-host) are measurements: tagged `perf`, excluded by default (`perf.excludedGroups`), run alone by `./mvnw verify -Pperf` (both pass, JaCoCo off). The other seven guard requirements and stay (judgements in the commit body); the platform has no `perf` test yet.
+- Default game-host `verify -Pintegration`: 89 unit + 20 IT (was 22), coverage met. Re-running `verify` without `clean` leaves a broken guest-bridge jar (`GuestBridgeJarIT` fails); use `clean verify`.
+- `conventions.md` §3 names the tag. No CI (billing); judged locally.
 - Next: pick the next READY item from the register.
 
 ```

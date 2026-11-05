@@ -69,7 +69,7 @@ Every item of these is `DONE` (or `CANCELLED`). Their sections and register rows
 | IMP-M20-08 | `scripts/test-cost.sh` and the test-cost baseline | docs | — | DONE |
 | IMP-M20-09 | Platform ITs share one set of containers | platform | M20-08 | DONE |
 | IMP-M20-10 | Platform ITs share a cached Spring context | platform | M20-09 | DONE |
-| IMP-M20-11 | Measurements leave the default build (`perf` tag) | platform, game-host | M20-08 | READY |
+| IMP-M20-11 | Measurements leave the default build (`perf` tag) | platform, game-host | M20-08 | DONE |
 | IMP-M20-12 | Platform IT overlap pass | platform | M20-10 | READY |
 | IMP-M20-13 | One Trivy scan per target | platform, game-host, frontend, sdk, common | — | READY |
 | IMP-M20-14 | `RoomRepository` split by concern | platform | M20-10 | READY |
