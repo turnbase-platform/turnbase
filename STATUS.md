@@ -1,10 +1,10 @@
 ## Last Session Summary
 
-**Date:** 2026-11-05 (session 267) — **`IMP-M20-08` done: `scripts/test-cost.sh` and the test-cost baseline. 218 of 232 items done.**
+**Date:** 2026-11-05 (session 268) — **`IMP-M20-09` done: platform ITs share one Postgres, MinIO and Redis per JVM. 219 of 232 items done.**
 
-- `scripts/test-cost.sh [--top N] [--methods] [REPO ...]` reads existing reports (never runs a build): JUnit XML from `target/surefire-reports` (unit) and `target/failsafe-reports` (integration), and vitest JSON from `test-results/vitest.json` (frontend) or `target/vitest.json` (others; produce with `npx vitest run --reporter=json --outputFile=<path>`). A repository with no report exits 1 with `NO REPORTS`.
-- Baseline below (this WSL, 2026-11-05, local runs; the platform IT total is from the last full `-Pintegration` run, which had the 9 DNS/order failures noted in session 266). Compare `09`–`12` against it. Smaller repos: common unit 0.4 s; sdk unit 0.2 s + vitest 17 tests; tictactoe unit 0.4 s + vitest 14; 7WD unit 6.9 s (583 tests) + vitest 6.0 s (263).
-- Game-host "unit" is 117 s because `GameBridgeClientEspressoTest` (57 s), `GameHostWarmupTest` and `HostWedgeTest` boot Espresso under surefire — a candidate for `IMP-M20-11`.
+- `PostgresIntegrationTest` now starts the three containers once in a static initialiser (singleton pattern, in parallel); `resetSharedState()` runs per class — drop/create `public`, `FLUSHALL`, empty MinIO and recreate `turnbase-bundles` — so isolation stays what a fresh container gave, now explicit. `FlywayBaselineIT`, the two `BusinessMetrics*IT` and `ArtifactBucketReadinessCheckIT` extend it instead of starting their own.
+- Failsafe: 381 tests before and after; platform integration 614.5 s → 590.8 s (`test-cost.sh`). Container start is not where the time goes — `10` (shared Spring context) is the bigger lever. Local full run: only the 7 `*.localhost` DNS failures (`GameAssetControllerIT` ×6, `SeedDataIT` ×1) remain. One earlier run also failed 3 `ReconciliationJobIT` tests that pass alone and after `RoomControllerIT`; a rerun was clean, so treat it as a flake, and look at it first if it returns in `10`. A baseline run on the old code the same evening had 27 "Unable to start web server" errors — the machine is noisy.
+- CI on the platform push was green. Baseline for `10`–`12` below.
 
 ```
 == turnbase-platform
@@ -74,13 +74,13 @@ vitest           122    944      57.9
 
 ## Current State
 
-- **Phase 1, M20 (refinement) open**: 14 of 22 items remain. M0–M19 are closed (archived under `docs/implementation/archive/`).
+- **Phase 1, M20 (refinement) open**: 13 of 22 items remain. M0–M19 are closed (archived under `docs/implementation/archive/`).
 - **Red / not run:** CI is refused for billing, so every item is judged locally (`spotless:apply`, `verify`, `verify -Pintegration`). Nothing else is known red.
 - **Owner-held:** CI billing (or the public flip); the 7WD bootstrap secret (re-check live before reporting it); the Repos Production reply, which decides whether 7WD ships under its name.
 
 ## Next Priorities
 
-- `09`, `11`, `13`, `15`, `17`, `18`, `19`, `20`, `21` have no open dependency. Keep the maps current: `check-corpus.py code-maps` fails on a renamed class they name.
+- `10`, `11`, `13`, `15`, `17`, `18`, `19`, `20`, `21` have no open dependency. Keep the maps current: `check-corpus.py code-maps` fails on a renamed class they name.
 - After M20: M21 public release (licence, README, gitleaks, published artifacts), M22 cloud deployment (ADR-0021 from `IMP-M20-15` first), then Phase C.
 
 [`conventions.md`](docs/implementation/conventions.md) applies to every item and is not repeated in read-lists.
