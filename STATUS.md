@@ -1,12 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-11-05 (session 270) — **`IMP-M20-10` still PARTIAL: every class that can share the cached Spring context now does. 219 of 232 items done.**
+**Date:** 2026-11-05 (session 271) — **`IMP-M20-10` DONE. 220 of 232 items done.**
 
-- Moved 14 more ITs onto `SharedApplication` (grace sweep, room purge, reconnect, event executor, session detacher, participant cache, sweep selection, reconciliation, game-path cost, session teardown, inline leave, host registry, game input); ten that must boot alone carry a Javadoc line saying why.
-- Bug found: ShedLock's JDBC provider caches which lock rows exist, so truncating `shedlock` made scheduled jobs silently skip. `SharedApplication` now leaves that table alone.
-- `NotificationControllerIT` ~98 s → under 10 s: the "SSE waits" were per-test boots.
-- Failsafe: 381 tests unchanged, only the 7 `*.localhost` DNS failures. Class-time sum ~507 s (~400 s without the DNS timeouts) against a ≤ ~307 s target; the `Remaining:` line lists what is left (`TwoInstanceIT`, `WebSocketIT`, `RoomOwnershipServiceIT`). No CI (billing); judged locally.
-- Next: continue `IMP-M20-10` from its `Remaining:` line.
+- `TwoInstanceIT` now boots its two contexts once per class (`PER_CLASS`; every test registers its own user): ~104 s → ~41 s.
+- Failsafe: 381 tests unchanged, only the 7 `*.localhost` DNS failures of this machine. Class-time sum 614.5 s → 391.8 s; the 7 DNS timeouts are ~110 s of it, so ~282 s real, under the ≤ ~307 s target. Raw figure misses it by ~85 s, entirely DNS timeouts.
+- Left slow on purpose: `WebSocketIT` (~50 s, a 1000-iteration race guard), `RoomOwnershipServiceIT` (20 000-room <2 s requirement guard). No CI (billing); judged locally.
+- Next: pick the next READY item from the register.
 
 ```
 == turnbase-platform

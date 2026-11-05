@@ -68,7 +68,7 @@ Every item of these is `DONE` (or `CANCELLED`). Their sections and register rows
 | IMP-M20-07 | An honest build: green locally, verified submodule refs | frontend, 7WD, docs | — | DONE |
 | IMP-M20-08 | `scripts/test-cost.sh` and the test-cost baseline | docs | — | DONE |
 | IMP-M20-09 | Platform ITs share one set of containers | platform | M20-08 | DONE |
-| IMP-M20-10 | Platform ITs share a cached Spring context | platform | M20-09 | PARTIAL |
+| IMP-M20-10 | Platform ITs share a cached Spring context | platform | M20-09 | DONE |
 | IMP-M20-11 | Measurements leave the default build (`perf` tag) | platform, game-host | M20-08 | READY |
 | IMP-M20-12 | Platform IT overlap pass | platform | M20-10 | READY |
 | IMP-M20-13 | One Trivy scan per target | platform, game-host, frontend, sdk, common | — | READY |
@@ -292,16 +292,6 @@ the wait is the test's, not the system's. May be split into `10a`/`10b` when pic
 - Failsafe time at most half of the `08` baseline (Claude's target, not the owner's: if it is missed, the
   item says by how much and why).
 - Merged and pushed; ref bumped.
-
-**Remaining:** (sessions 269-270 moved every hand-booted class that can share onto `SharedApplication`, and
-the ten that keep their own boot say why in their Javadoc; `NotificationControllerIT` fell from ~98 s to
-under 10 s with the shared context, so its SSE waits were boot cost, not the test's. 381 tests unchanged;
-the only failures are the 7 `*.localhost` DNS ones.) Still owed: the half-of-baseline target (≤ ~307 s). The
-sum of class times is now ~507 s, of which ~110 s is the 7 DNS timeouts of this machine, so ~400 s real.
-Largest left: `TwoInstanceIT` (~104 s, find whether the wait is the test's), `GameAssetControllerIT` and
-`SeedDataIT` (DNS here), `WebSocketIT` (~49 s), `RoomOwnershipServiceIT` (~32 s), `HostFailureReassignmentIT`
-(~17 s). Either shorten those or record the shortfall and why, then mark `DONE`. Caveat: `SharedApplication`
-keeps `shedlock` rows (ShedLock's provider caches row existence), `pod:*:alive` and `platform:sentinel`.
 
 ### IMP-M20-11 — Measurements leave the default build (`perf` tag)
 
