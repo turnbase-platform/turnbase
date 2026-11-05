@@ -1,10 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-11-05 (session 268) — **`IMP-M20-09` done: platform ITs share one Postgres, MinIO and Redis per JVM. 219 of 232 items done.**
+**Date:** 2026-11-05 (session 269) — **`IMP-M20-10` PARTIAL: 17 platform IT classes now share one cached Spring context. 219 of 232 items done.**
 
-- `PostgresIntegrationTest` now starts the three containers once in a static initialiser (singleton pattern, in parallel); `resetSharedState()` runs per class — drop/create `public`, `FLUSHALL`, empty MinIO and recreate `turnbase-bundles` — so isolation stays what a fresh container gave, now explicit. `FlywayBaselineIT`, the two `BusinessMetrics*IT` and `ArtifactBucketReadinessCheckIT` extend it instead of starting their own.
-- Failsafe: 381 tests before and after; platform integration 614.5 s → 590.8 s (`test-cost.sh`). Container start is not where the time goes — `10` (shared Spring context) is the bigger lever. Local full run: only the 7 `*.localhost` DNS failures (`GameAssetControllerIT` ×6, `SeedDataIT` ×1) remain. One earlier run also failed 3 `ReconciliationJobIT` tests that pass alone and after `RoomControllerIT`; a rerun was clean, so treat it as a flake, and look at it first if it returns in `10`. A baseline run on the old code the same evening had 27 "Unable to start web server" errors — the machine is noisy.
-- CI on the platform push was green. Baseline for `10`–`12` below.
+- New test helpers `SharedApplication` (one live context at a time, keyed by its args and extra sources; per call it truncates every table but `flyway_schema_history`, empties the bucket, and deletes Redis keys except `pod:*:alive` and `platform:sentinel`) and `@UsesSharedApplication` (tells `PostgresIntegrationTest` not to drop the schema under it). Migrations seed no rows and the JWT keys are in memory, so a truncated database is a first-boot one.
+- Failsafe 381 tests before and after; class-time sum 590.8 s → ~503 s. Local run: only the 7 `*.localhost` DNS failures. Target (half of baseline) not met yet: the remaining hand-booted classes, `NotificationControllerIT` (~100 s SSE waits), `TwoInstanceIT` and `WebSocketIT` are the bulk. The item's `**Remaining:**` line lists them.
+- Learned the hard way: dropping `FLUSHALL` for a key filter (a live instance's liveness key is written once at boot, else every join gives 503); `GuestPurgeJobIT` and `NotificationPurgeJobsIT` keep their own boot (their scheduled jobs race fixtures in a long-lived context).
+- No CI (billing); judged locally. Baseline for `10`–`12` below.
 
 ```
 == turnbase-platform
@@ -74,13 +75,13 @@ vitest           122    944      57.9
 
 ## Current State
 
-- **Phase 1, M20 (refinement) open**: 13 of 22 items remain. M0–M19 are closed (archived under `docs/implementation/archive/`).
+- **Phase 1, M20 (refinement) open**: 13 of 22 items remain (`10` partly done). M0–M19 are closed (archived under `docs/implementation/archive/`).
 - **Red / not run:** CI is refused for billing, so every item is judged locally (`spotless:apply`, `verify`, `verify -Pintegration`). Nothing else is known red.
 - **Owner-held:** CI billing (or the public flip); the 7WD bootstrap secret (re-check live before reporting it); the Repos Production reply, which decides whether 7WD ships under its name.
 
 ## Next Priorities
 
-- `10`, `11`, `13`, `15`, `17`, `18`, `19`, `20`, `21` have no open dependency. Keep the maps current: `check-corpus.py code-maps` fails on a renamed class they name.
+- `10` (PARTIAL, continue from its Remaining line), `11`, `13`, `15`, `17`, `18`, `19`, `20`, `21` have no open dependency. Keep the maps current: `check-corpus.py code-maps` fails on a renamed class they name.
 - After M20: M21 public release (licence, README, gitleaks, published artifacts), M22 cloud deployment (ADR-0021 from `IMP-M20-15` first), then Phase C.
 
 [`conventions.md`](docs/implementation/conventions.md) applies to every item and is not repeated in read-lists.
