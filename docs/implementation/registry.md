@@ -65,7 +65,7 @@ Every item of these is `DONE` (or `CANCELLED`). Their sections and register rows
 | IMP-M20-04 | Code maps: one checked `ARCHITECTURE.md` per service | platform, game-host, frontend, sdk, docs | — | DONE |
 | IMP-M20-05 | Code→spec references checked by the corpus checker | docs, platform, frontend | — | DONE |
 | IMP-M20-06 | Claude tooling review: permissions, skills, language server | docs | M20-01 | DONE |
-| IMP-M20-07 | An honest build: green locally, verified submodule refs | frontend, 7WD, docs | — | READY |
+| IMP-M20-07 | An honest build: green locally, verified submodule refs | frontend, 7WD, docs | — | DONE |
 | IMP-M20-08 | `scripts/test-cost.sh` and the test-cost baseline | docs | — | READY |
 | IMP-M20-09 | Platform ITs share one set of containers | platform | M20-08 | READY |
 | IMP-M20-10 | Platform ITs share a cached Spring context | platform | M20-09 | READY |
