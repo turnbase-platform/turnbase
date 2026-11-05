@@ -1,11 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-11-05 (session 273) — **`IMP-M20-12` DONE. 222 of 232 items done.**
+**Date:** 2026-11-05 (session 274) — **`IMP-M20-13` DONE. 223 of 232 items done.**
 
-- The 29 platform ITs without requirement IDs now name them in their Javadoc, document-qualified (53 of 53 carry IDs).
-- One test removed: `SeedDataIT.aSeededAccountCanLogInWithThePasswordFromTheSpec`, covered by `…CanBeReadAsThemselvesAndAsOneAnother` (same login, plus `/me`). Merged line coverage of `room`/`game`/`session`/`websocket` is identical with and without it. The other overlaps (HTTP vs SQL layer, chunked vs sized bodies, per-tier rate limits) guard different paths and stay.
-- Local environment: `GameAssetControllerIT` (6) and one `SeedDataIT` test fail on unmodified master here (JDK HttpClient: `UnresolvedAddressException` for `*.localhost`); their missing boots lower `room` coverage by 0.24 points in a local report, so the comparison was made on the same environment. CI on `1106486` is green.
-- Next: pick the next READY item from the register (`IMP-M20-13`…).
+- Each of the five workflows now scans each target once: one Trivy JSON result (all four severities), then a `jq` step prints the per-severity counts to the job summary, lists the criticals and fails if there is one. Gate severity unchanged (CRITICAL only). Platform and game-host went from four scans to two; frontend likewise; common and sdk from two to one.
+- Gate shown locally on `alpine:3.10` (Trivy via docker): 1 critical (CVE-2021-36159), the gate step exits 1.
+- CI green in all five repositories (common, sdk, frontend, platform, game-host).
+- Next: pick the next READY item from the register (`IMP-M20-14`…).
 
 ```
 == turnbase-platform
