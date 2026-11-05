@@ -1,11 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-11-05 (session 272) — **`IMP-M20-11` DONE. 221 of 232 items done.**
+**Date:** 2026-11-05 (session 273) — **`IMP-M20-12` DONE. 222 of 232 items done.**
 
-- Judged the nine tests. Only `EngineSharingBenchmarkIT` and `ConcurrentBootsIT` (game-host) are measurements: tagged `perf`, excluded by default (`perf.excludedGroups`), run alone by `./mvnw verify -Pperf` (both pass, JaCoCo off). The other seven guard requirements and stay (judgements in the commit body); the platform has no `perf` test yet.
-- Default game-host `verify -Pintegration`: 89 unit + 20 IT (was 22), coverage met. Re-running `verify` without `clean` leaves a broken guest-bridge jar (`GuestBridgeJarIT` fails); use `clean verify`.
-- `conventions.md` §3 names the tag. No CI (billing); judged locally.
-- Next: pick the next READY item from the register.
+- The 29 platform ITs without requirement IDs now name them in their Javadoc, document-qualified (53 of 53 carry IDs).
+- One test removed: `SeedDataIT.aSeededAccountCanLogInWithThePasswordFromTheSpec`, covered by `…CanBeReadAsThemselvesAndAsOneAnother` (same login, plus `/me`). Merged line coverage of `room`/`game`/`session`/`websocket` is identical with and without it. The other overlaps (HTTP vs SQL layer, chunked vs sized bodies, per-tier rate limits) guard different paths and stay.
+- Local environment: `GameAssetControllerIT` (6) and one `SeedDataIT` test fail on unmodified master here (JDK HttpClient: `UnresolvedAddressException` for `*.localhost`); their missing boots lower `room` coverage by 0.24 points in a local report, so the comparison was made on the same environment. CI on `1106486` is green.
+- Next: pick the next READY item from the register (`IMP-M20-13`…).
 
 ```
 == turnbase-platform
