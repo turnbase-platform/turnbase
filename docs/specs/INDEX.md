@@ -19,6 +19,12 @@ Requirements documents live in [`../requirements/`](../requirements/INDEX.md) an
 | [gdk-api/](gdk-api/INDEX.md) | Public GDK API: `TurnBaseGame`, lifecycle hooks, contexts, effects, results, outcome, data model |
 | [manifest/](manifest/INDEX.md) | Game manifest schema: `manifest.json` structure, JSON Schema artifact, validation rules, error model |
 
+## Files
+
+| File | Topic |
+|------|-------|
+| [backlog.md](backlog.md) | Disposition of every open question (`OQ-*`) in the specs: closed, owner decision with options, or backlog with its trigger |
+
 ## Convention
 
 Every subdirectory must have an `INDEX.md` that:
