@@ -64,7 +64,7 @@ header on either endpoint below.
 4. Self-invite → `422`.
 5. No `friendship` row for `(principal, invitee)` → `422` (FR-INV-002). The same direct-SQL check
    `room-rest-api.md` §3's `visible()` FRIENDS_ONLY term already runs against the `friendship` table —
-   this package already reads across the `social` schema boundary this way (`RoomRepository#isVisible`),
+   this package already reads across the `social` schema boundary this way (`RoomReadRepository#isVisible`),
    so this is that same established pattern, not a new one.
 6. `room_invitation_pair_key (room_id, invitee_user_id)` already holds a row for this pair → `200`
    idempotently returns the existing row rather than `409` — a host clicking Invite twice on the same

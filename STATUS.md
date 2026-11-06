@@ -1,11 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-11-05 (session 274) — **`IMP-M20-13` DONE. 223 of 232 items done.**
+**Date:** 2026-11-06 (session 275) — **`IMP-M20-14` DONE. 224 of 232 items done.**
 
-- Each of the five workflows now scans each target once: one Trivy JSON result (all four severities), then a `jq` step prints the per-severity counts to the job summary, lists the criticals and fails if there is one. Gate severity unchanged (CRITICAL only). Platform and game-host went from four scans to two; frontend likewise; common and sdk from two to one.
-- Gate shown locally on `alpine:3.10` (Trivy via docker): 1 critical (CVE-2021-36159), the gate step exits 1.
-- CI green in all five repositories (common, sdk, frontend, platform, game-host).
-- Next: pick the next READY item from the register (`IMP-M20-14`…).
+- `RoomRepository` (3,242 lines) is six package-private repositories plus `RoomRecords` (the shared value types): `RoomRepository` (create/join/leave, member commands, 663 lines), `RoomHostCommandRepository` (527), `RoomGameStartRepository` (239), `RoomReadRepository` (606), `RoomPresenceRepository` (598), `RoomOutboxRepository` (584). Largest class 663 lines. SQL and transaction boundaries moved verbatim; callers and tests take the repository they use.
+- Local: unit 298 tests (unchanged); integration 53 classes, 380 tests, per-class counts equal the `@Test` counts in source (no test added or removed). Failing in the environment, identically on untouched master: `GameAssetControllerIT` (6) and `SeedDataIT` (1) — `*.games.localhost` requests get an I/O error. `RateLimitInterceptorIT` failed once under load and passed alone.
+- `ARCHITECTURE.md` and one spec reference (`room-invitation-rest-api.md`) updated; corpus check clean.
+- Next: pick the next READY item (`IMP-M20-15`…).
 
 ```
 == turnbase-platform
