@@ -58,3 +58,14 @@ Paths are relative to `docs/specs/`. A new open question gets a row here in the 
 | `game-host/game-host-internals.md` §18 OQ-2 per-session interrupt isolation | Accepted for the MVP. | Cross-session density grows. |
 | `game-host/game-host-internals.md` §18 OQ-3 instance sharing | Memory optimisation. | Real games validate the no-mutable-field rule. |
 | `game-host/game-host-internals.md` §18 OQ-4 live-object state cache | Opt-in optimisation. | State (de)serialization nears the 30 s budget. |
+
+## Load-test findings
+
+What `loadtest/reports/SUMMARY.md` *What Phase C starts from* hands on (`IMP-M20-22`). All wait for Phase C; none is built before the owner picks it.
+
+| Finding | Why it waits | Trigger |
+|---|---|---|
+| Scaled `ramp-to-break` ceiling (170 pairs) is below the single instance's (220): Game Host cold start and scale-out flapping (NFR-ASC-006) | Needs a cloud-sized Game Host; the laptop's 1.5-CPU replicas are the bound. | M22 cluster exists. |
+| A Game Host SIGKILL and a graceful Platform delete each lose games (NFR-ASC-002, 007, FR-ASC-004): harness sync/retry budgets and recovery of a session whose host died | Recovery design is a Phase C change to the session protocol. | Phase C starts. |
+| Standby Game Host warm-up (`turnbase.gamehost.warmup-enabled` is off) and a Game Host scale-in that does not undo its scale-out inside a ramp | Tuning against real scale-out times. | M22 cluster exists. |
+| Not exercised: scale-in under a daily shape, FR-ASC-003 under load, the Platform thread step at the end of the `sustained-high` hold | Needs scenarios that do not exist yet. | A cloud run, or a thread count that keeps growing. |

@@ -189,7 +189,7 @@ The baseline for every later M18 item is this report: Postgres is no longer the 
 
 | Scenario | Report | Result in one line |
 |---|---|---|
-| `parallelism` x 3 agent configurations | [2026-10-24-m18-otel.md](2026-10-24-m18-otel.md) | Platform CPU per move 2.201 ms (agent as specified), 1.994 ms (JDBC and Lettuce off, -9%), 1.813 ms (agent off, -18%); ceiling 192, 224 and 256 pairs; first to break `DB pool` in all three. The owner's choice is pending |
+| `parallelism` x 3 agent configurations | [2026-10-24-m18-otel.md](2026-10-24-m18-otel.md) | Platform CPU per move 2.201 ms (agent as specified), 1.994 ms (JDBC and Lettuce off, -9%), 1.813 ms (agent off, -18%); ceiling 192, 224 and 256 pairs; first to break `DB pool` in all three. **Owner's choice: configuration 1, the agent as specified** (2026-10-24, session 244); nothing changed |
 
 ### Single-instance re-verification (`IMP-M18-07`)
 
@@ -265,4 +265,6 @@ Autoscaling on: Platform and Game Host 2 to 3 replicas of 1.5 CPU, k6 on 3 cores
 1. The scaled ceiling is below the single-instance one (NFR-ASC-006): the Game Host's cold start and its scale-out flapping, found in `ramp-to-break` and `spike`.
 2. A Game Host SIGKILL and a graceful Platform delete each lose games (NFR-ASC-002, 007, FR-ASC-004): the sync and retry budgets of the harness and the recovery of a session whose host died.
 3. Warm-up of the standby Game Host (`turnbase.gamehost.warmup-enabled` is off), and a Game Host scale-in that does not undo its scale-out inside a ramp.
-4. Not exercised: scale-in under a daily shape (`diurnal`), FR-ASC-003 under load, the Platform thread step at the end of the `sustained-high` hold, and `game-host-internals.md` §18 `OQ-6`.
+4. Not exercised: scale-in under a daily shape (`diurnal`), FR-ASC-003 under load, the Platform thread step at the end of the `sustained-high` hold, and `game-host-internals.md` §18 `OQ-6` (closed by `IMP-M20-18`: the host counts Espresso contexts and retires at twelve).
+
+Each point has an entry under *Load-test findings* in [`backlog.md`](../../docs/specs/backlog.md).
