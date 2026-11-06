@@ -909,6 +909,30 @@ differ for the players in it: stop the Platform first when games are running.
 
 ---
 
+### Startup time (`IMP-M20-17`)
+
+`scripts/startup-time.sh <platform|gamehost> [runs]` stops one compose service, starts it and polls
+`/actuator/health` until it answers 200; the figure is container start to ready. Median of five, same
+jars, 2026-11-06, with other containers on the machine:
+
+| Variant | Platform | Verdict |
+|---|---|---|
+| Baseline (Game Host: 8.6 s) | 9.6 s | — |
+| Dynamic CDS (`-XX:+AutoCreateSharedArchive`) | 8.4 s (−13 %) | **Rejected** |
+| `-XX:TieredStopAtLevel=1` | 10.1 s | Rejected: slower, and caps peak throughput |
+| `-XX:+UseSerialGC` | 9.5 s | Rejected: no gain, changes the collector |
+| `spring.main.lazy-initialization=true` | 8.9 s | Rejected: moves wiring failures from boot to first request |
+
+CDS is rejected for both services. The archive is written at JVM exit into the container's own
+filesystem, so a Kubernetes pod, which is replaced and never restarted, never reuses it: the gain exists
+only where containers are restarted in place. Running it beside the OpenTelemetry agent needs
+`-XX:+UnlockDiagnosticVMOptions -XX:+AllowArchivingWithJavaAgent`, and without that flag the JVM exits 1 and
+the container crash-loops. On the Game Host the dump at shutdown ran past the supervisor's four silent
+probes, which SIGKILLed the JVM mid-dump (exit 137) and never produced the archive; the Truffle classes
+dominate its start in any case. A build-time archive would avoid both problems but needs a training run that
+boots the application, which needs PostgreSQL and Redis inside `docker build`; not worth a 1 s gain. Revisit
+if the platform start is ever on a request path (scale-to-zero).
+
 ## 9. What is deliberately absent
 
 - **No service mesh, no internal TLS, no mTLS between monolith and Game Host.** Out of scope in
