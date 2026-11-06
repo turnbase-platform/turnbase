@@ -61,7 +61,7 @@
 | ID | Title | Description | Priority |
 |----|-------|-------------|----------|
 | FR-GAME-001 | Upload new game | A Registered User can upload a new game from their profile page. The upload form and technical upload mechanism are deferred to the Game SDK specification. | Must |
-| FR-GAME-002 | Required metadata | Every game must have the following metadata at creation and update: title, short description (max 100 characters), team templates (see game-rooms.md FR-TEAM-001 — min/max player counts are derived from these), AI (bot) support (boolean), spectator role support (boolean), and at least one tag. | Must |
+| FR-GAME-002 | Required metadata | Every game must have the following metadata at creation and update: title, short description (max 100 characters), team templates (see game-rooms.md FR-TEAM-001 — min/max player counts are derived from these), AI (bot) support (boolean), spectator role support (boolean),, and at least one tag. A game that implements an existing game may also credit its original authors (optional; manifest `credits`). | Must |
 | FR-GAME-003 | Tags | A game may have up to 10 tags. Each tag is free-form text, max 24 characters. Tags are set by the game developer. | Must |
 | FR-GAME-004 | Optional Markdown info doc | A game may optionally provide a Markdown document as its info/rules page. This field is not required. | Should |
 | FR-GAME-005 | Default visibility | Newly uploaded games are private (unlisted) by default. | Must |

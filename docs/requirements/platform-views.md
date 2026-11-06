@@ -188,6 +188,7 @@ Note: "Friends Only" rooms are not listed for Guest users (they cannot have frie
 | VW-GDET-001 | Game description and metadata | Visible | Visible | Visible |
 | VW-GDET-002 | Per-game statistics section (a section of the detail page, not a tab — it is the page's only panel) | Visible | Visible | Visible |
 | VW-GDET-003 | Create Room button | Hidden | Visible | Visible |
+| VW-GDET-004 | Credits of the original game, when the game declares them (manifest `credits`); absent otherwise. Not on the Catalog card | Visible | Visible | Visible |
 
 Note: The content and structure of per-game statistics is specified in per-game-statistics.md.
 

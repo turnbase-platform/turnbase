@@ -164,6 +164,7 @@ rest of §2's predicate for this caller → `404`.
   "supportsAi": true,
   "supportsSpectators": true,
   "tags": ["strategy", "classic"],
+  "credits": null,
   "version": "1.0.0",
   "badge": "OFFICIAL",
   "activePlayerCount": 4,
@@ -190,6 +191,10 @@ required"), never pushed.
 
 `completedSessionCount` (FR-STATS-010, FR-STATS-012) is `game.completed_session_count`, read live from
 the row this endpoint already loads; see `statistics-rest-api.md` §1.
+
+`credits` is the active version's manifest `credits` object (`manifest-schema.md`), passed through as
+stored (`designers`, and `artists`, `publisher`, `year` when declared), or `null` for an original game. It is
+read from `game_version.manifest`; no column holds it. The listing (§3) does not carry it.
 
 `tags` is the full `game_tag` projection for this game, ordered by insertion is not guaranteed —
 returned alphabetically for a stable response.

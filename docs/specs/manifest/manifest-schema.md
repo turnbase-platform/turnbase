@@ -80,6 +80,7 @@ A complete, annotated example:
 | `backend` | object | Yes | see below | Backend component descriptor. |
 | `frontend` | object | Yes | see below | Frontend component descriptor. |
 | `infoDoc` | string | No | non-empty | Relative path to a Markdown info/rules doc (FR-MANIFEST-007, FR-BUNDLE-005). |
+| `credits` | object | No | see below | Credits of the original work, when the game implements an existing game. Absent for an original game. |
 | `tags` | array<string> | Yes | 1–10 items, each 1–24 chars | Free-form tags (FR-MANIFEST-006, FR-GAME-003). |
 | `capabilities` | object | Yes | see below | Capability flags (FR-MANIFEST-003). |
 | `teamTemplates` | array<object> | Yes | ≥ 1 item | Team structure (FR-MANIFEST-002). |
@@ -119,6 +120,23 @@ flag stays in the schema — its shape is settled and the platform surface that 
 environment (`platform-architecture.md` *Out of Scope*), so a game that declared support would be
 accepted, listed, and then unable to seat the AI the host asked for. Rejecting at validation is the
 only point where the developer learns this before their players do.
+
+### `credits`
+
+A game that implements an existing game credits its original authors here; the platform shows them on the
+Game Detail page (`platform-views.md` VW-GDET-004). The object is optional, and a game with no original
+has none. It is the manifest's own field: the platform reads it from the active version's stored manifest,
+so it changes only with a new version upload.
+
+| Field | Type | Required | Constraints |
+|-------|------|----------|-------------|
+| `designers` | array<string> | Yes | 1–10 items, each 1–60 chars. |
+| `artists` | array<string> | No | ≤ 10 items, each 1–60 chars. |
+| `publisher` | string | No | 1–60 chars. |
+| `year` | integer | No | 1000–2999; the year the original was first published. |
+
+Example: `"credits": { "designers": ["Antoine Bauza", "Bruno Cathala"], "artists": ["Miguel Coimbra"], "publisher": "Repos Production", "year": 2015 }`.
+A malformed `credits` is a Layer 1 failure (`check: "manifest.credits…"`); there is no supplementary check.
 
 ### `teamTemplates`
 
