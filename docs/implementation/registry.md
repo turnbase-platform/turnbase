@@ -76,7 +76,7 @@ Every item of these is `DONE` (or `CANCELLED`). Their sections and register rows
 | IMP-M20-15 | ADR-0021: deployment profiles | docs | — | DONE |
 | IMP-M20-16 | Recovery from a full stop | platform, docs | M20-15 | DONE |
 | IMP-M20-17 | Startup time measured, class-data sharing tried | platform, game-host | — | DONE |
-| IMP-M20-18 | `OQ-6`: twelve Espresso contexts per JVM | game-host, docs | — | READY |
+| IMP-M20-18 | `OQ-6`: twelve Espresso contexts per JVM | game-host, docs | — | DONE |
 | IMP-M20-19 | Platform thread growth under sustained load explained | platform, docs | — | READY |
 | IMP-M20-20 | Open-question triage and the backlog | docs | — | READY |
 | IMP-M20-21 | Credits for games based on existing games | docs, sdk, platform, frontend, 7WD | — | READY |

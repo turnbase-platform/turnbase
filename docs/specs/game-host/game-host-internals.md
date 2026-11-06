@@ -409,7 +409,7 @@ Evidence and the tests behind each row:
   lock.
 - **Engine and context budget (IMP-M16-05).** All contexts run on one shared `Engine`
   ([ADR-0019](../../decisions/0019-shared-espresso-engine.md), §4.2). A JVM can create only twelve
-  Espresso contexts in its lifetime, closed or not (`OQ-6`).
+  Espresso contexts in its lifetime, closed or not (`OQ-6`); `ContextBudget` counts them and retires the host at the limit.
 - **Reporting (FR-REG-002).** The set of live `ContextKey`s is reported to
   Orchestration for warm-host selection (§11).
 
@@ -950,6 +950,7 @@ All tunable via env/config, never hard-coded:
 | Artifact Store backend + endpoint | local-FS (dev) |
 | guest `java.JavaHome` | `/opt/graalvm-guest-jdk21` |
 | concurrent guest boots (`turnbase.gamehost.max-concurrent-boots`) | 2 (§6.1) |
+| Espresso contexts created per JVM (`turnbase.gamehost.max-context-creations`) | 12 (§6.1, `OQ-6`) |
 
 ---
 
@@ -1020,12 +1021,21 @@ All tunable via env/config, never hard-coded:
   removed. Evidence: [`docs/reviews/2026-10-29-m18-reassignment`](../../reviews/2026-10-29-m18-reassignment/INDEX.md).
   The suite found one defect common to both and fixed it: two kills within one lease TTL could re-select the
   first dead host, so `reassign` now quarantines the failed host for the lease TTL.
-- **OQ-6 — a JVM can create only twelve Espresso contexts in its lifetime.** Measured by `IMP-M16-05`
-  (2026-10-19): the thirteenth `Context` build fails with `EspressoError: Cannot load library: eden`,
-  although every earlier context was closed (`close()` or `close(true)`), with or without a shared engine.
-  Each creation counts, including the re-creation of a context that idle eviction (§6.3) or memory-pressure
-  eviction closed, and the one a restored session needs after a crash (§9.3). Not established: whether a
-  closed context's native namespace can be released, whether the limit follows the glibc loader's namespace
-  count, and what the Game Host does today at the thirteenth creation (the boot watchdog, §11, may
-  treat it as a wedge). The owner decides whether to size the limit against a day of real use, evict less
-  eagerly, or restart the host on a counter; no item decides it.
+- **OQ-6 — a JVM can create only twelve Espresso contexts in its lifetime. Resolved 2026-11-06 (`IMP-M20-18`): the host counts creations and retires at the limit.**
+  Measured by `IMP-M16-05` and reproduced by `IMP-M20-18` (GraalVM CE 21.0.2, glibc 2.39): creating,
+  initialising and closing one context at a time succeeds twelve times and the thirteenth fails with
+  `EspressoError: Cannot load library: eden`, on one shared engine, with the `nfi-dlmopen` backend named
+  explicitly, and with closed contexts. The bound matches glibc's sixteen `dlmopen` namespaces (`DL_NNS`),
+  of which Espresso takes one per context and the closing of a context does not return it; this was not
+  proven (no loader trace), the count of twelve is. Every creation counts, also the re-creation of a
+  context that idle or memory-pressure eviction closed (§6.3) and the one a restored session needs
+  (§9.3). Before the decision the thirteenth creation surfaced as a gRPC `INTERNAL` and every later one
+  did too: the host stayed registered, healthy and unable to start any game.
+  **Decision:** `ContextBudget` counts creations against `turnbase.gamehost.max-context-creations`
+  (default `12`; the warm-up context, when enabled, takes one). The creation past the budget is refused
+  before Espresso is asked and answers `UNAVAILABLE`, so the Platform picks another host (§11). The first
+  refusal retires the host: it announces `draining`, serves its sessions for `drain-period`, deregisters,
+  then exits through the wedge path (marker file, supervisor starts a fresh JVM with a fresh budget). What
+  remains is reassigned lazily (OQ-5). Not chosen: evicting less (it only postpones the thirteenth and
+  trades memory for it) and an early restart before the limit (it kills sessions that would have fit).
+  Pinned by `ContextBudgetTest` and `HostWedgeTest`.

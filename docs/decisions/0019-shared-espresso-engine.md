@@ -55,7 +55,7 @@ an isolation boundary today and does not become one.
    failed at the 13th in both modes). The cause is not established; it matches Espresso's isolated native
    namespaces, which `GameHostWarmupTest` already calls "finite per JVM". Every context creation counts,
    including the re-creation of a context that idle eviction (§6.3) closed. This is recorded as `OQ-6` in
-   `game-host-internals.md` §18 for the owner; this ADR does not decide it. The test build now forks one JVM
+   `game-host-internals.md` §18 for the owner; this ADR does not decide it (`IMP-M20-18` did: the host counts creations and retires at the limit). The test build now forks one JVM
    per test class (`reuseForks=false` on Surefire) because the Espresso tests together spend more than twelve.
 2. **`allowEnvironmentAccess(EnvironmentAccess.NONE)` does not hide the host environment.** A guest
    `System.getenv("PATH")` returns the host's value with the factory's options. It is the same cause as the
