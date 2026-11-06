@@ -162,11 +162,11 @@ orchestrator's proposal; the owner may adjust them. All are judged on the refere
 
 | ID | Title | Description | Priority |
 |----|-------|-------------|----------|
-| FR-ASC-001 | Platform horizontal autoscaling | The Platform Monolith scales horizontally under an autoscaler between configured minimum and maximum replicas, on CPU. Minimum 2. | Must |
-| FR-ASC-002 | Affinity hint reaches the named instance | WebSocket upgrades carrying an instance hint reach the named ready instance; otherwise any ready instance (FR-DEPLOY-002). | Must |
-| FR-ASC-003 | User-scoped state holds across instances | User-scoped pushes (alerts, session revocation) and the per-user WebSocket connection cap hold across instances (`load-testing-phase-b.md` §4.1). | Must |
-| FR-ASC-004 | Release on removal | A Platform instance being removed releases its rooms and closes its connections before it exits (FR-DEPLOY-001; `load-testing-phase-b.md` §4.6). | Must |
-| FR-ASC-005 | Two replicas at all times | At least two Platform and two Game Host replicas run at all times in the scaled deployment. | Must |
+| FR-ASC-001 | Platform horizontal autoscaling | The Platform Monolith scales horizontally under an autoscaler between configured minimum and maximum replicas, on CPU. Minimum 2. | The Platform Monolith scales horizontally under an autoscaler between configured minimum and maximum replicas, on CPU. Minimum 2.
+| FR-ASC-002 | Affinity hint reaches the named instance | WebSocket upgrades carrying an instance hint reach the named ready instance; otherwise any ready instance (FR-DEPLOY-002). | WebSocket upgrades carrying an instance hint reach the named ready instance; otherwise any ready instance (FR-DEPLOY-002).
+| FR-ASC-003 | User-scoped state holds across instances | User-scoped pushes (alerts, session revocation) and the per-user WebSocket connection cap hold across instances (`load-testing-phase-b.md` §4.1). | User-scoped pushes (alerts, session revocation) and the per-user WebSocket connection cap hold across instances (`load-testing-phase-b.md` §4.1).
+| FR-ASC-004 | Release on removal | A Platform instance being removed releases its rooms and closes its connections before it exits (FR-DEPLOY-001; `load-testing-phase-b.md` §4.6). | A Platform instance being removed releases its rooms and closes its connections before it exits (FR-DEPLOY-001; `load-testing-phase-b.md` §4.6).
+| FR-ASC-005 | Two replicas at all times | At least two Platform and two Game Host replicas run at all times in the scaled deployment. | At least two Platform and two Game Host replicas run at all times in the scaled deployment.
 
 ---
 
@@ -233,13 +233,13 @@ orchestrator's proposal; the owner may adjust them. All are judged on the refere
 | NFR-DBQ-002 | Performance | HTTP latency stays stable at constant load across the `soak` hold (`load-testing.md` §13 finding 15). | HTTP p99 drift < 25% over the 30-minute hold | Must |
 | NFR-DBQ-003 | Performance | No regression against the M16 re-verification (`../../loadtest/reports/SUMMARY.md`, *M16*). | `ramp-to-break` ceiling ≥ 80 pairs; `parallelism` ceiling ≥ 64 pairs and peak moves/s no more than 5% below 1,055 | Must |
 | NFR-DBQ-004 | Performance | Game-path statement time does not grow with retained history (FR-DBQ-001). | Mean execution time of each FR-DBQ-001 statement with ≥ 100,000 retained closed-room participants is within 25% (or 0.5 ms, whichever is larger) of the same statement on an empty-history database | Should |
-| NFR-ASC-001 | Scalability | Scale-out reaction: from the step that crosses the target to the new replica serving (Ready and receiving traffic). | ≤ 3 min, Platform and Game Host | Should |
-| NFR-ASC-002 | Correctness | Correctness through scaling: no lost, duplicated or reordered game input, no game aborted by a scale event, error rate below 1%. | Every Phase B scenario | Must |
-| NFR-ASC-003 | Scalability | Scale-in: after load ends, replicas return to minimum, and threads, rooms, sessions and Redis keys return to within 10% of the pre-run level. | ≤ 10 min (`up-down`) | Should |
-| NFR-ASC-004 | Performance | Spike: the `load-testing.md` §6 thresholds recover after the step. | ≤ 3 min (`spike`) | Should |
-| NFR-ASC-005 | Performance | Sustained high load: HTTP p99 drift over the hold, and scale events after the first 10 minutes. | < 25%; ≤ 1 per 10 min (`sustained-high`) | Should |
-| NFR-ASC-006 | Scalability | The scaled `ramp-to-break` ceiling is at least the single-instance ceiling measured by `IMP-M18-07`. | ≥ that ceiling | Should |
-| NFR-ASC-007 | Availability | Failover: after an unannounced kill of one Platform or one Game Host replica, every game in progress continues (NFR-ASC-002 holds) and every affected player is back in their room. | ≤ 30 s (NFR-REL-002; `failover`) | Must |
+| NFR-ASC-001 | Scalability | Scale-out reaction: from the step that crosses the target to the new replica serving (Ready and receiving traffic). **Profile:** scaled Kubernetes (ADR-0021). | ≤ 3 min, Platform and Game Host | Should |
+| NFR-ASC-002 | Correctness | Correctness through scaling: no lost, duplicated or reordered game input, no game aborted by a scale event, error rate below 1%. **Profile:** both (ADR-0021). | Every Phase B scenario | Must |
+| NFR-ASC-003 | Scalability | Scale-in: after load ends, replicas return to minimum, and threads, rooms, sessions and Redis keys return to within 10% of the pre-run level. **Profile:** scaled Kubernetes (ADR-0021). | ≤ 10 min (`up-down`) | Should |
+| NFR-ASC-004 | Performance | Spike: the `load-testing.md` §6 thresholds recover after the step. **Profile:** scaled Kubernetes (ADR-0021). | ≤ 3 min (`spike`) | Should |
+| NFR-ASC-005 | Performance | Sustained high load: HTTP p99 drift over the hold, and scale events after the first 10 minutes. **Profile:** scaled Kubernetes (ADR-0021). | < 25%; ≤ 1 per 10 min (`sustained-high`) | Should |
+| NFR-ASC-006 | Scalability | The scaled `ramp-to-break` ceiling is at least the single-instance ceiling measured by `IMP-M18-07`. **Profile:** scaled Kubernetes (ADR-0021). | ≥ that ceiling | Should |
+| NFR-ASC-007 | Availability | Failover: after an unannounced kill of one Platform or one Game Host replica, every game in progress continues (NFR-ASC-002 holds) and every affected player is back in their room. **Profile:** scaled Kubernetes (ADR-0021). | ≤ 30 s (NFR-REL-002; `failover`) | Must |
 
 ---
 

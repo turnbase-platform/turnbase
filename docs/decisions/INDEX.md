@@ -28,6 +28,7 @@ Format: one file per decision, numbered sequentially (`NNNN-slug.md`). Status is
 | [0018](0018-game-start-resilience.md) | Starting a game survives a cold, restarting or wedged Game Host, and says what it is doing | Accepted |
 | [0019](0019-shared-espresso-engine.md) | All guest contexts share one Espresso engine (31% less heap for four contexts; CPU unchanged) | Accepted |
 | [0020](0020-platform-horizontal-scaling.md) | The Platform scales horizontally; at least two replicas of each stateless tier | Accepted |
+| [0021](0021-deployment-profiles.md) | Two deployment profiles: scaled Kubernetes and single instance; instance addressing as a contract | Accepted |
 
 ## Provenance
 
