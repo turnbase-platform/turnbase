@@ -74,7 +74,7 @@ Every item of these is `DONE` (or `CANCELLED`). Their sections and register rows
 | IMP-M20-13 | One Trivy scan per target | platform, game-host, frontend, sdk, common | — | DONE |
 | IMP-M20-14 | `RoomRepository` split by concern | platform | M20-10 | DONE |
 | IMP-M20-15 | ADR-0021: deployment profiles | docs | — | DONE |
-| IMP-M20-16 | Recovery from a full stop | platform, docs | M20-15 | READY |
+| IMP-M20-16 | Recovery from a full stop | platform, docs | M20-15 | DONE |
 | IMP-M20-17 | Startup time measured, class-data sharing tried | platform, game-host | — | READY |
 | IMP-M20-18 | `OQ-6`: twelve Espresso contexts per JVM | game-host, docs | — | READY |
 | IMP-M20-19 | Platform thread growth under sustained load explained | platform, docs | — | READY |

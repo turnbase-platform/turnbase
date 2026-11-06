@@ -1,0 +1,8 @@
+# Short deadlines for scripts/recovery-test.mjs (IMP-M20-16). Not a deployment file.
+services:
+  platform:
+    environment:
+      TURNBASE_ROOM_GRACE_PERIOD: ${RECOVERY_GRACE:-30}s
+      TURNBASE_ROOM_MIGRATION_WINDOW: 5s
+      TURNBASE_JOBS_DEADLINE_SWEEP_INTERVAL: 2s
+      TURNBASE_JOBS_RECONCILE_INTERVAL: 10s

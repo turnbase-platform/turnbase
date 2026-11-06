@@ -1,15 +1,15 @@
 ## Last Session Summary
 
-**Date:** 2026-11-06 (session 276) — **`IMP-M20-15` DONE. 225 of 232 items done.**
+**Date:** 2026-11-06 (session 277) — **`IMP-M20-16` DONE. 226 of 232 items done.**
 
-- ADR-0021 (`docs/decisions/0021-deployment-profiles.md`): two profiles, scaled Kubernetes (what M18 measured) and single instance (one Platform, one Game Host, may scale to zero; compose is its local form). Instance addressing (`?instance=` to the Platform; the advertised address to a Game Host) is a contract, the headless Service one implementation. One provider per deployment. Amends ADR-0020 §2.
-- `platform-operations.md`: every `FR-ASC-001…005` and `NFR-ASC-001…007` row states its profile (both: FR-ASC-002, -004, NFR-ASC-002; the rest scaled). Registered in `decisions/INDEX.md`. Docs only; no code, no CI, no ref bump.
-- Corpus check clean.
-- Next: `IMP-M20-16` (now unblocked), or `10` (PARTIAL), `11`, `13`, `17`–`21`.
+- `scripts/recovery-test.mjs` (+ `scripts/recovery-compose.override.yml`): compose stack, three rooms (in progress and returning, in progress and abandoned, lobby), every container stopped 40 s (past grace, the 35 s dispatch deadline and the lease TTL), restarted; asserts adoption at a higher epoch, intact session record and resumed game, grace counted from adoption, `GRACE_EXPIRED_NO_HUMAN` closure with teardown, lobby surviving, one new lease. Passes for SIGTERM and `--kill`. Documented in `local-environment.md` §8.
+- Finding, not a defect: stopping the Frontend before the Platform drops sockets as ordinary disconnects (reservations open, Lobby rooms close at once, FR-DC-002), so a long outage then resolves in-progress rooms. The test stops the Platform first; the caveat is in §8.
+- Umbrella only: no ref bump, no CI. Corpus check clean.
+- Next: `IMP-M20-17`–`21` (no open dependency), `10` and `11`, `13`.
 
 ## Current State
 
-- **Phase 1, M20 (refinement) open**: 12 of 22 items remain (`10` partly done). M0–M19 are closed (archived under `docs/implementation/archive/`).
+- **Phase 1, M20 (refinement) open**: 11 of 22 items remain. M0–M19 are closed (archived under `docs/implementation/archive/`).
 - **Red / not run:** CI is refused for billing, so every item is judged locally (`spotless:apply`, `verify`, `verify -Pintegration`). Nothing else is known red.
 - **Owner-held:** CI billing (or the public flip); the 7WD bootstrap secret (re-check live before reporting it); the Repos Production reply, which decides whether 7WD ships under its name.
 

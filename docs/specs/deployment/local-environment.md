@@ -879,6 +879,34 @@ Two things the sweep intervals do to tests, worth knowing before writing one:
   otherwise make every repair assertion fail with no repair and no error — the sweep detects, logs,
   and deliberately does nothing (`room-lifecycle.md` §5.4).
 
+### Recovery from a full stop (`IMP-M20-16`)
+
+`node scripts/recovery-test.mjs [--kill]` is the repeatable test of the single-instance profile
+([ADR-0021](../../decisions/0021-deployment-profiles.md)). It starts the compose stack with
+`scripts/recovery-compose.override.yml` (grace 30 s, migration window 5 s, deadline sweep 2 s, reconcile
+interval 10 s), builds three rooms, stops **every** container for 40 s, which is longer than the grace period,
+the 35 s dispatch deadline and the 10 s lease TTL, starts them again, and asserts:
+
+| Room | Before the stop | After the start |
+|---|---|---|
+| `G` | in progress, two moves played, both players connected | adopted at a higher epoch; the session record is intact (same board, `onInit` not re-run); nobody released; both players return, the game resumes and finishes |
+| `A` | in progress, both players connected | nobody returns: closed `GRACE_EXPIRED_NO_HUMAN` once grace, counted from adoption, elapses; `session:`/`queue:` keys torn down; `room:A:pod` deleted |
+| `L` | lobby, host connected | still `LOBBY`, not closed `GRACE_EXPIRED_NO_HUMAN` even after the host's grace elapsed (FR-DC-007) |
+
+It also asserts that exactly one liveness lease exists afterwards, a new incarnation, that `room:G:pod` names it,
+and that the Game Host registers again. `--kill` replaces `SIGTERM` with `SIGKILL` (the crash path). Both
+variants pass. Prerequisites are those of the `run-turnbase` skill (the three `:dev` images, seed bundles,
+`turnbase-game-tictactoe/node_modules/ws`); it uses one guest account, so it can run five times an hour per IP.
+
+**The order of the stop matters, and the test stops the Platform first.** The Platform's drain tags the sockets it
+closes, so nothing opens a reservation before the stop and the deadlines start at adoption
+(room-lifecycle.md §1.4 step 4, §1.6). When the Frontend stops first (the order `docker compose stop` takes), the
+proxy drops every socket while the Platform is alive; those are ordinary disconnects, which open a 30 s
+reservation in each in-progress room and close each Lobby room at once (FR-DC-002). A 40 s outage then
+resolves every in-progress room after the restart. That follows the specification as written, so it is a
+property of the stop order and not a defect, but it means "restart the stack" and "restart the stack gracefully"
+differ for the players in it: stop the Platform first when games are running.
+
 ---
 
 ## 9. What is deliberately absent
