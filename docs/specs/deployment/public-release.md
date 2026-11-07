@@ -8,7 +8,7 @@ Tick a step by replacing `[ ]` with `[x]`, the date, and the `gh api` read that 
 
 ## Steps
 
-- [ ] **1. Gate.** `scripts/preflip-check.sh` exits 0 and `scripts/repo-settings.sh --check` reports no drift.
+- [x] **1. Gate.** `scripts/preflip-check.sh` exits 0 and `scripts/repo-settings.sh --check` reports no drift. *2026-11-07: `preflip-check: PASS (8 repositories)`; `repo-settings.sh --check`: `OK no drift`; `gh repo view` reports PRIVATE for all 8.*
 - [ ] **2. Flip (Owner).** Settings → Danger zone → Change visibility → Public, in this order:
   `turnbase-sdk`, `turnbase-common`, `turnbase-game-tictactoe`, `turnbase-game-host`, `turnbase-platform`,
   `turnbase-frontend`, `.github`, then the umbrella `turnbase` last (its links never point at a private

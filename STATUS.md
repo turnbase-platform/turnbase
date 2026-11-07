@@ -1,9 +1,9 @@
 ## Last Session Summary
 
-**Date:** 2026-11-07 (session 294) — **IMP-M21-10 PARTIAL: flip runbook written; the owner's flip session remains.**
+**Date:** 2026-11-07 (session 295) — **IMP-M21-10 still PARTIAL: runbook step 1 ticked; steps 2–5 need the owner.**
 
-- Wrote `docs/specs/deployment/public-release.md` (registered in its INDEX): five ticked-by-date steps — gate, visibility order, `repo-settings.sh --apply --harden`, PAT removal, `v0.1.0`.
-- The steps need the owner (visibility, GHCR, tags), so the item waits on that session. Nothing was flipped.
+- Ran the gate: `scripts/preflip-check.sh` PASS (8 repositories), `scripts/repo-settings.sh --check` no drift; all 8 repositories still PRIVATE. Ticked step 1 in the runbook (`docs/specs/deployment/public-release.md`).
+- Nothing else can be done without the owner (visibility, GHCR, `v0.1.0`); no repository changed.
 
 ## Current State
 
