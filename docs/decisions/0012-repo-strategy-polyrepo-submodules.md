@@ -127,7 +127,7 @@ Subject: ≤ 72 chars, imperative mood, no trailing period.
 | Repo | Versioning | Trigger |
 |------|-----------|---------|
 | `turnbase-sdk` | Semantic versioning (`v1.2.3`) | Manual tag on `master`; CI publishes the Maven artifacts and the FE GDK tarball to GitHub — see [ADR-0022](0022-distribution-on-github.md), which supersedes the earlier GitHub Packages / deferral wording (`IMP-GATE-25`). |
-| `turnbase-common` | Semantic versioning | Manual tag `v*.*.*`; CI publishes to the repository's GitHub Pages Maven tree (ADR-0022) |
+| `turnbase-common` | Semantic versioning | Manual tag `v*.*.*`; CI publishes to the repository's GitHub Pages Maven tree (ADR-0022 §5 lists the steps; `IMP-M21-05`) |
 | `turnbase-platform` | Semantic versioning | Manual tag; CI builds + pushes Docker image |
 | `turnbase-game-host` | Semantic versioning | Manual tag; CI builds + pushes Docker image |
 | `turnbase-frontend` | Semantic versioning | Manual tag; CI builds + pushes Docker image |

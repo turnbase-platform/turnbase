@@ -1,10 +1,10 @@
 ## Last Session Summary
 
-**Date:** 2026-11-07 (session 288) — **IMP-M21-04 done: coordinates and distribution, spec first.**
+**Date:** 2026-11-07 (session 289) — **IMP-M21-05 done: release workflows on GitHub.**
 
-- **ADR-0022** (distribution on GitHub only) written first and registered; ADR-0012's release rows for common and sdk point at it; `CON-003` and `FR-FEGDK-007` name the real coordinates; `conventions.md` §5 states the target (Pages Maven repositories, release-asset tarball) above the bootstrap that still runs.
-- **Code:** every pom's `groupId` and cross-references are `io.github.turnbase-platform`; the GDK is `@turnbase-platform/gdk` (package, imports, harness import map, both games). The games' `vendor/` tarballs were repacked from the renamed sdk. Java package names stay `io.turnbase.*`.
-- Builds green locally in all six touched repositories (sdk with `-Pintegration`); no document outside the register and archives names the old coordinates.
+- `publish.yml` in `turnbase-common` and `turnbase-sdk`: a `v*.*.*` tag deploys the jars into the `gh-pages` `/maven/` tree and (sdk) creates the release with the GDK tarball and jars; `GITHUB_TOKEN` only. `workflow_dispatch` `dry-run` (default true) deploys into a runner-local directory and proves the layout with `scripts/verify-maven-layout.sh` (throwaway consumer pom, `file://` repository, empty local repo); sdk also installs the tarball.
+- Ran the dry-run steps locally in both repos: layout OK. That found a latent defect — the sdk `-Prelease` Javadoc failed on a broken `{@link}` in `MockOrchestration` (fixed).
+- ADR-0022 §5 states what happens on a tag. Pages and the release step are not exercised before the flip (`IMP-M21-10`).
 
 ## Current State
 
@@ -19,7 +19,7 @@
 
 ## Next Priorities
 
-- **M21:** `06` (README) and `07` (story) can start at once; then `05` (workflows), `08`; then the owner's flip session (`10`), `11` and `12`.
+- **M21:** `06` (README) and `07` (story) can start at once; then `08`; then the owner's flip session (`10`), `11` and `12`.
 - Then M22, cloud deployment (from ADR-0021), then Phase C (`docs/specs/backlog.md` *Load-test findings*).
 
 [`conventions.md`](docs/implementation/conventions.md) applies to every item and is not repeated in read-lists.

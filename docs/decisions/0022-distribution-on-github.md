@@ -38,7 +38,14 @@ M21 makes the repositories public under Apache-2.0. Three facts decide where the
    `-DaltDeploymentRepository` into a checkout of the producer's `gh-pages` branch, pushes it and creates the
    release with the assets — with the workflow's own `GITHUB_TOKEN` (`contents: write`). **No secret.** Sources
    jars are published; there is no GPG signing (nothing validates it on Pages; Maven's checksums are written).
-   `workflow_dispatch` with a `dry-run` input deploys into a workflow-local directory instead (`IMP-M21-05`).
+   `workflow_dispatch` with a `dry-run` input (default true) deploys into a workflow-local directory instead (`IMP-M21-05`).
+
+   **What happens on a tag** (`publish.yml`, both producers, built by `IMP-M21-05`): set the version from the
+   tag → `verify` (the ordinary gate) → `deploy -Prelease` into a `gh-pages` worktree's `maven/` tree →
+   `scripts/verify-maven-layout.sh` (a throwaway consumer pom resolves every artifact from that tree as a
+   `file://` repository with an empty local repository) → commit and push `gh-pages`. `turnbase-sdk`
+   additionally `npm pack`s the GDK, proves the tarball installs, and runs `gh release create` with the
+   tarball and every jar. A dry run does the same minus the push and the release.
 6. **First release.** `v0.1.0` for `turnbase-common` and `turnbase-sdk`; pre-1.0 says the API may still move.
 
 ## Consequences
