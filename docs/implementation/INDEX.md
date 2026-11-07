@@ -47,6 +47,7 @@ that surfaces three milestones later. Record it against the item's *Gate* field.
 | [archive/M17-database-capacity.md](archive/M17-database-capacity.md) | Closed milestone M17: its register rows and item sections, verbatim |
 | [archive/M18-load-testing-phase-b-capacity-and-autosc.md](archive/M18-load-testing-phase-b-capacity-and-autosc.md) | Closed milestone M18: its register rows and item sections, verbatim |
 | [archive/M19-the-immersive-game-room.md](archive/M19-the-immersive-game-room.md) | Closed milestone M19: its register rows and item sections, verbatim |
+| [archive/M20-refinement.md](archive/M20-refinement.md) | Closed milestone M20: its register rows and item sections, verbatim |
 
 ## Related
 

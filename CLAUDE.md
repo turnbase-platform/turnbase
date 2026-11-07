@@ -15,7 +15,7 @@ TurnBase is a platform for hosting and playing multiplayer games online. It prov
 
 ## Current Phase
 
-**Phase 1 — Implementation**, under way; milestone M20 (refinement before the repositories go public) is open.
+**Phase 1 — Implementation**, under way; M20 (refinement) closed 2026-11-07, and M21 (public release) is next.
 The register ([`registry.md`](docs/implementation/registry.md)) holds the open items and
 [STATUS.md](STATUS.md) the progress; closed milestones are in `docs/implementation/archive/`.
 
@@ -57,7 +57,7 @@ TurnBase lives under the **[turnbase-platform](https://github.com/turnbase-platf
 | [`turnbase-game-host`](https://github.com/turnbase-platform/turnbase-game-host) | Game Host (GraalVM CE for JDK 21 + Truffle) | Docker image |
 | [`turnbase-frontend`](https://github.com/turnbase-platform/turnbase-frontend) | Platform frontend (React 19, TypeScript) | Docker image / static assets |
 | [`turnbase-game-tictactoe`](https://github.com/turnbase-platform/turnbase-game-tictactoe) | First official game (`IMP-M3-10`) — a **consumer** of the published SDK, not a platform component | Game bundle (`<gameId>.zip`) |
-| [`turnbase-game-7wonders-duel`](https://github.com/turnbase-platform/turnbase-game-7wonders-duel) | Second official game (skeleton, React frontend) — a **consumer** of the published SDK, not a platform component | Game bundle (`<gameId>.zip`) |
+| [`turnbase-game-7wonders-duel`](https://github.com/turnbase-platform/turnbase-game-7wonders-duel) | Second official game (base game complete, React frontend; credits its original authors) — a **consumer** of the published SDK, not a platform component | Game bundle (`<gameId>.zip`) |
 
 ```
 turnbase/                    # This repo (landing + docs)
@@ -78,7 +78,7 @@ turnbase/                    # This repo (landing + docs)
 ├── turnbase-game-host/      # git submodule
 ├── turnbase-frontend/       # git submodule
 ├── turnbase-game-tictactoe/ # git submodule — first official game (a consumer of the SDK)
-└── turnbase-game-7wonders-duel/ # git submodule — second official game (skeleton; a consumer of the SDK)
+└── turnbase-game-7wonders-duel/ # git submodule — second official game (a consumer of the SDK)
 ```
 
 **Dependency graph:**
@@ -174,6 +174,19 @@ disagree on the wire.
 ```bash
 git config core.hooksPath .githooks    # once per clone, this repo and each submodule
 ```
+
+### Language servers
+
+`.claude/settings.json` enables `typescript-lsp` (once per machine: `npm i -g typescript-language-server
+typescript`); prefer the `LSP` tool over grep for references, implementations and call hierarchy in
+`turnbase-frontend` and the games.
+
+**`jdtls-lsp` is disabled**, tried 2026-11-07. It worked (on `PodIdentity` one call returned 32 exact
+references in 9 files; diagnostics showed Jackson 3 deprecations the Maven build does not print), but on
+first use it imports the Maven project into the **same `target/classes`** Maven builds into, and writes
+`.project`/`.classpath`/`.settings/`: a `verify -Pintegration` running at the time lost classes mid-run
+(`NoClassDefFoundError`, 34 failures). Re-enable it only with jdtls building elsewhere, for instance a
+pom profile activated by `m2e.version` that sets `<directory>target-ide</directory>`.
 
 ### Branches: no PRs, and nothing outlives the session
 

@@ -119,7 +119,10 @@ never published on `8080` when the Frontend container is — the host port map a
 source. Only the monolith's own listener is the security boundary for the API: nginx adds no
 authorization and the monolith's `Origin`/session checks are unchanged.
 
-Every `*.localhost` name resolves to loopback in Chrome and Firefox with no `/etc/hosts` entry.
+Every `*.localhost` name resolves to loopback in Chrome and Firefox with no `/etc/hosts` entry. A program that asks the operating system may not get it: a resolver of only `files dns` (a default WSL 2
+install) forwards the name to its DNS server, which takes about 15 s to fail. The platform's tests do not
+depend on it: a test-scoped `InetAddressResolverProvider` answers `localhost` and `*.localhost` with
+loopback (RFC 6761 §6.3) in the test JVM.
 
 ---
 
