@@ -1,22 +1,35 @@
 ## Last Session Summary
 
-**Date:** 2026-11-07 (session 284) — **M20 closed and archived; the missed spots of its review fixed.**
+**Date:** 2026-11-07 (session 284) — **M20 closed and archived; M21 (public release) planned and registered, 12 items.**
 
-- **`*.localhost` in the platform's tests** (`turnbase-platform` 53758f6): `GameAssetControllerIT` and one `SeedDataIT` test failed locally because this machine's resolver (`files dns`, WSL 2) sends `*.localhost` to DNS (~15 s, then fail); CI's systemd-resolved answers it. A test-scoped `InetAddressResolverProvider` answers loopback (RFC 6761). `verify -Pintegration` green: 301 unit, 381 IT; integration **279.8 s**, 46% of the 614.5 s baseline, so `IMP-M20-10`'s "at most half" is now met.
-- **Language servers:** `typescript-lsp` kept. `jdtls-lsp` tried and **disabled**: it worked, but it builds into Maven's own `target/classes` and broke a concurrent `verify` (34 failures). `CLAUDE.md` *Language servers* says how to re-enable it.
-- **7WD CI green** for the first time, once the owner added `TURNBASE_SDK_PAT`.
-- M20 moved to `docs/implementation/archive/M20-refinement.md`; `CLAUDE.md` no longer calls 7WD a skeleton.
+- **M21 checks:**
+  - gitleaks v8.28.0 over every full history found no leaks (1,296 commits, scanned from mirror clones).
+  - **Names:** `@turnbase` on npm belongs to someone else, and `io.turnbase` cannot be claimed on Maven Central.
+  - **History:** 33 old PRs keep the original commits on GitHub; the personal address is on 1,283 of 1,301 commits, in metadata only.
+  - **7WD** ships no artwork, and its rulebook PDFs were never committed.
+- **Owner decisions:**
+  - coordinates `io.github.turnbase-platform` / `@turnbase-platform/gdk`;
+  - **distribution on GitHub only** (a Maven repository on GitHub Pages, the GDK as a release tarball);
+  - issues only, with an org `.github` repository;
+  - **history kept as it is**, with a per-repository noreply `user.email` from today (set in all eight).
+- **`*.localhost` in the platform's tests** (`turnbase-platform` 53758f6): a test-scoped resolver answers loopback; `verify -Pintegration` green, integration 279.8 s (46% of the 614.5 s baseline).
+- **Language servers:** `jdtls-lsp` disabled; it builds into Maven's `target/classes` and broke a concurrent `verify`.
+- **7WD CI green** for the first time, once `TURNBASE_SDK_PAT` existed.
 
 ## Current State
 
-- **Phase 1; no milestone open.** M0–M20 are closed and archived under `docs/implementation/archive/`.
+- **Phase 1; M21 (public release) open**, 12 items in `docs/implementation/registry.md`; M0–M20 are archived.
 - **CI runs again.** Latest `master` runs are green in common, sdk, game-host, platform, frontend and 7WD.
-- **Known noise, not failures:** jdtls diagnostics list Jackson 3 deprecations (`asText()`, `isTextual()`) in about ten platform classes; the build does not warn about them.
-- **Owner-held:** the Repos Production reply, which decides whether 7WD ships under its name.
+- **Known noise, not failures:** Jackson 3 deprecations (`asText()`, `isTextual()`) in about ten platform classes.
+- **Owner-held:**
+  - the Repos Production reply (`IMP-M21-09`, BLOCKED);
+  - creating the `.github` repository (`08`);
+  - the flip session (`10`);
+  - cutting `v0.1.0` in common and sdk.
 
 ## Next Priorities
 
-- **Plan M21, the public release** (spike `RS-01`, `03`, `04`, `06`, `12`): Apache-2.0 `LICENSE` in every repository (owner, 2026-11-07), an umbrella `README.md`, repository descriptions and topics, a gitleaks scan before the flip, `turnbase-common`/`turnbase-sdk` published so consumers need no PAT, then the visibility flip.
+- **M21:** `01` (licence), `03` (gate), `04` (coordinates, ADR-0022 first), `06` (README) and `07` (story) can start at once; then `02`, `05`, `08`; then the owner's flip session (`10`), `11` and `12`.
 - Then M22, cloud deployment (from ADR-0021), then Phase C (`docs/specs/backlog.md` *Load-test findings*).
 
 [`conventions.md`](docs/implementation/conventions.md) applies to every item and is not repeated in read-lists.

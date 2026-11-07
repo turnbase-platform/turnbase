@@ -15,7 +15,7 @@ TurnBase is a platform for hosting and playing multiplayer games online. It prov
 
 ## Current Phase
 
-**Phase 1 — Implementation**, under way; M20 (refinement) closed 2026-11-07, and M21 (public release) is next.
+**Phase 1 — Implementation**, under way; M21 (public release) is open (planned 2026-11-07); M20 (refinement) closed the same day.
 The register ([`registry.md`](docs/implementation/registry.md)) holds the open items and
 [STATUS.md](STATUS.md) the progress; closed milestones are in `docs/implementation/archive/`.
 
