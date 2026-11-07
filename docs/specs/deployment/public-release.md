@@ -20,7 +20,7 @@ Tick a step by replacing `[ ]` with `[x]`, the date, and the `gh api` read that 
   `master-protect` (no force push, no deletion, no required PRs); read-only default `GITHUB_TOKEN`; fork-PR
   workflows needing approval; Pages on `gh-pages` for common and sdk.
   Confirm: `scripts/repo-settings.sh --check --harden` reports no drift.
-- [ ] **3b. GHCR (Owner).** Package settings → visibility Public for the platform, game-host and frontend
+- [x] **3b. GHCR (Owner).** *2026-11-07, `gh api orgs/turnbase-platform/packages/container/<name> -q .visibility` prints `public` for platform, game-host and frontend.* Package settings → visibility Public for the platform, game-host and frontend
   images (web UI only).
 - [x] **4. Drop the PAT.** *2026-11-07, platform `9d17128`, game-host `b3b12f8`, tictactoe `cbf9a82`; `build` green on all three; the dry-run `publish` is green in common and sdk.* In `turnbase-platform`, `turnbase-game-host`, `turnbase-game-tictactoe` the bootstrap
   clone of `turnbase-sdk` (and `turnbase-common` where cloned) drops `x-access-token:${TURNBASE_SDK_PAT}@`;

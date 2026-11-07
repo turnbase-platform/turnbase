@@ -68,7 +68,7 @@ Every item of these is `DONE` (or `CANCELLED`). Their sections and register rows
 | IMP-M21-07 | How it was built | docs | — | DONE |
 | IMP-M21-08 | Component READMEs, community files and repository settings | all, `.github` | M21-06 | DONE |
 | IMP-M21-09 | 7WD release decision | 7WD, docs | publisher's reply | BLOCKED |
-| IMP-M21-10 | The flip | all, org | M21-01…08 | PARTIAL |
+| IMP-M21-10 | The flip | all, org | M21-01…08 | DONE |
 | IMP-M21-11 | Consumers on `0.1.0`, every secret gone | platform, game-host, tictactoe, 7WD | M21-10 | READY |
 | IMP-M21-12 | Verified from the outside | all public | M21-11 | READY |
 
@@ -399,7 +399,6 @@ Nothing lands in any repository from step 2 until step 4.
 5. **Owner:** cut `v0.1.0` in `turnbase-common` and `turnbase-sdk`; both publish; the artifacts resolve from
    Pages anonymously.
 
-**Remaining:** step 3b only: the owner sets the GHCR packages (platform, game-host, frontend images) to Public in the web UI, then ticks it in `docs/specs/deployment/public-release.md`. Steps 1–5 otherwise done 2026-11-07.
 
 **Done when:** every step is ticked in the runbook with its date and the `gh api` read that confirms it;
 `gh repo view` reports PUBLIC for each flipped repository; CI is green on every `master`.

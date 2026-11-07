@@ -1,10 +1,10 @@
 ## Last Session Summary
 
-**Date:** 2026-11-07 (session 295) — **IMP-M21-10 PARTIAL: flipped and released; only the GHCR visibility (web UI) remains.**
+**Date:** 2026-11-07 (session 295) — **IMP-M21-10 DONE: flipped, hardened, released, GHCR images public.**
 
 - All 7 repositories (plus the umbrella) are PUBLIC; hardening applied; bootstrap PATs dropped from platform, game-host and tictactoe (all `build` runs green).
 - `v0.1.0` cut in common and sdk. The first `publish` run failed on the gh-pages bootstrap commit (no git identity; a dry run never reaches it), nothing was published; fixed, tags re-cut, both green, artifacts resolve anonymously from Pages.
-- Owed: GHCR packages to Public (owner, web UI), then tick 3b in the runbook. `IMP-M21-11` can start (it depends on step 5).
+- GHCR packages public (owner); `IMP-M21-11` can start.
 
 ## Current State
 
