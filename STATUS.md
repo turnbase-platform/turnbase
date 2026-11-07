@@ -1,11 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-11-07 (session 291) — **IMP-M21-07 done: how it was built.**
+**Date:** 2026-11-07 (session 292) — **IMP-M21-08 PARTIAL: READMEs and settings done, `.github` repository not created.**
 
-- `docs/how-it-was-built.md`: spec-first layers, the agent workflow and guard-rails, the eight review rounds, evidence (load test, test cost, coverage rule, CVE gate) and what went wrong (PR suspension, stale `BLOCKED`, jdtls, CI refused, readiness blockers), with commit SHAs.
-- `scripts/project-stats.sh` (new): commits, latest session, items, ADRs, requirement and spec counts, tests per repository from a checkout, no build. Output pasted into the page with its date; the page links the script. Run on this recursive clone, 7WD included.
-- New `docs/INDEX.md` (the page had no INDEX above it); README links the page.
-- Test counts are static counts of annotations, not run results; coverage is cited as the enforced rule, not a figure.
+- Seven component READMEs brought to one shape (part-of link to the umbrella, build, run/test, layout, licence); frontend's and tictactoe's rewritten. Landed in each repository; docs-only, no ref bump needed beyond this commit.
+- `scripts/repo-settings.sh` (`--check`/`--apply`, `--harden` for the flip): descriptions (platform: Spring Boot 4.1), topics, homepage, Projects/Wiki off, Issues on, applied to the eight repositories; `--check` reports no drift.
+- `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `profile/README.md` written and staged in `org-github/`: creating a repository needs the owner's in-session confirmation, which a non-interactive run lacks.
+- Owed: create `.github`, push the staged files, delete `org-github/`, include `.github` in the drift check.
 
 ## Current State
 
@@ -20,7 +20,7 @@
 
 ## Next Priorities
 
-- **M21:** `08`; then the owner's flip session (`10`), `11` and `12`.
+- **M21:** finish `08` (create `.github`); then the owner's flip session (`10`), `11` and `12`.
 - Then M22, cloud deployment (from ADR-0021), then Phase C (`docs/specs/backlog.md` *Load-test findings*).
 
 [`conventions.md`](docs/implementation/conventions.md) applies to every item and is not repeated in read-lists.
