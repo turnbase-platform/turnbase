@@ -1,9 +1,9 @@
 ## Last Session Summary
 
-**Date:** 2026-11-07 (session 293) — **IMP-M21-08 DONE: `.github` repository created and checked.**
+**Date:** 2026-11-07 (session 294) — **IMP-M21-10 PARTIAL: flip runbook written; the owner's flip session remains.**
 
-- Created `turnbase-platform/.github` (private, default branch `master`) with the owner's in-session confirmation; pushed `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` and `profile/README.md`; deleted the staging directory `org-github/`.
-- `scripts/repo-settings.sh --apply .github` fixed two drifts (Projects on, no topic); `--check` reports no drift across all nine repositories.
+- Wrote `docs/specs/deployment/public-release.md` (registered in its INDEX): five ticked-by-date steps — gate, visibility order, `repo-settings.sh --apply --harden`, PAT removal, `v0.1.0`.
+- The steps need the owner (visibility, GHCR, tags), so the item waits on that session. Nothing was flipped.
 
 ## Current State
 
@@ -17,7 +17,7 @@
 
 ## Next Priorities
 
-- **M21:** the owner's flip session (`10`), `11` and `12`.
+- **M21:** the owner's flip session (`10`, runbook ready), `11` and `12`.
 - Then M22, cloud deployment (from ADR-0021), then Phase C (`docs/specs/backlog.md` *Load-test findings*).
 
 [`conventions.md`](docs/implementation/conventions.md) applies to every item and is not repeated in read-lists.

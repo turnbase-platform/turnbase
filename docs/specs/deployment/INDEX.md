@@ -24,6 +24,7 @@ escalation path rather than deferring the whole subject to a cloud phase that ha
 | [secrets-and-configuration.md](secrets-and-configuration.md) | JWT signing keys and their rotation, database and Redis credentials, OAuth client secrets, per-environment configuration, what must never reach a log |
 | [load-testing.md](load-testing.md) | k6 load and scalability testing: goals and anti-goals, the chart fixes and load-test overlay the harness needs, the pair-per-VU scenario design, scenarios, thresholds, proposed game-start and p99 NFRs, run reports; Phase B points to `load-testing-phase-b.md` |
 | [load-testing-phase-b.md](load-testing-phase-b.md) | Phase B of load testing: core reallocation and single-node capacity work, Platform autoscaling with WebSocket room affinity and multi-instance fixes, Game Host spreading, autoscaling (KEDA) and drain, `OQ-5` by measurement, the `spike`/`sustained-high`/`diurnal` scenarios and the proposed `FR-ASC`/`NFR-ASC` requirements |
+| [public-release.md](public-release.md) | The flip runbook (`IMP-M21-10`): visibility order, hardening via `repo-settings.sh --harden`, PAT removal, `v0.1.0` release; ticked step by step with dates |
 
 ## Key Decisions
 
