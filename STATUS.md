@@ -1,14 +1,16 @@
 ## Last Session Summary
 
-**Date:** 2026-11-07 (session 289) — **IMP-M21-05 done: release workflows on GitHub.**
+**Date:** 2026-11-07 (session 290) — **IMP-M21-06 done: the umbrella README.**
 
-- `publish.yml` in `turnbase-common` and `turnbase-sdk`: a `v*.*.*` tag deploys the jars into the `gh-pages` `/maven/` tree and (sdk) creates the release with the GDK tarball and jars; `GITHUB_TOKEN` only. `workflow_dispatch` `dry-run` (default true) deploys into a runner-local directory and proves the layout with `scripts/verify-maven-layout.sh` (throwaway consumer pom, `file://` repository, empty local repo); sdk also installs the tarball.
-- Ran the dry-run steps locally in both repos: layout OK. That found a latent defect — the sdk `-Prelease` Javadoc failed on a broken `{@link}` in `MockOrchestration` (fixed).
-- ADR-0022 §5 states what happens on a tag. Pages and the release step are not exercised before the flip (`IMP-M21-10`).
+- `README.md`: two-sentence pitch, five screenshots (`docs/assets/`, WebP under 40 KB each, registered in `docs/assets/INDEX.md`), a Mermaid architecture diagram, the repository map, a quickstart, *Write a game* with the ADR-0022 coordinates, status and roadmap, licence, 7WD's pending state (D9) and contributions (D11).
+- Followed the quickstart from a fresh SSH clone in `/tmp`: stack healthy, `:8080` returns 200, catalog seeded. The spec's §5 first-run omits the `install` of common and sdk and the `package` of the platform and game-host jars; the README has them (spec text not touched).
+- `check-corpus.py` now also checks `README.md`; `CLAUDE.md` links it as the landing page.
+- Room screenshot is light only (the dark one would have needed a second room).
+- The README does not link the story document until `IMP-M21-07` lands it.
 
 ## Current State
 
-- **Phase 1; M21 (public release) open**, 12 items in `docs/implementation/registry.md`; M0–M20 are archived.
+- **Phase 1; M21 (public release) open**, 12 items in `docs/implementation/registry.md` (`01`–`06` done); M0–M20 are archived.
 - **CI runs again.** Latest `master` runs are green in common, sdk, game-host, platform, frontend and 7WD.
 - **Known noise, not failures:** Jackson 3 deprecations (`asText()`, `isTextual()`) in about ten platform classes.
 - **Owner-held:**
@@ -19,7 +21,7 @@
 
 ## Next Priorities
 
-- **M21:** `06` (README) and `07` (story) can start at once; then `08`; then the owner's flip session (`10`), `11` and `12`.
+- **M21:** `07` (story; link it from the README when done), then `08`; then the owner's flip session (`10`), `11` and `12`.
 - Then M22, cloud deployment (from ADR-0021), then Phase C (`docs/specs/backlog.md` *Load-test findings*).
 
 [`conventions.md`](docs/implementation/conventions.md) applies to every item and is not repeated in read-lists.

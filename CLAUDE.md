@@ -50,7 +50,7 @@ TurnBase lives under the **[turnbase-platform](https://github.com/turnbase-platf
 
 | Repository | Description | Published artifact |
 |------------|-------------|-------------------|
-| [`turnbase`](https://github.com/turnbase-platform/turnbase) | This repo — landing page, docs, specs, submodule refs | — |
+| [`turnbase`](https://github.com/turnbase-platform/turnbase) | This repo — the [landing page](README.md), docs, specs, submodule refs | — |
 | [`turnbase-common`](https://github.com/turnbase-platform/turnbase-common) | Internal shared library: gRPC stubs, internal models | `io.github.turnbase-platform:turnbase-grpc` (Maven) |
 | [`turnbase-sdk`](https://github.com/turnbase-platform/turnbase-sdk) | Public GDK: `TurnBaseGame` interface, effect/input types, TS types | `io.github.turnbase-platform:turnbase-sdk` (Maven) + npm package |
 | [`turnbase-platform`](https://github.com/turnbase-platform/turnbase-platform) | Platform Monolith (Spring Boot 4.1+) | Docker image |
@@ -60,7 +60,7 @@ TurnBase lives under the **[turnbase-platform](https://github.com/turnbase-platf
 | [`turnbase-game-7wonders-duel`](https://github.com/turnbase-platform/turnbase-game-7wonders-duel) | Second official game (base game complete, React frontend; credits its original authors) — a **consumer** of the published SDK, not a platform component | Game bundle (`<gameId>.zip`) |
 
 ```
-turnbase/                    # This repo (landing + docs)
+turnbase/                    # This repo (landing page: README.md, + docs)
 ├── CLAUDE.md
 ├── STATUS.md
 ├── docs/

@@ -40,7 +40,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOCS = os.path.join(ROOT, "docs")
-EXTRA = ["CLAUDE.md", "STATUS.md", "ARCHITECTURE.md"]
+EXTRA = ["README.md", "CLAUDE.md", "STATUS.md", "ARCHITECTURE.md"]
 
 # A requirement identifier: FR-ROOM-001, NFR-SEC-003, CON-012, OQ-002, VW-JOIN-001, IR-24.
 ID = r"(?:FR|NFR|CON|OQ|VW|IR)-[A-Z]+-\d+[a-z]?|(?:CON|OQ|IR)-\d+[a-z]?"
