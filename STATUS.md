@@ -1,12 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-11-07 (session 286) — **IMP-M21-02 done: third-party licence audit.**
+**Date:** 2026-11-07 (session 287) — **IMP-M21-03 done: pre-flip privacy and secrets gate.**
 
-- Reports from committed, pinned commands, named in each README: Maven `license-maven-plugin` 2.8.0 `add-third-party` (`aggregate-add-third-party` in sdk) in common, sdk, platform, game-host and both games; `npm run licenses` (`license-checker-rseidelsohn` 5.0.1, `--onlyAllow`) in frontend, sdk and both games.
-- Findings: nothing incompatible. Espresso/Polyglot are GPLv2 (with the Classpath Exception) in the game-host image only; ICU4J (Unicode-3.0), HdrHistogram (CC0), Bouncy Castle (MIT-style) recorded; `css-mediaquery` is declared `BSD` (really BSD-3-Clause), excluded by name.
-- Allowed families recorded in `conventions.md` §6 *Third-party licences*.
-- Frontend image copies the two fonts' OFL text to `/licenses/`; the game bundles embed no fonts, so need none.
-- CI green in all seven (the frontend needed one rerun of a flaky `App.test.tsx` validation-message test).
+- `scripts/preflip-check.sh` mirror-clones all eight repositories and fails on a gitleaks finding (pinned `v8.28.0` container), zero commits scanned, a non-noreply e-mail on a commit after the switch, or a tracked file naming the home path or personal address. `scripts/test-preflip-check.sh` plants one of each kind; it passes. The script passes on all eight.
+- **Boundary is a moment, not a day:** two umbrella and one platform commit of the morning of 2026-11-07 still carry the personal address (before the noreply setting), so the default `--since` is `2026-11-07T14:00:00+01:00` (D8, F4).
+- A `secrets` job (gitleaks, full history) is in every repository's `build.yml`; CI green in all seven (frontend needed one rerun of the flaky `App.test.tsx` validation tests).
+- `.claude/settings.json` no longer names an absolute sandbox path (the default already allows writes under the project); `.claude/settings.local.json` is in `.gitignore`. Two docs that quoted the home path were reworded.
 
 ## Current State
 
@@ -21,7 +20,7 @@
 
 ## Next Priorities
 
-- **M21:** `03` (gate), `04` (coordinates, ADR-0022 first), `06` (README) and `07` (story) can start at once; then `05`, `08`; then the owner's flip session (`10`), `11` and `12`.
+- **M21:** `04` (coordinates, ADR-0022 first), `06` (README) and `07` (story) can start at once; then `05`, `08`; then the owner's flip session (`10`), `11` and `12`.
 - Then M22, cloud deployment (from ADR-0021), then Phase C (`docs/specs/backlog.md` *Load-test findings*).
 
 [`conventions.md`](docs/implementation/conventions.md) applies to every item and is not repeated in read-lists.
