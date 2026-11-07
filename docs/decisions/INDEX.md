@@ -29,6 +29,7 @@ Format: one file per decision, numbered sequentially (`NNNN-slug.md`). Status is
 | [0019](0019-shared-espresso-engine.md) | All guest contexts share one Espresso engine (31% less heap for four contexts; CPU unchanged) | Accepted |
 | [0020](0020-platform-horizontal-scaling.md) | The Platform scales horizontally; at least two replicas of each stateless tier | Accepted |
 | [0021](0021-deployment-profiles.md) | Two deployment profiles: scaled Kubernetes and single instance; instance addressing as a contract | Accepted |
+| [0022](0022-distribution-on-github.md) | Distribution on GitHub only: public coordinates `io.github.turnbase-platform` and `@turnbase-platform/gdk`, Pages Maven repositories, release-asset FE GDK | Accepted |
 
 ## Provenance
 

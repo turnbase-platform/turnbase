@@ -288,12 +288,14 @@ because that round trip costs a full turn to discover and another to fix.
 
 ## 5. Cross-repository dependencies
 
-`turnbase-common` publishes `io.turnbase:turnbase-grpc`, consumed by both `turnbase-platform` and
-`turnbase-game-host`. `turnbase-sdk` publishes `io.turnbase:turnbase-sdk`, consumed by
-`turnbase-game-host` and by game developers, and `io.turnbase:turnbase-serialization` — the shared
+`turnbase-common` publishes `io.github.turnbase-platform:turnbase-grpc`, consumed by both `turnbase-platform` and
+`turnbase-game-host`. `turnbase-sdk` publishes `io.github.turnbase-platform:turnbase-sdk`, consumed by
+`turnbase-game-host` and by game developers, and `io.github.turnbase-platform:turnbase-serialization` — the shared
 serialization component of `game-host-internals.md` §3.6 — consumed by `turnbase-game-host`'s guest
 bridge and by the harness (and, as a follow-up, `turnbase-platform`'s serializability analysis). A
 change to it is a `turnbase-sdk` change first, published and pinned before any consumer moves.
+
+**Target (ADR-0022, `IMP-M21-04`/`05`/`11`).** Jars carry groupId `io.github.turnbase-platform` and are served from each producer's GitHub Pages Maven repository (`https://turnbase-platform.github.io/turnbase-common/maven/`, `…/turnbase-sdk/maven/`); the FE GDK `@turnbase-platform/gdk` is the `npm pack` tarball on the `turnbase-sdk` GitHub Release, depended on by URL. Consumers declare the `<repository>` they need and pin `0.1.0`; the tag workflow publishes with `GITHUB_TOKEN` only. The bootstrap below is what still runs until `IMP-M21-11` deletes it together with every PAT it names.
 
 **Consumers pin an exact released version**, through a property:
 
@@ -349,7 +351,7 @@ the same category as cutting a release tag. Deleted alongside the bootstrap inst
 first real release lands, for the same reason: at that point resolution is an ordinary authenticated
 fetch from GitHub Packages using the workflow's own token, not a second repository's source.
 
-**The same window applies to `turnbase-sdk`, and to `io.turnbase:turnbase-serialization` with it**
+**The same window applies to `turnbase-sdk`, and to `io.github.turnbase-platform:turnbase-serialization` with it**
 (`IMP-GATE-70`). `turnbase-game-host` first depends on both in `IMP-M3-03`, and nothing in this section
 said how its CI resolves them: `turnbase-sdk` is private, has no tagged release, and publishes only on
 a `v*.*.*` tag (`publish.yml`), so there is nothing on GitHub Packages to fetch. Same mechanism, same
@@ -361,7 +363,7 @@ reasoning as `turnbase-common`:
 - `turnbase-sdk` must therefore install **both** artifacts from **one** `./mvnw install -DskipTests` at
   its repository root. A consumer's CI has one clone-and-install step per producing repository, not one
   per artifact, and a second command is a second thing to forget when a third artifact
-  (`io.turnbase:turnbase-harness`, `IMP-M3-11`) arrives.
+  (`io.github.turnbase-platform:turnbase-harness`, `IMP-M3-11`) arrives.
 - The consumer's workflow gains a second bootstrap step beside the `turnbase-common` one, and it needs
   its **own credential**: `TURNBASE_COMMON_PAT` is scoped to `turnbase-common` only and cannot read
   another repository. The credential is a **fine-grained PAT, read-only on Contents, scoped to
@@ -425,7 +427,7 @@ v1 on one classpath, because both consumers will run them side by side through a
 `manifest-schema.md` calls it "the contract consumed by both the platform upload validator and the
 local test harness ... so the two cannot drift," which is exactly the proto's problem restated for a
 JSON Schema file. Since `IMP-M3-13` (IMP-GATE-91) the upload validator and the harness are one
-component, `turnbase-sdk`'s `io.turnbase:turnbase-bundle-validator`, so there is **one committed
+component, `turnbase-sdk`'s `io.github.turnbase-platform:turnbase-bundle-validator`, so there is **one committed
 copy**, in that module — not a path read out of the superproject checkout, for the identical
 reason: each repository's CI checks out that repository alone. `turnbase-platform` consumes the
 module (pinned per this section) and holds no copy.

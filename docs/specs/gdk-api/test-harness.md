@@ -7,7 +7,7 @@ The harness is a **developer tool shipped with the GDK**, not a service. It is a
 small static frontend, invoked from a game project's directory:
 
 ```
-mvn io.turnbase:turnbase-harness:run
+mvn io.github.turnbase-platform:turnbase-harness:run
 ```
 
 ---

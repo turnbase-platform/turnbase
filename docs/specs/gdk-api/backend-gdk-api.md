@@ -45,8 +45,8 @@ effect model and `Effects` factory, the per-hook result types, the structured
 
 | Property | Value |
 |----------|-------|
-| Maven coordinates | `io.turnbase:turnbase-sdk` |
-| npm (FE half, separate) | `@turnbase/gdk` (not covered here) |
+| Maven coordinates | `io.github.turnbase-platform:turnbase-sdk` |
+| npm (FE half, separate) | `@turnbase-platform/gdk` (not covered here) |
 | Dependency scope | `provided` (Maven) / `compileOnly` (Gradle) — **must not** be bundled in the game JAR (FR-GDK-014, FR-UPLOAD-005) |
 | Bytecode target | Java 21 (CON-007); no Java 22+ APIs |
 | Contents | Interfaces, records, enums, builders **only** — no `main`, no I/O, no serialization logic (FR-GDK-015) |

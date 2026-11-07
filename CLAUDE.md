@@ -51,8 +51,8 @@ TurnBase lives under the **[turnbase-platform](https://github.com/turnbase-platf
 | Repository | Description | Published artifact |
 |------------|-------------|-------------------|
 | [`turnbase`](https://github.com/turnbase-platform/turnbase) | This repo — landing page, docs, specs, submodule refs | — |
-| [`turnbase-common`](https://github.com/turnbase-platform/turnbase-common) | Internal shared library: gRPC stubs, internal models | `io.turnbase:turnbase-grpc` (Maven) |
-| [`turnbase-sdk`](https://github.com/turnbase-platform/turnbase-sdk) | Public GDK: `TurnBaseGame` interface, effect/input types, TS types | `io.turnbase:turnbase-sdk` (Maven) + npm package |
+| [`turnbase-common`](https://github.com/turnbase-platform/turnbase-common) | Internal shared library: gRPC stubs, internal models | `io.github.turnbase-platform:turnbase-grpc` (Maven) |
+| [`turnbase-sdk`](https://github.com/turnbase-platform/turnbase-sdk) | Public GDK: `TurnBaseGame` interface, effect/input types, TS types | `io.github.turnbase-platform:turnbase-sdk` (Maven) + npm package |
 | [`turnbase-platform`](https://github.com/turnbase-platform/turnbase-platform) | Platform Monolith (Spring Boot 4.1+) | Docker image |
 | [`turnbase-game-host`](https://github.com/turnbase-platform/turnbase-game-host) | Game Host (GraalVM CE for JDK 21 + Truffle) | Docker image |
 | [`turnbase-frontend`](https://github.com/turnbase-platform/turnbase-frontend) | Platform frontend (React 19, TypeScript) | Docker image / static assets |

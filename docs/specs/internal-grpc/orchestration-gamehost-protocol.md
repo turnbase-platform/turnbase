@@ -396,6 +396,6 @@ exceeded. Mitigation:
   by `scripts/sync-proto.sh --check` in the parent's `pre-push` hook) rather than generated at build
   time — a build step reading `../docs/` cannot run in a standalone `turnbase-common` clone
   (ADR-0012's 2026-08-20 amendment, `IMP-GATE-02`). `turnbase-common` publishes the stubs as
-  `io.turnbase:turnbase-grpc` from its own committed copy — which is what both pipelines consume, so
+  `io.github.turnbase-platform:turnbase-grpc` from its own committed copy — which is what both pipelines consume, so
   neither needs the proto itself. Editing the copy is a defect; the change belongs here
   ([`conventions.md`](../../implementation/conventions.md) §5).

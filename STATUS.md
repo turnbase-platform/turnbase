@@ -1,11 +1,10 @@
 ## Last Session Summary
 
-**Date:** 2026-11-07 (session 287) — **IMP-M21-03 done: pre-flip privacy and secrets gate.**
+**Date:** 2026-11-07 (session 288) — **IMP-M21-04 done: coordinates and distribution, spec first.**
 
-- `scripts/preflip-check.sh` mirror-clones all eight repositories and fails on a gitleaks finding (pinned `v8.28.0` container), zero commits scanned, a non-noreply e-mail on a commit after the switch, or a tracked file naming the home path or personal address. `scripts/test-preflip-check.sh` plants one of each kind; it passes. The script passes on all eight.
-- **Boundary is a moment, not a day:** two umbrella and one platform commit of the morning of 2026-11-07 still carry the personal address (before the noreply setting), so the default `--since` is `2026-11-07T14:00:00+01:00` (D8, F4).
-- A `secrets` job (gitleaks, full history) is in every repository's `build.yml`; CI green in all seven (frontend needed one rerun of the flaky `App.test.tsx` validation tests).
-- `.claude/settings.json` no longer names an absolute sandbox path (the default already allows writes under the project); `.claude/settings.local.json` is in `.gitignore`. Two docs that quoted the home path were reworded.
+- **ADR-0022** (distribution on GitHub only) written first and registered; ADR-0012's release rows for common and sdk point at it; `CON-003` and `FR-FEGDK-007` name the real coordinates; `conventions.md` §5 states the target (Pages Maven repositories, release-asset tarball) above the bootstrap that still runs.
+- **Code:** every pom's `groupId` and cross-references are `io.github.turnbase-platform`; the GDK is `@turnbase-platform/gdk` (package, imports, harness import map, both games). The games' `vendor/` tarballs were repacked from the renamed sdk. Java package names stay `io.turnbase.*`.
+- Builds green locally in all six touched repositories (sdk with `-Pintegration`); no document outside the register and archives names the old coordinates.
 
 ## Current State
 
@@ -20,7 +19,7 @@
 
 ## Next Priorities
 
-- **M21:** `04` (coordinates, ADR-0022 first), `06` (README) and `07` (story) can start at once; then `05`, `08`; then the owner's flip session (`10`), `11` and `12`.
+- **M21:** `06` (README) and `07` (story) can start at once; then `05` (workflows), `08`; then the owner's flip session (`10`), `11` and `12`.
 - Then M22, cloud deployment (from ADR-0021), then Phase C (`docs/specs/backlog.md` *Load-test findings*).
 
 [`conventions.md`](docs/implementation/conventions.md) applies to every item and is not repeated in read-lists.

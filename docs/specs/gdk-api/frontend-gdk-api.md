@@ -42,7 +42,7 @@ platform-shell **bootstrap contract** the client depends on.
 
 | Property | Value |
 |----------|-------|
-| npm package | `@turnbase/gdk` (FR-FEGDK-007) |
+| npm package | `@turnbase-platform/gdk` (FR-FEGDK-007) |
 | Module formats | ESM + CJS, with bundled `.d.ts` TypeScript declarations (FR-FEGDK-009) |
 | Runtime dependencies | **none** — framework- and engine-agnostic (FR-FEGDK-008) |
 | Target | Any browser context that can run inside a sandboxed iframe; no DOM framework assumed |
@@ -289,7 +289,7 @@ backend's `Effects.gameOver(outcome, resultsPayload)` — never the structured
 Pairs with the backend example in [backend-gdk-api.md](backend-gdk-api.md) §11.
 
 ```ts
-import { TurnBaseClient } from '@turnbase/gdk';
+import { TurnBaseClient } from '@turnbase-platform/gdk';
 
 type Guess = { value: number };
 type Feedback = { hint: string; win: boolean };
@@ -323,7 +323,7 @@ function submit(n: number) {
 | FR-FEGDK-004 | `InitContext` (self, roster, teams) (§5) |
 | FR-FEGDK-005 | postMessage fully abstracted; envelope internal (§3, §10) |
 | FR-FEGDK-006 | Origin validation (§8) |
-| FR-FEGDK-007 | `@turnbase/gdk` npm package (§2) |
+| FR-FEGDK-007 | `@turnbase-platform/gdk` npm package (§2) |
 | FR-FEGDK-008 | No framework/runtime deps (§2) |
 | FR-FEGDK-009 | `.d.ts` types + `TAction`/`TEvent` generics (§2, §3) |
 | FR-FE-001…006 | Inbound events + spectator filtering (§5, §10) |

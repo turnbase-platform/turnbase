@@ -25,8 +25,8 @@ All repos live under the `turnbase-platform` GitHub organisation (`github.com/tu
 | Repo | Role | Published artifact |
 |------|------|--------------------|
 | `turnbase` | Landing repo: docs, specs, submodule refs | — |
-| `turnbase-common` | Internal shared library: gRPC stubs, shared internal models | `io.turnbase:turnbase-grpc` (Maven / GitHub Packages) |
-| `turnbase-sdk` | Public GDK: `TurnBaseGame` interface, effect/input types, TypeScript types | `io.turnbase:turnbase-sdk` (Maven) + npm package |
+| `turnbase-common` | Internal shared library: gRPC stubs, shared internal models | `io.github.turnbase-platform:turnbase-grpc` (Maven, GitHub Pages — ADR-0022) |
+| `turnbase-sdk` | Public GDK: `TurnBaseGame` interface, effect/input types, TypeScript types | `io.github.turnbase-platform:turnbase-sdk` (Maven) + npm package |
 | `turnbase-platform` | Platform Monolith (Spring Boot 4.1+ — [ADR-0016](0016-spring-boot-4-migration.md)) | Docker image |
 | `turnbase-game-host` | Game Host (GraalVM CE for JDK 21 + Truffle) | Docker image |
 | `turnbase-frontend` | Platform frontend (React 19, TypeScript) | Docker image / static assets |
@@ -126,8 +126,8 @@ Subject: ≤ 72 chars, imperative mood, no trailing period.
 
 | Repo | Versioning | Trigger |
 |------|-----------|---------|
-| `turnbase-sdk` | Semantic versioning (`v1.2.3`) | Manual tag on `master`; CI publishes the **Maven** artifact to GitHub Packages. Maven Central + the npm publish are both **deferred** — no document names an open-source license for this artifact, and Maven Central's publish validation requires one in the POM (`IMP-GATE-25`, closed by deferring rather than picking a license under a CI work item). The npm half has no working interim registry: GitHub Packages' npm registry requires a scoped package's scope to match the org that owns it (`turnbase-platform`), which `@turnbase/gdk` (FR-FEGDK-007) cannot — the mismatch is a hard constraint of the registry, not a naming choice. Re-scope both to the public registries once a license is chosen. |
-| `turnbase-common` | Semantic versioning | Manual tag; CI publishes to GitHub Packages |
+| `turnbase-sdk` | Semantic versioning (`v1.2.3`) | Manual tag on `master`; CI publishes the Maven artifacts and the FE GDK tarball to GitHub — see [ADR-0022](0022-distribution-on-github.md), which supersedes the earlier GitHub Packages / deferral wording (`IMP-GATE-25`). |
+| `turnbase-common` | Semantic versioning | Manual tag `v*.*.*`; CI publishes to the repository's GitHub Pages Maven tree (ADR-0022) |
 | `turnbase-platform` | Semantic versioning | Manual tag; CI builds + pushes Docker image |
 | `turnbase-game-host` | Semantic versioning | Manual tag; CI builds + pushes Docker image |
 | `turnbase-frontend` | Semantic versioning | Manual tag; CI builds + pushes Docker image |
