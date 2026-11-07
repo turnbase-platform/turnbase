@@ -14,7 +14,7 @@ Tick a step by replacing `[ ]` with `[x]`, the date, and the `gh api` read that 
   `turnbase-frontend`, `.github`, then the umbrella `turnbase` last (its links never point at a private
   repository). `turnbase-game-7wonders-duel` stays private (D9, `IMP-M21-09`).
   Confirm: `gh repo view turnbase-platform/<repo> --json visibility -q .visibility` prints `PUBLIC` for each.
-- [x] **3. Hardening.** *2026-11-07, `repo-settings.sh --apply --harden`; `--check --harden` leaves only Pages (needs the `gh-pages` branch the first publish creates; ticks with step 5) and 7WD (private, D9).* `scripts/repo-settings.sh --apply --harden` (needs public repositories). It sets, per
+- [x] **3. Hardening.** *2026-11-07, `repo-settings.sh --apply --harden`; `--check --harden` left Pages (no `gh-pages` branch yet) and 7WD (private, D9); Pages enabled after step 5 and `--check --harden` then leaves 7WD only.* `scripts/repo-settings.sh --apply --harden` (needs public repositories). It sets, per
   repository: secret scanning and push protection; private vulnerability reporting; Dependabot alerts on,
   security updates off (`conventions.md` §6); CodeQL default setup (Java, JavaScript/TypeScript); ruleset
   `master-protect` (no force push, no deletion, no required PRs); read-only default `GITHUB_TOKEN`; fork-PR
@@ -26,7 +26,7 @@ Tick a step by replacing `[ ]` with `[x]`, the date, and the `gh api` read that 
   clone of `turnbase-sdk` (and `turnbase-common` where cloned) drops `x-access-token:${TURNBASE_SDK_PAT}@`;
   the `TURNBASE_SDK_PAT` env entries go too. Land on `master` per repository; every `master` run is green
   before anything else lands. (The secret itself is deleted by `IMP-M21-11`.)
-- [ ] **5. Release (Owner).** Tag `v0.1.0` in `turnbase-common` and `turnbase-sdk`; both `publish.yml` runs
+- [x] **5. Release (Owner).** *2026-11-07, `v0.1.0` pushed with `git` in common and sdk; the first attempt failed in `publish` (gh-pages bootstrap had no git identity, nothing published), fixed in common `d9ffa9d` and sdk `e783875`, tags re-cut; both `publish` runs green; `curl -fsI` on both `0.1.0` poms returns HTTP/2 200 anonymously.* Tag `v0.1.0` in `turnbase-common` and `turnbase-sdk`; both `publish.yml` runs
   succeed. Confirm the artifacts resolve anonymously from Pages:
   `curl -fsI https://turnbase-platform.github.io/<repo>/…/0.1.0/<artifact>-0.1.0.pom`.
 

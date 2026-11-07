@@ -1,9 +1,10 @@
 ## Last Session Summary
 
-**Date:** 2026-11-07 (session 295) — **IMP-M21-10 still PARTIAL: runbook step 1 ticked; steps 2–5 need the owner.**
+**Date:** 2026-11-07 (session 295) — **IMP-M21-10 PARTIAL: flipped and released; only the GHCR visibility (web UI) remains.**
 
-- Ran the gate: `scripts/preflip-check.sh` PASS (8 repositories), `scripts/repo-settings.sh --check` no drift; all 8 repositories still PRIVATE. Ticked step 1 in the runbook (`docs/specs/deployment/public-release.md`).
-- Nothing else can be done without the owner (visibility, GHCR, `v0.1.0`); no repository changed.
+- All 7 repositories (plus the umbrella) are PUBLIC; hardening applied; bootstrap PATs dropped from platform, game-host and tictactoe (all `build` runs green).
+- `v0.1.0` cut in common and sdk. The first `publish` run failed on the gh-pages bootstrap commit (no git identity; a dry run never reaches it), nothing was published; fixed, tags re-cut, both green, artifacts resolve anonymously from Pages.
+- Owed: GHCR packages to Public (owner, web UI), then tick 3b in the runbook. `IMP-M21-11` can start (it depends on step 5).
 
 ## Current State
 
