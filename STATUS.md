@@ -1,11 +1,12 @@
 ## Last Session Summary
 
-**Date:** 2026-11-07 (session 285) — **IMP-M21-01 done: Apache-2.0 in every repository.**
+**Date:** 2026-11-07 (session 286) — **IMP-M21-02 done: third-party licence audit.**
 
-- Canonical Apache-2.0 text (`Copyright 2026 Hubert Mazur` in the appendix) as `LICENSE` in all eight repositories.
-- `<licenses>` in the root `pom.xml` of common, sdk (children inherit), platform, game-host, tictactoe and 7WD; `"license": "Apache-2.0"` in the four `package.json` files.
-- Spotless reformatted the inserted pom block in common, platform and game-host; every `verify` green, and CI green in all seven submodules; GitHub detects Apache-2.0 in each.
-- 7WD's licence covers the code only (D1); its `NOTICE` belongs to `IMP-M21-09`.
+- Reports from committed, pinned commands, named in each README: Maven `license-maven-plugin` 2.8.0 `add-third-party` (`aggregate-add-third-party` in sdk) in common, sdk, platform, game-host and both games; `npm run licenses` (`license-checker-rseidelsohn` 5.0.1, `--onlyAllow`) in frontend, sdk and both games.
+- Findings: nothing incompatible. Espresso/Polyglot are GPLv2 (with the Classpath Exception) in the game-host image only; ICU4J (Unicode-3.0), HdrHistogram (CC0), Bouncy Castle (MIT-style) recorded; `css-mediaquery` is declared `BSD` (really BSD-3-Clause), excluded by name.
+- Allowed families recorded in `conventions.md` §6 *Third-party licences*.
+- Frontend image copies the two fonts' OFL text to `/licenses/`; the game bundles embed no fonts, so need none.
+- CI green in all seven (the frontend needed one rerun of a flaky `App.test.tsx` validation-message test).
 
 ## Current State
 
@@ -20,7 +21,7 @@
 
 ## Next Priorities
 
-- **M21:** `03` (gate), `04` (coordinates, ADR-0022 first), `06` (README) and `07` (story) can start at once; then `02`, `05`, `08` (`02` is unblocked now); then the owner's flip session (`10`), `11` and `12`.
+- **M21:** `03` (gate), `04` (coordinates, ADR-0022 first), `06` (README) and `07` (story) can start at once; then `05`, `08`; then the owner's flip session (`10`), `11` and `12`.
 - Then M22, cloud deployment (from ADR-0021), then Phase C (`docs/specs/backlog.md` *Load-test findings*).
 
 [`conventions.md`](docs/implementation/conventions.md) applies to every item and is not repeated in read-lists.

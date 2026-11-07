@@ -60,7 +60,7 @@ Every item of these is `DONE` (or `CANCELLED`). Their sections and register rows
 | ID | Item | Repo | Depends on | Status |
 |---|---|---|---|---|
 | IMP-M21-01 | Apache-2.0 in every repository | all | — | DONE |
-| IMP-M21-02 | Third-party licence audit | common, sdk, platform, game-host, frontend, tictactoe, 7WD | M21-01 | READY |
+| IMP-M21-02 | Third-party licence audit | common, sdk, platform, game-host, frontend, tictactoe, 7WD | M21-01 | DONE |
 | IMP-M21-03 | Pre-flip privacy and secrets gate | all | — | READY |
 | IMP-M21-04 | Coordinates and distribution, spec first | docs, then all with a pom or GDK dependency | — | READY |
 | IMP-M21-05 | Release workflows on GitHub | common, sdk | M21-01, M21-04 | READY |

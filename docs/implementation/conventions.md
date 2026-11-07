@@ -465,6 +465,27 @@ The floor, checked by `IMP-M0-01`…`M0-05` and `IMP-M0-11`:
 `turnbase-common` and `turnbase-sdk` publish artifacts rather than images, so their pipelines end at
 publication (FR-CICD-001).
 
+### Third-party licences
+
+Every repository audits what it **distributes** — its jars, bundle or image, base image included — with a
+committed, pinned command named in its README (Maven: `license-maven-plugin` 2.8.0 `add-third-party`, or
+`aggregate-add-third-party` in a multi-module parent; npm: `npm run licenses`, `license-checker-rseidelsohn`
+5.0.1 over production dependencies, failing on a licence outside the list). `IMP-M21-02`.
+
+| Allowed | Where |
+|---|---|
+| Apache-2.0, MIT (incl. MIT-0), BSD-2/3-Clause, ISC, 0BSD | everywhere |
+| EPL-2.0 / EDL-1.0 (BSD-3) | JVM jars (Jakarta APIs) |
+| UPL-1.0 | the game-host image (Truffle, Polyglot) |
+| OFL-1.1 | fonts, with the licence text shipped alongside — the frontend image serves it at `/licenses/` |
+| GPLv2 with the Classpath Exception | **runtime-only in the game-host image** (Espresso, `org.graalvm.polyglot`); nowhere else |
+| Unicode-3.0, CC0 / public domain, Bouncy Castle (MIT-style) | recorded as found (ICU4J, HdrHistogram, aopalliance, `bcprov`) |
+
+Anything else — above all a copyleft licence without a linking exception in something we distribute — is a
+stop-and-ask, not a swap made in passing. Our own artifacts report `Unknown license` until a release that
+carries `<licenses>` is installed; that is not a finding. The game bundles embed no fonts (system stacks),
+so they carry no OFL text.
+
 ### Two things CI gets wrong on a repository's first push
 
 Both cost `IMP-M0-01` a red pipeline, and neither reproduces locally.
