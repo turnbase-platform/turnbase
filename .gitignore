@@ -107,3 +107,6 @@ jacoco/
 *.orig
 .worktrees
 __pycache__/
+
+# Local Claude Code settings (machine-specific)
+.claude/settings.local.json

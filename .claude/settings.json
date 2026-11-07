@@ -83,12 +83,7 @@
     "playwright@claude-plugins-official": true
   },
   "sandbox": {
-    "enabled": true,
-    "filesystem": {
-      "allowWrite": [
-        "/home/hmazur/proj/turnbase"
-      ]
-    }
+    "enabled": true
   },
   "hooks": {
     "PreToolUse": [

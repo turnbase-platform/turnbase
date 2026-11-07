@@ -141,5 +141,5 @@ live upload against the Official game walked through.
   M10): stray version-upload slots (e.g. `9.9.9`, `PENDING`/`FAILED`, none activated) on the Official
   Tic-Tac-Toe from the AUD-01 repro, and the modified test account `au8rovgfic`. Clean at the next
   `down -v`; no production data exists.
-- All security probes lived in the session scratch directory. One stray `/home/hmazur/probe.mjs`
+- All security probes lived in the session scratch directory. One stray `probe.mjs` in the home directory
   created in error by an e2e driver was removed; the repo was verified clean.

@@ -61,7 +61,7 @@ Every item of these is `DONE` (or `CANCELLED`). Their sections and register rows
 |---|---|---|---|---|
 | IMP-M21-01 | Apache-2.0 in every repository | all | — | DONE |
 | IMP-M21-02 | Third-party licence audit | common, sdk, platform, game-host, frontend, tictactoe, 7WD | M21-01 | DONE |
-| IMP-M21-03 | Pre-flip privacy and secrets gate | all | — | READY |
+| IMP-M21-03 | Pre-flip privacy and secrets gate | all | — | WIP (session 287) |
 | IMP-M21-04 | Coordinates and distribution, spec first | docs, then all with a pom or GDK dependency | — | READY |
 | IMP-M21-05 | Release workflows on GitHub | common, sdk | M21-01, M21-04 | READY |
 | IMP-M21-06 | The umbrella README | docs | M21-01 | READY |
@@ -116,7 +116,7 @@ Items cite the findings (`F*`) and decisions (`D*`) below by number.
 | F10 | A GitHub organisation named `TurnBase` exists (empty, 2025): the name is used elsewhere. Not a blocker for a portfolio project; recorded so it is not a surprise | `gh api orgs/TurnBase` |
 | F11 | 7WD ships no artwork (no image file in its history); its rules corpus is a restatement, and the rulebook PDFs are git-ignored and were never committed; the "reference implementation" its docs cite is the owner's own `game-room-management-platform`. Only the name and card names are Repos Production's. The platform names 7WD in one file (`deploy/compose/docker-compose.yml`) | `git log --all --name-only`, `git grep` |
 | F12 | Fonts arrive as npm dependencies (`@fontsource/*`, SIL OFL 1.1); Astryx is MIT; the game-host image carries GraalVM CE / Espresso (GPLv2 with the Classpath Exception, UPL). No dependency licence report exists | `package.json`, poms |
-| F13 | Workflows are safe to expose: `pull_request` runs never push images, no `pull_request_target`, no self-hosted runner. `.claude/settings.json` carries an absolute `/home/hmazur/proj/turnbase` sandbox path; `.claude/settings.local.json` is ignored only by the owner's global gitignore | workflow `grep`, `git check-ignore -v` |
+| F13 | Workflows are safe to expose: `pull_request` runs never push images, no `pull_request_target`, no self-hosted runner. `.claude/settings.json` carries an absolute home-directory sandbox path; `.claude/settings.local.json` is ignored only by the owner's global gitignore | workflow `grep`, `git check-ignore -v` |
 
 ### M21 goals
 
