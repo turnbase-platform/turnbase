@@ -1,20 +1,11 @@
 ## Last Session Summary
 
-**Date:** 2026-11-07 (session 284) — **M20 closed and archived; M21 (public release) planned and registered, 12 items.**
+**Date:** 2026-11-07 (session 285) — **IMP-M21-01 done: Apache-2.0 in every repository.**
 
-- **M21 checks:**
-  - gitleaks v8.28.0 over every full history found no leaks (1,296 commits, scanned from mirror clones).
-  - **Names:** `@turnbase` on npm belongs to someone else, and `io.turnbase` cannot be claimed on Maven Central.
-  - **History:** 33 old PRs keep the original commits on GitHub; the personal address is on 1,283 of 1,301 commits, in metadata only.
-  - **7WD** ships no artwork, and its rulebook PDFs were never committed.
-- **Owner decisions:**
-  - coordinates `io.github.turnbase-platform` / `@turnbase-platform/gdk`;
-  - **distribution on GitHub only** (a Maven repository on GitHub Pages, the GDK as a release tarball);
-  - issues only, with an org `.github` repository;
-  - **history kept as it is**, with a per-repository noreply `user.email` from today (set in all eight).
-- **`*.localhost` in the platform's tests** (`turnbase-platform` 53758f6): a test-scoped resolver answers loopback; `verify -Pintegration` green, integration 279.8 s (46% of the 614.5 s baseline).
-- **Language servers:** `jdtls-lsp` disabled; it builds into Maven's `target/classes` and broke a concurrent `verify`.
-- **7WD CI green** for the first time, once `TURNBASE_SDK_PAT` existed.
+- Canonical Apache-2.0 text (`Copyright 2026 Hubert Mazur` in the appendix) as `LICENSE` in all eight repositories.
+- `<licenses>` in the root `pom.xml` of common, sdk (children inherit), platform, game-host, tictactoe and 7WD; `"license": "Apache-2.0"` in the four `package.json` files.
+- Spotless reformatted the inserted pom block in common, platform and game-host; every `verify` green, and CI green in all seven submodules; GitHub detects Apache-2.0 in each.
+- 7WD's licence covers the code only (D1); its `NOTICE` belongs to `IMP-M21-09`.
 
 ## Current State
 
@@ -29,7 +20,7 @@
 
 ## Next Priorities
 
-- **M21:** `01` (licence), `03` (gate), `04` (coordinates, ADR-0022 first), `06` (README) and `07` (story) can start at once; then `02`, `05`, `08`; then the owner's flip session (`10`), `11` and `12`.
+- **M21:** `03` (gate), `04` (coordinates, ADR-0022 first), `06` (README) and `07` (story) can start at once; then `02`, `05`, `08` (`02` is unblocked now); then the owner's flip session (`10`), `11` and `12`.
 - Then M22, cloud deployment (from ADR-0021), then Phase C (`docs/specs/backlog.md` *Load-test findings*).
 
 [`conventions.md`](docs/implementation/conventions.md) applies to every item and is not repeated in read-lists.
