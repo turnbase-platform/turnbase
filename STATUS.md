@@ -16,7 +16,7 @@
 
 ## Next Priorities
 
-- **Plan M21, the public release** (spike `RS-01`, `03`, `04`, `06`, `12`): licence for every repository (the owner's choice, needed first), an umbrella `README.md`, repository descriptions and topics, a gitleaks scan before the flip, `turnbase-common`/`turnbase-sdk` published so consumers need no PAT, then the visibility flip.
+- **Plan M21, the public release** (spike `RS-01`, `03`, `04`, `06`, `12`): Apache-2.0 `LICENSE` in every repository (owner, 2026-11-07), an umbrella `README.md`, repository descriptions and topics, a gitleaks scan before the flip, `turnbase-common`/`turnbase-sdk` published so consumers need no PAT, then the visibility flip.
 - Then M22, cloud deployment (from ADR-0021), then Phase C (`docs/specs/backlog.md` *Load-test findings*).
 
 [`conventions.md`](docs/implementation/conventions.md) applies to every item and is not repeated in read-lists.

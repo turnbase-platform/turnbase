@@ -102,6 +102,9 @@ spike result.
   the content is archived so that a session does not read it. RS-19 to RS-22 are in M20.
 - **`IMP-*` references in code** stay, as provenance (RS-05 closed, no item).
 - **Credits go in the manifest** and the platform shows them (M20-21).
+- **Licence** (RS-01, answered 2026-11-07): **Apache-2.0 for every repository**, games and SDK included.
+  For `turnbase-game-7wonders-duel` it covers the code only; the game's name and rules stay Repos
+  Production's.
 - **Release** means a proper cloud CI/CD setup (AWS or another provider), not only flipping visibility.
   It needs its own spec and ADR.
 
