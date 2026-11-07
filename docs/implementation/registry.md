@@ -66,7 +66,7 @@ Every item of these is `DONE` (or `CANCELLED`). Their sections and register rows
 | IMP-M21-05 | Release workflows on GitHub | common, sdk | M21-01, M21-04 | DONE |
 | IMP-M21-06 | The umbrella README | docs | M21-01 | DONE |
 | IMP-M21-07 | How it was built | docs | — | DONE |
-| IMP-M21-08 | Component READMEs, community files and repository settings | all, `.github` | M21-06 | PARTIAL |
+| IMP-M21-08 | Component READMEs, community files and repository settings | all, `.github` | M21-06 | DONE |
 | IMP-M21-09 | 7WD release decision | 7WD, docs | publisher's reply | BLOCKED |
 | IMP-M21-10 | The flip | all, org | M21-01…08 | READY |
 | IMP-M21-11 | Consumers on `0.1.0`, every secret gone | platform, game-host, tictactoe, 7WD | M21-10 | READY |
@@ -352,12 +352,6 @@ the channel), `CODE_OF_CONDUCT.md` and `profile/README.md` in the `.github` repo
 homepage (the umbrella), Projects and Wiki off, Issues on, and the hardening of M21-10 that the API can set.
 
 **Owner-held:** creating the `.github` repository (the agent may with in-session confirmation).
-
-**Remaining:** create `turnbase-platform/.github` (private) and push the files staged in `org-github/`
-(its `README.md` has the commands), then delete `org-github/`; run `scripts/repo-settings.sh --apply .github`
-and `--check` (no drift, `.github` included). Done in session 292: the seven component READMEs,
-`scripts/repo-settings.sh` (`--harden` is for the flip and untested on private repositories), the settings
-applied to the eight existing repositories, the community files written.
 
 **Done when:**
 - Every README has the shape; the `.github` files exist (pushed to the repository, which stays private
