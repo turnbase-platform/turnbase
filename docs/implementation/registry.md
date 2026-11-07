@@ -65,7 +65,7 @@ Every item of these is `DONE` (or `CANCELLED`). Their sections and register rows
 | IMP-M21-04 | Coordinates and distribution, spec first | docs, then all with a pom or GDK dependency | — | DONE |
 | IMP-M21-05 | Release workflows on GitHub | common, sdk | M21-01, M21-04 | DONE |
 | IMP-M21-06 | The umbrella README | docs | M21-01 | DONE |
-| IMP-M21-07 | How it was built | docs | — | READY |
+| IMP-M21-07 | How it was built | docs | — | DONE |
 | IMP-M21-08 | Component READMEs, community files and repository settings | all, `.github` | M21-06 | READY |
 | IMP-M21-09 | 7WD release decision | 7WD, docs | publisher's reply | BLOCKED |
 | IMP-M21-10 | The flip | all, org | M21-01…08 | READY |

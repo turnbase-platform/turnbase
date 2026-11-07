@@ -4,8 +4,8 @@
 It is also an SDK, so developers can write a game once and publish it to the catalog.**
 
 It is a portfolio project about architecture, security and maintainability, and an experiment in building a whole
-system with AI coding agents. The story of how it was built is told separately (`IMP-M21-07`), and every claim below
-links to the place it can be checked.
+system with AI coding agents. How it was built is told in [`docs/how-it-was-built.md`](docs/how-it-was-built.md), and every claim
+below links to the place it can be checked.
 
 [![The game catalog, light](docs/assets/catalog-light.webp)](docs/assets/catalog-light.webp)
 
