@@ -295,7 +295,7 @@ serialization component of `game-host-internals.md` §3.6 — consumed by `turnb
 bridge and by the harness (and, as a follow-up, `turnbase-platform`'s serializability analysis). A
 change to it is a `turnbase-sdk` change first, published and pinned before any consumer moves.
 
-**Target (ADR-0022, `IMP-M21-04`/`05`/`11`).** Jars carry groupId `io.github.turnbase-platform` and are served from each producer's GitHub Pages Maven repository (`https://turnbase-platform.github.io/turnbase-common/maven/`, `…/turnbase-sdk/maven/`); the FE GDK `@turnbase-platform/gdk` is the `npm pack` tarball on the `turnbase-sdk` GitHub Release, depended on by URL. Consumers declare the `<repository>` they need and pin `0.1.0`; the tag workflow publishes with `GITHUB_TOKEN` only. The bootstrap below is what still runs until `IMP-M21-11` deletes it together with every PAT it names.
+**Released state (ADR-0022, `IMP-M21-04`/`05`/`11`).** Jars carry groupId `io.github.turnbase-platform` and are served from each producer's GitHub Pages Maven repository (`https://turnbase-platform.github.io/turnbase-common/maven/`, `…/turnbase-sdk/maven/`); the FE GDK `@turnbase-platform/gdk` is the `npm pack` tarball on the `turnbase-sdk` GitHub Release, depended on by URL. Consumers declare the `<repository>` they need and pin `0.1.0`; the tag workflow publishes with `GITHUB_TOKEN` only. Resolution is anonymous: no workflow clones a producer, and no repository holds a secret other than the built-in `GITHUB_TOKEN`.
 
 **Consumers pin an exact released version**, through a property:
 
@@ -309,72 +309,10 @@ change to it is a `turnbase-sdk` change first, published and pinned before any c
 same commit compiles differently on Tuesday — and it hides breaking proto changes until they land
 somewhere inconvenient.
 
-**Bootstrap exception, before the first tag exists.** This rule assumes a release to pin against.
-`turnbase-common` and `turnbase-sdk` publish only on a manual `v*.*.*` tag (§5 below,
-[ADR-0012](../decisions/0012-repo-strategy-polyrepo-submodules.md) Release Strategy), and cutting that
-tag is a human action — nothing in this project pushes one. The publish workflow itself is
-`IMP-M0-11`, which **depends on** `IMP-M0-03`/`M0-04`. So the very first consumer skeletons cannot
-pin a release: none exists, and the pipeline that would produce one has not been built yet.
-
-Until `turnbase-common`'s first `v*.*.*` tag is cut, `IMP-M0-03` and `IMP-M0-04` pin
-`<turnbase-common.version>` to its **current development version** (`0.1.0-SNAPSHOT` today), resolved
-from the artifact `./mvnw install` puts in the local Maven repository — the same install step
-`IMP-M0-01` already runs, not a new mechanism. This checks exactly what a consumer skeleton can check
-at this point in the build order: the generated Java compiles and links against a real build of the
-stubs. It does not check resolution from GitHub Packages, because nothing publishes there yet — that
-half moves to `IMP-M0-11`, which stands up the publish workflow and is the item with something to
-resolve it from.
-
-**The follow-up is ordinary, not special-cased.** The first time `turnbase-common` is tagged and
-`IMP-M0-11`'s workflow publishes it, `turnbase-platform` and `turnbase-game-host` each get a small
-change bumping `<turnbase-common.version>` from the SNAPSHOT to the released version — the same "consumer
-bump is where the compile break surfaces" step the *Promoting a change* paragraph below already
-describes for every later release. The first release is not exempt from that step; it is only exempt,
-until it exists, from needing one.
-
-**CI needs the same install, since a runner starts with an empty local repository.**
-`turnbase-platform`'s and `turnbase-game-host`'s workflows check out `turnbase-common` alongside
-themselves and run `./mvnw install -DskipTests` in it before building, for as long as
-`<turnbase-common.version>` is a bootstrap SNAPSHOT. This is the one point where a consumer's CI reads
-outside its own repository, and it is deliberately temporary: the step is deleted, not adapted, in the
-same change that bumps the version property to a real release, because from that point resolution is
-an ordinary dependency fetch from GitHub Packages.
-
-**`turnbase-common` is private (ADR-0012), so the checkout needs a credential — GitHub's default
-`GITHUB_TOKEN` cannot read a different private repository under any organization setting.** The
-credential is a **fine-grained personal access token, read-only on Contents, scoped to
-`turnbase-common` only**, stored as the `TURNBASE_COMMON_PAT` secret in each bootstrap-window consumer
-repo (`turnbase-platform` today; `turnbase-game-host` when `IMP-M0-04` reaches this same step). Not a
-classic PAT (unscopable to one repo) and not the pusher's own account token (far broader than this
-one clone needs). Provisioning the token is a human action — creating it means signing in to GitHub —
-the same category as cutting a release tag. Deleted alongside the bootstrap install step once the
-first real release lands, for the same reason: at that point resolution is an ordinary authenticated
-fetch from GitHub Packages using the workflow's own token, not a second repository's source.
-
-**The same window applies to `turnbase-sdk`, and to `io.github.turnbase-platform:turnbase-serialization` with it**
-(`IMP-GATE-70`). `turnbase-game-host` first depends on both in `IMP-M3-03`, and nothing in this section
-said how its CI resolves them: `turnbase-sdk` is private, has no tagged release, and publishes only on
-a `v*.*.*` tag (`publish.yml`), so there is nothing on GitHub Packages to fetch. Same mechanism, same
-reasoning as `turnbase-common`:
-
-- `<turnbase-sdk.version>` and `<turnbase-serialization.version>` are properties in the consumer's
-  pom, pinned to `turnbase-sdk`'s current development version (`0.1.0-SNAPSHOT` today) until its first
-  tag exists. Both artifacts are built by `turnbase-sdk` and share one version.
-- `turnbase-sdk` must therefore install **both** artifacts from **one** `./mvnw install -DskipTests` at
-  its repository root. A consumer's CI has one clone-and-install step per producing repository, not one
-  per artifact, and a second command is a second thing to forget when a third artifact
-  (`io.github.turnbase-platform:turnbase-harness`, `IMP-M3-11`) arrives.
-- The consumer's workflow gains a second bootstrap step beside the `turnbase-common` one, and it needs
-  its **own credential**: `TURNBASE_COMMON_PAT` is scoped to `turnbase-common` only and cannot read
-  another repository. The credential is a **fine-grained PAT, read-only on Contents, scoped to
-  `turnbase-sdk` only**, stored as **`TURNBASE_SDK_PAT`** in `turnbase-game-host`. Creating it is a
-  human action, the same category as cutting a tag; **until it exists, `turnbase-game-host`'s CI fails
-  at the clone step regardless of what the code does**, which reads like a broken build and is not.
-  An agent cannot provision it, so a work item that adds this dependency finishes its `turnbase-sdk`
-  half and verifies the consumer half locally against `./mvnw install`, and leaves the consumer's push
-  unmerged until the secret is present (§4: work that is not green stays off `master`).
-- Both steps, and the secret, are deleted in the same change that bumps the version properties to a
-  release, exactly as for `turnbase-common`.
+**Bootstrap, retired 2026-11-08 (`IMP-M21-11`).** Before `v0.1.0` existed, consumers pinned `0.1.0-SNAPSHOT` and every
+workflow cloned and installed the producer with a fine-grained PAT (`TURNBASE_COMMON_PAT`, `TURNBASE_SDK_PAT`,
+`TURNBASE_GAME_HOST_PAT`, `TURNBASE_FRONTEND_PAT`), and the games vendored the GDK tarball. All of that is deleted;
+the history is in the consumers' `ci:`/`chore:` commits of that date.
 
 **The local loop**, when a proto change must be tried against a consumer before it is released:
 
