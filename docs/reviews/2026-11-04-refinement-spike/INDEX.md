@@ -102,6 +102,9 @@ spike result.
   the content is archived so that a session does not read it. RS-19 to RS-22 are in M20.
 - **`IMP-*` references in code** stay, as provenance (RS-05 closed, no item).
 - **Credits go in the manifest** and the platform shows them (M20-21).
+- **7WD decision** (RS-02, 2026-11-08): the owner decided to publish `turnbase-game-7wonders-duel` without a reply
+  from Repos Production, because it uses no original art. `NOTICE` and an unofficial-implementation disclaimer
+  were added; the repository is public (`IMP-M21-09`). The name and rules text are not licensed by this.
 - **Licence** (RS-01, answered 2026-11-07): **Apache-2.0 for every repository**, games and SDK included.
   For `turnbase-game-7wonders-duel` it covers the code only; the game's name and rules stay Repos
   Production's.

@@ -19,4 +19,3 @@
 [submodule "turnbase-game-7wonders-duel"]
 	path = turnbase-game-7wonders-duel
 	url = https://github.com/turnbase-platform/turnbase-game-7wonders-duel.git
-	update = none

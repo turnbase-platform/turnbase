@@ -45,10 +45,7 @@ the decisions and their reasons: [22 ADRs](docs/decisions/INDEX.md).
 | [`turnbase-sdk`](turnbase-sdk) | The public SDK: `TurnBaseGame`, the test harness, and the FE GDK |
 | [`turnbase-common`](turnbase-common) | Internal shared library: the gRPC stubs |
 | [`turnbase-game-tictactoe`](turnbase-game-tictactoe) | The first official game, and the template for yours |
-| `turnbase-game-7wonders-duel` | The second official game. **Pending**: it names a commercial game, so it stays private until its publisher answers (see below) |
-
-A recursive clone therefore fails on that last, private submodule. The rest of the clone is complete; to avoid the
-error, initialise the submodules you need (`git submodule update --init turnbase-platform …`).
+| `turnbase-game-7wonders-duel` | The second official game: an unofficial implementation of *7 Wonders Duel*, with no original artwork (see below) |
 
 ## Quickstart
 
@@ -110,7 +107,8 @@ Apache-2.0, see [`LICENSE`](LICENSE). Fonts (Figtree, Pixelify Sans) are SIL OFL
 [Astryx](https://github.com/facebook/astryx) is MIT.
 
 *7 Wonders Duel* is a game by Antoine Bauza and Bruno Cathala, published by Repos Production. TurnBase's
-implementation is an unofficial, independent project; it is not affiliated with or endorsed by them, and stays
-private until the publisher has been asked and has answered.
+implementation is an unofficial, independent project; it is not affiliated with or endorsed by them. It contains
+no original artwork or rulebook text, and its licence covers the code only (see its `NOTICE`). The owner decided
+to publish it on 2026-11-08 without a reply from the publisher.
 
 Issues and security reports are welcome. Pull requests are not accepted for now.

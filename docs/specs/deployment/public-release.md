@@ -12,7 +12,7 @@ Tick a step by replacing `[ ]` with `[x]`, the date, and the `gh api` read that 
 - [x] **2. Flip (Owner).** *2026-11-07, by `gh repo edit --visibility public` in the order below; `gh repo view` prints PUBLIC for all 8.* Settings → Danger zone → Change visibility → Public, in this order:
   `turnbase-sdk`, `turnbase-common`, `turnbase-game-tictactoe`, `turnbase-game-host`, `turnbase-platform`,
   `turnbase-frontend`, `.github`, then the umbrella `turnbase` last (its links never point at a private
-  repository). `turnbase-game-7wonders-duel` stays private (D9, `IMP-M21-09`).
+  repository). `turnbase-game-7wonders-duel` was flipped later, on its own (D9, `IMP-M21-09`, 2026-11-08: `gh repo view` prints PUBLIC; `repo-settings.sh --check --harden` reports no drift).
   Confirm: `gh repo view turnbase-platform/<repo> --json visibility -q .visibility` prints `PUBLIC` for each.
 - [x] **3. Hardening.** *2026-11-07, `repo-settings.sh --apply --harden`; `--check --harden` left Pages (no `gh-pages` branch yet) and 7WD (private, D9); Pages enabled after step 5 and `--check --harden` then leaves 7WD only.* `scripts/repo-settings.sh --apply --harden` (needs public repositories). It sets, per
   repository: secret scanning and push protection; private vulnerability reporting; Dependabot alerts on,

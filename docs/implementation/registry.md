@@ -67,7 +67,7 @@ Every item of these is `DONE` (or `CANCELLED`). Their sections and register rows
 | IMP-M21-06 | The umbrella README | docs | M21-01 | DONE |
 | IMP-M21-07 | How it was built | docs | — | DONE |
 | IMP-M21-08 | Component READMEs, community files and repository settings | all, `.github` | M21-06 | DONE |
-| IMP-M21-09 | 7WD release decision | 7WD, docs | publisher's reply | BLOCKED |
+| IMP-M21-09 | 7WD release decision | 7WD, docs | owner's decision | DONE |
 | IMP-M21-10 | The flip | all, org | M21-01…08 | DONE |
 | IMP-M21-11 | Consumers on `0.1.0`, every secret gone | platform, game-host, tictactoe, 7WD | M21-10 | DONE |
 | IMP-M21-12 | Verified from the outside | all public | M21-11 | DONE |
@@ -365,9 +365,14 @@ homepage (the umbrella), Projects and Wiki off, Issues on, and the hardening of 
 
 **Read first:** F11; D9; 7WD's `README.md`, `INFO.md`, `manifest.json`.
 
-**Gate:** Repos Production's answer to the owner (owner-held).
+**Decided:** 2026-11-08 — the owner decided to publish without the publisher's reply, on the ground that the
+repository uses no original art (owner-held decision, not overridden).
 
 **Settled:** D9.
+
+**Result (2026-11-08, session 298):** 7WD `NOTICE`, README and `INFO.md` disclaimer landed (`3236c6f`, CI green); `preflip-check.sh`
+passed; flipped PUBLIC; `repo-settings.sh --apply --harden` then `--check --harden` reports no drift; `.gitmodules` `update = none`
+removed, README no longer warns of a failing recursive clone.
 
 **Done when:** on permission, the `NOTICE` and the README/`INFO.md` disclaimer exist and the repository goes
 through M21-10's flip steps; on refusal, the umbrella no longer names the submodule and `deploy/compose` no
