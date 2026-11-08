@@ -15,7 +15,7 @@ TurnBase is a platform for hosting and playing multiplayer games online. It prov
 
 ## Current Phase
 
-**Phase 1 — Implementation**, under way; M21 (public release) is nearly closed: the repositories are public (Apache-2.0) and `0.1.0` of `turnbase-common` and `turnbase-sdk` is released on GitHub Pages / Releases (2026-11-07, [ADR-0022](docs/decisions/0022-distribution-on-github.md)); `turnbase-game-7wonders-duel` was made public too (2026-11-08, `IMP-M21-09`); M20 (refinement) closed the same day.
+**Phase 1 — Implementation**, under way; no milestone is open. M21 (public release) closed 2026-11-08: every repository is public (Apache-2.0) and `0.1.0` of `turnbase-common` and `turnbase-sdk` is released on GitHub Pages / Releases ([ADR-0022](docs/decisions/0022-distribution-on-github.md)). Next is M22, cloud deployment (ADR-0021).
 The register ([`registry.md`](docs/implementation/registry.md)) holds the open items and
 [STATUS.md](STATUS.md) the progress; closed milestones are in `docs/implementation/archive/`.
 

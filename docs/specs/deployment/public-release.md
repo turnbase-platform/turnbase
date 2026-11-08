@@ -14,7 +14,7 @@ Tick a step by replacing `[ ]` with `[x]`, the date, and the `gh api` read that 
   `turnbase-frontend`, `.github`, then the umbrella `turnbase` last (its links never point at a private
   repository). `turnbase-game-7wonders-duel` was flipped later, on its own (D9, `IMP-M21-09`, 2026-11-08: `gh repo view` prints PUBLIC; `repo-settings.sh --check --harden` reports no drift).
   Confirm: `gh repo view turnbase-platform/<repo> --json visibility -q .visibility` prints `PUBLIC` for each.
-- [x] **3. Hardening.** *2026-11-07, `repo-settings.sh --apply --harden`; `--check --harden` left Pages (no `gh-pages` branch yet) and 7WD (private, D9); Pages enabled after step 5 and `--check --harden` then leaves 7WD only.* `scripts/repo-settings.sh --apply --harden` (needs public repositories). It sets, per
+- [x] **3. Hardening.** *2026-11-07, `repo-settings.sh --apply --harden`; `--check --harden` left Pages (no `gh-pages` branch yet) and 7WD (private, D9); Pages enabled after step 5 and `--check --harden` then leaves 7WD only. CodeQL was in fact skipped (the check's `grep -q configured` matched `not-configured`); fixed and applied 2026-11-08, `code-scanning/default-setup` reads `configured` in all nine repositories (`IMP-M21-10` close-out).* `scripts/repo-settings.sh --apply --harden` (needs public repositories). It sets, per
   repository: secret scanning and push protection; private vulnerability reporting; Dependabot alerts on,
   security updates off (`conventions.md` §6); CodeQL default setup (Java, JavaScript/TypeScript); ruleset
   `master-protect` (no force push, no deletion, no required PRs); read-only default `GITHUB_TOKEN`; fork-PR

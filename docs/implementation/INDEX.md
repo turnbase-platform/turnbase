@@ -26,7 +26,7 @@ that surfaces three milestones later. Record it against the item's *Gate* field.
 |------|---------|
 | [INDEX.md](INDEX.md) | This file — registry conventions, the milestone map, and how to read a work item |
 | [conventions.md](conventions.md) | **Code and build conventions** — package layout, formatting, tests, coverage, git, cross-repo versions. Normative, and shared by every item |
-| [registry.md](registry.md) | The register of **open** milestones (M21), one line per closed milestone, and the readiness gates. Per-item detail: read-lists, requirements satisfied, done-when clauses |
+| [registry.md](registry.md) | The register of **open** milestones (none; M22 next), one line per closed milestone, and the readiness gates. Per-item detail: read-lists, requirements satisfied, done-when clauses |
 | [archive/M0-bootstrap.md](archive/M0-bootstrap.md) | Closed milestone M0: its register rows and item sections, verbatim |
 | [archive/M1-accounts-and-sessions.md](archive/M1-accounts-and-sessions.md) | Closed milestone M1: its register rows and item sections, verbatim |
 | [archive/M2-rooms-and-realtime.md](archive/M2-rooms-and-realtime.md) | Closed milestone M2: its register rows and item sections, verbatim |
@@ -48,6 +48,7 @@ that surfaces three milestones later. Record it against the item's *Gate* field.
 | [archive/M18-load-testing-phase-b-capacity-and-autosc.md](archive/M18-load-testing-phase-b-capacity-and-autosc.md) | Closed milestone M18: its register rows and item sections, verbatim |
 | [archive/M19-the-immersive-game-room.md](archive/M19-the-immersive-game-room.md) | Closed milestone M19: its register rows and item sections, verbatim |
 | [archive/M20-refinement.md](archive/M20-refinement.md) | Closed milestone M20: its register rows and item sections, verbatim |
+| [archive/M21-public-release.md](archive/M21-public-release.md) | Closed milestone M21: its register rows and item sections, verbatim |
 
 ## Related
 

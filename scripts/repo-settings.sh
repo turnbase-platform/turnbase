@@ -102,9 +102,10 @@ for r in "${repos[@]}"; do
     note "$r" "Dependabot security updates on (the freeze, conventions.md section 6)"
     [ "$MODE" = apply ] && gh api -X DELETE "repos/$full/automated-security-fixes" >/dev/null
   fi
-  gh api "repos/$full/code-scanning/default-setup" --jq .state 2>/dev/null | grep -q configured || {
+  gh api "repos/$full/code-scanning/default-setup" --jq .state 2>/dev/null | grep -qx configured || {   # -x: "not-configured" contains "configured"
     note "$r" "CodeQL default setup"
-    [ "$MODE" = apply ] && gh api -X PATCH "repos/$full/code-scanning/default-setup" -f state=configured >/dev/null; }
+    [ "$MODE" = apply ] && { gh api -X PATCH "repos/$full/code-scanning/default-setup" -f state=configured >/dev/null \
+      || echo "FAIL   $r: CodeQL default setup"; }; }
   gh api "repos/$full/rulesets" --jq '.[].name' 2>/dev/null | grep -qx master-protect || {
     note "$r" "ruleset master-protect"
     [ "$MODE" = apply ] && gh api -X POST "repos/$full/rulesets" --input - >/dev/null <<'JSON'
