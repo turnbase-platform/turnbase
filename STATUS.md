@@ -1,15 +1,15 @@
 ## Last Session Summary
 
-**Date:** 2026-11-08 (session 296) — **IMP-M21-11 DONE: consumers on `0.1.0`, every secret gone.**
+**Date:** 2026-11-08 (session 297) — **IMP-M21-12 DONE: verified from the outside.**
 
-- Platform, game-host, tictactoe and 7WD pin `0.1.0` of common/sdk through the Pages `<repository>` entries; every clone-and-install step is deleted; the games depend on the `v0.1.0` release tarball by URL and `vendor/` is gone.
-- CI green in all four on `master`. `gh secret list` is empty in all eight repositories (org-level secrets not readable: 403).
-- Build-time saving measured per consumer (25–43 s) and recorded in the registry row; `conventions.md` §5 rewritten to the released state.
-- One `ReconciliationJobIT` flake when two builds ran in parallel locally; green alone and in CI.
+- Fresh containers: anonymous `git clone --recursive` initially failed (SSH submodule URLs); fixed to https, 7WD set `update = none`.
+- common, sdk, tictactoe `verify`, frontend `npm ci && build`, and a minimal game project (SDK from Pages, GDK from the tarball) all pass with no credentials.
+- game-host and platform integration runs do not work inside docker-in-docker here; their proof is the green GitHub Actions `master` runs. Recorded in the registry.
+- All README / `how-it-was-built.md` / org-profile URLs resolve anonymously. `CLAUDE.md` records the release.
 
 ## Current State
 
-- **Phase 1; M21 (public release) open**, 12 items in `docs/implementation/registry.md` (`01`–`08`, `10`, `11` done); M0–M20 are archived.
+- **Phase 1; M21 (public release) open**, 12 items in `docs/implementation/registry.md` (all done except `09`); M0–M20 are archived.
 - **CI runs again.** Latest `master` runs are green in common, sdk, game-host, platform, frontend and 7WD.
 - **Known noise, not failures:** Jackson 3 deprecations (`asText()`, `isTextual()`) in about ten platform classes.
 - **Owner-held:**
@@ -17,7 +17,7 @@
 
 ## Next Priorities
 
-- **M21:** `12` (verified from the outside); `09` stays owner-held.
+- **M21:** only `09` (owner-held) remains.
 - Then M22, cloud deployment (from ADR-0021), then Phase C (`docs/specs/backlog.md` *Load-test findings*).
 
 [`conventions.md`](docs/implementation/conventions.md) applies to every item and is not repeated in read-lists.

@@ -70,7 +70,7 @@ Every item of these is `DONE` (or `CANCELLED`). Their sections and register rows
 | IMP-M21-09 | 7WD release decision | 7WD, docs | publisher's reply | BLOCKED |
 | IMP-M21-10 | The flip | all, org | M21-01…08 | DONE |
 | IMP-M21-11 | Consumers on `0.1.0`, every secret gone | platform, game-host, tictactoe, 7WD | M21-10 | DONE |
-| IMP-M21-12 | Verified from the outside | all public | M21-11 | WIP (session 297) |
+| IMP-M21-12 | Verified from the outside | all public | M21-11 | DONE |
 
 **244 live items.** `IMP-M21-01…12` were added 2026-11-07 for the public release: licence and licence audit, a privacy and secrets gate, public coordinates and distribution on GitHub, release workflows, the landing page and the engineering story, READMEs and settings, 7WD's decision, the flip, consumers on `0.1.0` and an outside check; see the M21 section. `IMP-M20-01…22` were added 2026-11-04 from the refinement spike ([`../reviews/2026-11-04-refinement-spike/INDEX.md`](../reviews/2026-11-04-refinement-spike/INDEX.md)): the files a session reads first, checked code maps and references, an honest and cheaper build, code and architecture debt, manifest credits; see [`archive/M20-refinement.md`](archive/M20-refinement.md). `IMP-M19-01` (the immersive game room) was added 2026-10-27. `IMP-M18-01…17` were added 2026-10-24 by the Phase B design round ([`load-testing-phase-b.md`](../specs/deployment/load-testing-phase-b.md)): spec groundwork (`01`), capacity on one node with the cores reallocated to PostgreSQL (`02…07`), the Platform scaling out with room affinity and a two-replica minimum (`08…10`), the Game Host spreading, `OQ-5` by measurement and KEDA autoscaling (`11…13`), and the harness and runs (`14…17`); see the M18 section. `IMP-M17-01…05` were added 2026-10-22 from the M16 re-verification, in which the database was the first thing to break (`platform-operations.md` FR-DBQ-*, NFR-DBQ-*): the sweep re-read (`01`), history-independent game-path queries (`02`), an explicit pool size (`03`), the pool size measured (`04`) and the re-verification runs (`05`); see the M17 section. `IMP-M16-01…15` were added 2026-10-19 from the 18 findings of Phase A ([`load-testing.md`](../specs/deployment/load-testing.md) §13): the harness and record corrections (`01`), the Game Host wedge and boot fixes (`02…06`), the platform's room ownership, Redis keys, scans and threads (`07…10`), the subscribe race and the 300 s stall (`11`, `12`), the CPU profile (`13`) and the two re-verification runs (`14`, `15`); see the M16 section. `IMP-M15-01…13` were added 2026-10-18 by the load-testing design ([`load-testing.md`](../specs/deployment/load-testing.md)): the spec groundwork and the four fixes the chart and the platform need before anything can be measured (`01…06`), the k6 harness and its scenarios (`07…10`), and the baseline runs, split into three run items so that none outlasts a session (`11…13`); see the M15 section. `IMP-M14-01…03` were added 2026-10-17 by ADR-0018: a game start that survives a cold, restarting or wedged Game Host and shows its progress; see the M14 section. `IMP-M13-01…08` were added 2026-10-12 after the owner reviewed the running M12 build and found it did not match the approved prototype: see the M13 section. `IMP-M12-01…11` were added 2026-10-11 by [ADR-0017](../decisions/0017-turnbase-visual-identity.md): the approved prototype look replaces the stock Astryx theme across every view while the services, reducers and sockets stay as they are (see the M12 section). Before them, 137 live items. `IMP-M11-01…08` were added 2026-10-10 by [ADR-0016](../decisions/0016-spring-boot-4-migration.md), closing `IMP-GATE-97`: both Spring Boot services move to Boot 4.1.1 because two CRITICAL `spring-webmvc` CVEs have no fix on the 3.5 line. **M11 runs before M10** — every `IMP-M10-*` item depends on `IMP-M11-08` — and its items are judged locally with CI not awaited (see the M11 section). `IMP-M10-01…24` were added 2026-10-10 from the
 [E2E & security audit](../reviews/2026-10-10-e2e-security-audit/INDEX.md) (`AUD-01…24`), the first
@@ -444,6 +444,19 @@ is empty in all eight repositories; no org-level secret was readable (403, not a
 - Every link in the README, `how-it-was-built.md` and the org profile resolves from an anonymous browser.
 - `STATUS.md` and `CLAUDE.md` record the release.
 - `check-corpus.py` clean; merged and pushed.
+
+
+**Measured (2026-11-08, session 297):** fresh `maven:3.9-eclipse-temurin-21` containers, no credentials, no `~/.m2`, no npm login.
+`git clone --recursive` first **failed**: `.gitmodules` used `git@github.com:` URLs (host-key failure) — fixed to `https://`,
+and `turnbase-game-7wonders-duel` carries `update = none` so the private repository (D9) is skipped (`9bedaff`); the clone
+then succeeded. `./mvnw verify` passed for common, sdk and tictactoe; `npm ci && npm run build` for the frontend; a minimal
+project (pom with the sdk Pages `<repository>`, a class implementing `TurnBaseGame`) compiled and `npm i` of the
+GDK release tarball installed. **Deviation:** game-host and platform need GraalVM CE and Docker (Testcontainers), which a
+plain container does not give: game-host's Espresso tests passed on `ghcr.io/graalvm/jdk-community:21`, but its
+`-Pintegration` run hung inside docker-in-docker and was killed; platform's ITs failed to reach Ryuk there. Their
+clean-runner proof is the GitHub Actions `build` on `master` (public repository, no secret exists): success for both
+(game-host `5386eed`, platform `37bc984`). Links: every absolute URL in README, `how-it-was-built.md` and the org profile
+returns 200 anonymously except the bare Maven repository root (`…/turnbase-sdk/maven/`, 404 by nature: poms under it are 200).
 
 ## Readiness gates
 
